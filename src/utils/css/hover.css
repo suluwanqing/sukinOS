@@ -1,0 +1,40 @@
+:root {
+  /* ============ HOVER 语义系统 ============ */
+  /* 基础交互变量 (您提供的核心变量) */
+  --su-hover-bg-color: var(--su-fill-color);
+  --su-hover-text-color: var(--su-text-color-regular);
+  --su-hover-border-color: var(--su-border-color);
+
+  /* 语义化变量 */
+
+  /* 1. 背景色体系 */
+  --su-hover-bg-primary: color-mix(in srgb, var(--su-primary) 90%, white);
+  --su-hover-bg-primary-dark: color-mix(in srgb, var(--su-primary) 90%, black);
+  --su-hover-bg-success: color-mix(in srgb, var(--su-success) 85%, white);
+  --su-hover-bg-warning: color-mix(in srgb, var(--su-warning) 85%, white);
+  --su-hover-bg-danger: color-mix(in srgb, var(--su-danger) 85%, white);
+  --su-hover-bg-muted: rgba(var(--su-gray-100), 0.8);
+
+  /* 2. 文字色体系 */
+  --su-hover-text-primary: var(--su-primary-dark);
+  --su-hover-text-success: var(--su-success-dark);
+  --su-hover-text-link: color-mix(in srgb, var(--su-link-color) 20%, black);
+  
+  /* 3. 边框色体系 */
+  --su-hover-border-primary: var(--su-primary-light);
+  --su-hover-border-light: rgba(255, 255, 255, 0.3);
+  --su-hover-border-thick: 2px solid var(--su-border-color-hover);
+
+  /* 4. 混合模式 */
+  --su-hover-blend-mode: overlay;
+  --su-hover-bg-blend: color-mix(
+    in var(--su-hover-blend-mode),
+    var(--su-hover-bg-color),
+    var(--su-bg-color)
+  );
+
+  /* 5. 透明度控制 */
+  --su-hover-bg-opacity: 0.9;
+  --su-hover-text-opacity: 0.8;
+  --su-hover-border-opacity: 0.7;
+}

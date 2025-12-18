@@ -1,0 +1,221 @@
+.su-start-settings {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background-color: var(--su-gray-50);
+  font-family: 'Segoe UI', sans-serif;
+  overflow: hidden;
+  color: var(--su-gray-900);
+}
+
+.su-start-settings__sidebar {
+  width: 260px;
+  background-color: var(--su-transparent);
+  padding: 20px 10px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+
+.su-start-settings__nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.su-start-settings__nav-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s;
+  color: var(--su-gray-700);
+  font-size: 14px;
+}
+
+.su-start-settings__nav-item:hover {
+  background-color: var(--su-gray-100);
+  color: var(--su-gray-900);
+}
+
+.su-start-settings__nav-item.is-active {
+  background-color: var(--su-white);
+  color: var(--su-gray-900);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.su-start-settings__nav-icon {
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  color: var(--su-gray-600);
+  width: 20px;
+  height: 20px;
+}
+
+.su-start-settings__nav-item.is-active .su-start-settings__nav-icon {
+  color: var(--su-gray-900);
+}
+
+.su-start-settings__active-bar {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 20px;
+  background-color: var(--su-gray-900);
+  border-radius: 2px;
+  opacity: 0;
+}
+
+
+.su-start-settings__content {
+  flex: 1;
+  background-color: var(--su-white);
+  margin: 10px 10px 10px 0;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--su-gray-200);
+}
+
+.su-start-settings__content-header {
+  padding: 24px 30px;
+  font-size: 20px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--su-gray-200);
+  color: var(--su-gray-900);
+  background: var(--su-white-50);
+}
+
+.su-start-settings__content-body {
+  flex: 1;
+  padding: 30px;
+  overflow-y: auto;
+  background-color: var(--su-white);
+}
+
+.su-start-settings__panel h3 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--su-gray-800);
+}
+
+.su-start-settings__form-item {
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 300px;
+}
+
+.su-start-settings__form-item label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--su-gray-700);
+}
+
+.su-start-settings__form-item select {
+  padding: 10px 12px;
+  border-radius: 6px;
+  background-color: var(--su-white);
+  color: var(--su-gray-900);
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+
+.su-start-settings__form-item select:focus {
+  outline: none;
+  border-color: var(--su-gray-500);
+}
+
+.su-start-settings__manual {
+  max-width: 600px;
+  padding: 20px 0;
+}
+
+.su-start-settings__manual-title {
+  margin-top: 0;
+  font-size: 20px;
+  margin-bottom: 20px;
+  color: var(--su-gray-900);
+  font-weight: 600;
+}
+
+.su-start-settings__manual-p {
+  margin-bottom: 16px;
+  line-height: 1.7;
+  color: var(--su-gray-700);
+  font-size: 14px;
+  text-align: justify;
+}
+
+.su-start-settings__manual-p strong {
+  color: var(--su-gray-900);
+  font-weight: 600;
+}
+
+.su-start-settings__manual-p code {
+  background-color: var(--su-gray-100);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--su-gray-800);
+}
+
+.su-start-settings__card {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+  background: var(--su-gray-50);
+  border-radius: 8px;
+  gap: 20px;
+  border: 1px solid var(--su-gray-200);
+  transition: all 0.2s;
+}
+
+.su-start-settings__card:hover {
+  border-color: var(--su-gray-300);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.su-start-settings__avatar {
+  width: 60px;
+  height: 60px;
+  background: var(--su-gray-300);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--su-gray-700);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.su-start-settings__card-content {
+  flex: 1;
+}
+
+.su-start-settings__card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--su-gray-900);
+  margin-bottom: 4px;
+}
+
+.su-start-settings__card-desc {
+  font-size: 13px;
+  color: var(--su-gray-600);
+  line-height: 1.5;
+}

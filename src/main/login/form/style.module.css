@@ -1,0 +1,101 @@
+.su-admin-form {
+}
+.su-admin-form__form-item {
+  margin-bottom: 24px;
+}
+
+.su-admin-form__input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--su-border-color);
+  border-radius: var(--su-border-radius-base);
+  background-color: var(--su-bg-color);
+  transition: all 0.3s;
+  padding: 0 12px;
+  height: 48px;
+}
+
+.su-admin-form__input-wrapper:hover {
+  border-color: var(--su-border-color-hover);
+}
+
+.su-admin-form__input-wrapper:focus-within {
+  border-color: var(--su-primary-500);
+  box-shadow: 0 0 0 2px var(--su-primary-100);
+}
+
+.su-admin-form__input-wrapper--error {
+  border-color: var(--su-danger);
+}
+
+.su-admin-form__input-wrapper--error:focus-within {
+  border-color: var(--su-danger);
+  box-shadow: 0 0 0 2px var(--su-red-100);
+}
+
+.su-admin-form__prefix-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--su-text-color-placeholder);
+  margin-right: 12px;
+  font-size: 20px;
+}
+
+.su-admin-form__input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--su-text-color-primary);
+  font-size: 14px;
+  padding: 0;
+}
+
+.su-admin-form__input::placeholder {
+  color: var(--su-text-color-placeholder);
+}
+
+.su-admin-form__suffix {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.su-admin-form__action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--su-text-color-placeholder);
+  cursor: pointer;
+  transition: color 0.3s;
+  font-size: 18px;
+}
+
+.su-admin-form__action-icon:hover {
+  color: var(--su-text-color-regular);
+}
+
+.su-admin-form__code-btn {
+  font-size: 14px;
+  color: var(--su-primary-500);
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.3s;
+}
+.su-admin-form__code-btn[disabled] {
+  color: var(--su-text-color-placeholder);
+  cursor: not-allowed;
+  background-color: transparent;
+}
+
+.su-admin-form__error-msg {
+  font-size: 12px;
+  color: var(--su-danger);
+  margin-top: 6px;
+  padding-left: 4px;
+}

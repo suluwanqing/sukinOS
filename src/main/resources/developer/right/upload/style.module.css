@@ -1,0 +1,183 @@
+.su-upload {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: var(--su-bg-color-page);
+  overflow: auto;
+}
+
+.su-upload__card {
+  background: var(--su-color-white);
+  border: 1px solid var(--su-border-color-light);
+  border-radius: 12px;
+  padding: 32px;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 4px 20px rgba(var(--su-black-rgb), 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.su-upload__card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.su-upload__card-icon {
+  font-size: 1.75rem;
+  color: var(--su-primary-500);
+}
+
+.su-upload__card-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--su-text-color-primary);
+  margin: 0;
+}
+
+.su-upload__card-description {
+  font-size: 0.95rem;
+  color: var(--su-text-color-secondary);
+  margin: 0;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.su-upload__requirements {
+  background: var(--su-fill-color-lighter);
+  border: 1px solid var(--su-border-color-lighter);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.su-upload__requirements-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--su-text-color-primary);
+  margin: 0 0 12px 0;
+}
+
+.su-upload__requirements-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.su-upload__requirements-item {
+  font-size: 0.875rem;
+  color: var(--su-text-color-regular);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.su-upload__requirements-bullet {
+  color: var(--su-primary-500);
+  font-weight: bold;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+.su-upload__upload {
+  display: flex;
+  justify-content: center;
+  height: 50px;
+  width: 100%;
+}
+
+.su-upload__upload-btn {
+  background: var(--su-primary-500);
+  color: var(--su-color-white);
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 24px;
+  width: 100%;
+  position: relative;
+  height: 100%;
+}
+
+.su-upload__upload-btn:hover:not(:disabled) {
+  background: var(--su-primary-600);
+}
+
+.su-upload__upload-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(var(--su-primary-500-rgb), 0.2);
+}
+
+.su-upload__upload-btn:disabled {
+  background: var(--su-fill-color);
+  color: var(--su-text-color-placeholder);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.su-upload__upload-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--su-color-white);
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.su-upload__message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.su-upload__message-error {
+  background: rgba(var(--su-red-500-rgb), 0.1);
+  color: var(--su-red-600);
+  border: 1px solid var(--su-red-200);
+}
+
+.su-upload__message-success {
+  background: rgba(var(--su-green-500-rgb), 0.1);
+  color: var(--su-green-600);
+  border: 1px solid var(--su-green-200);
+}

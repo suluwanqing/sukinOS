@@ -1,0 +1,35 @@
+.su-developer {
+  width: 100%;
+  height: 100dvh;
+  display: flex;
+  overflow: hidden;
+  background-color: var(--su-bg-color);
+}
+
+.su-developer__left {
+  width: 300px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  background-color: var(--su-bg-sidebar);
+}
+
+.su-developer__nav {
+  flex: 0 0 auto;
+  z-index: 10;
+}
+
+.su-developer__config {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.su-developer__right {
+  flex: 1;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  min-width: 0;
+}

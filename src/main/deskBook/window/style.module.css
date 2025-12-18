@@ -1,0 +1,205 @@
+.su-window {
+  position: absolute;
+  background: var(--su-white);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px -5px rgba(var(--su-black-rgb), 0.1),
+    0 10px 10px -5px rgba(var(--su-black-rgb), 0.04);
+  border: 1px solid var(--su-border-color);
+  overflow: hidden;
+  user-select: none;
+  --header-height: attr(data-header-height px);
+  /* 这个还是比较重要的, */
+  max-height: 100vh;
+}
+
+.su-window__header {
+  height: var(--header-height);
+  padding: 8px 12px;
+  background: var(--su-gray-50);
+  border-bottom: 1px solid var(--su-border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: move;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.su-window__name {
+  font-weight: bold;
+  font-size: 13px;
+  color: var(--su-gray-800);
+}
+.su-window__icon {
+  height: 200%;
+  aspect-ratio: 1;
+  border-radius: var(--su-border-radius-sm);
+}
+.su-window__actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+}
+.su-window__actions :hover {
+  cursor: pointer;
+}
+.su-window__actions > span {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.su-window__action-btn {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
+
+.su-window__action-btn--close {
+  background: var(--su-warning);
+}
+
+.su-window__action-btn--kill {
+  background: var(--su-danger);
+}
+
+.su-window__content {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  background: var(--su-white);
+}
+
+.su-window__resize-handle {
+  position: absolute;
+  z-index: 10;
+}
+
+.su-window__resize-handle--n {
+  top: -4px;
+  left: 6px;
+  right: 6px;
+  height: 8px;
+  cursor: ns-resize;
+}
+.su-window__resize-handle--s {
+  bottom: -4px;
+  left: 6px;
+  right: 6px;
+  height: 8px;
+  cursor: ns-resize;
+}
+.su-window__resize-handle--e {
+  right: -4px;
+  top: 6px;
+  bottom: 6px;
+  width: 8px;
+  cursor: ew-resize;
+}
+.su-window__resize-handle--w {
+  left: -4px;
+  top: 6px;
+  bottom: 6px;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.su-window__resize-handle--ne {
+  top: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+.su-window__resize-handle--nw {
+  top: -4px;
+  left: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+.su-window__resize-handle--se {
+  bottom: -4px;
+  right: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+}
+.su-window__resize-handle--sw {
+  bottom: -4px;
+  left: -4px;
+  width: 12px;
+  height: 12px;
+  cursor: nesw-resize;
+}
+
+.su-window__state-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  background: var(--su-white);
+  border: 1px solid var(--su-border-color);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 6px -1px rgba(var(--su-black-rgb), 0.1);
+  z-index: 20;
+  overflow: hidden;
+}
+
+.su-window__state-header {
+  padding: 8px 12px;
+  background: var(--su-gray-100);
+  border-bottom: 1px solid var(--su-border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--su-gray-700);
+}
+
+.su-window__state-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--su-gray-500);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.su-window__state-close:hover {
+  background: var(--su-border-color);
+  color: var(--su-gray-700);
+}
+
+.su-window__state-content {
+  margin: 0;
+  padding: 12px;
+  font-size: 11px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  background: var(--su-gray-50);
+  color: var(--su-gray-800);
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  line-height: 1.4;
+}
+.is-display {
+  display: none;
+}
+.is-active {
+  display: flex;
+}

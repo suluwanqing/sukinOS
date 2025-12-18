@@ -1,0 +1,13 @@
+:root {
+  /* ============ 间距系统 ============ */
+  --su-space-0: 0;
+  --su-space-1: 0.25rem;
+  --su-space-2: 0.5rem;
+  --su-space-3: 0.75rem;
+  --su-space-4: 1rem;
+  --su-space-5: 1.25rem;
+  --su-space-6: 1.5rem;
+  --su-space-8: 2rem;
+  --su-space-10: 2.5rem;
+  --su-space-12: 3rem;
+}

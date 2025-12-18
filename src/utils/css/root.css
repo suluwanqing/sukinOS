@@ -1,0 +1,76 @@
+@import url('./border.css');
+@import url('./color.css');
+@import url('./font.css');
+@import url('./hover.css');
+@import url('./shadow.css');
+@import url('./space.css');
+@import url('./size.css');
+@import url('./padding.css');
+@import url('./animation.css');
+@import url('./material.css');
+:root {
+  --primary: #409eff;
+  --success: #67c23a;
+  --warning: #e6a23c;
+  --danger: #f56c6c;
+  --info: #909399;
+
+  --su-color-white: #ffffff;
+  --su-color-black: #000000;
+  --su-bg-color: #ffffff;
+  --su-bg-color-page: #f2f3f5;
+  --su-bg-color-overlay: #ffffff;
+  --su-text-color-primary: #303133;
+  --su-text-color-regular: #606266;
+  --su-text-color-secondary: #909399;
+  --su-text-color-placeholder: #a8abb2;
+  --su-text-color-disabled: #c0c4cc;
+  --su-border-color: #dcdfe6;
+  --su-border-color-light: #e4e7ed;
+  --su-border-color-lighter: #ebeef5;
+  --su-border-color-extra-light: #f2f6fc;
+  --su-border-color-dark: #d4d7de;
+  --su-border-color-darker: #cdd0d6;
+  --su-fill-color: #f0f2f5;
+  --su-fill-color-light: #f5f7fa;
+  --su-fill-color-lighter: #fafafa;
+  --su-fill-color-extra-light: #fafcff;
+  --su-fill-color-dark: #ebedf0;
+  --su-fill-color-darker: #e6e8eb;
+  --su-fill-color-blank: #ffffff;
+
+  /* border */
+  --su-border-width: 8px;
+  --su-border-style: solid;
+  --su-border-color-hover: var(--su-text-color-disabled);
+  --su-border: var(--su-border-width) var(--su-border-style) var(--su-border-color);
+  --su-border-radius-base: 4px;
+  --su-border-radius-small: 2px;
+  --su-border-radius-round: 20px;
+  --su-border-radius-circle: 100%;
+
+  /*font*/
+  --su-font-size-extra-large: 20px;
+  --su-font-size-large: 18px;
+  --su-font-size-medium: 16px;
+  --su-font-size-base: 14px;
+  --su-font-size-small: 13px;
+  --su-font-size-extra-small: 12px;
+  --su-font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', '\5fae\8f6f\96c5\9ed1', Arial, sans-serif;
+  --su-font-weight-primary: 500;
+
+  /*disabled*/
+  --su-disabled-bg-color: var(--su-fill-color-light);
+  --su-disabled-text-color: var(--su-text-color-placeholder);
+  --su-disabled-border-color: var(--su-border-color-light);
+
+  /*animation*/
+  --su-transition-duration: 0.4s;
+  --su-transition-duration-fast: 0.2s;
+
+  /*hover*/
+  --su-hover-bg-color: var(--su-fill-color);
+  --su-hover-text-color: var(--su-text-color-regular);
+  --su-hover-border-color: var(--su-border-color);
+}

@@ -1,0 +1,88 @@
+.su-context-menu {
+  background: var(--su-bg-color-overlay);
+  border: 1px solid var(--su-border-color-light);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(var(--su-black-rgb), 0.15);
+  padding: 8px 0;
+  min-width: 180px;
+  font-family: var(--su-font-family-base);
+  font-size: var(--su-font-size-sm);
+  animation: fade-in 0.15s ease-out;
+}
+
+.su-context-menu__content {
+  display: flex;
+  flex-direction: column;
+}
+
+.su-context-menu__item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  color: var(--su-text-color-primary);
+  font-size: var(--su-font-size-sm);
+}
+
+.su-context-menu__item:hover {
+  background-color: var(--su-fill-color-light);
+}
+
+.su-context-menu__item--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--su-text-color-disabled);
+}
+
+.su-context-menu__item--disabled:hover {
+  background-color: transparent;
+}
+
+.su-context-menu__item--danger {
+  color: var(--su-danger);
+}
+
+.su-context-menu__item--danger:hover {
+  background-color: rgba(var(--su-danger-rgb), 0.08);
+  color: var(--su-danger);
+}
+
+.su-context-menu__icon {
+  font-size: var(--su-font-size-lg);
+  margin-right: 8px;
+  color: var(--su-text-color-secondary);
+}
+
+.su-context-menu__label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.su-context-menu__next-indicator {
+  margin-left: 8px;
+  color: var(--su-text-color-placeholder);
+  font-size: var(--su-font-size-base);
+}
+
+.su-context-menu__divider {
+  height: 1px;
+  background-color: var(--su-border-color-lighter);
+  margin: 4px 0;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}

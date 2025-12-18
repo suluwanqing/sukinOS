@@ -1,0 +1,328 @@
+.su-config {
+  width: 100%;
+  height: 100%;
+  flex-shrink: 0;
+  background: var(--su-gray-800);
+  border-right: 1px solid var(--su-gray-700);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.su-config__header {
+  padding: 20px;
+  border-bottom: 1px solid var(--su-gray-700);
+  background: var(--su-gray-800);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.su-config__project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.su-config__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.su-config__title {
+  color: #fff;
+  font-weight: 600;
+}
+
+.su-config__details {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.su-config__name-input {
+  background: var(--su-gray-900);
+  border: 1px solid var(--su-gray-600);
+  color: var(--su-gray-200);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 8px 10px;
+  border-radius: 6px;
+  width: 100%;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.su-config__name-input:focus {
+  outline: none;
+  background: var(--su-gray-900);
+  border-color: var(--su-primary-500);
+  box-shadow: 0 0 0 2px rgba(var(--su-primary-500-rgb), 0.1);
+}
+
+.su-config__name-input::placeholder {
+  color: var(--su-gray-500);
+}
+
+.su-config__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.su-config__preview-btn,
+.su-config__create-btn {
+  flex: 1;
+  justify-content: center;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  border: none;
+}
+
+.su-config__preview-btn {
+  background: var(--su-gray-700);
+  color: var(--su-gray-300);
+  border: 1px solid var(--su-gray-600);
+}
+
+.su-config__preview-btn:hover {
+  background: var(--su-gray-600);
+  border-color: var(--su-gray-500);
+}
+
+.su-config__create-btn {
+  background: var(--su-primary-500);
+  color: var(--su-white);
+}
+
+.su-config__create-btn:hover:not(:disabled) {
+  background: var(--su-primary-400);
+  transform: translateY(-1px);
+}
+
+.su-config__create-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.su-config__create-btn:disabled {
+  background: var(--su-gray-700);
+  color: var(--su-gray-500);
+  cursor: not-allowed;
+  transform: none;
+}
+
+.su-config__scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 统一设置卡片样式，BasicSettings, VisualSettings, UploadSettings 共用 */
+.su-config__settings-card {
+  background: var(--su-gray-850);
+  border: 1px solid var(--su-gray-700);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.su-config__card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  color: var(--su-gray-300);
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--su-gray-750);
+}
+
+.su-config__card-header h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--su-gray-200);
+  margin: 0;
+}
+
+.su-config__setting-group {
+  margin-bottom: 20px;
+}
+
+/* 最后一个 group 去除底部边距 */
+.su-config__setting-group:last-child {
+  margin-bottom: 0;
+}
+
+.su-config__label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--su-gray-400);
+  margin-bottom: 8px;
+}
+
+.su-config__input {
+  width: 100%;
+  background: var(--su-gray-750);
+  border: 1px solid var(--su-gray-600);
+  border-radius: 4px;
+  padding: 8px 10px;
+  color: var(--su-gray-200);
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.su-config__input:focus {
+  outline: none;
+  border-color: var(--su-primary-500);
+  background: var(--su-gray-800);
+}
+
+.su-config__check-group-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.su-config__hint {
+  font-size: 0.75rem;
+  color: var(--su-gray-500);
+  margin-top: 6px;
+}
+
+.su-config__size-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.su-config__size-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.su-config__size-label {
+  font-size: 0.75rem;
+  color: var(--su-gray-400);
+}
+
+.su-config__size-input {
+  background: var(--su-gray-750);
+  border: 1px solid var(--su-gray-600);
+  border-radius: 4px;
+  padding: 6px 8px;
+  color: var(--su-gray-200);
+  font-size: 0.85rem;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.su-config__size-input:focus {
+  outline: none;
+  border-color: var(--su-primary-500);
+  background: var(--su-gray-800);
+}
+
+.su-config__preview-section {
+  margin-top: 20px;
+}
+
+.su-config__preview-label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--su-gray-400);
+  margin-bottom: 12px;
+}
+
+.su-config__thumbnail {
+  background: var(--su-gray-800);
+  border: 1px dashed var(--su-gray-600);
+  border-radius: 8px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.su-config__thumbnail:hover {
+  border-color: var(--su-primary-500);
+}
+
+.su-config__image-container {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--su-gray-700);
+  border: 2px solid var(--su-gray-600);
+  cursor: pointer;
+}
+
+.su-config__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.su-config__image-edit {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  color: var(--su-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.su-config__image-container:hover .su-config__image-edit {
+  opacity: 1;
+}
+
+.su-config__app-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--su-gray-200);
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.su-config__app-hint {
+  font-size: 0.75rem;
+  color: var(--su-gray-500);
+}

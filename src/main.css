@@ -1,0 +1,21 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body,
+#root {
+  width: 100%;
+  height: 100dvh;
+  /* 为了适应这个关于PWA下高度 */
+  scroll-behavior: smooth;
+}
+body::-webkit-scrollbar {
+  display: none;
+}
+
+@media (display-mode: window-controls-overlay) {
+  #root > div {
+    margin-top: 28px;
+  }
+}
