@@ -114,11 +114,11 @@ function Developer({ app }) {
 
     let payload;
 
-    if (uploadType === 'bundle') {
+    if (uploadType !== 'bundle') {
         const content = files[activeFile] || Object.values(files)[0];
         payload = {
             name: appMeta.appName,
-            isBundle: true,
+            isBundle: false,
             content: content,
             logic: appMeta.logicCode,
             metaInfo: {
@@ -133,8 +133,8 @@ function Developer({ app }) {
     } else {
         payload = {
             name: appMeta.appName,
-             isBundle: false,
-            content: files,
+             isBundle: true,
+            content: files.map((item)=>item.split('.jsx')[0]),
             logic: appMeta.logicCode,
             metaInfo: {
                 seed: Date.now().toString(),
@@ -241,3 +241,4 @@ function Developer({ app }) {
 }
 
 export default memo(Developer);
+
