@@ -1,4 +1,4 @@
-import { useState, useEffect, memo } from 'react';
+import { useState, useEffect, memo,useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '@/utils/js/classcreate';
 import Uploader from './right/upload/layout';
@@ -59,7 +59,13 @@ function Developer({ app }) {
       setUploadType('file');
     }
   }, [files]);
-
+   const cleanFiles = useMemo(() => {
+      const result = {};
+      for (const [key, value] of Object.entries(files)) {
+        result[key.replace('.jsx', '')] = value;
+      }
+      return result;
+    }, [files]);
  useEffect(() => {
   const loggedIn = userInfo?.devloper && Object.keys(userInfo.devloper).length !== 0;
   setIsLogin(loggedIn);
@@ -115,7 +121,7 @@ function Developer({ app }) {
     let payload;
 
     if (uploadType !== 'bundle') {
-        const content = files[activeFile] || Object.values(files)[0];
+        const content = cleanFiles[activeFile] || Object.values(cleanFiles)[0];
         payload = {
             name: appMeta.appName,
             isBundle: false,
@@ -134,7 +140,7 @@ function Developer({ app }) {
         payload = {
             name: appMeta.appName,
              isBundle: true,
-            content: files.map((item)=>item.split('.jsx')[0]),
+            content: cleanFiles,
             logic: appMeta.logicCode,
             metaInfo: {
                 seed: Date.now().toString(),
@@ -241,4 +247,5 @@ function Developer({ app }) {
 }
 
 export default memo(Developer);
+
 
