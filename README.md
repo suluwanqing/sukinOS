@@ -85,7 +85,6 @@
 src/
 ├── component/        # 【UI组件库】系统基础控件
 │   ├── alert/        # 弹窗组件
-│   ├── window/       # 窗口容器组件（封装了拖拽、缩放逻辑）
 │   └── ...
 ├── main/             # 【系统入口】
 │   ├── deskBook/      # 桌面环境主逻辑
@@ -108,3 +107,4 @@ App 市场化：将 App 的代码逻辑从前端解耦，改为从后端 API 动
 权限控制：根据用户权限，动态下发桌面图标和可用 App。
 方向二：Web IDE 增强
 利用现有的 Web Worker + Babel 架构，集成 Monaco Editor，打造一个完全运行在浏览器中的 React 游乐场（Playground）
+
