@@ -1,13 +1,13 @@
 //生成一个可以处理逻辑的worker和内存管理
 //这里尽可能减少修改,先用别名替代一下
-export const generateWorker = ({
-  resourceId: resId,
+export const generateWorker = (
+  resId,
   name,
   isBundle,
-  logic: userLogicCode,
+  userLogicCode,
   content,
   metaInfo
-}) => {
+) => {
   //但是注意目前默认只解析单文件
   //同时注入metaInfo,方便对信息处理,但这里会出现文件版本对那个被放开,无法做篡改检测。
   //这里content的处理将会导致解析问题:content必需字符串那么就要处理好避免字符串用模板导致""丢失问题,既然不能那么就只能考虑解析的时候二次处理
@@ -264,3 +264,4 @@ export const parseWorkerCode = (workerCode) => {
   }
   return result;
 };
+
