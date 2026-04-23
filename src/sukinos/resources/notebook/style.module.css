@@ -1,0 +1,103 @@
+.su-notebook {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background-color: var(--su-white);
+  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+  overflow: hidden;
+}
+
+.su-notebook__body {
+  flex: 1;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.su-notebook__gutter {
+  width: 45px;
+  background-color: var(--su-gray-100);
+  border-right: 1px solid var(--su-border-color);
+  padding: 5px 0;
+  text-align: right;
+  overflow: hidden;
+  user-select: none;
+  cursor: default;
+}
+
+.su-notebook__linenum {
+  font-family: Consolas, 'Lucida Console', monospace;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--su-text-color-placeholder);
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
+.su-notebook__editor {
+  flex: 1;
+  border: none;
+  resize: none;
+  outline: none;
+  padding: 5px 8px;
+  margin: 0;
+  font-family: Consolas, 'Lucida Console', monospace;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--su-black);
+  background-color: var(--su-white);
+  overflow-y: auto;
+  overflow-x: auto;
+  white-space: pre; /* 模仿记事本的不换行行为 */
+}
+
+.su-notebook__editor[readonly] {
+  background-color: var(--su-fill-color-lighter);
+  color: var(--su-text-color-regular);
+}
+
+.su-notebook__editor::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.su-notebook__editor::-webkit-scrollbar-thumb {
+  background: var(--su-border-color-darker);
+  border-radius: 0;
+}
+.su-notebook__editor::-webkit-scrollbar-thumb:hover {
+  background: var(--su-text-color-secondary);
+}
+.su-notebook__editor::-webkit-scrollbar-track {
+  background: var(--su-fill-color-light);
+}
+
+.su-notebook__statusbar {
+  height: 26px;
+  background-color: var(--su-fill-color-light);
+  border-top: 1px solid var(--su-border-color);
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 12px;
+  color: var(--su-text-color-primary);
+  padding: 0 10px;
+  user-select: none;
+}
+
+.su-notebook__statusbar--left {
+  flex: 1;
+}
+
+.su-notebook__statusbar--item {
+  padding: 0 10px;
+  min-width: 80px;
+  text-align: left;
+}
+
+.su-notebook__statusbar--divider {
+  width: 1px;
+  height: 16px;
+  background-color: var(--su-border-color-light);
+  margin: 0 2px;
+}

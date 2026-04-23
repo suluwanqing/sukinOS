@@ -1,0 +1,103 @@
+.su-bounty-transfers {
+  display: flex;
+  flex-direction: column;
+}
+.su-bounty-transfers__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--su-border-color-light);
+  padding: 0;
+}
+.su-bounty-transfers__tab {
+  padding: 10px 12px;
+  cursor: pointer;
+  color: var(--su-text-color-secondary);
+  font-size: 13px;
+  position: relative;
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+  border-radius: 6px 6px 0 0;
+}
+.su-bounty-transfers__tab:hover {
+  color: var(--su-text-color-primary);
+  background: var(--su-fill-color-light);
+}
+.su-bounty-transfers__tab.is-active {
+  color: var(--su-text-color-primary);
+  font-weight: 600;
+}
+.su-bounty-transfers__tab.is-active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background-color: var(--su-text-color-primary);
+  border-radius: 2px 2px 0 0;
+}
+.su-bounty-transfers__empty {
+  padding: 100px 0;
+  text-align: center;
+  color: var(--su-text-color-secondary);
+  background: var(--su-white);
+  border-radius: 8px;
+  border: 1px dashed var(--su-border-color);
+  grid-column: 1 / -1;
+}
+.su-bounty-transfers__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 14px;
+}
+.su-bounty-transfers__card {
+  background-color: var(--su-white);
+  border-radius: 8px;
+  padding: 14px;
+  border: 1px solid var(--su-border-color-light);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(var(--su-black-rgb), 0.05);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
+}
+
+.su-bounty-transfers__card:hover {
+  border-color: var(--su-text-color-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(var(--su-black-rgb), 0.08);
+}
+.su-bounty-transfers__card-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: var(--su-text-color-regular);
+}
+.su-bounty-transfers__card-row strong {
+  color: var(--su-text-color-primary);
+}
+.su-bounty-transfers__price {
+  color: var(--su-orange-600) !important;
+  font-size: 15px;
+}
+.su-bounty-transfers__card-note {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: var(--su-fill-color-light);
+  border-radius: 5px;
+  border: 1px solid var(--su-border-color-light);
+  font-size: 12px;
+  color: var(--su-text-color-secondary);
+}
+.su-bounty-transfers__card-btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  justify-content: flex-end;
+}

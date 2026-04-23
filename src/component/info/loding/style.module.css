@@ -1,0 +1,89 @@
+.su-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--su-bg-color);
+  z-index: 10000;
+}
+
+.su-loading__content {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.su-loading__morpher {
+  width: 46px;
+  height: 46px;
+  background: var(--su-black);
+  box-shadow: 0 8px 16px rgba(var(--su-black-rgb), 0.15);
+  border-radius: 8px;
+  animation: morphJump 0.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.su-loading__shadow {
+  width: 40px;
+  height: 4px;
+  background: rgba(var(--su-black-rgb), 0.1);
+  border-radius: 50%;
+  margin-top: 36px;
+  filter: blur(2px);
+  animation: shadowPulse 0.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.su-loading__footer {
+  margin-top: 30px;
+  text-align: center;
+}
+
+.su-loading__text--active {
+  font-family: 'Inter', -apple-system, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--su-text-color-primary);
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 12px;
+  opacity: 0.8;
+}
+
+.su-loading__baseplate {
+  width: 60px;
+  height: 2px;
+  background: var(--su-black-200);
+  margin: 0 auto;
+  border-radius: 2px;
+}
+
+@keyframes morphJump {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    border-radius: 8px;
+  }
+  50% {
+    transform: translateY(-50px) rotate(180deg);
+    border-radius: 50%;
+    scale: 0.8;
+  }
+  100% {
+    transform: translateY(0) rotate(360deg);
+    border-radius: 8px;
+  }
+}
+
+@keyframes shadowPulse {
+  0%,
+  100% {
+    transform: scale(1.4);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(0.6);
+    opacity: 0.05;
+  }
+}

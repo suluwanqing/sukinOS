@@ -1,0 +1,484 @@
+.su-setting-personalize {
+  padding: 24px;
+  width: 100%;
+  box-sizing: border-box;
+  font-family: inherit;
+  color: var(--su-text-color-primary);
+}
+
+.su-setting-personalize__row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.su-setting-personalize__section {
+  margin-bottom: 24px;
+}
+
+.su-setting-personalize__pre-theme {
+  display: flex;
+  justify-content: space-between;
+}
+
+.su-setting-personalize__section-title {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--su-text-color-regular);
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+
+.su-setting-personalize__title-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.su-setting-personalize__preset-toggle {
+  border: none;
+  background: var(--su-fill-color-light);
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--su-os-accent-color);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.su-setting-personalize__preset-toggle:hover {
+  background: var(--su-fill-color);
+  transform: translateY(-1px);
+}
+
+.su-setting-personalize__card {
+  padding: 20px;
+  background: var(--su-bg-color);
+  border: 1px solid var(--su-border-color-light);
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.su-setting-personalize__preset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 16px;
+}
+
+.su-setting-personalize__preset-item {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.su-setting-personalize__preset-item.is-selected {
+  border-color: var(--su-os-accent-color);
+  background: var(--su-fill-color-extra-light);
+}
+
+.su-setting-personalize__preset-visual {
+  width: 100%;
+  aspect-ratio: 1.4;
+  border-radius: 8px;
+  overflow: hidden;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+}
+
+.su-setting-personalize__preset-visual:hover {
+  border: 1px solid var(--su-os-accent-color);
+}
+
+.su-setting-personalize__preset-visual-header {
+  height: 20%;
+  padding-left: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.su-setting-personalize__preset-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.su-setting-personalize__preset-visual-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 2px;
+}
+
+.su-setting-personalize__preset-visual-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.su-setting-personalize__preset-visual-text {
+  width: 36px;
+  height: 3px;
+  border-radius: 1px;
+}
+
+.su-setting-personalize__preset-name {
+  font-size: 11px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.su-setting-personalize__theme-options {
+  display: flex;
+  gap: 12px;
+}
+
+.su-setting-personalize__theme-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 10px;
+  border-radius: 10px;
+  border: 2px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 12px;
+}
+
+.su-setting-personalize__theme-box.is-selected {
+  border-color: var(--su-os-accent-color);
+  background: var(--su-fill-color-extra-light);
+}
+
+.su-setting-personalize__theme-preview-light,
+.su-setting-personalize__theme-preview-dark {
+  width: 100%;
+  height: 90px;
+  border-radius: 6px;
+  border: 1px solid var(--su-border-color);
+}
+
+.su-setting-personalize__theme-preview-light {
+  background: #ffffff;
+}
+
+.su-setting-personalize__theme-preview-dark {
+  background: #1a1a1a;
+  border-color: #333;
+}
+
+.su-setting-personalize__color-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.su-setting-personalize__color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.su-setting-personalize__color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.su-setting-personalize__color-swatch.is-active {
+  border-color: var(--su-os-accent-color);
+  box-shadow:
+    0 0 0 2px var(--su-bg-color),
+    0 0 0 4px var(--su-os-accent-color);
+}
+
+.su-setting-personalize__color-swatch-small {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.su-setting-personalize__color-swatch-small:hover {
+  transform: scale(1.15);
+}
+
+.su-setting-personalize__color-swatch-small.is-active {
+  border-color: var(--su-os-accent-color);
+  box-shadow:
+    0 0 0 2px var(--su-bg-color),
+    0 0 0 4px var(--su-os-accent-color);
+}
+
+.su-setting-personalize__tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  background: var(--su-fill-color-light);
+  padding: 4px;
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.su-setting-personalize__tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.su-setting-personalize__tab.is-active {
+  background: var(--su-bg-color);
+  color: var(--su-os-accent-color);
+  font-weight: 600;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.su-setting-personalize__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 12px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.su-setting-personalize__grid-item {
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-setting-personalize__preview-box {
+  width: 100%;
+  aspect-ratio: 16/10;
+  border-radius: 5px;
+  background: var(--su-fill-color-extra-light);
+  border: 1px solid var(--su-border-color-extra-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  padding: 5px;
+  transition: transform 0.2s ease;
+}
+
+.su-setting-personalize__grid-item.is-selected .su-setting-personalize__preview-box {
+  border-color: var(--su-os-accent-color);
+  box-shadow: 0 0 0 1px var(--su-os-accent-color);
+}
+
+.su-setting-personalize__preview-media {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.su-setting-personalize__control-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+}
+
+.su-setting-personalize__label-container {
+  display: flex;
+  flex-direction: column;
+  width: 60px;
+}
+
+.su-setting-personalize__label {
+  font-size: 12px;
+  color: var(--su-text-color-regular);
+}
+
+.su-setting-personalize__label-hint {
+  font-size: 10px;
+  color: var(--su-text-color-secondary);
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.su-setting-personalize__value {
+  font-size: 12px;
+  width: 40px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--su-os-accent-color);
+}
+
+.su-setting-personalize__slider {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 5px;
+  background: var(--su-fill-color-dark);
+  border-radius: 3px;
+  outline: none;
+}
+
+.su-setting-personalize__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--su-os-accent-color);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.su-setting-personalize__custom-selector {
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--su-fill-color-extra-light);
+  border-radius: 10px;
+}
+
+.su-setting-personalize__selection-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.su-setting-personalize__mini-chip {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  cursor: pointer;
+  background: var(--su-bg-color);
+  border: 1px solid var(--su-border-color);
+  transition: all 0.2s;
+}
+
+.su-setting-personalize__mini-chip.is-active {
+  background: var(--su-os-accent-color);
+  color: #fff;
+  border-color: var(--su-os-accent-color);
+}
+
+.su-setting-personalize__font-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.su-setting-personalize__list-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 5px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 2px solid transparent;
+}
+
+.su-setting-personalize__list-item.is-selected {
+  border-color: var(--su-os-accent-color);
+  background: var(--su-fill-color-extra-light);
+}
+
+.su-setting-personalize__switch {
+  width: 44px;
+  height: 24px;
+  background: var(--su-border-color-darker);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.su-setting-personalize__switch.is-on {
+  background-color: var(--su-os-accent-color);
+}
+
+.su-setting-personalize__switch-knob {
+  width: 20px;
+  height: 20px;
+  background: #fff;
+  border-radius: 50%;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  transition: all 0.3s;
+}
+
+.su-setting-personalize__switch.is-on .su-setting-personalize__switch-knob {
+  transform: translateX(20px);
+}
+
+.su-setting-personalize__chip {
+  padding: 8px 16px;
+  border: none;
+  background: var(--su-fill-color-light);
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.su-setting-personalize__chip.is-active {
+  background: var(--su-os-accent-color);
+  color: #fff;
+}
+
+.su-setting-personalize__divider {
+  height: 1px;
+  background: var(--su-border-color-extra-light);
+  margin: 16px 0;
+}
+
+.su-setting-personalize__label-bold {
+  font-size: 13px;
+  font-weight: 600;
+  display: block;
+}
+
+.su-setting-personalize__description {
+  font-size: 11px;
+  color: var(--su-text-color-secondary);
+}
+
+.su-setting-personalize__toggle-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.su-setting-personalize__btn-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.su-setting-personalize__color-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--su-border-color);
+  margin: 0 4px;
+}

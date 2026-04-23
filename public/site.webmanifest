@@ -1,0 +1,51 @@
+{
+  "name": "Sukin",
+  "short_name": "Sukin",
+  "description": "基于 React + Vite 构建的渐进式网页应用",
+  "start_url": "/",
+  "scope": "/",
+   "display": "standalone",
+  "display_override": ["window-controls-overlay", "minimal-ui"],
+  "theme_color": "#f0f9ff",
+  "background_color": "#f0f9ff",
+  "icons": [
+    {
+      "src": "/favicon/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "SukinOs",
+      "short_name": "SukinOs",
+      "description": "worker即服务",
+      "url": "/sukinos/deskbook",
+      "icons": [
+      {
+        "src": "/favicon/web-app-manifest-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      }
+    ]
+    },
+     {
+      "name": "教育",
+      "short_name": "教育",
+      "description": "前端在线开发体验",
+      "url": "/education",
+      "icons": [
+      {
+        "src": "/favicon/web-app-manifest-192x192.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      }
+    ]
+    }
+  ]
+}

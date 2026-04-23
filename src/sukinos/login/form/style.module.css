@@ -1,0 +1,119 @@
+.su-sukinos-form {
+  width: 100%;
+}
+
+.su-sukinos-form__form-item {
+  margin-bottom: 28px;
+}
+
+.su-sukinos-form__input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border: 2px solid var(--su-black-900);
+  border-radius: 8px;
+  background-color: var(--su-white-50);
+  transition: border-color 0.2s;
+  padding: 0 16px;
+  height: 56px;
+}
+
+.su-sukinos-form__input-wrapper:focus-within {
+  border-color: var(--su-orange-500);
+}
+
+.su-sukinos-form__input-wrapper--error {
+  border-color: var(--su-red-600);
+  background-color: var(--su-red-50);
+}
+
+.su-sukinos-form__input-wrapper--error:focus-within {
+  border-color: var(--su-red-600);
+}
+
+.su-sukinos-form__prefix-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--su-black-900);
+  margin-right: 16px;
+  font-size: 24px;
+}
+
+.su-sukinos-form__input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--su-black-900);
+  font-size: 16px;
+  font-weight: bold;
+  padding: 0;
+  font-family: inherit;
+}
+
+.su-sukinos-form__input::placeholder {
+  color: var(--su-black-400);
+  font-weight: 600;
+}
+
+.su-sukinos-form__suffix {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 100%;
+}
+
+.su-sukinos-form__action-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--su-black-900);
+  cursor: pointer;
+  transition: transform 0.2s;
+  font-size: 20px;
+}
+
+.su-sukinos-form__action-icon:hover {
+  transform: scale(1.2);
+  color: var(--su-orange-500);
+}
+
+.su-sukinos-form__code-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--su-white-500);
+  background-color: var(--su-black-900);
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 0 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  user-select: none;
+  letter-spacing: 0.05em;
+}
+
+.su-sukinos-form__code-btn:hover {
+  background-color: var(--su-orange-500);
+  color: var(--su-black-900);
+}
+
+.su-sukinos-form__code-btn[data-disabled='true'] {
+  color: var(--su-black-500);
+  background-color: var(--su-black-200);
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.su-sukinos-form__error-msg {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--su-red-600);
+  margin-top: 8px;
+  padding-left: 4px;
+}

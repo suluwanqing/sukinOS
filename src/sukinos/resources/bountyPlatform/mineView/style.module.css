@@ -1,0 +1,27 @@
+.su-bounty-mine {
+  display: flex;
+  flex-direction: column;
+}
+.su-bounty-mine__loading,
+.su-bounty-mine__empty {
+  padding: 100px 0;
+  text-align: center;
+  color: var(--su-text-color-secondary);
+  background: var(--su-white);
+  border-radius: 8px;
+  border: 1px solid var(--su-border-color-light);
+}
+.su-bounty-mine__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+.su-bounty-mine__item {
+  position: relative;
+}
+.su-bounty-mine__actions {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 10;
+}

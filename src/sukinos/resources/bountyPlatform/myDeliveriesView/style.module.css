@@ -1,0 +1,18 @@
+.su-bounty-deliveries {
+  display: flex;
+  flex-direction: column;
+}
+.su-bounty-deliveries__loading,
+.su-bounty-deliveries__empty {
+  padding: 100px 0;
+  text-align: center;
+  color: var(--su-text-color-secondary);
+  background: var(--su-white);
+  border-radius: 8px;
+  border: 1px solid var(--su-border-color-light);
+}
+.su-bounty-deliveries__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}

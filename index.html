@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>S-Web技术展示</title>
+    <!-- CSP
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src 'self' 'unsafe-eval' 'unsafe-inline' https://unpkg.com https://cdn.jsdelivr.net;
+        connect-src 'self' https: ws: wss:;
+        img-src * data: blob:;
+        font-src * data:;
+        style-src 'self' 'unsafe-inline' https:;
+        media-src * blob:;
+    "
+    /> -->
+    <!-- 先进入下载核心资源
+    <link rel="modulepreload" href="/utils/js/installSw.js" /> -->
+
+    <!-- 文件太大了,先跑 -->
+    <link
+      rel="preload"
+      as="font"
+      type="font/otf"
+      href="/fonts/breadshop-font/Breadshop-4nLED.otf"
+      crossorigin
+    />
+
+    <!-- 常规样式,用并行 -->
+    <link rel="stylesheet" href="/utils/css/main.css" />
+    <link rel="stylesheet" href="/utils/css/root.css" />
+    <link rel="stylesheet" href="/utils/css/iconfont.css" />
+    <!-- <script type="module" src="/utils/js/installSw.js"></script> -->
+    <!-- 这个打包后会自动合并 -->
+
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="icon" href="/favicon/favicon.ico" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

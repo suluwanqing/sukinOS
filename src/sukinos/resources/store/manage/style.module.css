@@ -1,0 +1,93 @@
+.su-manage {
+  padding: 30px 40px;
+}
+
+.su-manage__header {
+  margin-bottom: 24px;
+}
+
+.su-manage__header h2 {
+  font-size: 24px;
+  margin: 0;
+  font-weight: 700;
+  color: var(--su-text-color-primary);
+}
+
+.su-manage__list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.su-manage__item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background-color: var(--su-white);
+  border-radius: 12px;
+  border: 1px solid var(--su-border-color-light);
+  transition: all 0.2s;
+}
+
+.su-manage__item:hover {
+  border-color: var(--su-border-color);
+  box-shadow: 0 4px 12px rgba(var(--su-black-rgb), 0.03);
+}
+
+.su-manage__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  margin-right: 16px;
+  object-fit: cover;
+  background-color: var(--su-fill-color-light);
+}
+
+.su-manage__info {
+  flex: 1;
+}
+
+.su-manage__name {
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--su-text-color-primary);
+}
+
+.su-manage__meta {
+  font-size: 12px;
+  color: var(--su-text-color-secondary);
+  margin-top: 4px;
+}
+
+.su-manage__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.su-manage__btn-primary {
+  padding: 6px 16px;
+  background-color: var(--su-black);
+  color: var(--su-white);
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.su-manage__btn-danger {
+  padding: 6px 16px;
+  background-color: transparent;
+  color: var(--su-text-color-secondary);
+  border: 1px solid var(--su-border-color);
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.su-manage__btn-danger:hover {
+  color: var(--su-danger);
+  border-color: var(--su-danger);
+  background-color: rgba(var(--su-danger-rgb), 0.1);
+}

@@ -1,0 +1,130 @@
+/*
+  接入 Personalization 系统动态变量:
+  --custom-deskbook-icon-size
+  --custom-deskbook-icon-radius
+*/
+
+.su-shortcut {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  padding: 10px 5px;
+  box-sizing: border-box;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  text-rendering: optimizeLegibility;
+}
+
+.su-shortcut:active {
+  transform: scale(0.92) translateY(0);
+  opacity: 0.8;
+}
+
+.su-shortcut__icon-wrapper {
+  width: var(--custom-deskbook-icon-size, 48px);
+  height: var(--custom-deskbook-icon-size, 48px);
+  border-radius: var(--custom-deskbook-icon-radius, 12px);
+
+  margin-bottom: 8px;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.2));
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  overflow: hidden;
+  background-color: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.su-shortcut:hover .su-shortcut__icon-wrapper {
+  /* filter: drop-shadow(0 8px 15px rgba(0, 0, 0, 0.3)); */
+  transform: scale(1.02) translateY(-2px);
+}
+
+.su-shortcut__icon {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+
+.su-shortcut__label {
+  font-size: 12px;
+  color: inherit;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  text-align: center;
+  width: 100%;
+  padding: 0 4px;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+  transition: all 0.2s ease;
+  font-weight: 400;
+}
+
+.su-shortcut:hover .su-shortcut__label {
+  font-weight: 600;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 1);
+}
+
+.is-shortcut-selected .su-shortcut__icon-wrapper {
+  box-shadow: 0 0 0 3px var(--su-text-color-primary, #0067c0);
+}
+
+:global(#sukin-os[style*='themeMode: light']) .su-shortcut__label {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5);
+}
+.su-shortcut__icon-wrapper {
+  width: var(--custom-deskbook-icon-size, 48px);
+  height: var(--custom-deskbook-icon-size, 48px);
+  border-radius: var(--custom-deskbook-icon-radius, 12px);
+  margin-bottom: 8px;
+  filter: var(--custom-deskbook-icon-shadow, none);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.su-shortcut__label {
+  color: var(--custom-deskbook-font-color, #ffffff);
+  font-size: 12px;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.su-shortcut__icon-wrapper {
+  width: var(--custom-deskbook-icon-size);
+  height: var(--custom-deskbook-icon-size);
+  border-radius: var(--custom-deskbook-icon-radius, 12px);
+  margin-bottom: 8px;
+  filter: var(--custom-deskbook-icon-shadow, none);
+  transition: all 0.3s ease;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.su-shortcut__label {
+  color: var(--custom-deskbook-font-color);
+  font-size: 12px;
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.4;
+  /* 文字层始终保持一个极淡的阴影保护，即使阴影为0，确保在纯白壁纸下可见 */
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}

@@ -1,0 +1,157 @@
+.su-check {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  background-color: var(--su-gray-300);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.su-check:hover:not(.is-disabled) {
+  opacity: 0.85;
+}
+
+.is-active {
+  background-color: var(--su-purple-400);
+}
+
+.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.is-round {
+  border-radius: 20px;
+}
+
+.su-check__toggle-switch {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.su-check__toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background-color: #ffffff;
+  border-radius: 2px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.is-round .su-check__toggle-knob {
+  border-radius: 50%;
+}
+
+.is-active .su-check__toggle-knob {
+  left: calc(100% - 16px);
+}
+
+/* Dark 风格 */
+.su-check--dark {
+  background-color: var(--su-fill-color-light);
+  border: 1px solid var(--su-border-color-light);
+}
+
+.su-check--dark.is-active {
+  background-color: var(--su-black, #000000);
+  border-color: var(--su-black, #000000);
+}
+
+.su-check--dark .su-check__toggle-knob {
+  box-shadow: none;
+  background-color: var(--su-gray-400);
+}
+
+.su-check--dark.is-active .su-check__toggle-knob {
+  background-color: #ffffff;
+}
+
+/* 圆点模式 (Dot Mode) */
+.is-dot {
+  width: 32px;
+  height: 12px;
+  overflow: visible;
+  background-color: var(--su-gray-200,);
+}
+
+.is-dot .su-check__toggle-knob {
+  width: 18px;
+  height: 18px;
+  top: 50%;
+  left: -2px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  border: 1px solid var(--su-border-color-light);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.is-dot.is-active .su-check__toggle-knob {
+  left: calc(100% - 16px);
+  background-color: var(--su-purple-400);
+  border-color: var(--su-purple-400);
+}
+
+.is-dot.su-check--dark.is-active .su-check__toggle-knob {
+  background-color: var(--su-white);
+  border-color: var(--su-black);
+}
+
+/* 尺寸变体 */
+.su-check--small {
+  width: 32px;
+  height: 18px;
+}
+.su-check--small .su-check__toggle-knob {
+  width: 12px;
+  height: 12px;
+}
+.su-check--small.is-active .su-check__toggle-knob {
+  left: calc(100% - 14px);
+}
+.su-check--small.is-dot {
+  height: 8px;
+  width: 24px;
+}
+.su-check--small.is-dot .su-check__toggle-knob {
+  width: 14px;
+  height: 14px;
+}
+
+.su-check--large {
+  width: 52px;
+  height: 26px;
+}
+.su-check--large .su-check__toggle-knob {
+  width: 22px;
+  height: 22px;
+}
+.su-check--large.is-active .su-check__toggle-knob {
+  left: calc(100% - 24px);
+}
+
+/* Plain 模式 */
+.is-plain {
+  background-color: transparent;
+  border: 1px solid var(--su-gray-300);
+}
+.is-plain.is-active {
+  border-color: var(--su-purple-400);
+}
+.is-plain .su-check__toggle-knob {
+  background-color: var(--su-gray-300);
+}
+.is-plain.is-active .su-check__toggle-knob {
+  background-color: var(--su-purple-400);
+}

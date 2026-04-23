@@ -1,0 +1,9 @@
+/* 主要用于管理编辑器的所有颜色控制 */
+:root {
+  --su-editor-cB-leftNav: #15181e;
+  --su-editor-cB-leftNav: #202327;
+  --su-editor-cB-outer: #2e3138;
+  --su-editor-cB-terminal: #15181e;
+  --su-editor-cT-funcItem: #a1a2a3;
+  --su-editor-cH-funcItem: var(--primay);
+}

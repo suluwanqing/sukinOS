@@ -1,0 +1,20 @@
+:root {
+  /* ============ 边框系统 ============ */
+  /* 边框粗细 */
+  --su-border-width-1: 1px;
+  --su-border-width-2: 2px;
+  --su-border-width-4: 4px;
+
+  /* 边框半径 */
+  --su-border-radius-none: 0;
+  --su-border-radius-sm: 0.125rem;
+  --su-border-radius: 0.25rem;
+  --su-border-radius-md: 0.375rem;
+  --su-border-radius-lg: 0.5rem;
+  --su-border-radius-xl: 0.75rem;
+  --su-border-radius-full: 9999px;
+  /* 边框样式 */
+  --su-border-style-solid: solid;
+  --su-border-style-dashed: dashed;
+  --su-border-style-dotted: dotted;
+}

@@ -1,0 +1,141 @@
+.su-upload {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: auto;
+}
+
+.su-upload__card {
+  background: var(--su-white);
+  border: 1px solid var(--su-gray-200);
+  border-radius: 8px;
+  padding: 32px;
+  max-width: 480px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.su-upload__card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.su-upload__card-icon {
+  color: var(--su-gray-900);
+  font-size: 48px;
+}
+
+.su-upload__card-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--su-gray-900);
+  margin: 0;
+}
+
+.su-upload__card-description {
+  font-size: 14px;
+  color: var(--su-gray-600);
+  margin: 0;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.su-upload__requirements {
+  background: var(--su-gray-50);
+  border: 1px solid var(--su-gray-200);
+  border-radius: 6px;
+  padding: 20px;
+}
+
+.su-upload__requirements-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--su-gray-900);
+  margin: 0 0 12px 0;
+}
+
+.su-upload__requirements-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.su-upload__requirements-item {
+  font-size: 13px;
+  color: var(--su-gray-700);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.su-upload__requirements-bullet {
+  color: var(--su-gray-900);
+  font-weight: 600;
+}
+
+.su-upload__upload {
+  display: flex;
+  justify-content: center;
+  height: 40px;
+  width: 100%;
+}
+
+.su-upload__upload-btn {
+  background: var(--su-gray-900);
+  color: var(--su-white);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  transition: background 0.2s ease;
+}
+
+.su-upload__upload-btn:hover:not(:disabled) {
+  background: var(--su-gray-800);
+}
+
+.su-upload__upload-btn:disabled {
+  background: var(--su-gray-100);
+  color: var(--su-gray-400);
+  cursor: not-allowed;
+}
+
+.su-upload__message {
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.su-upload__message-error {
+  background: var(--su-red-50);
+  color: var(--su-red-700);
+  border: 1px solid var(--su-red-200);
+}
+
+.su-upload__message-success {
+  background: var(--su-green-50);
+  color: var(--su-green-700);
+  border: 1px solid var(--su-green-200);
+}

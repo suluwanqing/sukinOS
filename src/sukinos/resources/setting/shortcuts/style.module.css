@@ -1,0 +1,103 @@
+.su-setting-shortcuts {
+  width: 100%;
+  animation: athenianFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.su-setting-shortcuts__section-title {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--su-text-color-regular);
+  margin-bottom: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.su-setting-shortcuts__card {
+  padding: 32px;
+  background: var(--su-bg-color);
+  border: 1px solid var(--su-border-color-extra-light);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+}
+
+.su-setting-shortcuts__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.su-setting-shortcuts__list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--su-border-color-extra-light);
+  transition: all 0.2s ease;
+}
+
+.su-setting-shortcuts__list-item:hover {
+  padding-left: 4px;
+}
+
+.su-setting-shortcuts__list-item:last-child {
+  border-bottom: none;
+}
+
+.su-setting-shortcuts__description {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--su-text-color-primary);
+}
+
+.su-setting-shortcuts__key-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.su-setting-shortcuts__kbd {
+  min-width: 24px;
+  padding: 4px 10px;
+  font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--su-text-color-primary);
+  background-color: var(--su-white);
+  border: 1px solid var(--su-border-color);
+  border-radius: 6px;
+  box-shadow: 0 2px 0 var(--su-border-color-extra-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-transform: capitalize;
+}
+
+.su-setting-shortcuts__plus {
+  font-size: 12px;
+  color: var(--su-text-color-placeholder);
+  font-weight: 400;
+}
+
+.su-setting-shortcuts__divider {
+  height: 1px;
+  background: var(--su-border-color-extra-light);
+  margin: 24px 0 16px 0;
+}
+
+.su-setting-shortcuts__footer-text {
+  font-size: 12px;
+  color: var(--su-text-color-secondary);
+  opacity: 0.7;
+}
+
+@keyframes athenianFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

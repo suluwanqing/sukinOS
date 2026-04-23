@@ -1,0 +1,201 @@
+.su-login {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--su-bg-color-page);
+  padding: 20px;
+  overflow: auto;
+}
+
+.su-login__container {
+  width: 100%;
+  max-width: 400px;
+  background: var(--su-bg-color);
+  border-radius: 8px;
+  padding: 40px 32px;
+  border: 1px solid var(--su-border-color-light);
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.su-login__header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.su-login__title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--su-h1);
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.su-login__subtitle {
+  font-size: 14px;
+  color: var(--su-text-color-secondary);
+  margin: 0;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.su-login__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.su-login__form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.su-login__input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.su-login__input-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--su-text-color-placeholder);
+  font-size: 20px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.su-login__input {
+  width: 100%;
+  padding: 12px 12px 12px 40px;
+  border: 1px solid var(--su-border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  background: var(--su-fill-color-blank);
+  color: var(--su-text-color-primary);
+  font-family: inherit;
+  line-height: 1.5;
+  transition: all 0.2s ease;
+  position: relative;
+  z-index: 0;
+}
+
+.su-login__input:focus {
+  outline: none;
+  border-color: var(--su-primary-500);
+  box-shadow: 0 0 0 2px rgba(var(--su-primary-500-rgb), 0.1);
+}
+
+.su-login__input:focus + .su-login__label,
+.su-login__input:not(:placeholder-shown) + .su-login__label {
+  top: -8px;
+  left: 8px;
+  font-size: 12px;
+  background: var(--su-bg-color);
+  padding: 0 6px;
+  color: var(--su-primary-600);
+  opacity: 1;
+  z-index: 2;
+}
+
+.su-login__label {
+  position: absolute;
+  left: 40px;
+  top: 12px;
+  font-size: 14px;
+  color: var(--su-text-color-placeholder);
+  pointer-events: none;
+  transition: all 0.2s ease;
+  font-weight: 400;
+  background: transparent;
+  padding: 0 4px;
+  opacity: 0;
+  z-index: 1;
+}
+
+.su-login__input:focus + .su-login__label,
+.su-login__input:not(:placeholder-shown) + .su-login__label {
+  top: -8px;
+  left: 8px;
+  font-size: 12px;
+  background: var(--su-bg-color);
+  padding: 0 6px;
+  color: var(--su-primary-600);
+  opacity: 1;
+  z-index: 2;
+}
+
+.su-login__submit-btn {
+  width: 100%;
+  padding: 12px 20px;
+  background: var(--su-primary-600);
+  color: var(--su-white);
+  border: 1px solid var(--su-primary-600);
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  margin-top: 8px;
+}
+
+.su-login__submit-btn:hover:not(:disabled) {
+  background: var(--su-primary-700);
+  border-color: var(--su-primary-700);
+  box-shadow: 0 4px 12px rgba(var(--su-primary-600-rgb), 0.2);
+  transform: translateY(-1px);
+}
+
+.su-login__submit-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(var(--su-primary-600-rgb), 0.2);
+}
+
+.su-login__submit-btn:disabled {
+  background: var(--su-fill-color);
+  border-color: var(--su-border-color);
+  color: var(--su-text-color-placeholder);
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.su-login__btn-icon {
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 可选的额外样式增强 */
+.su-login__input:focus ~ .su-login__input-icon {
+  color: var(--su-primary-500);
+}
+
+.su-login__input::placeholder {
+  color: var(--su-text-color-placeholder);
+  opacity: 0.8;
+}
+
+.su-login__input:disabled {
+  background: var(--su-fill-color-light);
+  border-color: var(--su-border-color);
+  color: var(--su-text-color-disabled);
+  cursor: not-allowed;
+}
+
+.su-login__input:disabled + .su-login__label {
+  color: var(--su-text-color-disabled);
+}

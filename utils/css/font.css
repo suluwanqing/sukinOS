@@ -1,0 +1,46 @@
+:root {
+  /* ============ 字体系统 ============ */
+  /* 字号 */
+  --su-font-size-xs: 0.75rem; /* 12px */
+  --su-font-size-sm: 0.875rem; /* 14px */
+  --su-font-size-base: 1rem; /* 16px */
+  --su-font-size-lg: 1.125rem; /* 18px */
+  --su-font-size-xl: 1.25rem; /* 20px */
+  --su-font-size-2xl: 1.5rem; /* 24px */
+
+  /* 字重 */
+  --su-font-weight-light: 300;
+  --su-font-weight-normal: 400;
+  --su-font-weight-medium: 500;
+  --su-font-weight-semibold: 600;
+  --su-font-weight-bold: 700;
+
+  /* 行高 */
+  --su-line-height-none: 1;
+  --su-line-height-tight: 1.25;
+  --su-line-height-normal: 1.5;
+  --su-line-height-relaxed: 1.75;
+
+  /* 经典中文字体变量 */
+  --su-font-family-song: 'SimSun', '宋体', serif; /* 宋体，衬线体，适用于正式、传统排版 */
+  --su-font-family-hei: 'SimHei', '黑体', sans-serif; /* 黑体，无衬线体，醒目现代，适合标题 */
+  --su-font-family-kai: 'KaiTi', '楷体', serif; /* 楷体，手写风格，优雅自然 */
+  --su-font-family-fangsong: 'FangSong', '仿宋', serif; /* 仿宋，兼具宋体结构和楷书笔法，清秀挺拔 */
+  --su-font-family-lishu: 'LiSu', '隶书', serif; /* 隶书，古朴典雅，艺术感强 */
+  --su-font-family-youyuan: 'YouYuan', '幼圆', sans-serif; /* 幼圆，圆润可爱 */
+  --su-font-family-xingkai: 'STXingkai', '华文行楷', 'Xingkai SC', '楷体', cursive; /* 行楷，流畅优美 */
+  --su-font-family-xinwei: 'STXinwei', '华文新魏', 'KaiTi', serif; /* 新魏，刚劲有力 */
+  --su-font-family-hupo: 'STHupo', '华文琥珀', 'YouYuan', sans-serif; /* 琥珀，厚重装饰 */
+  --su-font-family-caiyun: 'STCaiyun', '华文彩云', 'YouYuan', sans-serif; /* 彩云，空心装饰 */
+  --su-font-family-libian: 'STLibian', '华文隶变', 'LiSu', serif; /* 隶变，隶书变体 */
+
+  /* 常用现代UI中文字体 (通常在Windows及部分环境下可用) */
+  --su-font-family-yahei: 'Microsoft YaHei', '微软雅黑', sans-serif; /* 微软雅黑，屏幕显示清晰 */
+  --su-font-family-zhenghei: 'Microsoft JhengHei', '微软正黑体', sans-serif; /* 微软正黑体 */
+
+  /* 为特定场景组合的字体栈 */
+  --su-font-family-traditional: var(--su-font-family-song), var(--su-font-family-fangsong), serif; /* 传统印刷风格 */
+  --su-font-family-modern: var(--su-font-family-yahei), var(--su-font-family-hei), sans-serif; /* 现代UI风格 */
+  --su-font-family-artistic: var(--su-font-family-lishu), var(--su-font-family-kai), serif; /* 艺术手写风格 */
+  --su-font-family-applesystem:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif
+}

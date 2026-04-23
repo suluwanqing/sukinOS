@@ -1,0 +1,57 @@
+.su-setting-privacy {
+  width: 100%;
+}
+
+.su-setting-privacy__section-title {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--su-text-color-regular);
+  margin-bottom: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.su-setting-privacy__card {
+  padding: 32px;
+  background: var(--su-bg-color);
+  border: 1px solid var(--su-border-color);
+  border-radius: 12px;
+}
+
+.su-setting-privacy__hero {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.su-setting-privacy__hero-title {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0 0 12px 0;
+  color: var(--su-text-color-primary);
+}
+
+.su-setting-privacy__description {
+  font-size: 13px;
+  color: var(--su-text-color-secondary);
+  line-height: 1.6;
+}
+
+.su-setting-privacy__divider {
+  height: 1px;
+  background: var(--su-border-color-extra-light);
+  margin: 24px 0;
+}
+
+.su-setting-privacy__policy-item {
+  margin-bottom: 20px;
+}
+
+.su-setting-privacy__label-bold {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--su-text-color-primary);
+  display: block;
+  margin-bottom: 6px;
+}

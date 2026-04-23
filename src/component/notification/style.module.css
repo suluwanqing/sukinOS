@@ -1,0 +1,105 @@
+.su-notification {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  width: 330px;
+  background-color: var(--su-bg-color-overlay);
+  border: 1px solid var(--su-border-color-light);
+  border-radius: 8px;
+  box-shadow: var(--su-shadow-primary, 0 4px 14px rgba(0, 0, 0, 0.1));
+  box-sizing: border-box;
+  overflow: hidden;
+  transition:
+    opacity 0.3s,
+    transform 0.3s,
+    top 0.3s,
+    bottom 0.3s;
+  z-index: 9999;
+}
+
+.su-notification--top-right {
+  top: 24px;
+  right: 24px;
+}
+
+.su-notification--top-left {
+  top: 24px;
+  left: 24px;
+}
+
+.su-notification--bottom-right {
+  bottom: 24px;
+  right: 24px;
+}
+
+.su-notification--bottom-left {
+  bottom: 24px;
+  left: 24px;
+}
+
+.su-notification--top-center {
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.su-notification__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 8px;
+}
+
+.su-notification__header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.su-notification__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--su-primary-500, #0ea5e9);
+}
+
+.su-notification__title {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--su-text-color-primary, #303133);
+  line-height: 1.4;
+}
+
+.su-notification__close {
+  cursor: pointer;
+  color: var(--su-text-color-secondary, #909399);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.su-notification__close:hover {
+  color: var(--su-text-color-primary, #303133);
+}
+
+.su-notification__body {
+  padding: 8px 16px 14px;
+  font-size: 14px;
+  color: var(--su-text-color-regular, #606266);
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.su-notification__header + .su-notification__body {
+  padding-top: 4px;
+}
+
+.su-notification__footer {
+  padding: 8px 16px 14px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
