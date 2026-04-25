@@ -8,7 +8,6 @@ import Start from "@/sukinos/resources/start/layout"
 import Store from '@/sukinos/resources/store/layout';
 import LocalDev from "@/sukinos/resources/localDev/layout"
 import SystemDashboard from "@/sukinos/resources/systemManage/layout"
-import BountyPlatform from "@/sukinos/resources/bountyPlatform/layout"
 /*公共组件*/
 import  * as AllComponent from "@/component/main"
 import * as hooks from "@/sukinos/hooks/main"
@@ -61,7 +60,6 @@ export const adminAppSdk = {
     Store,
     LocalDev,
     SystemDashboard ,
-    BountyPlatform
   },
   hooks,
   kernel:_kernel //对于系统级别直接暴露全部
