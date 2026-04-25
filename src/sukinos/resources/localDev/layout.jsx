@@ -923,7 +923,6 @@ const LocalDev = () => {
           </div>
         </div>
 
-        {/* 将原先的 previewId.current 修改为动态的 previewId */}
         <div className={style[bem.e('canvas-body')]} id={`proc-${previewId}`}>
           {Object.keys(localFiles).length === 0 && !compiling && (
             <div className={style[bem.e('canvas-empty')]}>
@@ -934,7 +933,7 @@ const LocalDev = () => {
           )}
 
           <RenderProcess
-            key={previewId} /* 增加 key，强制 React 卸载旧沙箱引擎 */
+            key={previewId}
             localFiles={localFiles}
             localLogicCode={localLogicCode}
             previewId={previewId}

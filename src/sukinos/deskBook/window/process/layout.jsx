@@ -7,30 +7,6 @@ import { ENV_KEY_META_INFO } from '@/sukinos/utils/config'
 import { createSdkForInstance } from "@/sukinos/resources/sdk"
 
 /**
- * 增强型深度冻结与克隆工具
- * 阻断引用传递，防止子应用修改嵌套属性污染宿主环境 state
- */
-const deepCloneAndFreeze = (obj, seen = new WeakMap()) => {
-  if (obj === null || typeof obj !== 'object') return obj;
-  if (Object.isFrozen(obj)) return obj;
-  if (seen.has(obj)) return seen.get(obj);
-
-  const clone = Array.isArray(obj) ? [] : {};
-  seen.set(obj, clone);
-
-  Object.keys(obj).forEach(key => {
-    // React 内部对象/组件不进行克隆冻结，防止渲染崩溃
-    if (key === 'React') {
-      clone[key] = obj[key];
-      return;
-    }
-    clone[key] = deepCloneAndFreeze(obj[key], seen);
-  });
-
-  return Object.freeze(clone);
-};
-
-/**
  * 幽灵沙箱管理器 - 单例模式
  * 仅作为 JS 执行上下文，不负责显示 UI
  * 在单实例窗口上直接劫持并阻断 indexedDB、localStorage 等底层持久化 API。
@@ -464,7 +440,7 @@ const AppInternalRenderer = memo(({ modules, resource, commonProps, currentPath,
  * 动态渲染器
  * 负责应用资源的动态编译、SDK 注入及生命周期管理。
  */
-const DynamicRenderer = ({
+const DynamicRenderer = memo(({
   resource, state, dispatch, pid, isSystemApp, onFocus,
   forceReStartApp, reStartApp, onKill ,generateAppSetting,ref:renderRef
 }) => {
@@ -532,10 +508,10 @@ const DynamicRenderer = ({
   }, [modules, pid]);
 
   const commonProps = useMemo(() => {
-    // 强化 State 防护：非 Iframe 模式下深克隆+深冻结 State，防止引用污染
-    const safeState = (isParasitism || useBridgeMode) ? deepCloneAndFreeze(state) : state;
+    // 由于 state 是从 Worker (postMessage) 传递过来的，
+    // 本身已经是深拷贝，直接使用可避免引用污染，同时减少递归克隆带来的性能损耗
     return {
-      state: safeState,
+      state: state,
       handleFocus: stableOnFocus,
       dispatch,
       pid,
@@ -544,7 +520,7 @@ const DynamicRenderer = ({
       navigate: instanceSDK.API.navigate,
       fetch:instanceSDK.API.fetch
     }
-  }, [state, stableOnFocus, dispatch, pid, isParasitism, useBridgeMode,instanceSDK]);
+  }, [state, stableOnFocus, dispatch, pid, instanceSDK]);
 
   if (!modules) return <div>加载中...</div>
 
@@ -602,6 +578,12 @@ const DynamicRenderer = ({
       </ErrorBoundary>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // 忽略 dispatch, onFocus, forceReStartApp, reStartApp, onKill 的对比以减少无意义的重新渲染
+  return prevProps.pid === nextProps.pid &&
+         prevProps.state === nextProps.state &&
+         prevProps.resource === nextProps.resource &&
+         prevProps.generateAppSetting === nextProps.generateAppSetting;
+});
 
 export default DynamicRenderer;

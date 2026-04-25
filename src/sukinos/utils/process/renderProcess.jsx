@@ -1,12 +1,35 @@
-import React, { useState, useEffect, memo, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, memo, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { compileSourceAsync, scopeCss } from '@/sukinos/utils/process/renderWindow';
 import { createSdkForInstance } from '@/sukinos/resources/sdk';
+
+import { generateWorker } from './generateWorker';
 import {
-  getWorkerSandboxPreamble, createStorageProxy, createIndexedDBProxy,
-  createSecureFetch
-} from '@/sukinos/utils/security';
+  ENV_KEY_RESOURCE_ID,
+  ENV_KEY_NAME,
+  ENV_KEY_IS_BUNDLE,
+  ENV_KEY_LOGIC,
+  ENV_KEY_CONTENT,
+  ENV_KEY_META_INFO
+} from '@/sukinos/utils/config';
 
 // 这个组件暂时只用于预览这类。
+
+/**
+ * 抹平 React 父组件无意义的重渲染带来的函数引用地址变化。
+ * 使用 useLayoutEffect 确保在组件挂载和更新的同步阶段即获取最新闭包，避免竞态问题。
+ * 强类型检查 `typeof ref.current === 'function'`，兼容 AppView 等未传递部分回调函数的场景
+ */
+function useEventCallback(fn) {
+  const ref = useRef(fn);
+  useLayoutEffect(() => {
+    ref.current = fn;
+  });
+  return useCallback((...args) => {
+    if (typeof ref.current === 'function') {
+      return ref.current(...args);
+    }
+  }, []);
+}
 
 /**
  * 幽灵沙箱管理器 - 单例模式（与 DynamicRenderer 保持一致）
@@ -42,47 +65,6 @@ const getGhostSandbox = () => {
     }
   });
   return ghostIframeInstance;
-};
-
-/**
- * 生成预检 Worker 脚本字符串
- */
-const generatePreviewWorker = (fullLogicCode, pid) => {
-  const storageProxySource = createStorageProxy.toString();
-  const indexedDBProxySource = createIndexedDBProxy.toString();
-  const secureFetchSource = createSecureFetch.toString();
-  return `
-    ${getWorkerSandboxPreamble(pid, storageProxySource, indexedDBProxySource, secureFetchSource)}
-    {
-      const window = _safeGlobalProxy; const self = _safeGlobalProxy;
-      const globalThis = _safeGlobalProxy; const eval = _safeGlobalProxy.eval;
-      const Function = _safeGlobalProxy.Function; const setTimeout = _safeGlobalProxy.setTimeout;
-      const setInterval = _safeGlobalProxy.setInterval; const fetch = _safeGlobalProxy.fetch;
-      const indexedDB = _safeGlobalProxy.indexedDB; const System = _safeGlobalProxy.System;
-      const navigator = _safeGlobalProxy.navigator; const URL = _safeGlobalProxy.URL;
-      const Blob = _safeGlobalProxy.Blob; const navigate = _safeGlobalProxy.navigate;
-      const require = (name) => { if(name==='react') return {}; throw new Error("Sandbox error"); };
-      ${fullLogicCode}
-      let _state = {};
-      const broadcast = () => self.postMessage({ type: 'STATE_UPDATE', payload: _state });
-      self.onmessage = (e) => {
-        const { type, payload } = e.data;
-        if (type === 'INIT') {
-           _state = typeof initialState !== 'undefined' ? initialState : {};
-           if (!_state.router) _state.router = { path: 'home' };
-           broadcast();
-        } else if (type === 'DISPATCH') {
-           const reducerFn = typeof reducer === 'function' ? reducer : (s) => s;
-           let nextState = reducerFn(_state, payload);
-           if (payload && payload.type === 'NAVIGATE') {
-             const currentRouter = nextState.router || { path: 'home' };
-             nextState = { ...nextState, router: { ...currentRouter, path: payload.payload } };
-           }
-           _state = nextState; broadcast();
-        }
-      };
-    }
-  `;
 };
 
 /**
@@ -140,60 +122,87 @@ const RenderProcess = ({
   const workerRef = useRef(null);
   const compileDbRef = useRef(null);
 
+  //如果外部传了 undefined，这里的代理函数在被执行时也会静默略过
+  const handleStateChange = useEventCallback(onStateChange);
+  const handleLogAction = useEventCallback(onLogAction);
+  const handleCompileStart = useEventCallback(onCompileStart);
+  const handleCompileEnd = useEventCallback(onCompileEnd);
+  const handleCompileError = useEventCallback(onCompileError);
+
   // --- 建立系统通信桥梁 ---
   const sysDispatch = useCallback((action) => {
-    workerRef.current?.postMessage({ type: 'DISPATCH', payload: action });
-    // 将日志向上传递给宿主
-    onLogAction?.(action);
-  }, [onLogAction]);
-
-  const sysNavigate = useCallback((path) => {
-    sysDispatch({ type: 'NAVIGATE', payload: path });
-  }, [sysDispatch]);
+    // 模拟内核 Kernel.dispatch 行为：
+    // UI 层调用的是 dispatch(action)，但底层发给 Worker 的消息类型必须是 UI_ACTION
+    // 这样才能匹配 generateWorker 生成的 Worker 中的 switch(type) 逻辑
+    workerRef.current?.postMessage({ type: 'UI_ACTION', payload: action });
+    handleLogAction(action);
+  }, [handleLogAction]);
 
   // --- 创建 SDK 实例 (特权通行证) ---
   const instanceSDK = useMemo(() => {
+    // 这里对齐 DynamicRenderer，传入 sysDispatch 作为调度器
     return createSdkForInstance(sysDispatch, previewId, false);
   }, [sysDispatch, previewId]);
+
+  const sysNavigate = useCallback((path) => {
+    // 对齐 DynamicRenderer，通过 SDK 内部的 navigate 逻辑触发
+    instanceSDK.API.navigate(path);
+  }, [instanceSDK]);
+
+  // 提取 isBundle 的判定，避免完整的 localFiles 对象触发 Worker 异常销毁
+  const isBundle = useMemo(() => {
+    return !!(localFiles && (localFiles['layout.jsx'] || localFiles['layout.js']));
+  }, [localFiles]);
 
   // --- 驱动 Logic 运行 (Worker 状态机) ---
   useEffect(() => {
     if (!localLogicCode) return;
     if (workerRef.current) workerRef.current.terminate();
 
-    const code = generatePreviewWorker(localLogicCode, previewId);
+    // 兼容 generateWorker 的参数结构，保证预览环境 Worker 逻辑与生产 100% 对齐
+    const workerArgs = {
+      [ENV_KEY_RESOURCE_ID]: previewId,
+      [ENV_KEY_NAME]: 'Preview-App',
+      [ENV_KEY_IS_BUNDLE]: isBundle,
+      [ENV_KEY_LOGIC]: localLogicCode,
+      [ENV_KEY_CONTENT]: {}, // 预览无需原始资源
+      [ENV_KEY_META_INFO]: { isPreview: true }
+    };
+
+    const code = generateWorker(workerArgs);
     const blob = new Blob([code], { type: 'application/javascript' });
     const url = URL.createObjectURL(blob);
-    const w = new Worker(url);
+    const w = new Worker(url, { name: `Preview-${previewId}` });
 
     w.onmessage = (e) => {
+      // 这里的 STATE_UPDATE 是 generateWorker 内部 broadcast 函数发送的
       if (e.data.type === 'STATE_UPDATE') {
         setPreviewState(e.data.payload);
-        // 通知宿主状态更新
-        onStateChange?.(e.data.payload);
+        // 直接调用稳定且安全的代理函数
+        handleStateChange(e.data.payload);
       }
     };
     w.postMessage({ type: 'INIT' });
     workerRef.current = w;
 
     return () => { w.terminate(); URL.revokeObjectURL(url); };
-  }, [localLogicCode, previewId, onStateChange]);
+  }, [localLogicCode, previewId, isBundle, handleStateChange]);
 
   // --- 执行 View 编译 (源代码 -> React组件) ---
   useEffect(() => {
-    if (Object.keys(localFiles).length === 0) return;
+    if (!localFiles || Object.keys(localFiles).length === 0) return;
     if (compileDbRef.current) clearTimeout(compileDbRef.current);
 
     compileDbRef.current = setTimeout(async () => {
-      onCompileStart?.();
-      onCompileError?.('');
+      handleCompileStart();
+      handleCompileError('');
       try {
         const sandboxWin = getGhostSandbox();
         const resultMap = {};
         for (const [filename, code] of Object.entries(localFiles)) {
           const res = await compileSourceAsync(code, previewId);
           if (res.error) {
-            onCompileError?.(`${filename}: ${res.error}`);
+            handleCompileError(`${filename}: ${res.error}`);
             continue;
           }
           const exports = {};
@@ -204,11 +213,11 @@ const RenderProcess = ({
         }
         setModules(resultMap);
       } catch (e) {
-        onCompileError?.(e.message);
+        handleCompileError(e.message);
       }
-      onCompileEnd?.();
+      handleCompileEnd();
     }, 400);
-  }, [localFiles, instanceSDK, previewId, onCompileStart, onCompileEnd, onCompileError]);
+  }, [localFiles, instanceSDK, previewId, handleCompileStart, handleCompileEnd, handleCompileError]);
 
   // 声明式生成 CSS 字符串。
   // 放弃原生 document.getElementById()，直接在下方用 <style> 标签渲染，
@@ -225,29 +234,41 @@ const RenderProcess = ({
   const { RootComponent, ChildComponent } = useMemo(() => {
     if (!modules) return { RootComponent: null, ChildComponent: null };
 
-    // 寻找布局组件
-    const Layout = modules['layout']?.Component || modules['main']?.Component;
-    if (!Layout) return {
-      RootComponent: () => (
-        <div style={{ padding: '20px', color: '#faad14', textAlign: 'center', fontSize: '14px' }}>
-          缺少 layout 组件
+    // 对齐 DynamicRenderer 行为，依据是否存在 layout 区分单文件/多文件模式
+    const hasLayout = !!modules['layout'];
+
+    if (!hasLayout) {
+      // 单文件模式处理逻辑
+      const Main = modules['main']?.Component;
+      if (!Main) return {
+        RootComponent: () => (
+          <div style={{ padding: '20px', color: '#faad14', textAlign: 'center', fontSize: '14px' }}>
+             layout.jsx 组件丢失!
+          </div>
+        ),
+        ChildComponent: null,
+      };
+      // 避免单文件模式下 PageComponent 去渲染引发 404
+      return { RootComponent: Main, ChildComponent: () => <div /> };
+    } else {
+      // 多文件(Bundle)模式：存在 layout，按布局+路由模式处理
+      // 寻找布局组件
+      const Layout = modules['layout'].Component;
+
+      // 寻找当前路由对应的页面
+      const Page = modules[currentPath]?.Component || (() => (
+        <div style={{ padding: '20px', color: '#999', textAlign: 'center', fontSize: '14px' }}>
+          404 — {currentPath}
         </div>
-      ),
-      ChildComponent: null,
-    };
+      ));
 
-    // 寻找当前路由对应的页面
-    const Page = modules[currentPath]?.Component || (() => (
-      <div style={{ padding: '20px', color: '#999', textAlign: 'center', fontSize: '14px' }}>
-        404 — {currentPath}
-      </div>
-    ));
-
-    return { RootComponent: Layout, ChildComponent: Page };
+      return { RootComponent: Layout, ChildComponent: Page };
+    }
   }, [modules, currentPath]);
 
   // 准备传递给组件的 CommonProps
   const commonProps = useMemo(() => ({
+    // 此时的 state 结构已包含 generateWorker 注入的 config
     state: previewState,
     dispatch: sysDispatch,
     navigate: sysNavigate,
@@ -275,9 +296,16 @@ const RenderProcess = ({
       {scopedCssString && (
         <style dangerouslySetInnerHTML={{ __html: scopedCssString }} />
       )}
-      <RootComponent {...commonProps} PageComponent={StablePageComponent} />
+      {/*强制包裹带有匹配 ID 的 div，防止 scopeCss 转换后的 CSS 选择器失去锚点导致页面无样式白屏！ */}
+      <div id={`proc-${previewId}`} style={{ height: '100%' }}>
+        <RootComponent {...commonProps} PageComponent={StablePageComponent} />
+      </div>
     </PreviewErrorBoundary>
   );
 };
 
-export default memo(RenderProcess);
+export default memo(RenderProcess, (prevProps, nextProps) => {
+  return prevProps.previewId === nextProps.previewId &&
+         prevProps.localLogicCode === nextProps.localLogicCode &&
+         prevProps.localFiles === nextProps.localFiles;
+});
