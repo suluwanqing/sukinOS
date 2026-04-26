@@ -1,7 +1,7 @@
 import { TRUSTED_CDN_WHITELIST } from '@/sukinos/utils/config'
 
 // ==========================================
-// 1. 通用安全与防篡改函数 (宿主环境使用)
+// 通用安全与防篡改函数 (宿主环境使用)
 // ==========================================
 
 // 随机种子生成函数。
@@ -124,7 +124,7 @@ export const createReadonlySDKProxy = (AppSDK) => {
 };
 
 // ==========================================
-// 2. 沙箱代理工厂函数 (可独立执行，也可 toString 注入沙箱)
+// 沙箱代理工厂函数 (可独立执行，也可 toString 注入沙箱)
 // ==========================================
 
 /**
@@ -209,9 +209,54 @@ export const createIndexedDBProxy = (indexedDB, pid) => {
     });
 };
 
+/**
+ * 清理指定 PID 产生的全部存储数据 (localStorage, sessionStorage, IndexedDB)
+ */
+export const clearSandboxStorageByPid = async (pid) => {
+  if (!pid) return;
+  const prefix = `pid-${pid}_`;
+  // 清理 localStorage
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const localKeys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
+      localKeys.forEach(k => localStorage.removeItem(k));
+    }
+  } catch (err) {
+    console.warn(`Failed to clear localStorage for PID ${pid}:`, err);
+  }
+  // 清理 sessionStorage
+  try {
+    if (typeof sessionStorage !== 'undefined') {
+      const sessionKeys = Object.keys(sessionStorage).filter(k => k.startsWith(prefix));
+      sessionKeys.forEach(k => sessionStorage.removeItem(k));
+    }
+  } catch (err) {
+    console.warn(`Failed to clear sessionStorage for PID ${pid}:`, err);
+  }
+  // 清理 IndexedDB
+  try {
+    if (typeof indexedDB !== 'undefined' && typeof indexedDB.databases === 'function') {
+      const dbs = await indexedDB.databases();
+      const deletePromises = dbs
+        .filter(db => db.name && db.name.startsWith(prefix))
+        .map(db => {
+          return new Promise((resolve, reject) => {
+            const req = indexedDB.deleteDatabase(db.name);
+            req.onsuccess = () => resolve();
+            req.onerror = () => reject(req.error);
+            req.onblocked = () => resolve(); // 防止被阻塞导致 Promise 挂起
+          });
+        });
+      await Promise.allSettled(deletePromises);
+    }
+  } catch (err) {
+    console.warn(`Failed to clear IndexedDB for PID ${pid}:`, err);
+  }
+};
+
 
 // ==========================================
-// 3. 沙箱环境代码规约 (注入块级作用域的字符串)
+// 沙箱环境代码规约 (注入块级作用域的字符串)
 // ==========================================
 
 /**

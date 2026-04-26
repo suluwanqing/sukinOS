@@ -11,7 +11,7 @@ import { generateWorker, parseWorkerCode } from './generateWorker'
 import { alert } from "@/component/alert/layout"
 import { sukinOs as sukinApi } from "@/apis/main"
 import generateShortSeed from '/utils/js/rootSeed'
-
+import {clearSandboxStorageByPid} from '@/sukinos/utils/security'
 // 基础应用注册写入逻辑SYS
 export async function extRegisterAppSys(kernel, appSys) {
   kernel.updateUserAppInfo(appSys.pid, appSys);
@@ -551,6 +551,7 @@ export async function extDeleteApp(kernel, { pid, resourceId }) {
       kernel.resourceIdToPid.delete(resourceId) //删除辅助转义表
       await kernel.resDb.deleteData(resourceId)    //删除资源[indexDb]
       delete kernel.resourceCache[resourceId];      //删除资源缓存
+      clearSandboxStorageByPid(pid) //删除indexDb,和storage
     }
     await kernel.sysDb.deleteData(currentAppName)    //删除应用注册表[indexDb]
     kernel.emitChange()

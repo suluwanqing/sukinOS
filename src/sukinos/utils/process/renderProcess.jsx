@@ -11,7 +11,7 @@ import {
   ENV_KEY_CONTENT,
   ENV_KEY_META_INFO
 } from '@/sukinos/utils/config';
-
+import { clearSandboxStorageByPid } from '@/sukinos/utils/security'
 // 这个组件暂时只用于预览这类。
 
 /**
@@ -122,12 +122,23 @@ const RenderProcess = ({
   const workerRef = useRef(null);
   const compileDbRef = useRef(null);
 
+  // 追踪上一次的 previewId，用于沙箱存储清理对比
+  const prevPreviewIdRef = useRef(previewId);
+
   //如果外部传了 undefined，这里的代理函数在被执行时也会静默略过
   const handleStateChange = useEventCallback(onStateChange);
   const handleLogAction = useEventCallback(onLogAction);
   const handleCompileStart = useEventCallback(onCompileStart);
   const handleCompileEnd = useEventCallback(onCompileEnd);
   const handleCompileError = useEventCallback(onCompileError);
+
+  // --- 监控 previewId 变化并清理沙箱缓存 ---
+  useEffect(() => {
+    if (prevPreviewIdRef.current !== previewId) {
+      clearSandboxStorageByPid(prevPreviewIdRef.current);
+      prevPreviewIdRef.current = previewId;
+    }
+  }, [previewId]);
 
   // --- 建立系统通信桥梁 ---
   const sysDispatch = useCallback((action) => {
