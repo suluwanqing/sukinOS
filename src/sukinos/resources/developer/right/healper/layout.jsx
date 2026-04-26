@@ -106,7 +106,7 @@ const { Fragment } = React || {};`}
     indexedDB,
   },
 
-  kernel,         // 内核公共方法
+  kernel,         // 内核公共方法（含 evokeApp / getTypeApps 等）
   hooks,          // 文件管理等集成 Hooks
 
   API: {          // 进程级 API（已通过 Props 或全局 fetch 暴露）
@@ -152,6 +152,115 @@ export default ({ state, dispatch }) => {
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
+// 内核通信 (Kernel)
+// ─────────────────────────────────────────────────────────────────────────────
+const KernelSection = () => (
+  <div className={style[bem.e('section')]}>
+    <h2 className={style[bem.e('title')]}>内核通信 (AppSDK.kernel)</h2>
+    <p className={style[bem.e('text')]}>
+      通过 <code>AppSDK.kernel</code> 可以访问底层系统的核心调度能力。最常用的是应用间的唤起与通信，以及检索特定类型的应用列表。
+    </p>
+
+    <h4 className={style[bem.e('subtitle')]}>应用唤起与通信 (evokeApp)</h4>
+    <p className={style[bem.e('text')]}>
+      我们的唤起行为并不是由 OS 去维护一份固定的行为处理操作表，而是由运行时执行，由 APP 主动指定目标进程 <code>pid</code> 和交互信息 <code>interactInfo</code>。
+      <br /><br />
+      底层实际分情况处理：如果 APP 没有启动，则调用 <code>startProcess</code> 启动并传入信息；如果已启动，则调用 <code>appInteract</code> 发送信息。
+      <br /><br />
+      <b>数据流向：</b>传入的 <code>interactInfo</code> 会与 <code>from</code> 字段合并，并传递到下层目标应用的 <code>logic.jsx</code> 中，最终 <b>直接作为 action</b> 交由 reducer 处理。
+    </p>
+    <pre className={style[bem.e('code')]}>
+{`// 发起方：唤起目标应用并传递信息
+export default () => {
+  const { kernel } = AppSDK;
+
+  const openFile = () => {
+    kernel.evokeApp({
+      pid: 'my-editor-app', // 目标应用 PID
+      from: 'system',       // 来源标识
+      interactInfo: {
+        type: 'openFile',
+        payload: {
+          openType: 'wr',     // 交互类型/操作指令
+          mode: 'edit',
+          filePath: '/doc/test.txt' // 传递的具体数据
+        }
+      }
+    });
+  };
+
+  return <button onClick={openFile}>使用编辑器打开文件</button>;
+};
+
+// 接收方 (logic.jsx)：处理唤起交互
+function reducer(state = initialState, action) {
+  // 此时 interactInfo 全部被处理为 action 传入
+  // 优先处理系统底层的应用间交互指令
+  if (action?.type === 'openFile') {
+    // 执行操作，注意由于这里直接进入到 Worker 中，UI 无法感知
+    // 需要在内部维护状态行为返回 state，让 UI 去感知处理
+    return {
+      ...state,
+      currentFile: action.payload.filePath,
+      editorMode: action.payload.mode
+    };
+  }
+
+  // 正常处理普通 dispatch 触发的事件
+  switch (action.type) {
+    case 'TEST':
+      return { ...state };
+    default:
+      return state;
+  }
+}`}
+    </pre>
+
+    <h4 className={style[bem.e('subtitle')]}>获取指定类型的应用 (getTypeApps)</h4>
+    <p className={style[bem.e('text')]}>
+      传入应用的类型标识（如 <code>editor</code>、<code>tool</code>），内核将返回匹配的所有已安装应用信息。可用于构建"打开方式"或"应用商店"列表。
+    </p>
+    <pre className={style[bem.e('code')]}>
+{`export default () => {
+  const { kernel } = AppSDK;
+  const [editorApps, setEditorApps] = useState([]);
+
+  useEffect(() => {
+    // 接收参数: APP 的类型
+    const apps = kernel.getTypeApps('editor');
+
+    // 至少返回包含 pid, name, metaInfo 等字段的对象
+    const formattedApps = apps.map(app => ({
+      id: app.pid,
+      label: app.name || app.appName || 'Unknown App',
+      icon: app.metaInfo?.icon ? (
+        <img
+          src={app.metaInfo.icon}
+          alt='icon'
+          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        />
+      ) : null
+    }));
+
+    setEditorApps(formattedApps);
+  }, []);
+
+  return (
+    <ul>
+      {editorApps.map(app => (
+        <li key={app.id}>
+          <div style={{ width: 24, height: 24 }}>{app.icon}</div>
+          <span>{app.label}</span>
+        </li>
+      ))}
+    </ul>
+  );
+};`}
+    </pre>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // 内置组件
 // ─────────────────────────────────────────────────────────────────────────────
 const ComponentsSection = () => (
@@ -183,14 +292,14 @@ export default ({ state }) => {
 };`}
     </pre>
 
-    <h4 className={style[bem.e('subtitle')]}>devAppSdk 可用组件</h4>
+    <h4 className={style[bem.e('subtitle')]}>devAppSdk可用组件</h4>
     <ul className={style[bem.e('list')]}>
       <li><code>Button</code>：通用按钮，支持 <code>type="danger"</code> 等变体</li>
       <li><code>Input</code>：文本输入框，支持受控/非受控</li>
       <li>更多组件请通过 <code>console.log(AppSDK.Components)</code> 探查</li>
     </ul>
 
-    <h4 className={style[bem.e('subtitle')]}>adminAppSdk 额外组件</h4>
+    <h4 className={style[bem.e('subtitle')]}>adminAppSdk额外组件</h4>
     <ul className={style[bem.e('list')]}>
       <li><code>Developer</code>：开发者工具面板</li>
       <li><code>FileSystem</code>：文件系统浏览器</li>
@@ -1145,11 +1254,13 @@ const AIPromptSection = () => {
 5. 禁止直接使用原生网络 API：
      window.fetch / XMLHttpRequest / self.fetch
 6. 禁止直接修改 state 对象
-7.navagate:文件名字即为路由传入字符串即可实现跳转
-8.dispatch:对应reducer的实现
-9.非logic页面至少要有一个export default ({})=>{}作为当前组件视图入口,单文件可以声明其他子组件。
-10.必需要有layout.jsx作为整个程序的入口
-11.一般建议无论如何都处理为多页面
+7. navagate:文件名字即为路由传入字符串即可实现跳转
+8. dispatch:对应reducer的实现
+9. 非logic页面至少要有一个export default ({})=>{}作为当前组件视图入口,单文件可以声明其他子组件。
+10. 必需要有layout.jsx作为整个程序的入口
+11. 一般建议无论如何都处理为多页面
+12. 唤起其他应用(evokeApp)时，不要依赖OS维护行为表，需直接传递pid与标准action格式的interactInfo（含type与payload）。接收方在reducer中直接处理该action，通过返回新state让UI感知。
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【二、核心规范】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1157,8 +1268,14 @@ const AIPromptSection = () => {
 ■ logic.jsx（无 export，内核自动识别）
   const initialState = { /* 初始状态 */ };
   function reducer(state, action) {
+    // 处理唤起应用交互（interactInfo 会直接作为 action 传入）
+    // 注意：因 reducer 运行在 worker 中，必须通过返回新 state 才能让 UI 感知
+    if(action?.type === 'openFile') {
+      return { ...state, ...action.payload };
+    }
+
     switch (action.type) {
-      case 'ACTION': return { ...state, ... };
+      case 'NORMAL_ACTION': return { ...state, ... };
       default: return state;
     }
   }
@@ -1186,6 +1303,20 @@ const AIPromptSection = () => {
     ...
     return <div>...</div>;
   };
+
+■ 内核交互（AppSDK.kernel）
+  const { kernel } = AppSDK;
+  // 获取特定应用列表
+  const apps = kernel.getTypeApps('editor');
+  // 唤起与交互（注意 payload 标准格式）
+  kernel.evokeApp({
+    pid: 'target-app-pid',
+    from: 'system',
+    interactInfo: {
+      type: 'openFile',
+      payload: { openType: 'wr', mode: 'edit', filePath: '/a.txt' }
+    }
+  });
 
 ■ 存储操作（必须通过 AppSDK.System）
   const { System } = AppSDK;
@@ -1222,9 +1353,16 @@ const initialState = {
   count: 0,
   items: [],
   loading: false,
+  targetFile: null,
 };
 
 function reducer(state, action) {
+  // 1. 处理来自 kernel.evokeApp 传入的应用间通信指令 (运行在 worker，通过返回 state 通知 UI)
+  if(action?.type === 'openFile') {
+    return { ...state, targetFile: action.payload.filePath };
+  }
+
+  // 2. 处理常规 dispatch
   switch (action.type) {
     case 'INCREMENT': return { ...state, count: state.count + 1 };
     case 'SET_ITEMS':  return { ...state, items: action.payload, loading: false };
@@ -1290,6 +1428,7 @@ export default ({ state, dispatch, navigate, fetch }) => {
   return (
     <div className="home">
       <h2>首页 — count: {state.count}</h2>
+      {state.targetFile && <p style={{color: 'blue'}}>外部唤起文件：{state.targetFile}</p>}
       <Button onClick={() => dispatch({ type: 'INCREMENT' })}>+1</Button>
       <Button onClick={load} disabled={state.loading}>
         {state.loading ? '加载中...' : '获取数据'}
@@ -1367,6 +1506,7 @@ export default ({ state, dispatch, navigate, fetch, pid }) => {
 const docSections = [
   { id: 'intro',    label: '开发概览',  icon: <DescriptionIcon />,  component: IntroSection },
   { id: 'sdk',      label: '基础 SDK',  icon: <ExtensionIcon />,    component: SDKSection },
+  { id: 'kernel',   label: '内核交互',  icon: <AccountTreeIcon />,  component: KernelSection },
   { id: 'components', label: '内置组件', icon: <LayersIcon />,      component: ComponentsSection },
   { id: 'storage',  label: '数据存储',  icon: <StorageIcon />,      component: StorageSection },
   { id: 'network',  label: '网络请求',  icon: <PublicIcon />,       component: NetworkSection },

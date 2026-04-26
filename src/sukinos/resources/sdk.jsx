@@ -37,7 +37,8 @@ export const devAppSdk = {
     ...AllComponent
   },
   kernel: {
-    evokeApp:_kernel.evokeApp
+    evokeApp: _kernel.evokeApp,
+    getTypeApps:_kernel.getTypeApps,
   },
   hooks: {
       useFileSystem:hooks.useFileSystem
@@ -59,7 +60,7 @@ export const adminAppSdk = {
     Start,
     Store,
     LocalDev,
-    SystemDashboard ,
+    SystemDashboard
   },
   hooks,
   kernel:_kernel //对于系统级别直接暴露全部
