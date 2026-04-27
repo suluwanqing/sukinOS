@@ -1,185 +1,126 @@
 # SukinOS
 
-**基于 React + Web Worker + IndexedDB + FastApi**
-
-> **注意**：本项目暂时停止更新。代码逻辑完整，适合作为学习 React 复杂状态管理、浏览器本地存储应用及 Web OS 架构的参考案例。
+**基于 React + Web Worker + IndexedDB **
+> **核心理念**: 全量state驱动更新组件,UI只负责事件派发,任何计算都将通过worker进行计算,趋于类微前端,热插拔视窗APP交互体验。
+> **注意**：代码逻辑完整，适合作为学习 React 复杂状态管理、浏览器本地存储应用及 Web OS 架构的参考案例。
 > 如果您希望实时体验最新版本请访问 sukin.top/sukinos ---- [if you want get the latest ,To: sukin.top/sukinos]
 
 ---
 
+
 ## 项目预览
 
-设置:
-![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/1.png)
+| 设置 | 默认桌面 |
+| :---: | :---: |
+| ![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/1.png) | ![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/2.png) |
 
-默认桌面:
-![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/2.png)
+| 本地开发 | 线上开发 |
+| :---: | :---: |
+| ![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/3.png) | ![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/4.png) |
 
-本地开发:
-![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/3.png)
+*(另有应用手册功能可见图5)*
 
-线上开发:
-![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/4.png)
+---
 
-手册:
-![Image text](https://github.com/suluwanqing/sukinOS/blob/main/md/5.png)
+## 一、项目简介与核心价值
 
-## 项目简介
+**SukinOS** 是一个在浏览器中运行的轻量级桌面环境。它不依赖传统后端，而是利用现代浏览器的能力（IndexedDB, Service Worker, Web Worker）来模拟完整的操作系统体验。与常规的后台管理系统不同，SukinOS 采用了**窗口化多任务**的设计模式，支持应用程序的动态加载、文件系统的本地持久化存储以及代码的在线编译运行。
 
-**SukinOS** 是一个在浏览器中运行的轻量级桌面环境。它不依赖传统后端，而是利用现代浏览器的能力（IndexedDB, Service Worker, Web Worker）来模拟完整的操作系统体验。
-
-与常规的后台管理系统不同，SukinOS 采用了**窗口化多任务**的设计模式，支持应用程序的动态加载、文件系统的本地持久化存储以及代码的在线编译运行。
-
-### 核心价值
-
+### 1. 核心价值
 - **去中心化体验**：数据完全存储在用户浏览器本地。
-- **高性能运行时**：耗时任务（如代码编译）通过 Web Worker 隔离，不阻塞 UI 线程。
+- **高性能运行时**：耗时任务通过 Web Worker 隔离，不阻塞 UI 线程。
 - **高扩展性**：基于组件化的 App 设计，易于集成新的“应用程序”。
 
----
-
-## 架构逻辑解构 (Architecture & Logic)
-
+### 2. 架构逻辑解构 (Architecture & Logic)
 为了深入理解本项目，我们将系统逻辑解构为以下三个核心层级：
-
-### 1. 核心层 (Kernel / State Management)
-
-_位于 `src/store.jsx` 与 `src/main`_
-系统通过 React 的全局状态（Context/Store）模拟了操作系统的“内核”功能：
-
-- **进程管理**：维护一个 `apps` 队列，记录当前打开的窗口、Z-Index 层级、最小化/最大化状态。
-- **任务调度**：通过路由和状态分发，控制前台应用（Active Window）的聚焦逻辑。
-- **消息总线**：实现了简单的事件机制，允许 App 之间通信（例如：文件管理器点击文件 -> 触发编辑器打开）。
-
-### 2. 文件系统层 (File System / VFS)
-
-_位于 `src/utils` 与 `src/resources`_
-为了模拟真实的磁盘操作，项目封装了 **IndexedDB**：
-
-- **虚拟文件树**：将 IndexedDB 的对象存储（Object Store）映射为树状目录结构。
-- **持久化**：用户的设置、保存的代码文件、桌面布局均保存在浏览器本地，刷新页面不丢失。
-- **资源管理**：图片、图标等静态资源支持以 Base64 或 Blob 形式存储和读取。
-
-### 3. 运行时层 (Runtime & Compiler)
-
-_位于 `public` (Workers) 与 `src/hooks`_
-
-- **沙箱执行**：为了安全地运行用户编写的代码，SukinOS 利用 **Babel Standalone** 进行动态编译。
-- **Web Worker**：编译过程在 Worker 线程中运行，避免复杂计算导致桌面 UI 卡顿。
-- **Service Worker**：拦截网络请求，实现离线访问能力，模拟“本地应用”的感觉。
+*   **核心层 (Kernel / State Management)** (_位于 `src/store.jsx` 与 `src/main`_)：模拟了操作系统的“内核”功能，包含**进程管理**（维护 apps 队列与窗口 Z-Index）、**任务调度**（控制前台应用聚焦）、**消息总线**（应用间通信）。
+*   **文件系统层 (File System / VFS)** (_位于 `src/utils` 与 `src/resources`_)：封装 IndexedDB 作为虚拟硬盘，映射为树状目录结构，并支持桌面布局与资源的离线持久化。
+*   **运行时层 (Runtime & Compiler)** (_位于 `public` 与 `src/hooks`_)：利用 **Babel Standalone** 进行动态沙箱编译，**Web Worker** 接管异步计算，**Service Worker** 进行 PWA 离线代理。
 
 ---
 
-## 主要功能
+## 二、技术栈与目录架构
 
-### 桌面环境
+### 1. 技术栈详情
 
-- **完整交互**：包括任务栏、开始菜单、桌面图标拖拽、右键上下文菜单。
-- **窗口管理**：支持多窗口重叠、缩放、拖拽、置顶及最小化动画。
+| 维度 | 技术选型 | 说明 |
+| :--- | :--- | :--- |
+| **视图层** | React 19 | 使用 Hooks 进行函数式组件开发 |
+| **样式层** | CSS Modules | 避免样式冲突，实现模块化样式管理 |
+| **构建工具** | Vite | 极速冷启动与热更新 |
+| **存储层** | IndexedDB | 浏览器端的大容量结构化数据存储 |
+| **异步处理** | Web Worker | 开启多线程处理耗时逻辑 |
+| **编译器** | Babel | 浏览器端 JS/JSX 代码动态转译 |
+| **离线支持** | Service Worker | PWA 基础支持 |
 
-### 文件资源管理器
+### 2. 核心目录体系
 
-- **可视化操作**：类似 Windows Explorer 的界面，支持新建文件夹、文件重命名、删除。
-- **类型识别**：根据文件后缀自动关联打开方式（图片预览、文本编辑）。
-
-### 开发者生态
-
-- **内置 IDE**：支持语法高亮的在线代码编辑器。
-- **动态编译**：可以直接在浏览器中编写 React 组件并实时预览渲染结果（通过 Babel 转换）。
-
-### UI 组件库
-
-- 内置一套与系统风格统一的组件：`Alert`（警告框）、`Confirm`（确认框）、`Check`（选择器）等，位于 `src/component`。
-
----
-
-## 技术栈详情
-
-| 维度         | 技术选型       | 说明                             |
-| :----------- | :------------- | :------------------------------- |
-| **视图层**   | React 18       | 使用 Hooks 进行函数式组件开发    |
-| **样式层**   | CSS Modules    | 避免样式冲突，实现模块化样式管理 |
-| **构建工具** | Vite           | 极速冷启动与热更新               |
-| **存储层**   | IndexedDB      | 浏览器端的大容量结构化数据存储   |
-| **异步处理** | Web Worker     | 开启多线程处理耗时逻辑           |
-| **编译器**   | Babel          | 浏览器端 JS/JSX 代码动态转译     |
-| **离线支持** | Service Worker | PWA 基础支持                     |
-
----
-
-## 目录结构说明
-
-````bash
-src/
-├── component/        # 【UI组件库】系统基础控件
-│   ├── alert/        # 弹窗组件
-│   └── ...
-├── main/             # 【系统入口】
-│   ├── deskBook/      # 桌面环境主逻辑
-│   └── login/        # 登录页面
-    └── resources/        # 【资源层，主要是系统应用】
+```bash
+src/sukinos/
+├── component/        # 【UI组件库】系统基础控件 (alert, confirm 等)
+├── main/             # 【系统入口】桌面环境主逻辑、登录页面
+│   ├── deskBook/
+│   └── login/
+├── resources/        # 【资源层】内置系统应用 (预设应用资源)
 ├── utils/            # 【工具层】
-│   ├── file/        # 文件管理封装类
-│   ├── process/        #进程管理
-│   └── ...
-├── hooks/            # 【逻辑复用】自定义 React Hooks
-├── store.jsx         # 【状态管理】全局 Context/Reducer 配置
-└── router/main.jsx   # 【路由配置】系统页面路由
-# 核心内核
-## OS注入流程
-### 系统文件盘挂载
-首先登录后,将会进入文件夹句柄挂载点，默认是原子隐私数据库即await navigator.storage.getDirectory()
-当进入后后续修改为非隐私模式,将会挂载在用户的文件夹中。
-### Boot函数
-调用Boot后将会执行kernel.init(config)  该config即指代是否需要原子隐私等等初始化配置
-之后依次调用处理相关函数
+│   ├── file/         # VFS与实体文件内核封装类
+│   └── process/      # 内核进程与沙箱调度管理
+├── hooks/            # 【逻辑复用】OS交互Hooks (useFileSystem, useKernel等)
+├── store.jsx         # 【状态管理】全局红黑树、Context/Reducer配置
+└── router/main.jsx   # 【路由配置】基于系统调度的非传统虚拟路由
+```
+
+---
+
+## 三、系统启动与 OS 注入流 (Boot Flow)
+
+系统的启动是一个剥离了传统 HTTP 拉取，转向从底层 IndexedDB 提取代码并注入内存的“组装过程”。
+
+### 1. 系统文件盘挂载与初始化
+首先登录后，将会进入文件夹句柄挂载点，默认是原子隐私数据库即 `await navigator.storage.getDirectory()`。当进入后后续修改为非隐私模式，将会挂载在用户的真实物理文件夹中。
+
+### 2. Boot 函数核心执行链
+调用 Boot 后将会执行 `kernel.init(config)`，该 `config` 指代是否需要原子隐私等初始化配置。之后依次调用处理相关函数：
+
 ```javascript
 try {
-      // 加载核心依赖 and 资源
-      await BabelLoader.load()
-      await this.ensurePresets()
-      await this.loadAllResources()
-      // --- 构建内存中的应用注册表  ---
-      // 先从 sys 的 DB 加载用户应用到内存。
-      // 必须先加载已有记录，内核才能知道哪些资源已经分配了 PID，避免 syncRegistryByRes 重复创建/修改PID
-      await this.#loadUserAppsFromDb() // 从sys的DB加载用户应用到内存  注入pid
+  // 加载核心依赖 and 资源
+  await BabelLoader.load()
+  await this.ensurePresets()
+  await this.loadAllResources()
 
-      // 初始化系统的注册表。
-      this.#initializeSystemApps() //系统的注册表 直接注入pid
+  // --- 构建内存中的应用注册表 ---
+  // 先从 sys 的 DB 加载用户应用到内存。必须先加载已有记录，内核才能知道哪些资源分配了 PID
+  await this.#loadUserAppsFromDb()
 
-      // 通过资源(Res)构建/补全注册表(Sys)。
-      // 此时内存中已有 userApps，此函数会安全地为那些“有资源但没注册”的应用生成新记录
-      await this.syncRegistryByRes()  //通过res构建资源表
+  // 初始化系统的注册表。系统应用直接注入 PID
+  this.#initializeSystemApps()
 
-      /*
-        同步文件系统，确保物理文件、内存注册表和数据库三者状态一致
-        但是现在这里不再是必须的了!必需的行为将会变为从资源res中读取应用资源,再注入到sys中[因为这里,原来的架构是会删除这个的僵尸sys]
-      */
-      //:: await this.syncResourcesToFiles()  //将indexDb的数据资源写入indexDb [这里可以加密处理第一步确定资源不被修改]
+  // 通过资源(Res)构建/补全注册表(Sys)。安全地为“有资源没注册”的应用生成新记录
+  await this.syncRegistryByRes()
 
-      // 从资源文件[注意是文件不是注册表]里解析出资源Id，同时更新到注册表。
-      // 这一步主要负责关联本地文件句柄 和处理僵尸文件
-      await this.syncRegistry()
-      //将app信息[实际是资源]同步到store,方便对appStore管理操作
-      // [暂且保留，虽然有点没必要但是为了减少其他额外操作。]
-      // 恢复上一次的会话状态
-      await this.restoreSession()
-      alert.success("[内核] 初始化成功。")
-      return true
-    } catch (err) {
-      alert.failure(err)
-      return false // 初始化过程中发生任何错误都视为失败
-    }
-````
+  // 从资源文件里解析出资源Id，并更新到注册表。主要负责关联本地文件句柄和处理僵尸文件
+  await this.syncRegistry()
 
-# APP 相关模块
+  // 恢复上一次的布局与会话状态
+  await this.restoreSession()
+  alert.success("[内核] 初始化成功。")
+  return true
+} catch (err) {
+  alert.failure(err)
+  return false // 初始化过程中发生任何错误都视为失败
+}
+```
 
-## APP 如何注册
+---
 
-APP 资源注册源信息
+## 四、内核应用程序生态与生命周期 (APP Environment & Lifecycle)
 
-### 注册信息样例
+APP 在系统内分为“资源源信息 (Resource)”和“运行实例表 (Sys Registry)”。
 
+### 1. APP 资源注册机制 (`uploadResource`)
+
+#### 注册信息样例（预定义）
 ```javascript
 // App 配置状态
 const [appMeta, setAppMeta] = useState({
@@ -189,929 +130,391 @@ const [appMeta, setAppMeta] = useState({
   initialSize: { w: 600, h: 450, x: 0, y: 0 },
   logicCode: DEFAULT_LOGIC,
   appType: 'editor',
-  exposeState: false,
-  saveState: false,
-  description: '这是一个 App',
   syncLocal: false,
-  custom: {
-    // 这个 custom 字段是固定的禁止修改,其他其此处是非耦合的
-    ...appCustom
-  }
+  custom: { hasShortcut: true, blockEd: false, isFullScreen: true, ... }
 })
-
-export const appCustom = {
-  hasShortcut: true,
-  blockEd: false,
-  isFullScreen: true,
-  autoStart: false,
-  allowResize: true,
-  showInLauncher: false
-}
 ```
 
-经过整合后的信息
-
-```javascript
-  const { appName, appIcon, logicCode, shouldUpload, ...restMetaInfo } = appMeta;
-  const baseMetaInfo = {
-      //这个如果需要更新这个appMeta需要对应更新metaInfo
-      seed: Date.now().toString(),
-      authorId: userInfo?.id,
-      icon: appIcon,
-      ...restMetaInfo
-  };
-  外层是相对固定的
-  [ENV_KEY_RESOURCE_ID]:resourceID,资源ID
-  [ENV_KEY_NAME]:name,
-  [ENV_KEY_IS_BUNDLE]:fasle,
-  [ENV_KEY_CONTENT]:content || modules,
-  [ENV_KEY_LOGIC]:logic && state,
-  [ENV_KEY_META_INFO]:metaInfo,//所有APP相关的信息
-  shouldUpload, //用于内部判断是否需要上传
-  userInfo,//用于内部传输,方便操作
-  storePath//用于上传时,可能为用户自己配置的私有仓库
-```
-
-### 注册流程
-
-首先调用 kernel 的 uploadResource 函数
-
-#### uploadResource
-
-```javascript
-  async uploadResource(params) {
-      return extUploadResource(this, params);
-  }
-```
-
-紧接着进入到逻辑处理函数 extUploadResource
-
-#### extUploadResource
-
-其命名空间为
-
-```javascript
-async function extUploadResource(kernel, args) {}
-```
-
-该函数首先会判断是否传入用户 ID,如果没有该信息将会注册失败!
-
+#### 资源与身份注入
+执行 `kernel.uploadResource`，随即进入逻辑处理函数 `extUploadResource`。该环节拦截身份：
 ```javascript
 if (!metaInfo?.authorId) {
-  //简单处理
-  const errorMsg = '操作失败：请先登录！'
-  alert.warning(errorMsg)
-  return Promise.reject(new Error(errorMsg))
+  alert.warning('操作失败：请先登录！')
+  return Promise.reject(new Error('操作失败：请先登录！'))
 }
 ```
-
-APP 信息的再处理,其主要是为了配合处理应用私有的[可能被缓存]State,和 APP 的一些信息额外
-
+经过重组后，资源会被保存进 IndexedDB，并在内核构建快速缓存。为了维护不存储状态的 APP，原有的“同步文件注册 pid”体系转为了“安装时独立注册 pid”：
 ```javascript
-const newRes = {
-  [ENV_KEY_RESOURCE_ID]: truthResourceId,
-  [ENV_KEY_NAME]: name,
-  [ENV_KEY_IS_BUNDLE]: isBundle,
-  [ENV_KEY_CONTENT]: content,
-  [ENV_KEY_LOGIC]: logic,
-  [ENV_KEY_META_INFO]: {
-    ...metaInfo,
-    createdAt: metaInfo.createdAt || new Date().toISOString(), //如果是本地就是用这个,如果是上传就会使用到服务器的时间
-    initialSize: {
-      w: Math.max(500, metaInfo?.initialSize?.w || 500),
-      h: Math.max(400, metaInfo?.initialSize?.h || 400)
-    },
-    [ENV_KEY_NAME]: name,
-    version: version
-  }
-}
-```
+// 存入资源
+await kernel.resDb.putData(newRes)
+kernel.resourceCache[truthResourceId] = newRes
 
-资源的注入，调用 kernel 的资源 Api 存入到对应 indexDb 中
-
-```JavaScript
-await kernel.resDb.putData(newRes)//存入到资源 indexDb 里
-kernel.resourceCache[truthResourceId] = newRes //存储到kernel内部可用于运行时快速获取和处理的函数
-```
-
-为了维护不可存储状态的 APP,原有同步文件注册 pid 到 sys 将会修改为安装时注册 sys。同时僵尸清理更新为以 Res 为中心而不是文件句柄为中心。
-该方案也同时确保了 APP 的 pid 相对不变性,确保 indexDb 等存储私有空间不被破坏。
-
-```javascript
-APP的注册行为
+// APP的注册行为 (固化PID)
 const appData = {
   pid: crypto.randomUUID(),
   [ENV_KEY_RESOURCE_ID]: truthResourceId,
   [ENV_KEY_NAME]: name,
-  handle: null,
-  savedState: null,
   status: 'INSTALLED',
   [ENV_KEY_META_INFO]: newRes[ENV_KEY_META_INFO]
 }
-首先会进行解析判断是否需要挂载文件句柄[本地同步]
+
+// 物理本地文件映射检测
 if (args?.syncLocal || false) {
-  //如果允许写入本地同步,将会触发本地写入操作[包括后续状态管理],但是实际上智慧存储到一个文件中,这个文件包含整个APP的完整信息,当再次处理将会被解析出来
   await kernel.writeAppFile({ ...newRes, [ENV_KEY_CONTENT]: content })
-  // 尝试获取文件句柄并关联到 appData 中，这样安装后可以直接访问本地文件
   try {
     const fileName = `${SUKIN_PRE}${name}${SUKIN_EXT}`
     appData.handle = await kernel.dirHandle.getFileHandle(fileName)
   } catch (e) {
     console.warn(`[内核] 获取本地文件句柄失败: ${name}`)
   }
-  await kernel.syncRegistry() //同步注册资源[通过本地文件注册,但是这个可能会有资源浪费因为会扫描所有本地文件]
 }
-无论如何都将会调用安装函数executeInstallation,
-  同时触发内核更新消息kernel.emitChange()
-
-判断APP是否需要上传
-if (shouldUpload) {
-  //上传服务器不等待
-  kernel.uploadCloud({
-    resource: newRes,
-    userInfo: args?.userInfo,
-    storePath: args?.storePath
-  })
-}
-return truthResourceId
 ```
 
-## APP 的解析
-
-### 僵尸文件注册处理 & STATE 同步'三界'
-
-由于文件句柄相对依赖文件,所以更多的是围绕文件展开,但是如果是非本地同步的 APP 将会进行特殊的处理
-调用 kernel.extSyncRegistry()//执行文件,indexDb=>res & sys 的协同同步,这里主要涉及到部分应用是本地同步即 state 会更新到本地,每次启动的时候更新合并
-进入实际处理函数 extSyncRegistry
-
+### 2. 僵尸文件注册处理 & STATE 同步
+调用 `kernel.extSyncRegistry()` 执行文件、Res、Sys 三者的协同同步。
 ```javascript
-export async function extSyncRegistry(kernel) {
-      ......
-      const physicalFiles = new Set() // 物理文件集合(存储处理后的cleanName)
-      const filesToRemove = []      // 待删除文件
-      const appsToRegister = []     // 待注册的僵尸应用数据
-      ......
-
-}
-首先进行判断是否有文件夹挂载点
-if (!kernel.dirHandle) return
-
-处理indexDb的打开行为分析
-
-处理文件句柄
+// 遍历虚拟盘内的实际文件句柄
 for await (const entry of kernel.dirHandle.values()) {
-  // 这里涉及到我们的worker整合后的文件都将会成为特定前缀和后缀的js文件名。
-  提取应用名
+  // 提取清洗后的应用名 (剥除专属前后缀)
   const cleanName = entry.name.replace(SUKIN_EXT, '').replace(SUKIN_PRE, '');
-  检测是否已经注册
-  const isRegistered = Array.from(kernel.userApps.values())
-  .some(app => app?.[ENV_KEY_NAME] === cleanName)
-  如果是已经注册的将会执行APP同步相关 , 这个行为非常关键涉及到sys稳定性
-  如果没有注册将会进行解析
-  调用await kernel.inspectZombieFile(entry)
-  进入到僵尸文件处理流程extInspectZombieFile
-}
-```
+  const isRegistered = Array.from(kernel.userApps.values()).some(app => app?.[ENV_KEY_NAME] === cleanName)
 
-extInspectZombieFile 该函数会尝试为文件句柄进行注册处理
-
-```javascript
-export async function extInspectZombieFile(kernel, fileHandle) {
-  const result = {
-    isValidZombie: false,
-    shouldRemove: false,
-    appData: null
-  }
-  他会尝试检测解析文件句柄的内容信息, 如果信息壳子没有问题, 将会被执行注册行为
-}
-```
-
-那如果使用非本地同步没有文件句柄如何确保 SYS 不被异常清除?
-在初始化同步注入 sys 之前,以 res 为基础注入 extSyncRegistryByRes。
-但是在此之前系统预设资源已经被注册调用了 initializeSystemApps,所以需要判断处理一下
-
-```javascript
-export async function extSyncRegistryByRes(kernel) {
-  for (const res of Object.values(kernel.resourceCache)) {
-    // 这里为什么是从内核缓存获取而不是indexDb?因为在boot阶段已经进行了注入
+  // 若未注册，说明是外部导入或残留文件，抛入僵尸检测
+  if (!isRegistered) {
+    await kernel.extInspectZombieFile(kernel, entry) // 验证文件如果合格则发起重建和登记
   }
 }
 ```
+通过 `parseWorkerCode` 反向解析内容包，提取路由、初始化函数及纯净逻辑块重新补足内存应用树。
 
-其核心在于,我们的 APP 的 pid 理论上通过安装注册行为固定,这里会尝试获取到 pid,来确保 pid 的稳定性
-其次判断是否需要本地同步,如果需要但是没有进行挂载,将会尝试进行挂载文件句柄,同时同步至 indexDb 相关信息
-这里也会进行 sys 有效性处理。
+### 3. APP 生命周期 (启动、挂起与销毁)
 
-### APP 资源的解析和存储
-
-APP 资源的解析和存储依赖解析函数和整合函数
-
-```javascript
-export const generateWorker = (args) => {}
-我们采取的方案是将信息全量注入到一个文件,但是这样肯定会造成部分资源的浪费,但是为了简洁和数据的相关性这是可以接受的。
-```
-
-APP 的反解析 parseWorkerCode 该函数将会从 woker 文件中解析处理出来所有相关的信息用于注册等行为处理
-其解构和注册解析出来的相对类似
-
-```javascript
-export const parseWorkerCode = workerCode => {
-  const result = {
-    [ENV_KEY_RESOURCE_ID]: null,
-    [ENV_KEY_NAME]: null,
-    [ENV_KEY_IS_BUNDLE]: false,
-    [ENV_KEY_LOGIC]: null,
-    initialState: null,
-    [ENV_KEY_CONTENT]: null,
-    hasReducer: false,
-    hasInitFunction: false,
-    originalCode: workerCode, //注意我们的worker文件内容实际上并非只有logic还是合并的,这是为了后续应用可进行自身解析处理隐私权限相关
-    [ENV_KEY_META_INFO]: null
-  }
-}
-```
-
-## APP 生命周期
-
-### APP 的安装
-
-### APP 的启动
-
-kernel.startProcess
-
-```javascript
-  func:async startProcess({ pid, resourceId, interactInfo }) {}
-```
-
-在 APP 资源信息是正常注册行为下,pid 和 resurceId 是二选一的,因为内部做了快捷获取处理。从而可以相互获取。interactInfo 将会用于交互信息处理
-
-我们的核心架构是 worker 驱动和 UI 分离渲染
-
-#### 冷启动
-
-处理非挂起的应用[即需要冷启动:进程+state:注入 pid=>'PCB']
-冷启动将会通过获取到 worker 信息资源.通过资源文件,解析出来 worker 进行注册,由于部分是没有本地同步的那么我们直接通过 resource 去生成 worker 即可。
-同时更新合并缓存和 indexDb 中的 APP 状态信息
-
+#### 冷启动 (`startProcess`)
+当应用尚未装载至内存或彻底关闭时，触发冷启动从 Blob 到 Web Worker 的构建：
 ```javascript
 try {
   let workerCode
   if (app?.isSystemApp) {
-    // 系统资源一定是不在文件映射中
-    if (!resource) throw new Error(`系统资源 '${app?.[ENV_KEY_NAME]}' 未找到!`)
+    // 系统资源一定是不在文件映射中，直接提取
     workerCode = generateWorker(resource)
   } else {
-    // 原有的架构是非系统都将进入到本地中。新引入了:本地同步可选机制。
-    // 兼容处理,处理没有进行本地同步的 APP,这个时候认为是进入到了资源缓存中
-    // 先检查 app 和 app.handle 是否存在
+    // 处理本地同步的文件提取
     if (app && app.handle) {
       if ((await app.handle.queryPermission({ mode: 'read' })) !== 'granted') {
         await app.handle.requestPermission({ mode: 'read' })
-        const file = await app.handle.getFile()
-        workerCode = await file.text()
-      } else {
-        workerCode = generateWorker(resource)
       }
+      const file = await app.handle.getFile()
+      workerCode = await file.text()
     } else {
       workerCode = generateWorker(resource)
     }
   }
-  const url = URL.createObjectURL(
-    new Blob([workerCode], { type: 'application/javascript' })
-  )
+  // 【重点】剥离主线程，采用内存地址创建独立环境
+  const url = URL.createObjectURL(new Blob([workerCode], { type: 'application/javascript' }))
   const worker = new Worker(url, { name: truthPid })
   this.processes.set(truthPid, { worker, url })
+
   worker.onmessage = e => this.#handleMsg(truthPid, e.data)
-  // 发送初始化或恢复状态的消息
+
+  // 传输应用之前的缓存State
   const stateToRestore = app.savedState?.app
-  worker.postMessage({
-    type: stateToRestore ? 'RESTORE' : 'INIT',
-    payload: stateToRestore
-  })
-  if (interactInfo) {
-    this.appIntereact({ process: worker, interactInfo })
-  }
-  // 更新内存和 DB 中的状态为 'RUNNING'
+  worker.postMessage({ type: stateToRestore ? 'RESTORE' : 'INIT', payload: stateToRestore })
+
+  // 标定状态为RUNNING并落盘
   app.status = 'RUNNING'
-  if (!app.isSystemApp) {
-    await this.sysDb.updateData(app?.[ENV_KEY_NAME], { status: 'RUNNING' })
-  }
-  this.#emitChange()
-  return {
-    isStart: true
-  }
-} catch (e) {
-  // console.log(e)
-  alert.warning(
-    `[内核] 启动应用 ${app?.[ENV_KEY_NAME]} (pid: ${truthPid}) 失败:`,
-    e
-  )
-  this.#kill(truthPid) // 启动失败时清理进程
-  return {
-    isStart: false
-  }
+  return { isStart: true }
+} catch(e) {
+  this.#kill(truthPid) // 回收进程防止泄露
 }
 ```
 
-#### 热启动
-
-实际就是 APP 在挂起模式下的重新启动处理,为了简化我们将他们呢注入到同一个函数中处理
-
+#### 热启动 / 恢复 (`hibernate`)
+如果是暂存休眠态，不用重新编译构建 Blob 对象，直接激活数据：
 ```javascript
 if (this.processes.has(truthPid)) {
-  try {
-  // 如果应用处于休眠状态，则唤醒它
   if (app.status === 'HIBERNATED') {
     app.status = 'RUNNING'
-  if (!app?.isSystemApp) {
-    await this.sysDb.updateData(app?.[ENV_KEY_NAME], { status: 'RUNNING' })
-  }
-  if (interactInfo) {
-    const p = await this.#getProcessApp(truthPid)
-    this.appIntereact({ process: p.worker, interactInfo })
-  }
-    // alert.success(`[内核] 应用 ${app.name} (pid: ${pid}) 已恢复运行。`)
     this.#emitChange()
   }
-  // 无论之前是 HIBERNATED 还是 RUNNING，都通知 UI 并返回窗口状态
+  // 无论如何都会通知 UI 并返回窗口状态，恢复前台焦点
   this.#notify(truthPid, 'STATE', this.stateCache.get(truthPid))
-    return {
-    isStart: true
-    }
-  }
+  return { isStart: true }
 }
 ```
 
-### APP 的挂起
+#### 销毁 (`forceKillProcess`)
+系统调用内部的私有卸载机制：`worker.terminate()` 以及极度重要的 `URL.revokeObjectURL(p.url)` 以防止内存泄漏炸毁浏览器，同时清除内存树栈。
 
-kernel.hibernate
-挂起行为主要涉及到对 state 的保存和状态的更新处理。
-但是注意系统预制的 APP 资源是不提供 STATE 存储的所以无需进行 STATE 的同步/保存。
-只会有挂起行为,当前挂起行为分为两种:
-第一种:直接关闭存储 state
-第二种:使用 display:none 进行伪挂起[默认]
+---
 
+## 五、OS 通信总线与状态驱动桥桥 (IPC & State Bridge)
+
+SukinOS 并不是基于普通组件状态的，它是典型的**总线驱动**思想——Worker 保存记忆、内核作为总线调度分发、UI 只作为映射呈现。
+
+### 1. 通信调度器 (`dispatch`)
 ```javascript
-async hibernate(pid) {}
+dispatch(pid, action) {
+  const p = this.processes.get(pid)
+  const isSystem = this.isSystemApp(pid)
+  if (!p) return
+
+  // 特权级系统调用
+  if (action.type === 'KERNEL_CALL' && action.payload) {
+    isSystem ? this.#systemSwitch(p, action.payload) : this.#notSystemSwitch(p, action.payload)
+    return
+  }
+  // 普通UI操作，发送给具体的私有 Worker 线程处理还原纯粹数据
+  p.worker.postMessage({ type: 'UI_ACTION', payload: action })
+}
 ```
 
-### APP 的关闭
-
-kernel.forceKillProcess
-他会根据不同 APP 的类型去处理不同的操作,比如我们的系统预制的 APP 是不被允许存储的。
-
-```javascript
-他会调用内部私有函数
-#kill(pid)
-该函数会调用worker.teterminate()
-URL.revokeObjectURL(p.url)
-同时清除缓存中的进程信息
-```
-
-## APP 的生命 & 消息处理
-
-核心 React 是 state 驱动,除了组件本身的 useSate 等这些状态自动驱动更新外。
-由于存储都存储再对应 worker,那么我们如何驱动更新呢?
-我们还是利用 statte 的驱动更新性
-将 hooks 注入状态
-
-### 核心:useProcessBridge
-
+### 2. 桥接层钩子 (`useProcessBridge`)
+核心的连接件，绑定在 React 与 Worker 中间监听数据跳动：
 ```javascript
 const useProcessBridge = pid => {
   const [state, setState] = useState(null)
-  //其核心为
+
   useEffect(() => {
     if (!pid) return
     // 订阅应用自身 Worker 发出的状态变化
     const unsubscribeApp = kernel.subscribeApp(pid, msg => {
       if (msg.type === 'STATE') {
-        // 当 Worker 更新私有状态时，合并系统信息后同步给 UI
+         // 当 Worker 更新私有状态时，合并系统信息后同步给 UI
         setState(getMergedState(msg.payload))
       }
     })
-    return () => {
-      unsubscribeApp()
-      // unsubscribeSystem()
-    }
-  }, [pid, getMergedState])
+    return () => unsubscribeApp()
+  }, [pid])
 
   const dispatch = useCallback(action => kernel.dispatch(pid, action), [pid])
   return { state, dispatch }
 }
-
-export default useProcessBridge
-我们在第一次进行订阅的时候就进行一次返回注入state避免undefined问题
 ```
 
-### state 如何进行更新
-
-我们对 worker 进行了监听
-
-```javascript
-worker.onmessage = e => this.#handleMsg(truthPid, e.data)
-每当worker有消息发送都将会进行监听处理, 常规的就是state的全量返回
-```
-
-#### #handleMsg
-
-目前他只负责 state 的更新和通知 OS 进行存储 APP 的信息两种处理行为
-
-```javascript
-内部将会调用通知函数kernel.#notify
-notify函数内部会指定APP的所有cb函数并传入信息类型和payload
-从而触发state的更新
-进而泵入APP的UI视图触发更新
-```
-
-## APP 间如何交互
-
-我们的通信模式是 APP 发起到 OS 通过 OS 注入到对应 APP 中[即 worker 的 postMessage]
-
-### 唤起行为
-
-kernel.evokeApp
-我们的唤起行为并不是 OS 去维护行为处理操作表,而是运行时执行由 APP 去操作我需要指定的唤起 pid 和交互信息。
-我们的唤起实际上只有信息的传输,具体操作将会通过 startProcess 的 interactInfo 去进行传递。
-如果 APP 没有启动将会启动并传入 APP 信息,并执行对应的处理。
-
-```javascript
-async evokeApp({ pid, from, interactInfo }) {}
-为了处理APP没有启动的情况。我们实际是分情况进行调用
-涉及两个函数appIntereact & startProcess
-```
-
-#### appIntereact
-
-我们将他提取出来是为了后续如果 app 见需要直接交互这里可以方便处理,方便后续的处理进程的
-
+### 3. 跨进程唤起 (`evokeApp` & `appIntereact`)
+应用间通过 OS 中转发起调用：
 ```javascript
 async appIntereact({ process, interactInfo }) {
-  //这里为了后续方便优化提取出来
+  // 借道宿主实现不同沙箱的间接握手
   process.postMessage({ type: "APP_INTERACT", payload: interactInfo })
 }
 ```
 
-#### startProcess
+---
 
-启动的同时传输信息
+## 六、虚拟微路由架构 (State-Driven Router)
 
-## APP 路由实现
+子应用禁止直接操作原生的 `history.push`，以防止污染宿主地址栏或引发安全欺骗。该架构被称为**内核状态驱动（State-Driven）与组件动态映射**。
 
-SukinOS 的路由实现并非基于浏览器的原生 URL（如 window.location），而是一套基于 “内核状态驱动（State-Driven）” 与 “组件动态映射（Component Mapping）” 的虚拟路由系统。
-SukinOS 实现了应用内部的“微路由”架构，将路由状态脱离浏览器地址栏，完全由内核 State 托管。
-
-### 路由状态映射逻辑 (Path-to-Component Mapping)
-
-**逻辑解析：**
-系统将应用资源（Bundle）视为一个文件查找表。路由的本质是从 `modules` 对象（已编译的代码片段集合）中根据当前的 `path` 字符串提取对应的 React 组件。
-
-- **默认路径**：如果 `state.router.path` 不存在，系统默认为 `home`。
-- **404 处理**：如果 `modules` 中找不到对应的路径 Key，系统会降级渲染一个内置的 404 提示组件。
-
-**核心代码实现：**
-
+### 1. 路由映射与 404 处理
+将 Bundle 代码视为字典 `modules`。依靠状态取出路径：
 ```javascript
 const currentPath = state.router?.path || 'home'
-
-// AppInternalRenderer 中的查找逻辑
-const RawPage =
-  modules[currentPath]?.Component || (() => <div>404: {currentPath}</div>)
+// AppInternalRenderer 中的查找逻辑。降级兜底防止白屏
+const RawPage = modules[currentPath]?.Component || (() => <div>404: {currentPath}</div>)
 ```
 
-### 布局与页面注入模式
-
-SukinOS 强制推行 “容器/页面” 分离模式。
-Layout 容器：应用必须包含一个 layout.jsx（或对应的导出），作为应用的外壳（如导航栏、侧边栏）。
-PageComponent 注入：系统动态创建一个 ConnectedPage 组件，并将其作为 PageComponent 属性注入到 Layout 中。这允许开发者在 Layout 中决定页面的具体渲染位置（Slot 模式）。
-
+### 2. Layout Slot 页面外壳注入模式
+SukinOS 强推“容器/页面”隔离分离，系统动态向 `layout.jsx` 塞入 Component。
 ```javascript
 const Layout = modules['layout']?.Component
-// 预绑定了 SDK 和 State 的页面组件
 const ConnectedPage = props => <RawPage {...commonProps} {...props} />
-
+// 以 React 属性形式下发页面
 return <Layout {...commonProps} PageComponent={ConnectedPage} />
 ```
 
-### 声明式导航与 Action 分发
+### 3. 被封锁的导航操作 (`navigate`)
+应用调用 `SDK.navigate(path)` -> 被底层截获为派发行动 `dispatch({ type: 'NAVIGATE', payload: path })` -> 系统更新 State 造成子树组件变更，全过程浏览器地址栏无响应修改。
 
-子应用无法直接操作 history.push。所有的跳转请求必须通过 SDK 暴露的 navigate 函数发起。
-单向数据流：navigate 实际上是调用了 dispatch({ type: 'NAVIGATE', payload: path })。
-内核接管：该 Action 发送到系统内核，内核更新该进程的 state.router.path，触发 DynamicRenderer 的重新渲染，从而完成页面切换。
+---
 
-```javascript
-// 在 createSdkForInstance 中封装
-const privateScope = {
-  navigate: path => dispatch({ type: 'NAVIGATE', payload: path })
-}
+## 七、系统级沙箱与安全隔离防护 (Security & Isolation)
 
-// 在 DynamicRenderer 中注入 props
-const commonProps = {
-  navigate: path => dispatch({ type: 'NAVIGATE', payload: path })
-}
-```
+这是在不脱离浏览器单文档限制下，处理不可信代码运行的极限探索，架构极其严防死守。
 
-### Bundle 与非 Bundle 模式的路由差异
-
-非 Bundle 模式：应用只有一个 main.content。此时路由失效，系统直接渲染 Main 组件，并传入一个空的 PageComponent。
-Bundle 模式：应用由多个文件组成。系统会解析整个内容包，并根据文件名（Key）建立路由表。
-
-```javascript
-if (!resource.isBundle) {
-  const Main = modules['main']?.Component
-  return <Main {...commonProps} PageComponent={() => <div />} />
-}
-```
-
-### 路由安全性与隔离性
-
-地址栏隔离：由于路由是虚拟的，子应用的跳转不会改变宿主的 URL。这防止了恶意应用通过修改 URL 锚点进行 Phishing（鱼叉式）攻击。
-历史记录沙箱：每个 App 的路由状态存储在自己的 state 对象中。A 应用的跳转完全不会影响 B 应用的返回逻辑，实现了真正的多任务进程隔离。
-深度冻结防护：由于路由状态也属于 state 的一部分，它在传入非 Iframe 模式的应用时会经过 deepCloneAndFreeze，防止子应用通过非法手段篡改路由历史堆栈。
-
-## APP 生存模式
-
-### 物理沙箱模式
-
-**逻辑解析：**
-这是最彻底的隔离方式。应用拥有完全独立的 `Window` 和 `Document` 上下文。
-
-- **物理隔离**：UI 泵入独立的 `iframe`。
-- **环境初始化**：通过 `syncStyles` 函数，宿主主动将自身的 `link` 和 `style` 标签克隆到沙箱中，确保 UI 一致性。
-- **API 拦截**：在 `IframeSandbox` 的 `init` 阶段，通过 `Object.defineProperty` 物理劫持原生 API，阻断直接持久化权限。
-
-**核心代码实现：**
-
+### 1. 物理沙箱模式 (Physical Sandbox)
+最彻底的硬隔离方式。通过独立的 \`iframe\` 容器阻断 DOM 树。
 ```javascript
 const syncStyles = targetDoc => {
-  // 宿主主动同步样式，而非让子应用自行加载 CDN
-  const parentStyles = document.querySelectorAll(
-    'link[rel="stylesheet"], style'
-  )
+  // 不允许子应用独立加载外链，由宿主控制并主动同步同源受控样式
+  const parentStyles = document.querySelectorAll('link[rel="stylesheet"], style')
   parentStyles.forEach(style => {
-    const clone = style.cloneNode(true)
-    targetDoc.head.appendChild(clone)
+    targetDoc.head.appendChild(style.cloneNode(true))
   })
 }
 
-// 物理层拦截
+// 物理层 API 爆破隔离
 Object.defineProperty(win, api, {
-  get: () => {
-    throw new Error(`物理沙箱拒绝直接访问 \`${api}\``)
-  },
+  get: () => { throw new Error(`物理沙箱拒绝直接访问 \`${api}\``) },
   configurable: false
 })
 ```
 
-### 寄生模式
+### 2. 寄生模式 (Parasitism) 与 Shadow DOM 防溢出
+对于需要深度交互的内部模块，其脱开 Iframe 直接渲染，系统采用“软隔离”：
+*   **状态强阻断机制 (`deepCloneAndFreeze`)**: 将传递的状态进行递归深拷贝再 `Object.freeze`。修改彻底无效，且无法污染宿主 Redux。
+*   **CSS 前缀强制加域 (`scopeCss`)**: 处理字符串为 `#proc-${pid}` 前缀，构建类 Shadow DOM 防御布局错乱。
 
-当 isParasitism 为真时，应用直接运行在宿主 DOM 中。为了防止“寄生者”反噬宿主，系统采用了 “软隔离”。
-数据防护：使用 deepCloneAndFreeze 对 state 进行递归深克隆与冻结，切断引用传递。应用对状态的修改仅限于其私有闭包，无法污染宿主 Redux。
-样式污染防控：利用 scopeCss 为子应用样式强制添加 #proc-${pid} 前缀，通过 CSS 权重确保样式不溢出。
+### 3. 桥接幽灵系统 (Ghost Sandbox Bridge)
+针对 JS 运行隔离，UI 又需要直接外露：后台创建一个 `display:none` 的 Iframe，将逻辑装弹在此处，UI 通过跨界回调（`factory.call`）执行渲染。
 
+### 4. SDK 防纂改深度克隆
+所有传递进进程的 API 包都被死锁，以防原型链投毒：
 ```javascript
-const commonProps = useMemo(() => {
-// 寄生模式下，必须通过深克隆+冻结阻断引用污染
-const safeState = isParasitism ? deepCloneAndFreeze(state) : state;
-return { state: safeState, ... };
-}, [state, isParasitism]);
-
-// 样式泵入宿主 head，但经过 scope 处理
-
-<style id={`runtime-css-${pid}`} dangerouslySetInnerHTML={{ __html: combinedCss }} />
-
-```
-
-### 桥接模式
-
-这是 SukinOS 的特有技术。当开启 singleIframe 且非寄生时触发。
-逻辑与 UI 分离：JS 逻辑运行在后台的“幽灵沙箱”（Ghost Iframe）中，而 UI 渲染通过 factory.call(sandboxWin) 桥接到宿主。
-特权通行证：应用由于在 ghostIframe 执行，无法访问原生持久化 API；但宿主注入的 SDK（如 useFileSystem）由于利用了宿主闭包，可以绕过沙箱限制操作文件，实现“受控的特权访问”。
-
-```javascript
-const sandboxWin = useBridgeMode ? getGhostSandbox() : window
-
-const compileAndRun = async code => {
-  const res = await compileSourceAsync(code)
-  // 执行上下文重定向到幽灵沙箱
-  res.factory.call(sandboxWin, { exports }, exports, instanceSDK)
+const deepCloneAndFreeze = (obj, seen = new WeakMap()) => {
+  // ... 跳过 React 内核以免阻塞，其余一律递归深度 Freeze
 }
-```
-
-## APP SDK 注入 & dispatch & navigate
-
-### 实例级 SDK 定制注入
-
-**逻辑解析：**
-系统不使用全局变量污染，而是为每个进程（PID）动态生成一份独一无二的 SDK 副本。
-
-- **工厂模式**：通过 `createSdkForInstance(dispatch, pid, isSystemApp)` 生成。
-- **作用域隔离**：SDK 内部闭包持有了当前进程的 `pid` 和内核 `dispatch`，这意味着应用发送的任何指令都自带身份标签。
-- **注入点**：在 `DynamicRenderer` 的 `compileAndRun` 阶段，通过 `factory.call(sandboxWin, ...)` 将 SDK 作为第三个参数注入到子应用的作用域中。
-
-**核心代码实现：**
-
-```javascript
-// DynamicRenderer.jsx 中的注入逻辑
-const instanceSDK = useMemo(() => {
-  return createSdkForInstance(dispatch, pid, isSystemApp)
-}, [dispatch, pid, isSystemApp])
-
-// 执行编译代码并传入 SDK
-res.factory.call(sandboxWin, { exports }, exports, instanceSDK)
-```
-
-SDK 深度冻结与防御性克隆
-为了防止恶意应用通过修改 SDK 属性（如劫持 useState）实施原型链污染或跨应用攻击，系统实施了双重防护：
-SDK 冻结：利用 safeDeepFreeze 递归冻结 SDK 对象。
-State 阻断：在寄生模式（Parasitism）或桥接模式（Bridge）下，由于子应用与宿主共享部分执行栈，系统通过 deepCloneAndFreeze 阻断 state 的引用传递。
-
-```javascript
-/\*\*
-
-- 递归冻结 SDK，只保留 React 核心组件的渲染机能（跳过 React 内部对象）
-  \*/
-  const deepCloneAndFreeze = (obj, seen = new WeakMap()) => {
-  if (obj === null || typeof obj !== 'object') return obj;
-  // 跳过 React 内部组件，防止渲染挂掉
-  if (key === 'React') {
-  clone[key] = obj[key];
-  return;
-  }
-  // ... 递归 Object.freeze
-  };
-
-// 在 SDK 工厂最后应用
 export const createSdkForInstance = (...) => {
-// ... 构建 AppSDK
-return Object.freeze(AppSDK); // 彻底封锁 App 对 SDK 的篡改权
+  return Object.freeze(AppSDK); // 彻底封锁 App 对 SDK 的篡改权
 };
 ```
 
-### Navigate 与 Kernel 的状态协同
-
-子应用的路由跳转并非修改地址栏，而是一个 “状态请求”。
-申请流程：应用调用 SDK.navigate(path)。
-Action 分发：该调用被转化为一个 dispatch({ type: 'NAVIGATE', payload: path })。
-内核处理：内核接收到该 Action 后，更新 State 树中对应 PID 的 router.path。
-响应式渲染：DynamicRenderer 监测到 state 变化，触发 AppInternalRenderer 重新计算当前路径对应的组件 Key。
-
+### 5. 存储空间 PID 命名隔离 (`createStorageProxy`)
+防止不同 APP 抢夺相同的 Storage Key 导致覆盖互串：
 ```javascript
-// 在 SDK 内部封装的 navigate 钩子
-const privateScope = {
-  navigate: path => dispatch({ type: 'NAVIGATE', payload: path })
-}
-
-// 在 DynamicRenderer 中响应 state.router.path
-const currentPath = state.router?.path || 'home'
-const RawPage = modules[currentPath]?.Component
-```
-
-### Dispatch 通信模型
-
-dispatch 是应用与外部世界的唯一交互通道。
-
-```javascript
-  dispatch(pid, action) {
-  //实际还是 UI 触发只是会区分给 kernel 还是 worker
-  const p = this.processes.get(pid)
-  const isSystem=this.isSystemApp(pid)
-  if (!p) return
-  if (action.type === 'KERNEL_CALL' && action.payload) {
-    //区分系统和非系统 应用处理器
-    isSystem ? this.#systemSwitch(p,action.payload) : this.#notSystemSwitch(p,action.payload)
-    return
-  }
-  //非内核事件,转发给对应的 worker 进程
-  p.worker.postMessage({ type: 'UI_ACTION', payload: action })
-}
-
-```
-
-# 通信架构
-
-## dispatch
-
-```javascript
-
-执行流程:
-worker:存储逻辑和内存信息
-UI:通过调用 dispatch 和对应 worker 的 action
-worker:触发更新,执行对应的行为,更新 State,并发送消息
-kernel:监听到 worker 消息,执行 app 的订阅更新 state
-
-dispatch(pid, action) {
-//实际还是 UI 触发只是会区分给 kernel 还是 worker
-const p = this.processes.get(pid)
-const isSystem=this.isSystemApp(pid)
-if (!p) return
-if (action.type === 'KERNEL_CALL' && action.payload) {
-//区分系统和非系统 应用处理器
-isSystem ? this.#systemSwitch(p,action.payload) : this.#notSystemSwitch(p,action.payload)
-return
-}
-//非内核事件,转发给对应的 worker 进程
-p.worker.postMessage({ type: 'UI_ACTION', payload: action })
-}
-```
-
-## APP 的 state 更新
-
-见 APP 注入 state
-
-```javascript
-subscribeApp(pid, cb) {
-if (!this.subscribers.has(pid)) this.subscribers.set(pid, new Set())
-this.subscribers.get(pid).add(cb)
-const cached = this.stateCache.get(pid)
-if (cached) cb({ type: 'STATE', payload: cached })
-return () => this.subscribers.get(pid)?.delete(cb)
-}
-
-```
-
-## 内核订阅
-
-```javascript
-this.eventBus=new EventTarget()
-subscribeSystem(cb) {
-  const handler = () => {
-  // console.log('触发订阅', cb)
-  cb()
-  };
-  this.eventBus.addEventListener('sys_change', handler)
-  return () => {
-  this.eventBus.removeEventListener('sys_change', handler)
-  };
-}
-需要触发就执行:this.eventBus.dispatchEvent(new Event('sys_change'))
-```
-
-# 安全相关
-
-## iframe 处理
-
-**逻辑解析：**
-SukinOS 并不简单地使用 Iframe 渲染，而是将其分为两种模式：
-
-- **物理沙箱 (`IframeSandbox`)**：通过独立的 `iframe` 容器阻断 DOM 树的直接遍历。
-- **幽灵沙箱 (`Ghost Sandbox`)**：仅作为 JS 执行上下文的单例 Iframe。它不显示 UI，仅负责执行那些需要“桥接”到宿主 UI 的逻辑。
-
-**核心代码实现：**
-
-```javascript
-// 幽灵沙箱：通过 Object.defineProperty 封锁原生持久化 API
-const getGhostSandbox = () => {
-  if (ghostIframeInstance) return ghostIframeInstance
-  const iframe = document.createElement('iframe')
-  iframe.style.display = 'none'
-  document.body.appendChild(iframe)
-  ghostIframeInstance = iframe.contentWindow
-
-  const restrictApis = ['indexedDB', 'localStorage', 'sessionStorage']
-  restrictApis.forEach(api => {
-    Object.defineProperty(ghostIframeInstance, api, {
-      get: () => {
-        throw new Error(`拒绝直接访问原生 API: ${api}`)
-      },
-      configurable: false
-    })
-  })
-  return ghostIframeInstance
-}
-```
-
-## shadowDom 处理 & 样式隔离处理
-
-系统通过 scopeCss 动态改写子应用上传的样式字符串。由于子应用挂载在 #proc-${pid} 容器下，所有的 CSS 选择器都会被强制增加该前缀，从而模拟 Shadow DOM 的封装特性，防止子应用修改宿主按钮颜色或布局。
-
-```javascript
-// 样式注入提供者：为 Iframe 内部创建独立的 Emotion 缓存
-const IframeStyleProvider = memo(({ children, containerNode }) => {
-  const [cache, setCache] = useState(null)
-  useEffect(() => {
-    if (!containerNode) return
-    const myCache = createCache({
-      key: 'iframe-mui',
-      container: containerNode.ownerDocument.head, // 将样式注入到隔离的 head
-      prepend: true
-    })
-    setCache(myCache)
-  }, [containerNode])
-  return <CacheProvider value={cache}>{children}</CacheProvider>
-})
-```
-
-## localStorage,indexDb 等
-
-这是 SukinOS 安全性的核心。不同应用可能使用相同的 Key（如 config），为了防止 A 应用覆盖 B 应用的数据，系统通过 Proxy 模式对 Storage 进行了 PID 命名空间化。
-
-```javascript
-- 基于 PID 的 Storage 代理
-- 逻辑：自动在 key 前面增加 pid-${pid}_ 前缀
-
 const createStorageProxy = (storage, pid) => {
-  const prefix = `pid-${pid}\_`;
+  const prefix = `pid-${pid}_`;
   return new Proxy(storage, {
-  get(target, prop) {
-  // 拦截 getItem，自动添加前缀
-  if (prop === 'getItem') return (key) => target.getItem(prefix + key);
-  // 拦截 setItem，强制添加前缀
-  if (prop === 'setItem') return (key, value) => target.setItem(prefix + key, value);
-  // 拦截 clear，只清理属于当前 PID 的 key
-  if (prop === 'clear') return () => {
-  Object.keys(target).forEach(k => k.startsWith(prefix) && target.removeItem(k));
-  };
-  // ... 绑定 target 上下文
-  const value = Reflect.get(...arguments);
-  return typeof value === 'function' ? value.bind(target) : value;
-  }
+    get(target, prop) {
+      if (prop === 'getItem') return (key) => target.getItem(prefix + key);
+      if (prop === 'setItem') return (key, value) => target.setItem(prefix + key, value);
+      if (prop === 'clear') return () => { /* 正则筛选属于自己的键清除... */ };
+      // ... 代理收尾工作
+    }
   });
-  };
+};
 ```
 
-## winodw 处理
-
-系统构建了一个 \_safeGlobalProxy，并将其重新映射到 window、self 和 globalThis。
-循环引用保护：当应用通过 window.window 或 self.globalThis 尝试获取原生对象时，Proxy 会递归返回 \_safeGlobalProxy，确保应用永远无法逃逸到真实的原生全局环境。
-Document 隔离：所有对全局 document 的访问都会被重定向到上文提到的 \_safeDocumentProxy，从而确保 CDN 拦截逻辑在任何角落都生效。
-
+### 6. 宿主 Window 环形迷宫护城河
+为了防止获取 `window.window` 时拿到真正的宿主句柄：
 ```javascript
 const _safeProxyHandler = {
   get(target, prop) {
-    // 拦截自循环引用，防止逃逸
+    // 拦截自循环引用，防止无限向外域查探导致越权逃逸
     if (prop === 'window' || prop === 'self' || prop === 'globalThis') {
       return _safeGlobalProxy
     }
-    // 强制返回受控的 document 代理
+    // 强制返回只包含受控 API 的替身 document 代理
     if (prop === 'document') {
       return _safeDocumentProxy
     }
-    // ...
   }
 }
 ```
 
-## XHR 和 Fetch 处理
-
-系统通过“作用域覆盖（Scope Shadowing）”技术，将全局 fetch 替换为 SDK 提供的受控版本。
-优先策略：如果 AppSDK 中存在经过进程标记（注入了 PID Header）的 fetch，则优先使用。
-透明感知：对于子应用开发者，调用的依然是 fetch(...)，但底层已自动完成了请求源的身份注入，实现了全链路的安全审计。
-
+### 7. Fetch 改写与 XHR 熔断机制
+*   网络包请求全部经过内核加签：
 ```javascript
-// 在编译后的闭包作用域中强制遮蔽全局 fetch
-const _safeFetch = (AppSDK && AppSDK.API && AppSDK.API.fetch)
-? AppSDK.API.fetch
-: globalThis.fetch;
---- 在沙箱块级作用域内部 ---
-{
-const fetch = _safeFetch; // 遮蔽原生的 fetch
-// ... 执行 App 逻辑
-}
+// 全局 Fetch 全部由 AppSDK 提供的加料版顶替。包含跨域审计和 PID 头部注入
+const _safeFetch = (AppSDK && AppSDK.API && AppSDK.API.fetch) ? AppSDK.API.fetch : globalThis.fetch;
 ```
+*   阻止老式漏洞百出的攻击渗透路径：在沙箱内声明 `const XMLHttpRequest = undefined` 强行击碎原代码使用 XHR 的可能。
 
-为了彻底消除传统 AJAX 带来的安全盲点（由于 XHR 的 API 设计过于陈旧，难以通过 Proxy 完美无缝劫持），SukinOS 采取了 “激进阻断”策略。
-定义清空：在沙箱块级作用域内，将 XMLHttpRequest 直接显式定义为 undefined。
-强制转型：这迫使子应用开发者必须使用现代的、受系统监管的 fetch API，从而保证所有网络流量都经过内核的 Header 标记处理器。
-
+### 8. CDN 外链防 XSS 注入与恶意加载检查
+拦截 `document.createElement('script')` 产生的对象 `src/href` 设置事件，匹配预设白名单 `TRUSTED_CDN_WHITELIST` 进行准入判定：
 ```javascript
-const XMLHttpRequest = undefined // 彻底切断 XHR 访问路径
-```
-
-## CDN 等外链处理 & SW 注册风险
-
-**逻辑解析：**
-系统不再被动等待资源加载，而是在 **DOM 节点创建阶段** 进行拦截。
-
-- **白名单机制**：通过 `TRUSTED_CDN_WHITELIST` 配置准入域名。
-- **createElement 劫持**：通过 `_safeDocumentProxy` 劫持 `document.createElement`。
-- **属性 Setter 监控**：一旦应用尝试创建 `script` 或 `link` 标签，系统会利用 `Object.defineProperty` 劫持其 `src` 或 `href` 属性。
-- **双重路径保护**：同时劫持原生 `setAttribute` 方法，防止开发者通过 `el.setAttribute('src', ...)` 绕过属性赋值检查。
-
-**核心函数逻辑：**
-
-```javascript
-// 在沙箱前导码中定义的准入检查
 const _isUrlAllowed = url => {
-  if (!url) return true
-  // 允许相对路径和内存 Blob 对象
-  if (url.startsWith('/') || url.startsWith('./') || url.startsWith('blob:'))
-    return true
-  // 仅允许白名单内的 CDN 域名
-  return _TRUSTED_CDN.some(domain => url.startsWith(domain))
+  if (url.startsWith('/') || url.startsWith('./') || url.startsWith('blob:')) return true
+  return _TRUSTED_CDN.some(domain => url.startsWith(domain)) // CDN检查
 }
 
-// 拦截 document.createElement
+// 代理标签属性监听
 if (tag === 'script' || tag === 'link') {
-  // 劫持 src/href 的 setter
   Object.defineProperty(el, attr, {
     set: v => {
       if (_isUrlAllowed(v)) el.setAttribute(attr, v)
-      else
-        throw new Error(
-          "Security Error: CDN URL '" + v + "' is not whitelisted."
-        )
+      else throw new Error("Security Error: CDN URL '" + v + "' is not whitelisted.")
     }
   })
 }
 ```
+
+---
+
+## 八、高性能窗口缝合架构 (Window Stitching Architecture)
+
+这是一个基于“宿主外壳 (Host Shell)”与“物理沙箱 (Iframe Sandbox)”缝合架构的完整交互层设计。为了突破 React 状态驱动在窗口化（UI频更）带来的渲染瓶颈，该架构直接绕开了 `React State`，实施物理坐标归一化以及 Iframe 指针锁定技术。
+
+### 1. 核心交互 Hook (`useWindowInteraction.js`)
+负责计算位移并直接操作 DOM，同时管理 Iframe 的状态，是“缝合行为”的中枢神经。
+```javascript
+import { useRef, useCallback, useEffect } from 'react'
+
+export const useWindowInteraction = ({ winSize, isIframeMode = false }) => {
+  const windowElRef = useRef(null)
+
+  // 逻辑坐标存储：摒弃 React Context 同步，单纯利用底层指引保持真实位置计算
+  const rectRef = useRef(winSize)
+  const actionType = useRef(null)
+  const startPos = useRef({ x: 0, y: 0 })
+  const startRect = useRef({ ...winSize })
+
+  // 缝合优化：准备交互锁定
+  const prepareForInteraction = useCallback((el) => {
+    if (!el) return
+    el.style.transition = 'none'
+
+    if (isIframeMode) {
+      el.style.willChange = 'transform, width, height, left, top'
+      const iframe = el.querySelector('iframe')
+      if (iframe) {
+        // 关键缝合点：锁定沙箱鼠标响应指针，让鼠标全部穿越给宿主的 document 监控拖拽
+        iframe.style.pointerEvents = 'none'
+      }
+    }
+  }, [isIframeMode])
+
+  // ... 鼠标移动运算和解绑 (核心：取消 transition/改变 transform3d/恢复指针事件) ...
+}
+```
+
+### 2. 窗口外壳组件宿放 (`ProcessWindow.jsx`)
+应用“宿主边界”本身，包裹沙箱实施隔离与视觉框限制。
+```javascript
+const ProcessWindow = ({ initialRect, isPhysicalSandbox }) => {
+  const { windowElRef, handleMouseDown } = useWindowInteraction({
+    winSize: initialRect,
+    isIframeMode: isPhysicalSandbox
+  })
+
+  return (
+    <div ref={windowElRef} style={{
+        position: 'absolute',
+        transition: isPhysicalSandbox ? 'none' : 'left 0.2s...',
+        contain: 'layout style' // 性能缝合的最关键独立渲染绘制指示器
+      }}>
+      {/* 拖拽手柄标题头 */}
+      <div onMouseDown={(e) => handleMouseDown(e, 'drag')}>标题</div>
+
+      {/* 内容区：实体落点缝合与寄生呈现兼容分配 */}
+      <div style={{ flex: 1, position: 'relative' }}>
+        {isPhysicalSandbox ? (
+          <iframe src="about:blank" style={{ width: '100%', height: '100%', border: 'none', contain: 'strict' }} />
+        ) : (
+          <div>寄生模式内容</div>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+### 3. 技术手册：四大缝合原理机制
+
+这套纯前端的底层模拟机制完美解决了浏览器常规实现桌面操作系统多视窗高频拖拽的失帧与卡顿问题：
+
+#### A. 物理坐标缝合 (Coordinate Stitching)
+*   **现象**：拖拽开启时如果基于 React 更新引发重渲染获取坐标（或 `getBoundingClientRect` 提取带偏移状态的 left），会发生拖拽错位脱手。
+*   **解决**：放弃基于中间层通信的同步查询，通过 `window.getComputedStyle(el)` 发动物理样式底层探针。由于计算结果只产生稳定的文档流动基础数据，完全剔除了瞬时 `transform` 余波对偏移量造成的干扰归一化，实现稳固接管。
+
+#### B. 事件流缝合 (Event Stitching)
+*   **现象**：快速位移或缩放窗口时，因为光标进入到了 Iframe 内（跨越了全局 DOM 管辖区），导致主页级的 `mousemove` 和拖拽动作意外中断流产（事件失水）。
+*   **解决**：基于钩子的交互前拦截 `prepareForInteraction`，触发一瞬间设置 `iframe.style.pointerEvents = 'none'`，使得子沙箱从事件点击面上瞬间“透明化存在”，宿主可无缝承接所有外发事件流而不产生切割吞噬效应，结束时回调复原。
+
+#### C. 渲染层缝合 (Render Stitching)
+*   **现象**：沙箱层内存在大量 UI DOM，任意一次外窗口的改动哪怕只是位移，都将引发 DOM 上推重排重画，渲染瓶颈在多任务下被指数放大性能震荡。
+*   **解决**：在宿放层容器应用 `contain: layout style` 以及在其子级限制严格范围 (`contain: strict`)。由浏览器级底层开启图形加速封闭盒子，阻断一切在沙箱内部发起的变更向上影响宿主树，把绘图区域独立切分，消除了布局反噬计算的极大系统开销。
+
+#### D. 物理化缝合 (Solidification)
+*   **实质**：虽然基于纯位移属性能够变动窗口布局坐标系（影响 Redux），但不具备 GPU 硬件图层升维加速功能；如果仅提供加速属性，系统又由于 React 更新周期机制产生断层和重影。
+*   **解决**：在 `useWindowInteraction` 的设计中采取双轨模式，鼠标滑动期间使用合成渲染接口的 `translate3d`，在操作结束后（MouseUp）由计算差值再物理固化回最基础的 CSS (`left/top`) 并落库 `saveWindowState`。这提供了高频的纵享丝滑交互，与稳定持久化的完美结合。
