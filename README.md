@@ -33,9 +33,9 @@
 
 ### 2. 架构逻辑解构 (Architecture & Logic)
 为了深入理解本项目，我们将系统逻辑解构为以下三个核心层级：
-*   **核心层 (Kernel / State Management)** (_位于 `src/store.jsx` 与 `src/main`_)：模拟了操作系统的“内核”功能，包含**进程管理**（维护 apps 队列与窗口 Z-Index）、**任务调度**（控制前台应用聚焦）、**消息总线**（应用间通信）。
-*   **文件系统层 (File System / VFS)** (_位于 `src/utils` 与 `src/resources`_)：封装 IndexedDB 作为虚拟硬盘，映射为树状目录结构，并支持桌面布局与资源的离线持久化。
-*   **运行时层 (Runtime & Compiler)** (_位于 `public` 与 `src/hooks`_)：利用 **Babel Standalone** 进行动态沙箱编译，**Web Worker** 接管异步计算，**Service Worker** 进行 PWA 离线代理。
+*   **核心层 (Kernel / State Management)** (_位于 `store.jsx` 与 `main`_)：模拟了操作系统的“内核”功能，包含**进程管理**（维护 apps 队列与窗口 Z-Index）、**任务调度**（控制前台应用聚焦）、**消息总线**（应用间通信）。
+*   **文件系统层 (File System / VFS)** (_位于 `utils` 与 `resources`_)：封装 IndexedDB 作为虚拟硬盘，映射为树状目录结构，并支持桌面布局与资源的离线持久化。
+*   **运行时层 (Runtime & Compiler)** (_位于 `public` 与 `hooks`_)：利用 **Babel Standalone** 进行动态沙箱编译，**Web Worker** 接管异步计算，**Service Worker** 进行 PWA 离线代理。
 
 ---
 
