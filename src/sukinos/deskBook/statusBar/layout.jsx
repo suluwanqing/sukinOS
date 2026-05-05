@@ -55,6 +55,16 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
     let isDown = false
     let startX = 0
     let scrollLeft = 0
+    let scrollTimeout = null // 用于判断滚动停止的定时器
+
+    //在滚动或拖拽时给容器添加类名，禁用内部元素的 hover 效果
+    const enableScrollingMode = () => {
+      el.classList.add(style[bem.is('scrolling')])
+      if (scrollTimeout) clearTimeout(scrollTimeout)
+      scrollTimeout = setTimeout(() => {
+        el.classList.remove(style[bem.is('scrolling')])
+      }, 150) // 150ms 没产生新的滚动，认为滚动结束
+    }
 
     const onMouseDown = (e) => {
       isDown = true
@@ -66,6 +76,7 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
       if (!isDown) return
       const dx = e.clientX - startX
       el.scrollLeft = scrollLeft - dx
+      enableScrollingMode() // 拖拽时触发滚动模式
     }
 
     const onMouseUp = () => {
@@ -76,19 +87,21 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
       if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
         e.preventDefault()
         el.scrollLeft += e.deltaY
+        enableScrollingMode() // 滚轮时触发滚动模式
       }
     }
 
     el.addEventListener('mousedown', onMouseDown)
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
-    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('wheel', onWheel, { passive: false }) //使用了 preventDefault，passive 应该为 false
 
     return () => {
       el.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
       el.removeEventListener('wheel', onWheel)
+      if (scrollTimeout) clearTimeout(scrollTimeout)
     }
   }, [displayApps])
 

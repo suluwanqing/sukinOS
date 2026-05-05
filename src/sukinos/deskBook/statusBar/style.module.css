@@ -34,6 +34,9 @@
   -webkit-overflow-scrolling: touch;
   align-items: center;
 }
+.is-scrolling > div {
+  pointer-events: none !important;
+}
 
 .su-status__container:active {
   cursor: grabbing;
@@ -52,7 +55,6 @@
   justify-content: center;
   position: relative;
   cursor: pointer;
-  transition: all 0.2s;
   flex-shrink: 0;
 }
 
@@ -97,7 +99,6 @@
   height: 3px;
   background-color: var(--su-primary-600);
   border-radius: 3px;
-  transition: width 0.2s;
 }
 
 .su-status__active-hibernated {
@@ -107,13 +108,13 @@
   height: 3px;
   background-color: var(--su-primary-200);
   border-radius: 3px;
-  transition: width 0.2s;
 }
 
 .is-active {
   background-color: rgba(var(--su-white-rgb), 0.15);
 }
 
-.su-status__icon-box:active .su-status__active-indicator {
-  width: 10px;
+.su-status__icon-box:active .su-status__active-indicator,
+.su-status__icon-box:active .su-status__active-hibernated {
+  transform: scaleX(0.625);
 }

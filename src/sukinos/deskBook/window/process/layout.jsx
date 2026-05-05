@@ -5,6 +5,8 @@ import { CacheProvider } from '@emotion/react'
 import { compileSourceAsync, scopeCss } from '@/sukinos/utils/process/renderWindow'
 import { ENV_KEY_META_INFO } from '@/sukinos/utils/config'
 import { createSdkForInstance } from "@/sukinos/resources/sdk"
+// 引入全局样式同步中心，替换原来每个 iframe 各自的 querySelectorAll + MutationObserver
+import { registerSandboxDoc } from '@/sukinos/utils/process/styleSyncHub'
 
 /**
  * 幽灵沙箱管理器 - 单例模式
@@ -62,6 +64,9 @@ class ErrorBoundary extends React.Component {
     };
     this.retryTimer = null;
     this.maxRetryCount = 3;
+    // 同一错误 5s 内只允许触发一次自动重试
+    // 避免崩溃应用以毫秒级重新渲染->再崩溃，把主线程烧掉
+    this._lastCatchAt = 0;
   }
 
   static getDerivedStateFromError(error) {
@@ -75,6 +80,14 @@ class ErrorBoundary extends React.Component {
       // console.error(`进程 [${this.props.pid}] 失败：已达到最大重试次数`);
       return;
     }
+
+    // 错误节流
+    const now = Date.now();
+    if (now - this._lastCatchAt < 5000 && this.state.retryCount > 0) {
+      // 5s 内重复崩溃，跳过本次自动重试，等用户手动操作
+      return;
+    }
+    this._lastCatchAt = now;
 
     // 只要当前不在重试倒计时中，就触发重试
     if (!this.state.isRetrying) {
@@ -250,32 +263,18 @@ const IframeStyleProvider = memo(({ children, containerNode }) => {
  */
 const IframeSandbox = memo(({ css, pid, onMount }) => {
   const frameRef = useRef(null);
-  const syncDebounceRef = useRef(null);
-  const syncedStylesRef = useRef(new Set());
-  const syncStyles = useCallback((targetDoc) => {
-    // 全量同步,主要是父的样式
-    const parentStyles = document.querySelectorAll('link[rel="stylesheet"], style');
+  // 移除每实例的 syncDebounceRef / syncedStylesRef / 私有 syncStyles
+  // 这些工作全部交给全局 styleSyncHub 处理
+  const unregisterStyleSyncRef = useRef(null);
+  // 缓存最近一次 css，避免相同字符串重复 set innerHTML 触发 iframe 全量重排
+  const lastCssRef = useRef('');
 
-    parentStyles.forEach(style => {
-      const styleId = style.id || style.getAttribute('data-styled');
-      // 双重检查：缓存 + DOM
-      if (styleId) {
-        if (syncedStylesRef.current.has(styleId)) return;
-        if (targetDoc.getElementById(styleId)) {
-          syncedStylesRef.current.add(styleId);
-          return;
-        }
-      }
-      const clone = style.cloneNode(true);
-      targetDoc.head.appendChild(clone);
-
-      if (styleId) syncedStylesRef.current.add(styleId);
-    });
-  }, []);
   useEffect(() => {
     const doc = frameRef.current?.contentDocument;
     const win = frameRef.current?.contentWindow;
     if (!doc) return;
+
+    let keyHandler = null;
 
     const init = () => {
       // 同步在物理隔离 iframe 环境下应用 JS 限制拦截
@@ -294,7 +293,8 @@ const IframeSandbox = memo(({ css, pid, onMount }) => {
 
         // 解决 Iframe 内部焦点导致外部桌面快捷键失效的问题
         // 将 iframe 内部的按键事件强行转发回父窗口，以触发 DeskBook 中的全局监听
-        win.addEventListener('keydown', (e) => {
+        // 抽出 handler 引用，组件卸载时移除监听，避免泄漏
+        keyHandler = (e) => {
           window.parent.postMessage({
             type: 'SUKIN_GLOBAL_KEY',
             eventPayload: {
@@ -303,10 +303,13 @@ const IframeSandbox = memo(({ css, pid, onMount }) => {
               code: e.code
             }
           }, '*');
-        });
+        };
+        win.addEventListener('keydown', keyHandler);
       }
 
-      syncStyles(doc);
+      // 用全局样式同步中心替代私有 querySelectorAll + Observer
+      unregisterStyleSyncRef.current = registerSandboxDoc(doc);
+
       if (!doc.getElementById('sandbox-layout')) {
         const style = doc.createElement('style');
         style.id = 'sandbox-layout';
@@ -348,37 +351,26 @@ const IframeSandbox = memo(({ css, pid, onMount }) => {
     if (doc.readyState === 'complete') init();
     else frameRef.current.onload = init;
 
-    // 用防抖，减少同步频率
-    const handleStyleChange = () => {
-      if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
-      syncDebounceRef.current = setTimeout(() => syncStyles(doc), 100);
-    };
-
-    // 只监听新增，不监听删除和修改
-    const observer = new MutationObserver((mutations) => {
-      const shouldSync = mutations.some(m =>
-        m.type === 'childList' &&
-        m.addedNodes.length > 0 &&
-        Array.from(m.addedNodes).some(node =>
-          node.nodeName === 'STYLE' ||
-          (node.nodeName === 'LINK' && node.rel === 'stylesheet')
-        )
-      );
-      if (shouldSync) handleStyleChange();
-    });
-
-    observer.observe(document.head, { childList: true, subtree: false });
-
     return () => {
-      observer.disconnect();
-      if (syncDebounceRef.current) clearTimeout(syncDebounceRef.current);
+      // 注销全局样式同步 + 移除 keydown 监听，防止泄漏
+      if (unregisterStyleSyncRef.current) {
+        unregisterStyleSyncRef.current();
+        unregisterStyleSyncRef.current = null;
+      }
+      if (win && keyHandler) {
+        try { win.removeEventListener('keydown', keyHandler); } catch (e) {}
+      }
     };
-  }, [pid, onMount, syncStyles]);
+  }, [pid, onMount]);
 
   // 样式更新优化：只更新变化的部分
   useEffect(() => {
     const doc = frameRef.current?.contentDocument;
-    if (!doc || !css) return;
+    if (!doc || css == null) return;
+
+    // 增加 ref 层短路，避免父级因引用变化导致的无意义 set
+    if (lastCssRef.current === css) return;
+    lastCssRef.current = css;
 
     let styleTag = doc.getElementById(`runtime-css-${pid}`);
     if (!styleTag) {
@@ -395,22 +387,14 @@ const IframeSandbox = memo(({ css, pid, onMount }) => {
 
   return (
     <iframe
-      key={pid}
       ref={frameRef}
-      title={`sandbox-proc-${pid}`}
-      loading="lazy"
-      style={{
-        width: '100%',
-        height: '100%',
-        border: 'none',
-        display: 'block',
-        willChange: 'transform',
-        contain: 'strict'  // 优化：contain: strict 告诉浏览器这个元素内部变化不影响外部
-      }}
+      title={`sandbox-${pid}`}
+      style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
     />
   );
 }, (prev, next) => {
-  return prev.pid === next.pid && prev.css === next.css;
+  // 注意 onMount 必须由父级 useCallback 稳定引用，否则等于无 memo
+  return prev.pid === next.pid && prev.css === next.css && prev.onMount === next.onMount;
 });
 
 /**
@@ -434,13 +418,33 @@ const AppInternalRenderer = memo(({ modules, resource, commonProps, currentPath,
       <Layout {...commonProps} PageComponent={ConnectedPage} />
     </div>
   );
+}, (prev, next) => {
+  return prev.pid === next.pid
+      && prev.modules === next.modules
+      && prev.resource === next.resource
+      && prev.currentPath === next.currentPath
+      && prev.commonProps === next.commonProps;
 });
+
+
+// 因为 worker 通过 postMessage 传递过来的 state 每次全是新的对象引用（包括深层级）。
+// 高频滚动如果引发了无效 state 更新，浅比较挡不住，会引发灾难性的全量重新渲染。
+const deepEqual = (a, b) => {
+  if (a === b) return true;
+  if (!a || !b || typeof a !== 'object' || typeof b !== 'object') return false;
+  const ka = Object.keys(a), kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  for (const k of ka) {
+    if (!deepEqual(a[k], b[k])) return false;
+  }
+  return true;
+};
 
 /**
  * 动态渲染器
  * 负责应用资源的动态编译、SDK 注入及生命周期管理。
  */
-const DynamicRenderer = memo(({
+const DynamicRenderer =({
   resource, state, dispatch, pid, isSystemApp, onFocus,
   forceReStartApp, reStartApp, onKill ,generateAppSetting,ref:renderRef
 }) => {
@@ -461,13 +465,20 @@ const DynamicRenderer = memo(({
   }, []);
 
   // 使用导入的工厂函数来动态创建为当前进程定制的 SDK
+  // dispatch 在 kernel 单例下其实是稳定的，但保险起见用 ref 锁住，
+  // 避免外部偶然换 dispatch 引用就重建整个 SDK 并导致下面的编译副作用重跑
+  const dispatchRef = useRef(dispatch);
+  useEffect(() => { dispatchRef.current = dispatch; }, [dispatch]);
+  const stableDispatch = useCallback((...args) => dispatchRef.current?.(...args), []);
+
   const instanceSDK = useMemo(() => {
-    return createSdkForInstance(dispatch, pid, isSystemApp);
-  }, [dispatch, pid, isSystemApp]);
+    return createSdkForInstance(stableDispatch, pid, isSystemApp);
+  }, [stableDispatch, pid, isSystemApp]);
 
   // 支持上下文注入
   useEffect(() => {
     if (!resource) return
+    let cancelled = false; // 防止 resource 切换时旧编译结果覆盖新结果
     const loadAll = async () => {
       const resultMap = {};
       // 如果开启 Bridge 模式，JS 执行环境切换到幽灵沙箱 (带有底层API拦截的单实例)
@@ -496,10 +507,12 @@ const DynamicRenderer = memo(({
           }
         }
       }
-      setModules(resultMap)
+      if (!cancelled) setModules(resultMap)
     };
     loadAll();
-  }, [resource, instanceSDK, useBridgeMode]);
+    return () => { cancelled = true; };
+    // 只在 resource / 模式变更时重编译，避免每次 dispatch 引用变化都全量重编译
+  }, [resource, useBridgeMode, instanceSDK]);
 
   const combinedCss = useMemo(() => {
     if (!modules) return '';
@@ -507,24 +520,36 @@ const DynamicRenderer = memo(({
     return scopeCss(rawCss, pid);
   }, [modules, pid]);
 
+  // state 深比较worker postMessage 反序列化每次都得到新引用，
+  // 但内容可能和上次完全相同。这里把"等价 state"折叠为同一引用，下游 memo 才能短路
+  const stableStateRef = useRef(state);
+  const stableState = useMemo(() => {
+    if (deepEqual(stableStateRef.current, state)) {
+      return stableStateRef.current;
+    }
+    stableStateRef.current = state;
+    return state;
+  }, [state]);
+
   const commonProps = useMemo(() => {
     // 由于 state 是从 Worker (postMessage) 传递过来的，
     // 本身已经是深拷贝，直接使用可避免引用污染，同时减少递归克隆带来的性能损耗
     return {
-      state: state,
+      state: stableState,
       handleFocus: stableOnFocus,
-      dispatch,
+      dispatch: stableDispatch,
       pid,
       reStartApp,
       forceReStartApp,
       navigate: instanceSDK.API.navigate,
       fetch:instanceSDK.API.fetch
     }
-  }, [state, stableOnFocus, dispatch, pid, instanceSDK]);
+    //把 dispatch 替换为 stableDispatch，并使用 stableState
+  }, [stableState, stableOnFocus, stableDispatch, pid, instanceSDK, reStartApp, forceReStartApp]);
 
   if (!modules) return <div>加载中...</div>
 
-  const currentPath = state.router?.path || 'home';
+  const currentPath = stableState?.router?.path || 'home';
 
   return (
     <div
@@ -538,7 +563,7 @@ const DynamicRenderer = memo(({
       */}
       <ErrorBoundary
         pid={pid}
-        state={state}
+        state={stableState}
         reStartApp={reStartApp}
         forceReStartApp={forceReStartApp}
         onKill={onKill}
@@ -578,12 +603,18 @@ const DynamicRenderer = memo(({
       </ErrorBoundary>
     </div>
   );
-}, (prevProps, nextProps) => {
-  // 忽略 dispatch, onFocus, forceReStartApp, reStartApp, onKill 的对比以减少无意义的重新渲染
-  return prevProps.pid === nextProps.pid &&
-         prevProps.state === nextProps.state &&
+}
+const memoEqual=(prevProps, nextProps) => {
+  // 增加 dispatch / onFocus / 回调引用比较；state 内容相同的折叠在内部完成，
+  // 这里仍按引用比较即可——配合 useProcessBridge 端的稳定推送可达到最大短路效果
+  return prevProps.state === nextProps.state &&
          prevProps.resource === nextProps.resource &&
-         prevProps.generateAppSetting === nextProps.generateAppSetting;
-});
-
-export default DynamicRenderer;
+          prevProps.generateAppSetting === nextProps.generateAppSetting
+        //  && prevProps.pid === nextProps.pid &&
+        //  prevProps.dispatch === nextProps.dispatch &&
+        //  prevProps.onFocus === nextProps.onFocus &&
+        //  prevProps.reStartApp === nextProps.reStartApp &&
+        //  prevProps.forceReStartApp === nextProps.forceReStartApp &&
+        //  prevProps.onKill === nextProps.onKill;
+}
+export default memo(DynamicRenderer, memoEqual);

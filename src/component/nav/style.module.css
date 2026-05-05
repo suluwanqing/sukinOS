@@ -1,7 +1,6 @@
 .su-nav {
   display: flex;
   box-sizing: border-box;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 14px;
 }
 
@@ -59,8 +58,6 @@
   align-items: center;
   height: 40px;
   color: var(--su-nav-text-color);
-  transition: all 0.3s;
-  border-radius: 4px;
   margin: 0 8px;
   overflow: hidden;
   white-space: nowrap;
@@ -102,7 +99,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 1;
-  transition: opacity 0.3s;
 }
 
 .su-nav.is-collapsed .su-nav__label {
@@ -117,7 +113,6 @@
   align-items: center;
   justify-content: center;
   margin-left: 8px;
-  transition: transform 0.3s;
 }
 
 .su-nav__item.is-expanded > .su-nav__content .su-nav__arrow {
@@ -126,7 +121,7 @@
 
 .su-nav__submenu {
   overflow: hidden;
-  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s;
+  transition: height 0.3s;
 }
 
 .su-nav__dropdown {
@@ -142,7 +137,6 @@
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px);
-  transition: all 0.3s;
   z-index: 100;
 }
 
@@ -202,7 +196,7 @@
   --su-nav-text-color: var(--su-dark-text-secondary);
   --su-nav-hover-bg: var(--su-gray-800);
   --su-nav-hover-text-color: var(--su-white);
-   --su-nav-hover-bg: var(--su-gray-900);
+  --su-nav-hover-bg: var(--su-gray-900);
   --su-nav-active-text-color: var(--su-white);
 }
 
@@ -295,7 +289,7 @@
   padding-left: 40px;
 }
 
-.su-nav--vertical .su-nav__item.is-child:nth-child(n+2) > .su-nav__content {
+.su-nav--vertical .su-nav__item.is-child:nth-child(n + 2) > .su-nav__content {
   border-top: 1px solid var(--su-nav-border-color);
   margin-top: 4px;
   padding-top: 4px;

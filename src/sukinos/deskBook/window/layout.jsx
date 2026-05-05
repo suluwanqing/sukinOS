@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, memo } from 'react'
 import { createNamespace } from '/utils/js/classcreate'
 import { useWindowInteraction } from '@/sukinos/hooks/useWindowInteraction'
 import useProcessBridge from '@/sukinos/hooks/useProcessBridge'
@@ -116,8 +116,9 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
         zIndex: zIndex || 10,
         /* 内联样式强制 display 解决空白，同时应用 will-change 优化电影感缩放动画性能 */
         display: showWindowSwitcher ? (isSelected ? 'flex' : 'none') : undefined,
-        transition: isPhysicalSandbox ? 'none' : 'all 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
-        willChange: 'transform, opacity, top, left, width, height'
+        // 否则极小的内部滚动、或者哪怕是 width/height 的 1px 微调，都会由于 state 同步触发无休止的 Layout 和重绘
+        // 改为只指定真实需要动画的特定属性（如缩放显隐时的 transform 和 opacity 等几何/显示属性）
+        transition: isPhysicalSandbox ? 'none' : 'transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1), width 0.45s cubic-bezier(0.16, 1, 0.3, 1), height 0.45s cubic-bezier(0.16, 1, 0.3, 1), top 0.45s cubic-bezier(0.16, 1, 0.3, 1), left 0.45s cubic-bezier(0.16, 1, 0.3, 1)',
       }}
     >
       <div
@@ -176,4 +177,20 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   );
 };
 
-export default ProcessWindow;
+
+const memoEqual = (prevProps, nextProps) => {
+  return (
+    // prevProps.pid === nextProps.pid &&
+    // prevProps.zIndex === nextProps.zIndex &&
+    prevProps.isShow === nextProps.isShow &&
+    prevProps.isDisplay === nextProps.isDisplay &&
+    prevProps.showWindowSwitcher === nextProps.showWindowSwitcher &&
+    prevProps.isSelected === nextProps.isSelected &&
+    // 系统级配置状态
+    // prevProps.exposeState === nextProps.exposeState &&
+    // prevProps.app === nextProps.app &&
+    prevProps.generateAppSetting === nextProps.generateAppSetting
+  );
+};
+
+export default memo(ProcessWindow, memoEqual);
