@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Worker 资源文件提取器 (强制 Jsx 后缀版)</title>
+    <!-- 引入 JSZip 库，用于打包下载功能 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f1f5f9;
+        color: #1e293b;
+        margin: 0;
+        padding: 30px 15px;
+      }
+      .container {
+        max-width: 900px;
+        margin: 0 auto;
+        background: #ffffff;
+        padding: 30px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+      }
+      h1 {
+        font-size: 22px;
+        margin-top: 0;
+        color: #0f172a;
+        border-bottom: 1px solid #e2e8f0;
+        padding-bottom: 15px;
+      }
+      .drop-zone {
+        border: 2px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 50px 20px;
+        text-align: center;
+        background-color: #f8fafc;
+        cursor: pointer;
+        transition:
+          border-color 0.2s,
+          background-color 0.2s;
+      }
+      .drop-zone:hover,
+      .drop-zone.dragover {
+        border-color: #3b82f6;
+        background-color: #eff6ff;
+      }
+      .drop-zone p {
+        margin: 0;
+        font-size: 15px;
+        color: #64748b;
+      }
+      #fileInput {
+        display: none;
+      }
+      .info-panel {
+        margin-top: 30px;
+        padding: 20px;
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        display: none;
+      }
+      .info-title {
+        font-weight: 600;
+        font-size: 15px;
+        margin-bottom: 15px;
+        color: #0f172a;
+        border-left: 4px solid #2563eb;
+        padding-left: 8px;
+      }
+      .info-grid {
+        display: grid;
+        grid-template-columns: 140px 1fr;
+        row-gap: 10px;
+        font-size: 14px;
+        margin-bottom: 20px;
+      }
+      .info-label {
+        color: #475569;
+        font-weight: 500;
+      }
+      .info-value {
+        word-break: break-all;
+      }
+      .file-list {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 6px;
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+      }
+      .file-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 15px;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 13px;
+      }
+      .file-item:last-child {
+        border-bottom: none;
+      }
+      .file-name {
+        font-family: Consolas, Monaco, monospace;
+        color: #0f172a;
+        word-break: break-all;
+      }
+      .file-size {
+        color: #64748b;
+        font-size: 11px;
+      }
+      .btn-group {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      button {
+        background-color: #2563eb;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 500;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.15s;
+      }
+      button:hover {
+        background-color: #1d4ed8;
+      }
+      button:disabled {
+        background-color: #cbd5e1;
+        color: #94a3b8;
+        cursor: not-allowed;
+      }
+      button.secondary {
+        background-color: #475569;
+      }
+      button.secondary:hover {
+        background-color: #334155;
+      }
+      .status-msg {
+        margin-top: 15px;
+        font-size: 14px;
+        padding: 10px;
+        border-radius: 4px;
+        display: none;
+      }
+      .success {
+        display: block;
+        background-color: #dcfce7;
+        color: #15803d;
+        border: 1px solid #bbf7d0;
+      }
+      .error {
+        display: block;
+        background-color: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Worker 资源文件多轨道提取器</h1>
+
+      <div class="drop-zone" id="dropZone">
+        <p>点击选择或拖拽包含打包资源的 Worker JS 文件至此处</p>
+        <input type="file" id="fileInput" accept=".js" />
+      </div>
+
+      <div id="infoPanel" class="info-panel">
+        <div class="info-title">配置与运行元数据</div>
+        <div class="info-grid">
+          <div class="info-label">资源标识 ID:</div>
+          <div class="info-value" id="resIdVal">-</div>
+
+          <div class="info-label">对应模块名称:</div>
+          <div class="info-value" id="nameVal">-</div>
+
+          <div class="info-label">包含文件总数:</div>
+          <div class="info-value" id="fileCountVal">-</div>
+        </div>
+
+        <div class="info-title">提取的文件列表 (已强制更改为 .js 后缀)</div>
+        <div class="file-list" id="fileListContainer"></div>
+
+        <div class="btn-group">
+          <button id="folderBtn" disabled>保存到本地目录 (保持树状结构)</button>
+          <button id="zipBtn" class="secondary" disabled>打包下载为 ZIP</button>
+        </div>
+
+        <div id="statusMsg" class="status-msg"></div>
+      </div>
+    </div>
+
+    <script>
+      // 配置常数定义
+      const ENV_KEY_RESOURCE_ID = 'resourceId'
+      const ENV_KEY_NAME = 'name'
+      const ENV_KEY_IS_BUNDLE = 'isBundle'
+
+      const getMarkers = key => ({
+        start: `/* <<<SUKIN_OS_${key}_BLOCK_START_V2>>> */`,
+        end: `/* <<<SUKIN_OS_${key}_BLOCK_END_V2>>> */`,
+      })
+
+      const extractByMarkers = (source, key) => {
+        const {start, end} = getMarkers(key)
+        const sIdx = source.indexOf(start)
+        const eIdx = source.indexOf(end)
+        if (sIdx !== -1 && eIdx !== -1) {
+          return source.substring(sIdx + start.length, eIdx).trim()
+        }
+        return null
+      }
+
+      /**
+       * 辅助函数：确保生成的文件名必须以 .js 结尾
+       * 如果已有其他后缀（如 .html, .css），则将其替换为 .js；若无后缀则直接追加 .js
+       */
+      const ensureJsExt = filePath => {
+        if (filePath.endsWith('.jsx')) {
+          return filePath
+        }
+        const lastDotIndex = filePath.lastIndexOf('.')
+        const lastSlashIndex = filePath.lastIndexOf('/')
+
+        // 确保点号是在文件名部分，而不是目录路径中
+        if (lastDotIndex > lastSlashIndex && lastDotIndex > 0) {
+          return filePath.substring(0, lastDotIndex) + '.jsx'
+        }
+        return filePath + '.jsx'
+      }
+
+      // 状态维护
+      let extractedFiles = {}
+      let defaultPrefixName = 'extracted_files'
+
+      // 页面元素获取
+      const dropZone = document.getElementById('dropZone')
+      const fileInput = document.getElementById('fileInput')
+      const infoPanel = document.getElementById('infoPanel')
+      const fileListContainer = document.getElementById('fileListContainer')
+      const folderBtn = document.getElementById('folderBtn')
+      const zipBtn = document.getElementById('zipBtn')
+      const statusMsg = document.getElementById('statusMsg')
+
+      // 事件挂载
+      dropZone.addEventListener('click', () => fileInput.click())
+      dropZone.addEventListener('dragover', e => {
+        e.preventDefault()
+        dropZone.classList.add('dragover')
+      })
+      dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'))
+      dropZone.addEventListener('drop', e => {
+        e.preventDefault()
+        dropZone.classList.remove('dragover')
+        if (e.dataTransfer.files.length > 0) {
+          handleFile(e.dataTransfer.files[0])
+        }
+      })
+      fileInput.addEventListener('change', e => {
+        if (e.target.files.length > 0) {
+          handleFile(e.target.files[0])
+        }
+      })
+
+      function handleFile(file) {
+        clearStatus()
+        const reader = new FileReader()
+        reader.onload = e => {
+          processCode(e.target.result)
+        }
+        reader.onerror = () => showStatus('读取本地文件失败', 'error')
+        reader.readAsText(file)
+      }
+
+      function processCode(code) {
+        try {
+          extractedFiles = {}
+          let resourceId = 'unknown'
+          let name = 'module'
+          let isBundle = false
+
+          // 1. 解析 SYS_CONFIG 块
+          const sysRaw = extractByMarkers(code, 'SYS_CONFIG')
+          if (sysRaw) {
+            const sysConfig = JSON.parse(sysRaw)
+            resourceId = sysConfig[ENV_KEY_RESOURCE_ID] || resourceId
+            name = sysConfig[ENV_KEY_NAME] || name
+            isBundle = Boolean(sysConfig[ENV_KEY_IS_BUNDLE])
+          }
+          defaultPrefixName = name
+
+          // 2. 解析 ORIGIN_COMPONENT 块
+          const componentRaw = extractByMarkers(code, 'ORIGIN_COMPONENT')
+          if (!componentRaw) {
+            showStatus('未在该文件中检测到 ORIGIN_COMPONENT 块数据。', 'error')
+            return
+          }
+
+          let parsedComponent
+          try {
+            parsedComponent = JSON.parse(componentRaw)
+          } catch (jsonErr) {
+            // 如果外层 JSON 解析失败，则直接将其视为纯文本/单代码文件处理
+            parsedComponent = componentRaw
+          }
+
+          // 3. 识别打包结构并展开（兼容多文件 JSON 与单文件字符串）
+          if (
+            parsedComponent &&
+            typeof parsedComponent === 'object' &&
+            !Array.isArray(parsedComponent)
+          ) {
+            // 类似 JSON 的多文件映射结构，将每个 key 过滤并保证以 .js 结尾
+            for (const [key, value] of Object.entries(parsedComponent)) {
+              const safeKey = ensureJsExt(key)
+              extractedFiles[safeKey] = value
+            }
+          } else {
+            // 单个文件形式，强制输出后缀为 .js
+            const singleFileName = ensureJsExt(name)
+            extractedFiles[singleFileName] =
+              typeof parsedComponent === 'string'
+                ? parsedComponent
+                : JSON.stringify(parsedComponent, null, 2)
+          }
+
+          renderUI(resourceId, name, isBundle)
+        } catch (err) {
+          console.error(err)
+          showStatus(`解析文件时发生内部异常: ${err.message}`, 'error')
+        }
+      }
+
+      function renderUI(resId, name, isBundle) {
+        infoPanel.style.display = 'block'
+        document.getElementById('resIdVal').textContent = resId
+        document.getElementById('nameVal').textContent = name
+
+        const fileKeys = Object.keys(extractedFiles)
+        document.getElementById('fileCountVal').textContent = `${fileKeys.length} 个`
+
+        // 渲染解析出的文件列表
+        fileListContainer.innerHTML = ''
+        fileKeys.forEach(filePath => {
+          const content = extractedFiles[filePath]
+          const byteSize = new Blob([
+            typeof content === 'string' ? content : JSON.stringify(content),
+          ]).size
+          const sizeText = byteSize > 1024 ? `${(byteSize / 1024).toFixed(2)} KB` : `${byteSize} B`
+
+          const item = document.createElement('div')
+          item.className = 'file-item'
+          item.innerHTML = `
+        <span class="file-name">${filePath}</span>
+        <span class="file-size">${sizeText}</span>
+      `
+          fileListContainer.appendChild(item)
+        })
+
+        if (fileKeys.length > 0) {
+          folderBtn.disabled = false
+          zipBtn.disabled = false
+        } else {
+          folderBtn.disabled = true
+          zipBtn.disabled = true
+        }
+      }
+
+      // 方案一：写回到本地真实的目录树
+      folderBtn.addEventListener('click', async () => {
+        if (!window.showDirectoryPicker) {
+          showStatus(
+            '您的浏览器暂不支持直接写入本地目录操作，建议使用右侧的“打包下载为 ZIP”方案。',
+            'error'
+          )
+          return
+        }
+
+        try {
+          clearStatus()
+          const dirHandle = await window.showDirectoryPicker()
+
+          const outputDirName =
+            defaultPrefixName.replace(/[\/\\:\*\?"<>\|]/g, '_') || 'extracted_files'
+          const rootSubDir = await dirHandle.getDirectoryHandle(outputDirName, {create: true})
+
+          for (const [path, content] of Object.entries(extractedFiles)) {
+            const parts = path.split('/')
+            let currentDir = rootSubDir
+
+            for (let i = 0; i < parts.length - 1; i++) {
+              const part = parts[i]
+              if (part === '.' || part === '..' || !part) continue
+              currentDir = await currentDir.getDirectoryHandle(part, {create: true})
+            }
+
+            const fileName = parts[parts.length - 1]
+            const fileHandle = await currentDir.getFileHandle(fileName, {create: true})
+            const writable = await fileHandle.createWritable()
+
+            const fileContent =
+              typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+            await writable.write(fileContent)
+            await writable.close()
+          }
+
+          showStatus(`保存成功！所有物理文件已正确写入本地目录: /${outputDirName}`, 'success')
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.error(err)
+            showStatus(`本地文件夹写入中断: ${err.message}`, 'error')
+          }
+        }
+      })
+
+      // 方案二：压缩打包后统一触发普通链接下载
+      zipBtn.addEventListener('click', async () => {
+        try {
+          clearStatus()
+          if (typeof JSZip === 'undefined') {
+            showStatus('未加载到 JSZip 压缩工具，无法完成压缩操作。', 'error')
+            return
+          }
+
+          const zip = new JSZip()
+          for (const [path, content] of Object.entries(extractedFiles)) {
+            const fileContent =
+              typeof content === 'string' ? content : JSON.stringify(content, null, 2)
+            zip.file(path, fileContent)
+          }
+
+          showStatus('正在生成 ZIP 文件...', 'success')
+
+          const contentBlob = await zip.generateAsync({type: 'blob'})
+          const url = URL.createObjectURL(contentBlob)
+          const downloadName = `${defaultPrefixName.replace(/[\/\\:\*\?"<>\|]/g, '_') || 'extracted_files'}.zip`
+
+          const link = document.createElement('a')
+          link.href = url
+          link.download = downloadName
+          document.body.appendChild(link)
+          link.click()
+
+          document.body.removeChild(link)
+          URL.revokeObjectURL(url)
+
+          showStatus(`打包压缩完成，已启动下载: ${downloadName}`, 'success')
+        } catch (err) {
+          console.error(err)
+          showStatus(`生成压缩文件出错: ${err.message}`, 'error')
+        }
+      })
+
+      function showStatus(text, type) {
+        statusMsg.className = `status-msg ${type}`
+        statusMsg.textContent = text
+        statusMsg.style.display = 'block'
+      }
+
+      function clearStatus() {
+        statusMsg.style.display = 'none'
+        statusMsg.textContent = ''
+      }
+    </script>
+  </body>
+</html>

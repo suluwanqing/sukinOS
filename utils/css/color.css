@@ -1,0 +1,380 @@
+:root {
+  /* ============ 颜色系统 ============ */
+  /* 基础色 */
+  --su-white: #ffffff;
+  --su-white-rgb: 255, 255, 255;
+  --su-black: #000000;
+  --su-black-rgb: 0, 0, 0;
+  --su-transparent: transparent;
+
+  /* 主色系（蓝） */
+  --su-primary-50: #f0f9ff;
+  --su-primary-50-rgb: 240, 249, 255;
+  --su-primary-100: #e0f2fe;
+  --su-primary-100-rgb: 224, 242, 254;
+  --su-primary-200: #bae6fd;
+  --su-primary-200-rgb: 186, 230, 253;
+  --su-primary-300: #7dd3fc;
+  --su-primary-300-rgb: 125, 211, 252;
+  --su-primary-400: #38bdf8;
+  --su-primary-400-rgb: 56, 189, 248;
+  --su-primary-500: #0ea5e9;
+  --su-primary-500-rgb: 14, 165, 233;
+  --su-primary-600: #0284c7;
+  --su-primary-600-rgb: 2, 132, 199;
+  --su-primary-700: #0369a1;
+  --su-primary-700-rgb: 3, 105, 161;
+  --su-primary-800: #075985;
+  --su-primary-800-rgb: 7, 89, 133;
+  --su-primary-900: #0c4a6e;
+  --su-primary-900-rgb: 12, 74, 110;
+  /* 白色系 */
+  --su-white-50: #ffffff;
+  --su-white-50-rgb: 255, 255, 255;
+  --su-white-100: #fefefe;
+  --su-white-100-rgb: 254, 254, 254;
+  --su-white-200: #fdfdfd;
+  --su-white-200-rgb: 253, 253, 253;
+  --su-white-300: #fcfcfc;
+  --su-white-300-rgb: 252, 252, 252;
+  --su-white-400: #fbfbfb;
+  --su-white-400-rgb: 251, 251, 251;
+  --su-white-500: #fafafa;
+  --su-white-500-rgb: 250, 250, 250;
+  --su-white-600: #f9f9f9;
+  --su-white-600-rgb: 249, 249, 249;
+  --su-white-700: #f8f8f8;
+  --su-white-700-rgb: 248, 248, 248;
+  --su-white-800: #f7f7f7;
+  --su-white-800-rgb: 247, 247, 247;
+  --su-white-900: #f6f6f6;
+  --su-white-900-rgb: 246, 246, 246;
+
+  /* 紫色系 */
+  --su-purple-50: #faf5ff;
+  --su-purple-50-rgb: 250, 245, 255;
+  --su-purple-100: #f3e8ff;
+  --su-purple-100-rgb: 243, 232, 255;
+  --su-purple-200: #e9d5ff;
+  --su-purple-200-rgb: 233, 213, 255;
+  --su-purple-300: #d8b4fe;
+  --su-purple-300-rgb: 216, 180, 254;
+  --su-purple-400: #c084fc;
+  --su-purple-400-rgb: 192, 132, 252;
+  --su-purple-500: #a855f7;
+  --su-purple-500-rgb: 168, 85, 247;
+  --su-purple-600: #9333ea;
+  --su-purple-600-rgb: 147, 51, 234;
+  --su-purple-700: #7e22ce;
+  --su-purple-700-rgb: 126, 34, 206;
+  --su-purple-800: #6b21a8;
+  --su-purple-800-rgb: 107, 33, 168;
+  --su-purple-900: #581c87;
+  --su-purple-900-rgb: 88, 28, 135;
+
+  /* 绿色系 */
+  --su-green-50: #f0fdf4;
+  --su-green-50-rgb: 240, 253, 244;
+  --su-green-100: #dcfce7;
+  --su-green-100-rgb: 220, 252, 231;
+  --su-green-200: #bbf7d0;
+  --su-green-200-rgb: 187, 247, 208;
+  --su-green-300: #86efac;
+  --su-green-300-rgb: 134, 239, 172;
+  --su-green-400: #4ade80;
+  --su-green-400-rgb: 74, 222, 128;
+  --su-green-500: #22c55e;
+  --su-green-500-rgb: 34, 197, 94;
+  --su-green-600: #16a34a;
+  --su-green-600-rgb: 22, 163, 74;
+  --su-green-700: #15803d;
+  --su-green-700-rgb: 21, 128, 61;
+  --su-green-800: #166534;
+  --su-green-800-rgb: 22, 101, 52;
+  --su-green-900: #14532d;
+  --su-green-900-rgb: 20, 83, 45;
+
+  /* 粉色系 */
+  --su-pink-50: #fdf2f8;
+  --su-pink-50-rgb: 253, 242, 248;
+  --su-pink-100: #fce7f3;
+  --su-pink-100-rgb: 252, 231, 243;
+  --su-pink-200: #fbcfe8;
+  --su-pink-200-rgb: 251, 207, 232;
+  --su-pink-300: #f9a8d4;
+  --su-pink-300-rgb: 249, 168, 212;
+  --su-pink-400: #f472b6;
+  --su-pink-400-rgb: 244, 114, 182;
+  --su-pink-500: #ec4899;
+  --su-pink-500-rgb: 236, 72, 153;
+  --su-pink-600: #db2777;
+  --su-pink-600-rgb: 219, 39, 119;
+  --su-pink-700: #be185d;
+  --su-pink-700-rgb: 190, 24, 93;
+  --su-pink-800: #9d174d;
+  --su-pink-800-rgb: 157, 23, 77;
+  --su-pink-900: #831843;
+  --su-pink-900-rgb: 131, 24, 67;
+
+  /* 灰色系 */
+  --su-gray-50: #f9fafb;
+  --su-gray-50-rgb: 249, 250, 251;
+  --su-gray-100: #f3f4f6;
+  --su-gray-100-rgb: 243, 244, 246;
+  --su-gray-200: #e5e7eb;
+  --su-gray-200-rgb: 229, 231, 235;
+  --su-gray-300: #d1d5db;
+  --su-gray-300-rgb: 209, 213, 219;
+  --su-gray-400: #9ca3af;
+  --su-gray-400-rgb: 156, 163, 175;
+  --su-gray-500: #6b7280;
+  --su-gray-500-rgb: 107, 114, 128;
+  --su-gray-600: #4b5563;
+  --su-gray-600-rgb: 75, 85, 99;
+  --su-gray-700: #374151;
+  --su-gray-700-rgb: 55, 65, 81;
+  --su-gray-800: #1f2937;
+  --su-gray-800-rgb: 31, 41, 55;
+  --su-gray-900: #111827;
+  --su-gray-900-rgb: 17, 24, 39;
+
+  /* 黑色系 */
+  --su-black-50: #fafafa;
+  --su-black-50-rgb: 250, 250, 250;
+  --su-black-100: #f5f5f5;
+  --su-black-100-rgb: 245, 245, 245;
+  --su-black-200: #eeeeee;
+  --su-black-200-rgb: 238, 238, 238;
+  --su-black-300: #e0e0e0;
+  --su-black-300-rgb: 224, 224, 224;
+  --su-black-400: #bdbdbd;
+  --su-black-400-rgb: 189, 189, 189;
+  --su-black-500: #9e9e9e;
+  --su-black-500-rgb: 158, 158, 158;
+  --su-black-600: #757575;
+  --su-black-600-rgb: 117, 117, 117;
+  --su-black-700: #616161;
+  --su-black-700-rgb: 97, 97, 97;
+  --su-black-800: #424242;
+  --su-black-800-rgb: 66, 66, 66;
+  --su-black-900: #212121;
+  --su-black-900-rgb: 33, 33, 33;
+
+  /* 橙色系 */
+  --su-orange-50: #fff7ed;
+  --su-orange-50-rgb: 255, 247, 237;
+  --su-orange-100: #ffedd5;
+  --su-orange-100-rgb: 255, 237, 213;
+  --su-orange-200: #fed7aa;
+  --su-orange-200-rgb: 254, 215, 170;
+  --su-orange-300: #fdba74;
+  --su-orange-300-rgb: 253, 186, 116;
+  --su-orange-400: #fb923c;
+  --su-orange-400-rgb: 251, 146, 60;
+  --su-orange-500: #f97316;
+  --su-orange-500-rgb: 249, 115, 22;
+  --su-orange-600: #ea580c;
+  --su-orange-600-rgb: 234, 88, 12;
+  --su-orange-700: #c2410c;
+  --su-orange-700-rgb: 194, 65, 12;
+  --su-orange-800: #9a3412;
+  --su-orange-800-rgb: 154, 52, 18;
+  --su-orange-900: #7c2d12;
+  --su-orange-900-rgb: 124, 45, 18;
+
+  /* 黄色系 */
+  --su-yellow-50: #fefce8;
+  --su-yellow-50-rgb: 254, 252, 232;
+  --su-yellow-100: #fef9c3;
+  --su-yellow-100-rgb: 254, 249, 195;
+  --su-yellow-200: #fef08a;
+  --su-yellow-200-rgb: 254, 240, 138;
+  --su-yellow-300: #fde047;
+  --su-yellow-300-rgb: 253, 224, 71;
+  --su-yellow-400: #facc15;
+  --su-yellow-400-rgb: 250, 204, 21;
+  --su-yellow-500: #eab308;
+  --su-yellow-500-rgb: 234, 179, 8;
+  --su-yellow-600: #ca8a04;
+  --su-yellow-600-rgb: 202, 138, 4;
+  --su-yellow-700: #a16207;
+  --su-yellow-700-rgb: 161, 98, 7;
+  --su-yellow-800: #854d0e;
+  --su-yellow-800-rgb: 133, 77, 14;
+  --su-yellow-900: #713f12;
+  --su-yellow-900-rgb: 113, 63, 18;
+  /* 杏色系 */
+  --su-apricot-50: #fefaf6;
+  --su-apricot-50-rgb: 254, 250, 242;
+  --su-apricot-100: #fdf2e6;
+  --su-apricot-100-rgb: 253, 242, 230;
+  --su-apricot-200: #fbe4cd;
+  --su-apricot-200-rgb: 251, 228, 205;
+  --su-apricot-300: #f8d5b0;
+  --su-apricot-300-rgb: 248, 213, 176;
+  --su-apricot-400: #f4b884;
+  --su-apricot-400-rgb: 244, 184, 132;
+  --su-apricot-500: #f19e5c;
+  --su-apricot-500-rgb: 241, 158, 92;
+  --su-apricot-600: #e67c39;
+  --su-apricot-600-rgb: 230, 124, 57;
+  --su-apricot-700: #c2612d;
+  --su-apricot-700-rgb: 194, 97, 45;
+  --su-apricot-800: #9b4d29;
+  --su-apricot-800-rgb: 155, 77, 41;
+  --su-apricot-900: #7d3f26;
+  --su-apricot-900-rgb: 125, 63, 38;
+  /* 青色 */
+  --su-cyan-50: #ecfeff;
+  --su-cyan-50-rgb: 236, 254, 255;
+  --su-cyan-100: #cffafe;
+  --su-cyan-100-rgb: 207, 250, 254;
+  --su-cyan-200: #a5f3fc;
+  --su-cyan-200-rgb: 165, 243, 252;
+  --su-cyan-300: #67e8f9;
+  --su-cyan-300-rgb: 103, 232, 249;
+  --su-cyan-400: #22d3ee;
+  --su-cyan-400-rgb: 34, 211, 238;
+  --su-cyan-500: #06b6d4;
+  --su-cyan-500-rgb: 6, 182, 212;
+  --su-cyan-600: #0891b2;
+  --su-cyan-600-rgb: 8, 145, 178;
+  --su-cyan-700: #0e7490;
+  --su-cyan-700-rgb: 14, 116, 144;
+  --su-cyan-800: #155e75;
+  --su-cyan-800-rgb: 21, 94, 117;
+  --su-cyan-900: #164e63;
+  --su-cyan-900-rgb: 22, 78, 99;
+
+  /* 红色系 */
+  --su-red-50: #fef2f2;
+  --su-red-50-rgb: 254, 242, 242;
+  --su-red-100: #fee2e2;
+  --su-red-100-rgb: 254, 226, 226;
+  --su-red-200: #fecaca;
+  --su-red-200-rgb: 254, 202, 202;
+  --su-red-300: #fca5a5;
+  --su-red-300-rgb: 252, 165, 165;
+  --su-red-400: #f87171;
+  --su-red-400-rgb: 248, 113, 113;
+  --su-red-500: #ef4444;
+  --su-red-500-rgb: 239, 68, 68;
+  --su-red-600: #dc2626;
+  --su-red-600-rgb: 220, 38, 38;
+  --su-red-700: #b91c1c;
+  --su-red-700-rgb: 185, 28, 28;
+  --su-red-800: #991b1b;
+  --su-red-800-rgb: 153, 27, 27;
+  --su-red-900: #7f1d1d;
+  --su-red-900-rgb: 127, 29, 29;
+
+  /* 深色背景与文本 */
+  --su-dark-bg: #1a1a1a;
+  --su-dark-bg-rgb: 26, 26, 26;
+  --su-dark-text-primary: #e5e7eb;
+  --su-dark-text-primary-rgb: 229, 231, 235;
+  --su-dark-text-secondary: #9ca3af;
+  --su-dark-text-secondary-rgb: 156, 163, 175;
+
+  /* 深色语义色（保持对比度） */
+  --su-dark-success: #34d399;
+  --su-dark-success-rgb: 52, 211, 153;
+  --su-dark-warning: #fbbf24;
+  --su-dark-warning-rgb: 251, 191, 36;
+  --su-dark-danger: #f87171;
+  --su-dark-danger-rgb: 248, 113, 113;
+  --su-dark-info: #60a5fa;
+  --su-dark-info-rgb: 96, 165, 250;
+
+  /* 渐变色 */
+  --su-gradient-primary: linear-gradient(135deg, var(--su-primary-400), var(--su-primary-600));
+  --su-gradient-warning: linear-gradient(135deg, var(--su-yellow-400), var(--su-orange-500));
+
+  /* 阴影色 */
+  --su-shadow-primary: 0 4px 14px rgba(var(--su-primary-500-rgb), 0.2);
+  --su-shadow-danger: 0 4px 14px rgba(var(--su-red-500-rgb), 0.2);
+
+  /* 语义色 */
+  --su-success: #10b981;
+  --su-success-rgb: 16, 185, 129;
+  --su-warning: #f59e0b;
+  --su-warning-rgb: 245, 158, 11;
+  --su-danger: #ef4444;
+  --su-danger-rgb: 239, 68, 68;
+  --su-info: #3b82f6;
+  --su-info-rgb: 59, 130, 246;
+
+  /* 标题和强调文本色 */
+  --su-title-primary: var(--su-text-color-primary);
+  --su-title-primary-rgb: var(--su-text-color-primary-rgb);
+  --su-title-secondary: var(--su-text-color-regular);
+  --su-title-secondary-rgb: var(--su-text-color-regular-rgb);
+  --su-title-tertiary: var(--su-text-color-secondary);
+  --su-title-tertiary-rgb: var(--su-text-color-secondary-rgb);
+  --su-title-emphasis: var(--su-primary-600);
+  --su-title-emphasis-rgb: var(--su-primary-600-rgb);
+  --su-title-inverse: var(--su-white);
+  --su-title-inverse-rgb: var(--su-white-rgb);
+
+  /* 标题级别颜色（h1-h6） */
+  --su-h1: var(--su-gray-900);
+  --su-h1-rgb: var(--su-gray-900-rgb);
+  --su-h2: var(--su-gray-800);
+  --su-h2-rgb: var(--su-gray-800-rgb);
+  --su-h3: var(--su-gray-700);
+  --su-h3-rgb: var(--su-gray-700-rgb);
+  --su-h4: var(--su-gray-600);
+  --su-h4-rgb: var(--su-gray-600-rgb);
+  --su-h5: var(--su-gray-500);
+  --su-h5-rgb: var(--su-gray-500-rgb);
+  --su-h6: var(--su-gray-400);
+  --su-h6-rgb: var(--su-gray-400-rgb);
+
+  /* 其他 */
+  --su-color-white: #ffffff;
+  --su-color-white-rgb: 255, 255, 255;
+  --su-color-black: #000000;
+  --su-color-black-rgb: 0, 0, 0;
+  --su-bg-color: #ffffff;
+  --su-bg-color-rgb: 255, 255, 255;
+  --su-bg-color-page: #f2f3f5;
+  --su-bg-color-page-rgb: 242, 243, 245;
+  --su-bg-color-overlay: #ffffff;
+  --su-bg-color-overlay-rgb: 255, 255, 255;
+  --su-text-color-primary: #303133;
+  --su-text-color-primary-rgb: 48, 49, 51;
+  --su-text-color-regular: #606266;
+  --su-text-color-regular-rgb: 96, 98, 102;
+  --su-text-color-secondary: #909399;
+  --su-text-color-secondary-rgb: 144, 147, 153;
+  --su-text-color-placeholder: #a8abb2;
+  --su-text-color-placeholder-rgb: 168, 171, 178;
+  --su-text-color-disabled: #c0c4cc;
+  --su-text-color-disabled-rgb: 192, 196, 204;
+  --su-border-color: #dcdfe6;
+  --su-border-color-rgb: 220, 223, 230;
+  --su-border-color-light: #e4e7ed;
+  --su-border-color-light-rgb: 228, 231, 237;
+  --su-border-color-lighter: #ebeef5;
+  --su-border-color-lighter-rgb: 235, 238, 245;
+  --su-border-color-extra-light: #f2f6fc;
+  --su-border-color-extra-light-rgb: 242, 246, 252;
+  --su-border-color-dark: #d4d7de;
+  --su-border-color-dark-rgb: 212, 215, 222;
+  --su-border-color-darker: #cdd0d6;
+  --su-border-color-darker-rgb: 205, 208, 214;
+  --su-fill-color: #f0f2f5;
+  --su-fill-color-rgb: 240, 242, 245;
+  --su-fill-color-light: #f5f7fa;
+  --su-fill-color-light-rgb: 245, 247, 250;
+  --su-fill-color-lighter: #fafafa;
+  --su-fill-color-lighter-rgb: 250, 250, 250;
+  --su-fill-color-extra-light: #fafcff;
+  --su-fill-color-extra-light-rgb: 250, 252, 255;
+  --su-fill-color-dark: #ebedf0;
+  --su-fill-color-dark-rgb: 235, 237, 240;
+  --su-fill-color-darker: #e6e8eb;
+  --su-fill-color-darker-rgb: 230, 232, 235;
+  --su-fill-color-blank: #ffffff;
+  --su-fill-color-blank-rgb: 255, 255, 255;
+}

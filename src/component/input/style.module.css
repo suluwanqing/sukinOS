@@ -1,0 +1,113 @@
+.su-input {
+  position: relative;
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  font-size: 14px;
+  background-color: var(--su-color-white);
+  background-image: none;
+  border: 1px solid var(--su-border-color);
+  border-radius: var(--su-border-radius-base);
+  transition: border-color 0.2s cubic-bezier(0.645, 0.045, 0.355, 1);
+}
+.su-input:focus-within {
+  border-color: var(--su-primary-500);
+  box-shadow: 0 0 0 2px rgba(var(--su-primary-500-rgb), 0.2);
+}
+
+.su-input__inner {
+  -webkit-appearance: none;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  line-height: inherit;
+  background-color: transparent;
+  color: var(--su-text-color-primary);
+
+}
+.su-input__inner::placeholder {
+  color: var(--su-text-color-placeholder);
+}
+.su-input--large {
+  font-size: 16px;
+  height: 40px;
+}
+.su-input--large .su-input__inner {
+  padding: var(--su-space-2) var(--su-space-3);
+}
+
+.su-input {
+  height: 32px;
+}
+.su-input .su-input__inner {
+  padding: var(--su-space-1) var(--su-space-3);
+}
+
+.su-input--small {
+  font-size: 12px;
+  height: 24px;
+}
+.su-input--small .su-input__inner {
+  padding: 0 var(--su-space-2);
+}
+.su-input.is-disabled {
+  background-color: var(--su-fill-color-light);
+  border-color: var(--su-border-color-light);
+  color: var(--su-text-color-disabled);
+  cursor: not-allowed;
+}
+.su-input.is-disabled .su-input__inner {
+  cursor: not-allowed;
+}
+.su-input.is-disabled .su-input__inner::placeholder {
+  color: var(--su-text-color-disabled);
+}
+
+.su-input__prefix,
+.su-input__suffix {
+  display: inline-flex;
+  align-items: center;
+  color: var(--su-text-color-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.su-input__prefix {
+  padding-left: var(--su-space-3);
+}
+
+.su-input__suffix {
+  padding-right: var(--su-space-3);
+}
+.su-input.is-round {
+  border-radius: 16px;
+}
+
+.su-input--large.is-round {
+  border-radius: 20px;
+}
+
+.su-input--small.is-round {
+  border-radius: 12px;
+}
+.su-input.is-prepend .su-input__inner {
+  padding-left: var(--su-space-1);
+}
+.su-input.is-append .su-input__inner {
+  padding-right: var(--su-space-1);
+}
+.su-input__clear,
+.su-input__password-toggle {
+  cursor: pointer;
+  color: var(--su-text-color-placeholder);
+  transition: color 0.2s;
+  display: inline-flex;
+}
+
+.su-input__clear:hover,
+.su-input__password-toggle:hover {
+  color: var(--su-text-color-secondary);
+}

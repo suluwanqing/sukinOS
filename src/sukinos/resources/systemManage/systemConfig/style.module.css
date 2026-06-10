@@ -1,0 +1,70 @@
+.su-system-config-layout {
+  display: flex;
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #f0f0f3;
+  min-height: 580px;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, sans-serif;
+}
+
+.su-system-config-layout__sidebar {
+  width: 230px;
+  background: #fafafa;
+  border-right: 1px solid #f0f0f3;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  flex-shrink: 0;
+}
+
+.su-system-config-layout__title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.88px;
+  color: #171717;
+  padding-left: 12px;
+  margin-bottom: 24px;
+}
+
+.su-system-config-layout__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-system-config-layout__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #60646c;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.su-system-config-layout__menu-item:hover {
+  background: #f0f0f3;
+  color: #171717;
+}
+
+.su-system-config-layout__menu-item.is-active {
+  background: #171717;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+.su-system-config-layout__content {
+  flex: 1;
+  min-width: 0;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}

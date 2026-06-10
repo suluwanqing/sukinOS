@@ -1,0 +1,279 @@
+.su-sukinos {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--su-white-500);
+  color: var(--su-black-900);
+  display: flex;
+  flex-direction: column;
+  padding: 40px 60px;
+  box-sizing: border-box;
+  font-family: 'JetBrains Mono', system-ui, sans-serif;
+  user-select: none;
+}
+
+.su-sukinos__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--su-black-900);
+  padding-bottom: 24px;
+  z-index: 10;
+}
+
+.su-sukinos__logo-box {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.su-sukinos__logo-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 2px solid var(--su-black-900);
+  box-shadow: 4px 4px 0px var(--su-black-900);
+}
+.su-sukinos__logo-text {
+  font-weight: 900;
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+.su-sukinos__status {
+  font-family: monospace;
+  font-size: 13px;
+  font-weight: bold;
+  background: var(--su-black-900);
+  color: var(--su-white-500);
+  padding: 4px 10px;
+}
+
+.su-sukinos__content-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  align-items: center;
+}
+
+.su-sukinos__title {
+  font-size: clamp(60px, 10vw, 140px);
+  line-height: 0.8;
+  font-weight: 900;
+  letter-spacing: -0.06em;
+  margin: 0;
+}
+.su-sukinos__title-accent {
+  color: var(--su-black-400);
+}
+.su-sukinos__desc {
+  font-size: 18px;
+  color: var(--su-black-600);
+  max-width: 440px;
+  margin-top: 50px;
+  line-height: 1.7;
+}
+
+.su-sukinos__right-panel {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.su-sukinos__station {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 60px;
+  will-change: transform;
+}
+
+.su-sukinos__slots {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 380px; /* 稍微增宽以适配长文字 */
+}
+
+/* ============ 槽位模块样式更新 ============ */
+.su-sukinos__module-slot {
+  height: 80px;
+  background: var(--su-white-300);
+  border: 2px dashed var(--su-black-200);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  transition: all 0.3s ease;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.su-sukinos__slot-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-sukinos__slot-title {
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  font-size: 14px;
+  color: var(--su-black-400);
+  transition: color 0.3s ease;
+}
+
+.su-sukinos__slot-desc {
+  font-size: 12px;
+  color: var(--su-black-300);
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+/* 轮到该填入时的激活样式 */
+.su-sukinos__module-slot.is-next {
+  border: 2px solid var(--su-orange-500);
+  background: var(--su-white);
+}
+.su-sukinos__module-slot.is-next .su-sukinos__slot-title {
+  color: var(--su-orange-500);
+}
+
+/* 填充完成后的样式 */
+.su-sukinos__module-slot.is-filled {
+  background: var(--su-black-900);
+  border-style: solid;
+  border-color: var(--su-black-900);
+}
+.su-sukinos__module-slot.is-filled .su-sukinos__slot-title {
+  color: var(--su-white-500);
+}
+.su-sukinos__module-slot.is-filled .su-sukinos__slot-desc {
+  color: var(--su-white-300);
+  opacity: 0.7;
+}
+/* ======================================= */
+
+.su-sukinos__tray {
+  display: flex;
+  gap: 15px;
+  padding-top: 50px;
+  border-top: 2px solid var(--su-black-200);
+}
+.su-sukinos__module-draggable {
+  padding: 16px 28px;
+  background: var(--su-white);
+  border: 2px solid var(--su-black-900);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: grab;
+}
+.su-sukinos__module-draggable.is-dropped {
+  opacity: 0;
+  pointer-events: none;
+}
+.su-sukinos__block-icon {
+  background: var(--su-black-900);
+  color: var(--su-white-500);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: bold;
+}
+.su-sukinos__block-label {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.su-sukinos__terminal {
+  position: absolute;
+  right: 60px;
+  top: 50%;
+  transform: translateY(-50%) translateX(50%);
+  width: 400px;
+  height: 500px;
+  background: var(--su-white-50);
+  border: 2px solid var(--su-black-900);
+  border-radius: 16px;
+  display: none;
+  flex-direction: column;
+  z-index: 50;
+  opacity: 0;
+  overflow: hidden;
+}
+
+.su-sukinos__term-head {
+  padding: 16px 24px;
+  background: var(--su-black-900);
+  color: var(--su-white-500);
+  font-size: 12px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.su-sukinos__term-dots {
+  display: flex;
+  gap: 6px;
+}
+.su-sukinos__term-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--su-white-500);
+  opacity: 0.3;
+}
+.su-sukinos__term-dots span:first-child {
+  background: var(--su-orange-500);
+  opacity: 1;
+}
+
+.su-sukinos__term-body {
+  flex: 1;
+  padding: 30px;
+  font-size: 14px;
+  line-height: 1.8;
+  overflow-y: auto;
+  color: var(--su-black-900);
+  background-color: var(--su-white-50);
+}
+
+.su-sukinos__term-prompt {
+  color: var(--su-orange-500);
+  margin-right: 12px;
+  font-weight: 900;
+}
+.su-sukinos__term-form {
+  display: flex;
+  gap: 4px;
+  margin-top: 15px;
+  border-top: 1px solid var(--su-white-300);
+  padding-top: 15px;
+}
+.su-sukinos__term-form input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font: inherit;
+  color: var(--su-orange-500);
+  font-weight: 700;
+}
+.su-sukinos__term-form input::placeholder {
+  opacity: 0.3;
+}
+
+.su-sukinos__log-error {
+  color: var(--su-red-700);
+  font-weight: bold;
+}
+.su-sukinos__log-input {
+  font-weight: bold;
+}
+
+.is-login {
+  display: none;
+}

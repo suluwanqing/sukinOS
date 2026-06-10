@@ -1,0 +1,172 @@
+:root {
+  /* ============ 动画系统 ============ */
+  /* 过渡时间 */
+  --su-duration-75: 75ms;
+  --su-duration-100: 100ms;
+  --su-duration-150: 150ms;
+  --su-duration-200: 200ms;
+  --su-duration-300: 300ms;
+  --su-duration-500: 500ms;
+
+  /* 过渡曲线 */
+  --su-ease-linear: linear;
+  --su-ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --su-ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --su-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 动画关键帧 */
+  --su-keyframes-spin: spin 1s linear infinite;
+  --su-keyframes-pulse: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --su-keyframes-bounce: bounce 1s infinite;
+
+  /* ============ 响应式断点 ============ */
+  --su-breakpoint-sm: 640px;
+  --su-breakpoint-md: 768px;
+  --su-breakpoint-lg: 1024px;
+  --su-breakpoint-xl: 1280px;
+  --su-breakpoint-2xl: 1536px;
+}
+/* 突然出现/缩放进入 */
+@keyframes su-appear {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 向上滑动进入 */
+@keyframes su-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* 向下滑动进入 */
+@keyframes su-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 向下滑动退出 */
+@keyframes su-slide-down-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+}
+
+/* 弹性向下滑动 */
+@keyframes su-bounce-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-100px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(20px);
+  }
+  80% {
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 阶梯式向下滑动 */
+@keyframes su-stair-down {
+  0% {
+    opacity: 0;
+    transform: translateY(-100px);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translateY(-30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* 悬停弹跳效果 */
+@keyframes su-bounce {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+}
+
+/* 成功提示晃动 */
+@keyframes su-success {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(-5deg);
+  }
+  75% {
+    transform: rotate(5deg);
+  }
+}
+
+/* 脉冲呼吸效果 */
+@keyframes su-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+/* 旋转加载 */
+@keyframes su-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 摇摆提醒 */
+@keyframes su-swing {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(15deg);
+  }
+  75% {
+    transform: rotate(-15deg);
+  }
+}

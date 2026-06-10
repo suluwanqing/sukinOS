@@ -1,0 +1,93 @@
+:root {
+  /* ============ 边框系统 ============ */
+  /* 边框粗细 */
+  --su-border-width-1: 1px;
+  --su-border-width-2: 2px;
+  --su-border-width-4: 4px;
+
+  /* 边框半径 */
+  --su-border-radius-none: 0;
+  --su-border-radius-sm: 0.125rem;
+  --su-border-radius: 0.25rem;
+  --su-border-radius-md: 0.375rem;
+  --su-border-radius-lg: 0.5rem;
+  --su-border-radius-xl: 0.75rem;
+  --su-border-radius-full: 9999px;
+
+  /* 边框样式 */
+  --su-border-style-solid: solid;
+  --su-border-style-dashed: dashed;
+  --su-border-style-dotted: dotted;
+
+  /* ============ 间距系统 (Padding) ============ */
+  /* 基础间距单位 - 基于 0.25rem (4px) 的倍数 */
+  --su-spacing-unit: 0.25rem;
+
+  /* 无间距 */
+  --su-padding-none: 0;
+
+  /* 超小间距 (4px) */
+  --su-padding-xs: calc(var(--su-spacing-unit) * 1); /* 4px */
+  --su-padding-1: var(--su-padding-xs);
+
+  /* 小间距 (8px) */
+  --su-padding-sm: calc(var(--su-spacing-unit) * 2); /* 8px */
+  --su-padding-2: var(--su-padding-sm);
+
+  /* 基础间距 (12px) */
+  --su-padding-base: calc(var(--su-spacing-unit) * 3); /* 12px */
+  --su-padding-3: var(--su-padding-base);
+
+  /* 中等间距 (16px) */
+  --su-padding-md: calc(var(--su-spacing-unit) * 4); /* 16px */
+  --su-padding-4: var(--su-padding-md);
+
+  /* 大间距 (20px) */
+  --su-padding-lg: calc(var(--su-spacing-unit) * 5); /* 20px */
+  --su-padding-5: var(--su-padding-lg);
+
+  /* 超大间距 (24px) */
+  --su-padding-xl: calc(var(--su-spacing-unit) * 6); /* 24px */
+  --su-padding-6: var(--su-padding-xl);
+
+  /* 特大间距 (32px) */
+  --su-padding-2xl: calc(var(--su-spacing-unit) * 8); /* 32px */
+  --su-padding-8: var(--su-padding-2xl);
+
+  /* 巨大间距 (48px) */
+  --su-padding-3xl: calc(var(--su-spacing-unit) * 12); /* 48px */
+  --su-padding-12: var(--su-padding-3xl);
+
+  /* ============ 便捷类名 ============ */
+  /* 水平方向 Padding */
+  --su-padding-x-xs: var(--su-padding-xs);
+  --su-padding-x-sm: var(--su-padding-sm);
+  --su-padding-x-base: var(--su-padding-base);
+  --su-padding-x-md: var(--su-padding-md);
+  --su-padding-x-lg: var(--su-padding-lg);
+  --su-padding-x-xl: var(--su-padding-xl);
+
+  /* 垂直方向 Padding */
+  --su-padding-y-xs: var(--su-padding-xs);
+  --su-padding-y-sm: var(--su-padding-sm);
+  --su-padding-y-base: var(--su-padding-base);
+  --su-padding-y-md: var(--su-padding-md);
+  --su-padding-y-lg: var(--su-padding-lg);
+  --su-padding-y-xl: var(--su-padding-xl);
+
+  /* 单边 Padding */
+  --su-padding-top-xs: var(--su-padding-xs);
+  --su-padding-right-xs: var(--su-padding-xs);
+  --su-padding-bottom-xs: var(--su-padding-xs);
+  --su-padding-left-xs: var(--su-padding-xs);
+
+  --su-padding-top-sm: var(--su-padding-sm);
+  --su-padding-right-sm: var(--su-padding-sm);
+  --su-padding-bottom-sm: var(--su-padding-sm);
+  --su-padding-left-sm: var(--su-padding-sm);
+
+  --su-padding-top-base: var(--su-padding-base);
+  --su-padding-right-base: var(--su-padding-base);
+  --su-padding-bottom-base: var(--su-padding-base);
+  --su-padding-left-base: var(--su-padding-base);
+}

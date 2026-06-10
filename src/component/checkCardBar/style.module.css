@@ -1,0 +1,103 @@
+.su-check-card-bar {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--su-bg-color);
+  border: 1px solid var(--su-border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.su-check-card-bar__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.su-check-card-bar__row:hover:not(.is-disabled) {
+  background-color: var(--su-fill-color-light);
+}
+
+.su-check-card-bar__row.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.su-check-card-bar__row.is-sub {
+  padding: 12px 20px 12px 48px;
+  background-color: var(--su-fill-color-extra-light);
+}
+
+.su-check-card-bar__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.su-check-card-bar__title-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.su-check-card-bar__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: var(--su-text-color-regular);
+}
+
+.su-check-card-bar__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--su-text-color-primary);
+}
+
+.su-check-card-bar__desc {
+  font-size: 12px;
+  color: var(--su-text-color-secondary);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.su-check-card-bar__group-header {
+  padding: 16px 20px 8px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.su-check-card-bar__group-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--su-text-color-placeholder);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.su-check-card-bar__group-icon {
+  font-size: 14px;
+  color: var(--su-text-color-placeholder);
+}
+
+.su-check-card-bar__action {
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.su-check-card-bar__divider {
+  height: 1px;
+  background-color: var(--su-border-color-extra-light);
+}
+
+.su-check-card-bar__sub-divider {
+  height: 1px;
+  background-color: var(--su-border-color-extra-light);
+  margin-left: 48px;
+}

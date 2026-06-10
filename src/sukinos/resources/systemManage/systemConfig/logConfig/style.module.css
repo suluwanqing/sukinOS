@@ -1,0 +1,384 @@
+.su-system-log-config {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+  background: #ffffff;
+  font-family: 'Inter', sans-serif;
+  box-sizing: border-box;
+}
+
+.su-system-log-config * {
+  box-sizing: border-box;
+}
+
+.su-system-log-config__section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-system-log-config__section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #171717;
+  letter-spacing: -0.5px;
+}
+
+.su-system-log-config__section-desc {
+  font-size: 14px;
+  color: #60646c;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.su-system-log-config__switches-panel {
+  background: #fafafa;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #f0f0f3;
+}
+
+.su-system-log-config__card-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  border-top: 1px solid #f0f0f3;
+  padding-top: 24px;
+}
+
+.su-system-log-config__strategy-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background: #fafafa;
+  padding: 20px;
+  border-radius: 8px;
+  border: 1px solid #f0f0f3;
+}
+
+.su-system-log-config__form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.su-system-log-config__form-item label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.su-system-log-config__select-mode-wrapper {
+  max-width: 480px;
+}
+
+/* 修复一：前缀输入整体容器，作为唯一的边框和背景控制者 */
+.su-system-log-config__prefix-input-container {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  border: 1px solid #dcdee0;
+  background: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+  max-width: 280px;
+  padding: 0 16px;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.su-system-log-config__prefix-input-container:focus-within {
+  border-color: #171717;
+}
+
+.su-system-log-config__input-prefix-slash {
+  font-size: 14px;
+  color: #999999;
+  margin-right: 8px;
+  user-select: none;
+}
+
+/* 修复一：无边框无独立背景的内部纯 input，彻底消除双重边框嵌套 */
+.su-system-log-config__prefix-input {
+  flex: 1;
+  border: none !important;
+  background: transparent !important;
+  outline: none !important;
+  font-size: 14px;
+  color: #171717;
+  height: 100%;
+  padding: 0 !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.su-system-log-config__form-item-help {
+  margin: 0;
+  font-size: 13px;
+  color: #60646c;
+}
+
+.su-system-log-config__ignore-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.su-system-log-config__input-text {
+  box-sizing: border-box;
+  flex: 1;
+  width: 100%;
+  height: 40px;
+  border: 1px solid #dcdee0;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 14px;
+  color: #171717;
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.su-system-log-config__input-text:focus {
+  border-color: #171717;
+}
+
+.su-system-log-config__ignore-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #f0f0f3;
+  padding: 12px;
+}
+
+.su-system-log-config__ignore-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #ffffff;
+  border: 1px solid #f0f0f3;
+  border-radius: 8px;
+}
+
+.su-system-log-config__ignore-path-name {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: #171717;
+}
+
+.su-system-log-config__ignore-btn-remove {
+  border: none;
+  background: transparent;
+  color: #999999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  padding: 6px;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.su-system-log-config__ignore-btn-remove:hover {
+  background: #fafafa;
+  color: #171717;
+}
+
+.su-system-log-config__rule-creator {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.su-system-log-config__select-wrapper {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+/* 修复二：提升弹性容器宽度并强制内部 input 高度及宽度占满 */
+.su-system-log-config__input-wrapper {
+  flex: 1;
+  min-width: 280px; /* 增加最小限度防止在小屏幕上由于折行导致 placeholder 被截断 */
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.su-system-log-config__input-wrapper .su-system-log-config__input-text {
+  width: 100% !important;
+}
+
+.su-system-log-config__method-wrapper {
+  width: 100px;
+  flex-shrink: 0;
+}
+
+.su-system-log-config__prefix-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #60646c;
+  font-weight: 500;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.su-system-log-config__prefix-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  background: #f0f0f3;
+  color: #171717;
+  border: 1px solid #dcdee0;
+  margin-left: 8px;
+}
+
+.su-system-log-config__rules-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.su-system-log-config__rule-row-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #f0f0f3;
+  border-radius: 8px;
+  gap: 24px;
+}
+
+.su-system-log-config__rule-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.su-system-log-config__rule-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.su-system-log-config__rule-row-path {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.su-system-log-config__rule-row-effect-info {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+  color: #60646c;
+  line-height: 1.5;
+}
+
+.su-system-log-config__rule-row-controls {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  flex-shrink: 0;
+}
+
+.su-system-log-config__control-switch-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: #171717;
+  font-weight: 500;
+}
+
+.su-system-log-config__control-switch-item.is-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.su-system-log-config__rule-btn-delete {
+  border: none;
+  background: transparent;
+  color: #999999;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.su-system-log-config__rule-btn-delete:hover {
+  background: #fafafa;
+  color: #171717;
+}
+
+.su-system-log-config__method-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+  min-width: 64px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.su-system-log-config__method-badge--get {
+  background: #f0f0f3;
+  color: #171717;
+  border: 1px solid #dcdee0;
+}
+
+.su-system-log-config__method-badge--post {
+  background: #ffffff;
+  color: #16a34a;
+  border: 1px solid #16a34a;
+}
+
+.su-system-log-config__method-badge--put {
+  background: #ffffff;
+  color: #ab6400;
+  border: 1px solid #ab6400;
+}
+
+.su-system-log-config__method-badge--delete {
+  background: #ffffff;
+  color: #eb8e90;
+  border: 1px solid #eb8e90;
+}
+
+.su-system-log-config__empty-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  font-size: 13px;
+  color: #999999;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px dashed #dcdee0;
+}
+
+.su-system-log-config__footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #f0f0f3;
+  padding-top: 24px;
+}

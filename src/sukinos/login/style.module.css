@@ -1,0 +1,180 @@
+.su-sukinos-login-layout {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: 'JetBrains Mono', system-ui, sans-serif;
+  user-select: none;
+}
+
+.su-sukinos-login-layout__container {
+  width: 440px;
+  padding: 48px;
+  background-color: var(--su-white-50);
+  border: 2px solid var(--su-black-900);
+  border-radius: 12px;
+  box-shadow: 8px 8px 0px var(--su-black-900);
+  box-sizing: border-box;
+}
+
+.su-sukinos-login-layout__header {
+  margin-bottom: 36px;
+  border-bottom: 2px solid var(--su-black-900);
+  padding-bottom: 16px;
+}
+
+.su-sukinos-login-layout__title {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--su-black-900);
+  letter-spacing: -0.05em;
+  line-height: 1;
+}
+
+.su-sukinos-login-layout__subtitle {
+  font-size: 14px;
+  color: var(--su-black-600);
+  font-weight: bold;
+}
+
+.su-sukinos-login-layout__actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+}
+
+.su-sukinos-login-layout__checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+  color: var(--su-black-900);
+}
+
+.su-sukinos-login-layout__checkbox-box {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--su-black-900);
+  border-radius: 4px;
+  padding: 2px;
+  box-sizing: border-box;
+  background-color: var(--su-white-50);
+}
+
+.is-remember {
+  background-color: var(--su-orange-500);
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+}
+
+.su-sukinos-login-layout__mode-switch {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--su-orange-500);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  transition: all 0.2s;
+}
+
+.su-sukinos-login-layout__mode-switch:hover {
+  color: var(--su-black-900);
+}
+
+.su-sukinos-login-layout__submit {
+  width: 100%;
+  padding: 16px;
+  background: var(--su-orange-500);
+  color: var(--su-black-900);
+  border: 2px solid var(--su-black-900);
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: all 0.1s;
+  letter-spacing: 2px;
+  box-shadow: 4px 4px 0px var(--su-black-900);
+}
+
+.su-sukinos-login-layout__submit:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0px var(--su-black-900);
+}
+
+.su-sukinos-login-layout__submit:disabled {
+  background: var(--su-black-200);
+  color: var(--su-black-500);
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 4px 4px 0px var(--su-black-900);
+}
+
+.su-sukinos-login-layout__footer-links {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+
+.su-sukinos-login-layout__link {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--su-black-900);
+  cursor: pointer;
+  transition: color 0.2s;
+  border-bottom: 2px solid transparent;
+}
+
+.su-sukinos-login-layout__link:hover {
+  color: var(--su-orange-500);
+  border-bottom-color: var(--su-orange-500);
+}
+
+.su-sukinos-login-layout__divider {
+  display: flex;
+  align-items: center;
+  margin: 32px 0 24px;
+  color: var(--su-black-900);
+  font-weight: bold;
+  font-size: 12px;
+}
+
+.su-sukinos-login-layout__divider::before,
+.su-sukinos-login-layout__divider::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background-color: var(--su-black-900);
+}
+
+.su-sukinos-login-layout__divider span {
+  padding: 0 16px;
+}
+
+.su-sukinos-login-layout__socials {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+}
+
+.su-sukinos-login-layout__social-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background-color: var(--su-white-50);
+  border: 2px solid var(--su-black-900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s;
+  color: var(--su-black-900);
+}
+
+.su-sukinos-login-layout__social-btn:hover {
+  background-color: var(--su-orange-500);
+}

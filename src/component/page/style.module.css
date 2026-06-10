@@ -1,0 +1,127 @@
+.su-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 16px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  user-select: none;
+  width: 100%;
+  box-sizing: border-box;
+  max-width: 100%;
+  background-color: var(--su-color-white);
+  border-radius: 8px;
+  border: 1px solid var(--su-border-color-light);
+  margin-top: 16px;
+}
+
+.su-page__total {
+  font-size: 13px;
+  color: var(--su-text-color-regular);
+  white-space: nowrap;
+}
+
+.su-page__count {
+  color: var(--su-black);
+  font-weight: 800;
+  margin: 0 4px;
+}
+
+.su-page__list {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.su-page__numbers {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.su-page__nav-btn,
+.su-page__item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  background-color: var(--su-color-white);
+  border: 1px solid var(--su-border-color-light);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--su-text-color-primary);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.su-page__item:hover:not(.is-active):not(.is-ellipsis) {
+  border-color: var(--su-black);
+  background-color: var(--su-fill-color-lighter);
+}
+
+.su-page__item.is-active {
+  background-color: var(--su-black);
+  color: var(--su-color-white);
+  border-color: var(--su-black);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.su-page__item.is-ellipsis {
+  border: none;
+  cursor: default;
+  color: var(--su-text-color-placeholder);
+  background: transparent;
+}
+
+.su-page__nav-btn {
+  font-size: 18px;
+}
+
+.su-page__nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background-color: var(--su-fill-color-light);
+}
+
+.su-page-elevator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--su-text-color-regular);
+}
+
+.su-page-elevator__input {
+  width: 44px;
+  height: 32px;
+  border: 1px solid var(--su-border-color-light);
+  border-radius: 6px;
+  text-align: center;
+  outline: none;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+.su-page-elevator__input:focus {
+  border-color: var(--su-black);
+}
+
+.su-page__size-selector {
+  min-width: 100px;
+}
+
+@media screen and (max-width: 768px) {
+  .su-page {
+    justify-content: center;
+    gap: 16px;
+  }
+  .su-page__total {
+    width: 100%;
+    text-align: center;
+    order: -1;
+  }
+}

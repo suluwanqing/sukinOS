@@ -1,0 +1,223 @@
+.su-br-app {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: 100%;
+  height: 100vh;
+  min-height: 100vh;
+  background-color: #f8fafc;
+  font-family:
+    'PingFang SC',
+    'Microsoft YaHei',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  color: #1e293b;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.su-br-app__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  box-shadow: -2px 0 16px -8px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+  position: relative;
+  overflow: hidden;
+}
+
+.su-br-app__tabs-bar {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  background-color: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 0 12px;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.su-br-app__tabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.su-br-app__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 32px 0 12px;
+  background-color: #e2e8f0;
+  border-radius: 6px 6px 0 0;
+  font-size: 12px;
+  color: #64748b;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.2s;
+  border: 1px solid #cbd5e1;
+  border-bottom: none;
+  flex-shrink: 0;
+  min-width: 120px;
+  max-width: 180px;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.su-br-app__tab:active {
+  cursor: grabbing;
+}
+
+.su-br-app__tab:hover {
+  background-color: #f8fafc;
+  color: #334155;
+}
+
+.su-br-app__tab.is-active {
+  background-color: #ffffff;
+  color: #3b82f6;
+  font-weight: 500;
+  border-color: #cbd5e1;
+  border-bottom: 1px solid #ffffff;
+  margin-bottom: -1px;
+  height: 31px;
+}
+
+.su-br-app__tab span {
+  display: block;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-right: 4px;
+}
+
+.su-br-app__tab-close {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  color: #94a3b8;
+  border-radius: 4px;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.su-br-app__tab-close:hover {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.su-br-app__tab-content-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.su-br-app__content {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+.su-br-app__empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  color: #64748b;
+  padding: 40px;
+}
+
+.su-br-app__empty-state h2 {
+  font-size: 18px;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+
+.su-br-app__empty-state p {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.su-br-app__overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.su-br-app__confirm-box {
+  background-color: #ffffff;
+  border-radius: 8px;
+  width: 320px;
+  padding: 24px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.su-br-app__confirm-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 8px;
+}
+
+.su-br-app__confirm-content {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.su-br-app__confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.su-br-app__btn-cancel,
+.su-br-app__btn-danger {
+  padding: 6px 16px;
+  font-size: 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+.su-br-app__btn-cancel {
+  background-color: #f1f5f9;
+  color: #475569;
+}
+
+.su-br-app__btn-cancel:hover {
+  background-color: #e2e8f0;
+}
+
+.su-br-app__btn-danger {
+  background-color: #ef4444;
+  color: #ffffff;
+}
+
+.su-br-app__btn-danger:hover {
+  background-color: #dc2626;
+}

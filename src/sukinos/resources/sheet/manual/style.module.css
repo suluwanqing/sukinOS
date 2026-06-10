@@ -1,0 +1,130 @@
+.su-br-manual {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  background-color: #ffffff;
+  overflow: hidden;
+}
+
+.su-br-manual__aside {
+  width: 200px;
+  border-right: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.su-br-manual__menu-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-bottom: 8px;
+  padding: 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: left;
+}
+
+.su-br-manual__menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.su-br-manual__menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+.su-br-manual__menu-item:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.su-br-manual__menu-item.is-active {
+  background-color: #e0e7ff;
+  color: #4338ca;
+  font-weight: 500;
+}
+
+.su-br-manual__menu-icon {
+  color: #94a3b8;
+}
+
+.su-br-manual__menu-item.is-active .su-br-manual__menu-icon {
+  color: #4338ca;
+}
+
+.su-br-manual__body {
+  flex: 1;
+  overflow-y: auto;
+  background-color: #ffffff;
+  padding: 40px 60px;
+  box-sizing: border-box;
+}
+
+.su-br-manual__article {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.su-br-manual__doc {
+  text-align: left;
+}
+
+.su-br-manual__doc h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 16px 0;
+  border-bottom: 1px solid #f1f5f9;
+  padding-bottom: 12px;
+}
+
+.su-br-manual__doc h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 24px 0 12px 0;
+}
+
+.su-br-manual__doc p {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.65;
+  margin: 0 0 16px 0;
+}
+
+.su-br-manual__doc ul {
+  margin: 0 0 16px 0;
+  padding-left: 20px;
+}
+
+.su-br-manual__doc li {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.65;
+  margin-bottom: 8px;
+}
+
+.su-br-manual__alert {
+  background-color: #f0fdf4;
+  border-left: 4px solid #4ade80;
+  padding: 12px 16px;
+  border-radius: 4px;
+  margin: 16px 0;
+  font-size: 13px;
+  color: #166534;
+  line-height: 1.5;
+}

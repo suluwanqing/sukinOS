@@ -1,0 +1,342 @@
+.su-config-items-manager {
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background: #ffffff;
+  font-family: 'Inter', sans-serif;
+}
+
+.su-config-items-manager__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.su-config-items-manager__head-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-config-items-manager__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #171717;
+  letter-spacing: -0.5px;
+}
+
+.su-config-items-manager__desc {
+  font-size: 14px;
+  color: #60646c;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.su-config-items-manager__toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #f0f0f3;
+}
+
+.su-config-items-manager__search-container {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #dcdee0;
+  border-radius: 8px;
+  padding: 0 16px;
+  height: 40px;
+  width: 280px;
+  transition: border-color 0.15s ease;
+}
+
+.su-config-items-manager__search-container:focus-within {
+  border-color: #171717;
+}
+
+.su-config-items-manager__search-container input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: #171717;
+  flex: 1;
+  min-width: 0;
+}
+
+.su-config-items-manager__list-container {
+  flex: 1;
+  min-height: 320px;
+}
+
+.su-config-items-manager__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.su-config-items-manager__card {
+  background: #ffffff;
+  border: 1px solid #f0f0f3;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 300px;
+  transition: box-shadow 0.15s ease;
+}
+
+.su-config-items-manager__card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
+.su-config-items-manager__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f3;
+}
+
+.su-config-items-manager__card-title-box {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.su-config-items-manager__card-title {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #171717;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.su-config-items-manager__card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.su-config-items-manager__action-btn-edit,
+.su-config-items-manager__action-btn-delete {
+  border: none;
+  background: transparent;
+  color: #999999;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.su-config-items-manager__action-btn-edit:hover {
+  background: #f0f0f3;
+  color: #171717;
+}
+
+.su-config-items-manager__action-btn-delete:hover {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.su-config-items-manager__card-body {
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.su-config-items-manager__code-block {
+  margin: 0;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #171717;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.su-config-items-manager__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  font-size: 13px;
+  color: #999999;
+  background: #fafafa;
+  border-radius: 12px;
+  border: 1px dashed #dcdee0;
+}
+
+.su-config-items-manager__center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 0;
+}
+
+.su-config-items-manager__spinner {
+  display: inline-block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid #f0f0f3;
+  border-top-color: #171717;
+  border-radius: 50%;
+  animation: su-config-items-manager-spin 0.6s linear infinite;
+}
+
+.su-config-items-manager__overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.su-config-items-manager__modal {
+  width: 580px;
+  max-width: calc(100vw - 32px);
+  background: #ffffff;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.1);
+  border: 1px solid #f0f0f3;
+}
+
+.su-config-items-manager__modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f3;
+}
+
+.su-config-items-manager__modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.su-config-items-manager__modal-close {
+  border: none;
+  background: transparent;
+  color: #999999;
+  cursor: pointer;
+  display: flex;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.su-config-items-manager__modal-close:hover {
+  background: #f0f0f3;
+  color: #171717;
+}
+
+.su-config-items-manager__modal-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+}
+
+.su-config-items-manager__preset-label {
+  display: flex;
+  align-items: center;
+  color: #476cff !important;
+  font-weight: 600 !important;
+}
+
+.su-config-items-manager__template-select-wrapper {
+  margin-top: 6px;
+}
+
+.su-config-items-manager__form-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.su-config-items-manager__form-item label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.su-config-items-manager__input-text {
+  height: 40px;
+  border: 1px solid #dcdee0;
+  border-radius: 8px;
+  padding: 0 16px;
+  font-size: 14px;
+  color: #171717;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.su-config-items-manager__input-text:focus {
+  border-color: #171717;
+}
+
+.su-config-items-manager__input-text:disabled {
+  background: #fafafa;
+  color: #999999;
+  cursor: not-allowed;
+  border-color: #f0f0f3;
+}
+
+.su-config-items-manager__input-textarea {
+  border: 1px solid #dcdee0;
+  border-radius: 8px;
+  padding: 14px;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #171717;
+  outline: none;
+  resize: vertical;
+  transition: border-color 0.15s ease;
+}
+
+.su-config-items-manager__input-textarea:focus {
+  border-color: #171717;
+}
+
+.su-config-items-manager__form-help {
+  margin: 0;
+  font-size: 13px;
+  color: #60646c;
+}
+
+.su-config-items-manager__modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f3;
+}
+
+@keyframes su-config-items-manager-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

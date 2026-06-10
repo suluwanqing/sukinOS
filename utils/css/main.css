@@ -1,0 +1,32 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body,
+#root {
+  width: 100%;
+  height: 100dvh;
+  scroll-behavior: smooth;
+}
+body::-webkit-scrollbar {
+  display: none;
+}
+/* 字体包 */
+@font-face {
+  font-family: 'CurlycueEnglish';
+  /* 自定义字体名字 */
+  src: url('/fonts/breadshop-font/Breadshop-4nLED.otf') format('opentype');
+  /* 指向字体文件的路径和格式 */
+  font-weight: normal;
+  /* 字体粗细 */
+  font-style: normal;
+  /* 字体样式 */
+  font-display: swap;
+  /* 优先系统字体,进行展示 */
+}
+@media (display-mode: window-controls-overlay) {
+  #root > div {
+    margin-top: 28px;
+  }
+}

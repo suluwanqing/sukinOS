@@ -1,0 +1,223 @@
+.su-br-header {
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.su-br-header__top {
+  height: 52px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.su-br-header__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.su-br-header__title:hover {
+  background-color: #f1f5f9;
+}
+
+.su-br-header__rename-input {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  border: 1px solid #3b82f6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  outline: none;
+  background-color: #ffffff;
+  box-sizing: border-box;
+}
+
+.su-br-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.su-br-header__btn {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+  background: none;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.su-br-header__btn:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.su-br-header__dropdown-wrap {
+  position: relative;
+}
+
+.su-br-header__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  z-index: 100;
+  min-width: 140px;
+}
+
+.su-br-header__dropdown.dropdown-lg {
+  min-width: 200px;
+}
+
+.su-br-header__drop-item {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #334155;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.su-br-header__drop-item:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.su-br-header__bottom {
+  height: 44px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.su-br-header__view-tabs {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  gap: 4px;
+}
+
+.su-br-header__tab {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.su-br-header__tab:hover {
+  color: #1e293b;
+}
+
+.su-br-header__tab.is-active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
+.su-br-header__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.su-br-header__tool-btn {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-size: 13px;
+  color: #475569;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.su-br-header__tool-btn:hover,
+.su-br-header__tool-btn.is-active {
+  background-color: #f1f5f9;
+}
+
+.su-br-header__drop-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 4px;
+}
+
+.su-br-header__drop-list {
+  max-height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.su-br-header__check-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.su-br-header__check-item:hover {
+  background-color: #f8fafc;
+}
+
+.su-br-header__check-item span {
+  font-size: 13px;
+  color: #334155;
+  user-select: none;
+}
+
+.su-br-header__checkbox {
+  width: 16px;
+  height: 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.su-br-header__checkbox.is-checked {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.su-br-header__checkbox svg {
+  width: 12px;
+  height: 12px;
+  color: #ffffff;
+}
+
+.su-br-header__search {
+  width: 200px;
+}

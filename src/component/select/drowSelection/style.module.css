@@ -1,0 +1,200 @@
+.su-select {
+  position: relative;
+  display: inline-block;
+  font-family:
+    'Inter',
+    -apple-system,
+    sans-serif;
+  width: 100%;
+  min-width: 100px;
+  user-select: none;
+  --select-height: 40px;
+  --select-font-size: 14px;
+  --select-padding: 16px;
+}
+
+.su-select--default {
+  --select-height: 40px;
+  --select-font-size: 14px;
+}
+
+.su-select--small {
+  --select-height: 32px;
+  --select-font-size: 13px;
+  --select-padding: 12px;
+}
+
+.su-select--large {
+  --select-height: 44px;
+  --select-font-size: 16px;
+  --select-padding: 20px;
+}
+
+.su-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--select-height);
+  padding: 0 var(--select-padding);
+  background-color: #ffffff;
+  border: 1px solid #dcdee0;
+  border-radius: 8px;
+  font-size: var(--select-font-size);
+  color: #171717;
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
+  gap: 8px;
+  box-sizing: border-box;
+  outline: none !important;
+  position: relative;
+}
+
+.su-select__trigger:hover {
+  border-color: #171717;
+  background-color: #fafafa;
+}
+
+.su-select__trigger:focus,
+.su-select__trigger:active {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.su-select__value {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.su-select__arrow {
+  display: flex;
+  align-items: center;
+  color: #999999;
+  transition: transform 0.2s ease;
+  font-size: 14px;
+}
+
+.is-reverse {
+  transform: rotate(180deg);
+}
+
+.su-select__options {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  max-height: 220px;
+  overflow-y: auto;
+  background-color: #ffffff;
+  border: 1px solid #f0f0f3;
+  border-radius: 8px;
+  z-index: 1000;
+  padding: 6px 0;
+  box-sizing: border-box;
+}
+
+.su-select--bottom .su-select__options {
+  top: calc(100% + 6px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  animation: su-slide-down 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.su-select--top .su-select__options {
+  bottom: calc(100% + 6px);
+  top: auto;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04);
+  animation: su-slide-up 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.su-select__option {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: 10px var(--select-padding);
+  cursor: pointer;
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
+  overflow: visible !important;
+}
+
+.su-select__option:hover {
+  background-color: #fafafa;
+}
+
+.su-select__option-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--select-font-size);
+  color: #60646c;
+}
+
+.su-select__option:hover .su-select__option-text {
+  color: #171717;
+}
+
+.is-selected {
+  background-color: #f0f0f3;
+}
+
+.is-selected .su-select__option-text {
+  color: #171717;
+  font-weight: 600;
+}
+
+/* 传送门渲染的自定义悬浮提示框样式，彻底避开父级容器的所有溢出截切阻碍 */
+.su-select__portal-tooltip {
+  position: absolute;
+  background-color: #171717;
+  color: #ffffff;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-family: 'Inter', sans-serif;
+  font-weight: 500;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 9999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  transform: translate(-50%, -100%);
+  margin-top: -8px;
+  animation: su-tooltip-fade-in 0.12s ease-out forwards;
+}
+
+@keyframes su-tooltip-fade-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
+
+@keyframes su-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes su-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
