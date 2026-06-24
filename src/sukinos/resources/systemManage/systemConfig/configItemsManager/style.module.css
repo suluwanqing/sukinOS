@@ -150,6 +150,15 @@
   color: #ef4444;
 }
 
+.su-config-items-manager__card-desc {
+  padding: 10px 20px;
+  font-size: 12px;
+  color: #6b7280;
+  background: #f9fafb;
+  border-bottom: 1px solid #f0f0f3;
+  line-height: 1.5;
+}
+
 .su-config-items-manager__card-body {
   flex: 1;
   padding: 16px 20px;
@@ -210,6 +219,7 @@
 .su-config-items-manager__modal {
   width: 580px;
   max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 64px);
   background: #ffffff;
   border-radius: 12px;
   display: flex;

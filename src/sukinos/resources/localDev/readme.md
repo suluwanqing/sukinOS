@@ -4,7 +4,7 @@
 
 | 字段 | 值 |
 |---|---|
-| 资源ID | `sys-loacl-dev-demo` |
+| 资源ID | `sys-local-dev-demo` |
 | 应用类型 | `system` |
 | 寄生模式 | 否 |
 | 暴露状态 | 否 |

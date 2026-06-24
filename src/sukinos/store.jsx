@@ -6,7 +6,9 @@ import {
   SUKINOS_STORE_REMOTE_CHECK_UPDATES,
   SUKINOS_STORE_REMOTE_SEARCH,
   SUKINOS_STORE_REMOTE_MY_UPLOAD,
-  SUKINOS_STORE_REMOTE_DELETE
+  SUKINOS_STORE_REMOTE_DELETE,
+  SUKINOS_STORE_REMOTE_WITH_PERMISSION,
+  SUKINOS_STORE_REMOTE_AUTHORIZED,
 } from "@/sukinos/utils/config";
 
 /*========================================= 初始化状态 ====================================================*/
@@ -28,6 +30,8 @@ const initialState = {
       searchUrl: SUKINOS_STORE_REMOTE_SEARCH,
       myUploadUrl: SUKINOS_STORE_REMOTE_MY_UPLOAD,
       deleteUrl: SUKINOS_STORE_REMOTE_DELETE,
+      withPermissionUrl: SUKINOS_STORE_REMOTE_WITH_PERMISSION,
+      authorizedUrl: SUKINOS_STORE_REMOTE_AUTHORIZED,
     },
     generateApp: {
       singleIframe: false,

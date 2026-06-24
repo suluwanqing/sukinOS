@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
@@ -9,6 +9,7 @@ import kernel from "@/sukinos/utils/process/kernel"
 import { selectorUserInfo, selectorStoreSettingStorePath } from "@/sukinos/store"
 import { useSelector } from 'react-redux';
 import { ENV_KEY_NAME, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO } from '@/sukinos/utils/config';
+import permissionManageAPI from "@/apis/system/permissionManage";
 
 const bem = createNamespace('upload');
 
@@ -18,6 +19,15 @@ function Uploader({ appMeta, uploadType }) {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [registerToPool, setRegisterToPool] = useState(false);
+  const [canRegister, setCanRegister] = useState(false);
+
+  useEffect(() => {
+    if (!userInfo?.id) return;
+    permissionManageAPI.checkCanRegister().then(res => {
+      if (res.code === 200 && (res.data?.canRegister || res.data?.can_register)) setCanRegister(true);
+    }).catch(() => {});
+  }, [userInfo?.id]);
 
   // 从 appMeta 中解构出内部运行时的 sysOptions
   const { appName, appIcon, logicCode, sysOptions, ...restMetaInfo } = appMeta;
@@ -30,6 +40,18 @@ function Uploader({ appMeta, uploadType }) {
 
   // 合并 Redux 中取出的上下文配置到 sysOptions
   const finalSysOptions = { ...sysOptions, userInfo, storePath };
+
+  const registerToPermissionPool = async (resourceId) => {
+    if (!resourceId || !registerToPool) return;
+    try {
+      await permissionManageAPI.registerApp({
+        resource_id: resourceId,
+        permission_enabled: true,
+      });
+    } catch (e) {
+      console.error("注册权限失败", e);
+    }
+  };
 
   const getUploadConfig = () => {
     switch (uploadType) {
@@ -49,14 +71,15 @@ function Uploader({ appMeta, uploadType }) {
     const file = await fileHandle.getFile();
     const fileContent = await file.text();
 
-    kernel.uploadResource({
+    const resourceId = await kernel.uploadResource({
       sysOptions: finalSysOptions,
       [ENV_KEY_NAME]: appName || file.name.replace('.jsx', ''),
       [ENV_KEY_IS_BUNDLE]: false,
       [ENV_KEY_CONTENT]: fileContent,
       [ENV_KEY_LOGIC]: null,
       [ENV_KEY_META_INFO]: baseMetaInfo
-    })
+    });
+    await registerToPermissionPool(resourceId);
   };
 
   const handleUploadBundle = async () => {
@@ -85,14 +108,15 @@ function Uploader({ appMeta, uploadType }) {
     if (!hasLayout) throw new Error('文件夹中必须包含 layout.jsx 文件');
     if (!logic) logic = "const initialState={};\nfunction reducer(s){\n  return s;\n}";
 
-    kernel.uploadResource({
+    const resourceId = await kernel.uploadResource({
       sysOptions: finalSysOptions,
       [ENV_KEY_NAME]: appName || handle.name,
       [ENV_KEY_IS_BUNDLE]: true,
       [ENV_KEY_CONTENT]: modules,
       [ENV_KEY_LOGIC]: logic,
       [ENV_KEY_META_INFO]: baseMetaInfo
-    })
+    });
+    await registerToPermissionPool(resourceId);
   };
 
   const handleUploadLogic = async () => {
@@ -121,14 +145,15 @@ function Uploader({ appMeta, uploadType }) {
     }
     if (!hasLayout || !hasLogic) throw new Error('文件夹中必须包含 layout.jsx 和 logic.jsx 文件');
 
-    kernel.uploadResource({
+    const resourceId = await kernel.uploadResource({
       sysOptions: finalSysOptions,
       [ENV_KEY_NAME]: appName || handle.name,
       [ENV_KEY_IS_BUNDLE]: false,
       [ENV_KEY_CONTENT]: content,
       [ENV_KEY_LOGIC]: logic,
       [ENV_KEY_META_INFO]: baseMetaInfo
-    })
+    });
+    await registerToPermissionPool(resourceId);
   };
 
   const handleMainAction = async () => {
@@ -136,10 +161,7 @@ function Uploader({ appMeta, uploadType }) {
       setIsUploading(true);
       setMessage('');
       const config = getUploadConfig();
-      const payload = await config.method();
-      window.dispatchEvent(new CustomEvent('kernel_call', {
-        detail: { method: 'UPLOAD_RESOURCE', args: payload }
-      }));
+      await config.method();
       setMessage(`上传成功: ${config.title}`);
       setMessageType('success');
     } catch (error) {
@@ -179,6 +201,18 @@ function Uploader({ appMeta, uploadType }) {
             )}
           </ul>
         </div>
+        {canRegister && (
+          <div className={style[bem.e('register-option')]}>
+            <label className={style[bem.e('register-label')]}>
+              <input
+                type="checkbox"
+                checked={registerToPool}
+                onChange={e => setRegisterToPool(e.target.checked)}
+              />
+              <span>上传后注册到权限控制池</span>
+            </label>
+          </div>
+        )}
         <div className={style[bem.e('upload')]}>
           <button className={style[bem.e('upload-btn')]} onClick={handleMainAction} disabled={isUploading}>
             {isUploading ? (<><span className={style[bem.e('upload-spinner')]}></span>上传处理中...</>) : (<><UploadIcon fontSize="small"/>选择文件上传</>)}

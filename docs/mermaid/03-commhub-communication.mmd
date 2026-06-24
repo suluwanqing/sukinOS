@@ -1,0 +1,53 @@
+---
+title: CommHub 通信枢纽架构
+---
+graph LR
+    subgraph Channels["5 种通信通道"]
+        direction TB
+        C1["通道1: Kernel → UI<br/>系统广播事件"]
+        C2["通道2: UI → Worker<br/>dispatch 消息分发"]
+        C3["通道3: Worker → UI<br/>回调结果返回"]
+        C4["通道4: Publish/Subscribe<br/>主题发布订阅"]
+        C5["通道5: System Broadcast<br/>全局系统广播"]
+    end
+
+    subgraph CommHub["CommHub 类"]
+        direction TB
+        EventTarget["EventTarget 实例<br/>系统事件总线"]
+        StateCache["stateCache: Map<br/>状态缓存"]
+        ProcessSubs["processSubscriptions: Map<br/>进程级订阅管理"]
+        TopicSubs["主题订阅 Map"]
+    end
+
+    subgraph MessageProtocol["消息协议"]
+        direction TB
+        TypeSystem["type: 'system' 系统消息"]
+        TypeApp["type: 'app' 应用消息"]
+        TypeBroadcast["type: 'broadcast' 广播"]
+        TypeSubscribe["type: 'subscribe' 订阅"]
+        TypePublish["type: 'publish' 发布"]
+    end
+
+    subgraph DispatchFlow["消息分发流程"]
+        direction LR
+        Step1["1. 接收消息"] --> Step2["2. 解析 type"]
+        Step2 --> Step3{"3. 路由判断"}
+        Step3 -->|"system"| Step4a["4a. 系统级处理<br/>systemSwitch()"]
+        Step3 -->|"app"| Step4b["4b. 应用级处理<br/>dispatch to Worker"]
+        Step3 -->|"subscribe"| Step4c["4c. 注册订阅<br/>processSubscriptions"]
+        Step3 -->|"publish"| Step4d["4d. 发布主题<br/>通知所有订阅者"]
+        Step3 -->|"broadcast"| Step4e["4e. 全局广播<br/>所有进程"]
+    end
+
+    subgraph CacheStrategy["状态缓存策略"]
+        direction TB
+        GetCached["getCachedState(key)<br/>获取缓存"]
+        SetCached["缓存写入<br/>Worker 回调结果"]
+        ClearCached["clearCachedState(key)<br/>清除缓存"]
+        CacheKey["缓存键格式<br/>pid:key"]
+    end
+
+    Channels --> CommHub
+    CommHub --> MessageProtocol
+    MessageProtocol --> DispatchFlow
+    CommHub --> CacheStrategy

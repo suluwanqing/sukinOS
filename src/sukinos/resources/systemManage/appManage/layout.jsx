@@ -9,6 +9,7 @@ import { createNamespace } from "/utils/js/classcreate";
 import sukinosAppManageAPI from "@/apis/system/sukinosAppManage";
 import PageList from "@/component/list/pagelist/layout";
 import Button from "@/component/button/layout";
+import Modal from "@/component/modal/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
@@ -24,6 +25,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 
 import useDebounce from "@/sukinos/hooks/useDebounce";
 import useThrottle from "@/sukinos/hooks/useThrottle";
+import { usePermission } from "@/hooks/usePermission/main";
 
 use([
   PieChart,
@@ -106,6 +108,8 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
   // 审核暂存状态
   const [targetStatus, setTargetStatus] = useState("");
   const [auditOpinion, setAuditOpinion] = useState("");
+  const [metaEditVisible, setMetaEditVisible] = useState(false);
+  const [metaEditValue, setMetaEditValue] = useState("");
 
   const loadDetail = () => {
     setLoading(true);
@@ -136,7 +140,7 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
     })
       .then(res => {
         if (res?.code === 200) {
-          alert.success("状态审核更新成功");
+          alert.success(res.message || "状态审核更新成功");
           onRefresh();
           onClose();
         } else {
@@ -194,9 +198,60 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
               </div>
 
               <div className={style[bem.e("detail-block")]}>
-                <label>元数据 (MetaInfo)</label>
+                <label>元数据 (MetaInfo)
+                  <button
+                    className={style[bem.e("btn-edit-meta")]}
+                    onClick={() => {
+                      setMetaEditValue(JSON.stringify(detail.metaInfo || {}, null, 2));
+                      setMetaEditVisible(true);
+                    }}
+                  >
+                    编辑
+                  </button>
+                </label>
                 <pre>{detail.metaInfo ? JSON.stringify(detail.metaInfo, null, 2) : "无元数据描述"}</pre>
               </div>
+
+              <Modal
+                title="编辑元数据 (MetaInfo)"
+                visible={metaEditVisible}
+                onClose={() => setMetaEditVisible(false)}
+                width={680}
+              >
+                <div className={style[bem.e("form-item")]}>
+                  <label>JSON 数据</label>
+                  <textarea
+                    className={style[bem.e("input-textarea")]}
+                    value={metaEditValue}
+                    onChange={e => setMetaEditValue(e.target.value)}
+                    rows={15}
+                    placeholder="输入 JSON 格式的元数据"
+                  />
+                </div>
+                <div className={style[bem.e("audit-actions")]} style={{ marginTop: 16 }}>
+                  <Button type="default" size="small" onClick={() => setMetaEditVisible(false)}>取消</Button>
+                  <Button type="primary" size="small" onClick={() => {
+                    try {
+                      const parsed = JSON.parse(metaEditValue);
+                      sukinosAppManageAPI.updateAppStatus({
+                        resourceId,
+                        status: targetStatus,
+                        metaInfo: parsed
+                      }).then(res => {
+                        if (res?.code === 200) {
+                          alert.success(res.message || "元数据更新成功");
+                          setMetaEditVisible(false);
+                          loadDetail();
+                        } else {
+                          alert.failure(res?.message || "更新失败");
+                        }
+                      });
+                    } catch {
+                      alert.failure("JSON 格式错误");
+                    }
+                  }}>保存</Button>
+                </div>
+              </Modal>
 
               <div className={style[bem.e("audit-pane")]}>
                 <div className={style[bem.e("card-head")]} style={{ padding: "0 0 12px 0" }}>管理审核决策</div>
@@ -235,6 +290,7 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
 }
 
 function AppManage() {
+  const { hasPermission } = usePermission();
   const [listRes, setListRes] = useState({ items: [], total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -423,34 +479,38 @@ function AppManage() {
     }
   ], []);
 
-  const actions = useMemo(() => [
-    {
-      label: "管理与审计",
-      icon: <VisibilityIcon style={{ color: "#6366f1" }} />,
-      onClick: (row) => setDetailId(row.resourceId)
-    },
-    {
-      label: "强行销毁",
-      icon: <DeleteIcon style={{ color: "#f43f5e" }} />,
-      onClick: (row) => {
-        confirm.show({
-          title: "平台级高危销毁确认",
-          content: `您确定要强制销毁应用「${row.appName}」吗？该动作会物理抹除磁盘文件并在云端完成下线，无法复原。`,
-          onConfirm: async () => {
-            const res = await sukinosAppManageAPI.forceDeleteApp({ resourceId: row.resourceId });
-            if (res?.code === 200) {
-              alert.success("平台级强制销毁成功");
-              // 销毁后同步载入列表和汇总数值指标
-              loadStats();
-              loadList();
-            } else {
-              alert.failure(res?.message || "销毁失败");
+  const actions = useMemo(() => {
+    const result = [
+      {
+        label: "管理与审计",
+        icon: <VisibilityIcon style={{ color: "#6366f1" }} />,
+        onClick: (row) => setDetailId(row.resourceId)
+      },
+    ];
+    if (hasPermission("system:apps_access:edit")) {
+      result.push({
+        label: "强行销毁",
+        icon: <DeleteIcon style={{ color: "#f43f5e" }} />,
+        onClick: (row) => {
+          confirm.show({
+            title: "平台级高危销毁确认",
+            content: `您确定要强制销毁应用「${row.appName}」吗？该动作会物理抹除磁盘文件并在云端完成下线，无法复原。`,
+            onConfirm: async () => {
+              const res = await sukinosAppManageAPI.forceDeleteApp({ resourceId: row.resourceId });
+              if (res?.code === 200) {
+                alert.success(res.message || "平台级强制销毁成功");
+                loadStats();
+                loadList();
+              } else {
+                alert.failure(res?.message || "销毁失败");
+              }
             }
-          }
-        });
-      }
+          });
+        }
+      });
     }
-  ], [loadList, loadStats]);
+    return result;
+  }, [loadList, loadStats, hasPermission]);
 
   return (
     <div className={style[bem.b()]}>

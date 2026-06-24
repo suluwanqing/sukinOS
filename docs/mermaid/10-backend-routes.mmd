@@ -1,0 +1,65 @@
+---
+title: 后端 API 路由结构
+---
+graph LR
+    subgraph FastAPI["FastAPI 应用"]
+        direction TB
+
+        subgraph UserRoutes["/api/user 用户模块"]
+            direction TB
+            R1["POST /login<br/>用户登录"]
+            R2["POST /register<br/>用户注册"]
+            R3["POST /logout<br/>用户登出"]
+            R4["POST /refresh<br/>刷新Token"]
+            R5["GET /info<br/>用户信息"]
+            R6["PUT /update<br/>更新信息"]
+            R7["POST /avatar<br/>上传头像"]
+            R8["GET /captcha<br/>获取验证码"]
+        end
+
+        subgraph SukinosRoutes["/api/sukinos SukinOS模块"]
+            direction TB
+
+            subgraph AppManage["/app (需认证)"]
+                S1["POST /upload<br/>上传应用"]
+                S2["POST /update<br/>更新应用"]
+                S3["GET /appList<br/>应用列表"]
+                S4["GET /searchApp<br/>搜索应用"]
+                S5["GET /myUpload<br/>我的上传"]
+                S6["POST /delete<br/>删除应用"]
+                S7["POST /checkUpdates<br/>检查更新"]
+            end
+
+            subgraph LocalDev["/localdev 本地开发"]
+                L1["SSE 端点<br/>热更新推送"]
+                L2["Token 鉴权"]
+            end
+        end
+
+        subgraph SystemRoutes["/api/system 系统模块"]
+            direction TB
+            T1["/config<br/>系统配置管理"]
+            T2["/status<br/>系统状态监控<br/>Redis/DB/资源"]
+            T3["/updates<br/>系统更新日志"]
+            T4["/requestLog<br/>请求日志查询"]
+            T5["/appManage<br/>应用审核管理"]
+        end
+
+        subgraph WsRoutes["WebSocket /ws"]
+            W1["/{user_id}<br/>多标签页连接"]
+            W2["心跳检测 35s"]
+            W3["登录/登出追踪"]
+        end
+    end
+
+    subgraph Auth["认证依赖"]
+        A1["verify_auth()<br/>通用认证"]
+        A2["verify_auth(mode='superuser')<br/>超管认证"]
+        A3["verify_auth(mode='role')<br/>角色认证"]
+        A4["verify_auth(mode='power')<br/>权限位认证"]
+    end
+
+    AppManage --> Auth
+    SystemRoutes --> Auth
+    LocalDev --> L2
+    UserRoutes --> A1

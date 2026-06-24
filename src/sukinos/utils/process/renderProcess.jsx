@@ -117,26 +117,161 @@ const getGhostSandbox = () => {
   return ghostIframeInstance;
 };
 
+
+/**
+ * 结构化错误信息面板
+ * renderWindow 返回的编译期 errorDetail（含 phase / loc / stack）
+ * ErrorBoundary 捕获的运行期 error + componentStack
+ */
+const ErrorDetailPanel = ({ errorDetail, componentStack, title, moduleKey }) => {
+  const [showStack, setShowStack] = useState(false);
+
+  // 兼容两种入参格式
+  const phase = errorDetail?.phase || 'runtime';
+  const loc   = errorDetail?.loc   || '';
+  const msg   = errorDetail?.message || (errorDetail instanceof Error ? errorDetail.message : String(errorDetail || '未知错误'));
+  const stack = errorDetail?.stack  || (errorDetail instanceof Error ? errorDetail.stack : '') || '';
+
+  const phaseLabel = {
+    babel:   'Babel 转译',
+    compile: '沙箱构建',
+    runtime: '初始化运行',
+    unknown: '未知阶段',
+    validate:'输入校验',
+  }[phase] || phase;
+
+  const panelStyle = {
+    padding: '14px 16px',
+    color: '#cf1322',
+    background: '#fff2f0',
+    border: '1px solid #ffccc7',
+    borderRadius: '6px',
+    margin: '8px',
+    fontSize: '13px',
+    fontFamily: 'monospace',
+    lineHeight: '1.6',
+  };
+
+  return (
+    <div style={panelStyle}>
+
+      <div style={{ fontWeight: 'bold', marginBottom: '6px', fontSize: '14px' }}>
+        {title || `沙箱错误 [${moduleKey || '?'}]`}
+      </div>
+
+
+      <div style={{ marginBottom: '4px', color: '#820014' }}>
+        <span>阶段：{phaseLabel}</span>
+        {loc && <span style={{ marginLeft: '16px' }}>位置：{loc}</span>}
+        {moduleKey && <span style={{ marginLeft: '16px' }}>模块：{moduleKey}</span>}
+      </div>
+
+
+      <div style={{
+        background: '#fff0f0',
+        border: '1px solid #ffa39e',
+        borderRadius: '4px',
+        padding: '8px 10px',
+        marginBottom: '8px',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-all',
+      }}>
+        {msg}
+      </div>
+
+
+      {(stack || componentStack) && (
+        <>
+          <button
+            onClick={() => setShowStack(v => !v)}
+            style={{ background: 'none', border: 'none', color: '#cf1322', cursor: 'pointer', fontSize: '12px', padding: 0, marginBottom: '4px' }}
+          >
+            {showStack ? '▼ 隐藏调用栈' : '▶ 查看调用栈'}
+          </button>
+          {showStack && (
+            <pre style={{
+              background: '#fff2f0',
+              border: '1px dashed #ffa39e',
+              padding: '8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              maxHeight: '200px',
+              overflow: 'auto',
+              color: '#a8071a',
+              marginTop: '4px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}>
+              {stack}
+              {componentStack && (
+                <>
+                  {'\n\n--- React 组件树 ---\n'}
+                  {componentStack}
+                </>
+              )}
+            </pre>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 /**
  * 运行期错误边界容器
+ * componentDidCatch 保存 React 组件树调用栈（componentStack）。
+ * 错误展示改用结构化 ErrorDetailPanel，含阶段、位置、可展开调用栈。
  */
 class PreviewErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
-  static getDerivedStateFromError(error) { return { hasError: true, error }; }
-  componentDidCatch(error, info) { console.error(error, info); }
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      // 保存 React 组件树调用栈，便于在 UI 中展示
+      componentStack: null
+    };
+  }
+
+  static getDerivedStateFromError(error) {
+    // componentStack 在此阶段不可用，由 componentDidCatch 补充
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, info) {
+    // 保存 React 组件树调用栈，供结构化错误面板展示
+    this.setState({ componentStack: info?.componentStack || null });
+    console.error('[PreviewErrorBoundary]', error, info);
+  }
+
   render() {
     if (this.state.hasError) {
+      const { error, componentStack } = this.state;
+      // 将运行时 Error 适配为 ErrorDetailPanel 所需的 errorDetail 格式
+      const errorDetail = error?.errorDetail || {
+        phase: 'runtime',
+        message: error?.message || String(error || '未知运行时错误'),
+        stack: error?.stack || '',
+        loc: '',
+      };
+
       return (
-        <div style={{ padding: '16px', backgroundColor: '#fff2f0', border: '1px solid #ffccc7', borderRadius: '4px', margin: '10px' }}>
+        <div style={{ padding: '10px', backgroundColor: '#fff2f0', border: '1px solid #ffccc7', borderRadius: '4px', margin: '10px' }}>
+          {/* 阶段标签 */}
           <span style={{ display: 'inline-block', padding: '2px 8px', backgroundColor: '#ff4d4f', color: '#fff', fontSize: '12px', borderRadius: '2px', marginBottom: '8px', fontWeight: 'bold' }}>
             RUNTIME ERROR
           </span>
-          <p style={{ margin: '8px 0', fontSize: '13px', color: '#434343', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-            {this.state.error?.toString()}
-          </p>
+
+          {/* 结构化错误详情面板，含可展开调用栈 */}
+          <ErrorDetailPanel
+            errorDetail={errorDetail}
+            componentStack={componentStack}
+            title="运行时崩溃"
+          />
+
           <button
             style={{ marginTop: '8px', padding: '4px 12px', cursor: 'pointer', backgroundColor: '#fff', border: '1px solid #d9d9d9', borderRadius: '2px' }}
-            onClick={() => this.setState({ hasError: false, error: null })}
+            onClick={() => this.setState({ hasError: false, error: null, componentStack: null })}
           >
             RECOVER
           </button>
@@ -268,26 +403,79 @@ const RenderProcess = ({
 
     compileDbRef.current = setTimeout(async () => {
       handleCompileStart();
+      // 编译开始前重置错误，避免旧错误消息残留误导开发者
       handleCompileError('');
       try {
         const sandboxWin = getGhostSandbox();
         const resultMap = {};
+        // 收集本轮编译中所有模块的结构化错误，编译结束后统一通知外层
+        const errorList = [];
+
         for (const [filename, code] of Object.entries(localFiles)) {
-          const res = await compileSourceAsync(code, finalPid);
+          const moduleKey = filename.replace(/\.(jsx|js)$/, '');
+
+          const res = await compileSourceAsync({ sourceCode: code, pid: finalPid, module: moduleKey });
+
           if (res.error) {
-            handleCompileError(`${filename}: ${res.error}`);
+            // 优先使用 renderWindow 返回的结构化 errorDetail，兜底降级为字符串
+            const detail = res.errorDetail || {
+              phase: 'compile',
+              message: res.error,
+              stack: res.error,
+              loc: ''
+            };
+            errorList.push({ key: moduleKey, errorDetail: detail });
+
+            // 向外层透传人类可读的错误摘要（保持原有字符串接口不变）
+            handleCompileError(`[${moduleKey}] ${detail.message}${detail.loc ? `（${detail.loc}）` : ''}`);
+
+            // 将结构化错误回退为可渲染的错误面板，避免窗口空白
+            resultMap[moduleKey] = {
+              Component: () => (
+                <ErrorDetailPanel
+                  errorDetail={detail}
+                  title={`编译失败 [${moduleKey}]`}
+                  moduleKey={moduleKey}
+                />
+              ),
+              style: ''
+            };
             continue;
           }
+
           const exports = {};
-          // 使用幽灵沙箱环境执行工厂函数，注入 SDK
-          res.factory.call(sandboxWin, { exports }, exports, instanceSDK);
-          const key = filename.replace(/\.(jsx|js)$/, '');
-          resultMap[key] = { Component: exports.default || exports, style: exports.style || '' };
+          try {
+            // 使用幽灵沙箱环境执行工厂函数，注入 SDK
+            res.factory.call(sandboxWin, { exports }, exports, instanceSDK);
+            resultMap[moduleKey] = { Component: exports.default || exports, style: exports.style || '' };
+          } catch (evalError) {
+            // factory 执行阶段（初始化运行时）异常
+            const detail = {
+              phase: 'runtime',
+              message: evalError.message,
+              stack: evalError.stack || evalError.message,
+              loc: ''
+            };
+            errorList.push({ key: moduleKey, errorDetail: detail });
+            handleCompileError(`[${moduleKey}] 运行时异常：${detail.message}`);
+            resultMap[moduleKey] = {
+              Component: () => (
+                <ErrorDetailPanel
+                  errorDetail={detail}
+                  title={`初始化运行时异常 [${moduleKey}]`}
+                  moduleKey={moduleKey}
+                />
+              ),
+              style: ''
+            };
+          }
         }
+
         setModules(resultMap);
         // 编译并更新模块成功后，递增版本号，迫使错误边界销毁并重建
         setCompileVersion(prev => prev + 1);
       } catch (e) {
+        // 顶层未预期异常兜底
         handleCompileError(e.message);
       }
       handleCompileEnd();

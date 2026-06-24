@@ -52,7 +52,7 @@ const FileSystem = ({ app }) => {
   const {
     state: { currentId, items, history, breadcrumbs, isReady },
     navigation: { loadDir, handleBack, handleRefresh },
-    operation: { handleCreate, handleRename, handleDelete }
+    operation: { handleCreate, handleRename, handleDelete, handleExportFile }
   } = useSystemFileSystem(mode);
 
   const [viewMode, setViewMode] = useState('grid');
@@ -136,6 +136,7 @@ const FileSystem = ({ app }) => {
     }
   ];
 
+  // 完善虚拟盘特有的导出菜单项点击逻辑，调用 hook 层导出的 handleExportFile 导出真实数据
   const virtualItemMenuItems = [
     {
       type: 'divider'
@@ -143,9 +144,8 @@ const FileSystem = ({ app }) => {
     {
       id: 'export',
       label: '导出',
-      onClick: (item) => {
-        setRenamingId(item.id);
-        setRenameValue(item.name);
+      onClick: async (item) => {
+        await handleExportFile(item);
       }
     },
   ]

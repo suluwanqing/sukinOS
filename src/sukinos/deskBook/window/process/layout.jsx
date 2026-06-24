@@ -13,7 +13,7 @@ import { registerSandboxDoc } from '@/sukinos/utils/process/styleSyncHub'
  * 仅作为 JS 执行上下文，不负责显示 UI
  * 在单实例窗口上直接劫持并阻断 indexedDB、localStorage 等底层持久化 API。
  * 限制了 App 本身的 API 调用权限，但由于宿主注入的 SDK 钩子 (如 useFileSystem)
- * 运行在宿主闭包上下文中，因此不受该限制影响，完美实现“特权通行”。
+ * 运行在宿主闭包上下文中，因此不受该限制影响，完美实现"特权通行"。
  */
 let ghostIframeInstance = null;
 const getGhostSandbox = () => {
@@ -50,12 +50,113 @@ const getGhostSandbox = () => {
   return ghostIframeInstance;
 };
 
+// ─── 错误详情展示组件 ──────────────────────────────────────────────────────────
+/**
+ * 结构化错误信息面板
+ * renderWindow 返回的编译期 errorDetail（含 phase / loc / stack）
+ * ErrorBoundary 捕获的运行期 error + componentStack
+ */
+const ErrorDetailPanel = ({ errorDetail, componentStack, title, moduleKey }) => {
+  const [showStack, setShowStack] = useState(false);
+
+  // 兼容两种入参格式
+  const phase = errorDetail?.phase || 'runtime';
+  const loc   = errorDetail?.loc   || '';
+  const msg   = errorDetail?.message || (errorDetail instanceof Error ? errorDetail.message : String(errorDetail || '未知错误'));
+  const stack = errorDetail?.stack  || (errorDetail instanceof Error ? errorDetail.stack : '') || '';
+
+  const phaseLabel = {
+    babel:   'Babel 转译',
+    compile: '沙箱构建',
+    runtime: '初始化运行',
+    unknown: '未知阶段',
+    validate:'输入校验',
+  }[phase] || phase;
+
+  const panelStyle = {
+    padding: '14px 16px',
+    color: '#cf1322',
+    background: '#fff2f0',
+    border: '1px solid #ffccc7',
+    borderRadius: '6px',
+    margin: '8px',
+    fontSize: '13px',
+    fontFamily: 'monospace',
+    lineHeight: '1.6',
+  };
+
+  return (
+    <div style={panelStyle}>
+
+      <div style={{ fontWeight: 'bold', marginBottom: '6px', fontSize: '14px' }}>
+        {title || `沙箱错误 [${moduleKey || '?'}]`}
+      </div>
+
+
+      <div style={{ marginBottom: '4px', color: '#820014' }}>
+        <span>阶段：{phaseLabel}</span>
+        {loc && <span style={{ marginLeft: '16px' }}>位置：{loc}</span>}
+        {moduleKey && <span style={{ marginLeft: '16px' }}>模块：{moduleKey}</span>}
+      </div>
+
+
+      <div style={{
+        background: '#fff0f0',
+        border: '1px solid #ffa39e',
+        borderRadius: '4px',
+        padding: '8px 10px',
+        marginBottom: '8px',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-all',
+      }}>
+        {msg}
+      </div>
+
+
+      {(stack || componentStack) && (
+        <>
+          <button
+            onClick={() => setShowStack(v => !v)}
+            style={{ background: 'none', border: 'none', color: '#cf1322', cursor: 'pointer', fontSize: '12px', padding: 0, marginBottom: '4px' }}
+          >
+            {showStack ? '▼ 隐藏调用栈' : '▶ 查看调用栈'}
+          </button>
+          {showStack && (
+            <pre style={{
+              background: '#fff2f0',
+              border: '1px dashed #ffa39e',
+              padding: '8px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              maxHeight: '200px',
+              overflow: 'auto',
+              color: '#a8071a',
+              marginTop: '4px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}>
+              {stack}
+              {componentStack && (
+                <>
+                  {'\n\n--- React 组件树 ---\n'}
+                  {componentStack}
+                </>
+              )}
+            </pre>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
 /**
  * 故障隔离边界 (ErrorBoundary)
  * 核心功能：
  * 1. 自动重试机制：3次 reStartApp -> 1次 forceReStartApp -> 停止。
  * 2. 美化的异常显示 UI。
  * 3. 拦截子应用崩溃，保护主系统存活。
+ * 4. 透传 React 组件树调用栈（componentStack）到错误详情面板。
  */
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -63,6 +164,8 @@ class ErrorBoundary extends React.Component {
     this.state = {
       hasError: false,
       error: null,
+      // 保存 React 组件树调用栈，便于在 UI 中展示
+      componentStack: null,
       retryCount: 0,
       isRetrying: false,
       retryDelay: 1000,
@@ -77,10 +180,14 @@ class ErrorBoundary extends React.Component {
 
   static getDerivedStateFromError(error) {
     // 捕获错误，渲染备用 UI
+    // componentStack 在 getDerivedStateFromError 阶段拿不到，由 componentDidCatch 补充
     return { hasError: true, error };
   }
 
   componentDidCatch(error, info) {
+    // 保存 React 组件树调用栈，供错误 UI 展示
+    this.setState({ componentStack: info?.componentStack || null });
+
     // 如果已经达到最大重试次数，不再触发自动重试逻辑
     if (this.state.retryCount > this.maxRetryCount) {
       // console.error(`进程 [${this.props.pid}] 失败：已达到最大重试次数`);
@@ -124,7 +231,8 @@ class ErrorBoundary extends React.Component {
         hasError: false,
         isRetrying: false,
         retryCount: retryCount + 1,
-        error: null
+        error: null,
+        componentStack: null
       }, () => {
         if (isHardRetry) {
           forceReStartApp?.();
@@ -140,6 +248,7 @@ class ErrorBoundary extends React.Component {
     this.setState({
       hasError: false,
       error: null,
+      componentStack: null,
       retryCount: 0,
       isRetrying: false,
       showDetail: false
@@ -169,6 +278,7 @@ class ErrorBoundary extends React.Component {
       this.setState({
         hasError: false,
         error: null,
+        componentStack: null,
         retryCount: 0,
         isRetrying: false,
         showDetail: false
@@ -193,23 +303,31 @@ class ErrorBoundary extends React.Component {
 
   // 渲染最终失败 UI
   renderErrorUI() {
-    const { error, showDetail } = this.state;
-    return (
-      <div style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', padding: '20px' }}>
-        <div style={{ maxWidth: '500px', background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', textAlign: 'center' }}>
-          <div style={{ fontSize: '50px', marginBottom: '20px' }}>⚠️</div>
-          <h3>应用进程已停止响应</h3>
-          <p style={{ color: '#666', marginBottom: '20px' }}>PID: {this.props.pid} 尝试多次修复失败。请检查网络或联系开发者。</p>
+    const { error, componentStack } = this.state;
+    // 尝试将 error 适配为 ErrorDetailPanel 所需的 errorDetail 格式
+    const errorDetail = error?.errorDetail || {
+      phase: 'runtime',
+      message: error?.message || String(error || '未知运行时错误'),
+      stack: error?.stack || '',
+      loc: '',
+    };
 
+    return (
+      <div style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', padding: '20px', boxSizing: 'border-box', overflow: 'auto' }}>
+        <div style={{ maxWidth: '560px', width: '100%', background: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+          <div style={{ fontSize: '50px', marginBottom: '16px' }}>⚠️</div>
+          <h3 style={{ margin: '0 0 8px', color: '#1f1f1f' }}>应用进程已停止响应</h3>
+          <p style={{ color: '#666', marginBottom: '20px', fontSize: '13px' }}>
+            PID: <strong>{this.props.pid}</strong>，尝试多次修复失败。请检查源码或联系开发者。
+          </p>
+
+          {/* 结构化错误详情面板 */}
           <div style={{ textAlign: 'left', marginBottom: '20px' }}>
-             <button onClick={this.toggleDetail} style={{ background: 'none', border: 'none', color: '#cf1322', cursor: 'pointer', fontSize: '12px' }}>
-               {showDetail ? '▼ 隐藏详情' : '▶ 查看错误堆栈'}
-             </button>
-             {showDetail && (
-               <pre style={{ background: '#fff2f0', padding: '10px', borderRadius: '4px', fontSize: '11px', maxHeight: '150px', color: '#cf1322', marginTop: '10px' }}>
-                 {error?.stack || error?.message}
-               </pre>
-             )}
+            <ErrorDetailPanel
+              errorDetail={errorDetail}
+              componentStack={componentStack}
+              title="运行时崩溃详情"
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
@@ -422,8 +540,10 @@ const IframeSandbox = memo(({ css, pid, onMount }) => {
 
 /**
  * 内部组件渲染器
+ * 增加对 modules 和 component 存在的防御守卫，阻止因特定页面模块 null 抛出的 TypeError
  */
 const AppInternalRenderer = memo(({ modules, resource, commonProps, currentPath, pid }) => {
+  if (!modules) return null;
   if (!resource.isBundle) {
     const Main = modules['main']?.Component;
     return Main ? (
@@ -433,8 +553,9 @@ const AppInternalRenderer = memo(({ modules, resource, commonProps, currentPath,
     ) : null;
   }
   const Layout = modules['layout']?.Component;
-  if (!Layout) return <div>资源 layout.jsx 丢失!</div>;
-  const RawPage = modules[currentPath]?.Component || (() => <div>404: {currentPath}</div>);
+  if (!Layout) return <div style={{ padding: '16px', color: '#cf1322', background: '#fff2f0' }}>子应用入口框架 Layout 加载失败</div>;
+  const PageObj = modules[currentPath];
+  const RawPage = PageObj?.Component || (() => <div style={{ padding: '16px' }}>404: 页面 [{currentPath}] 加载失败或未找到</div>);
   const ConnectedPage = (props) => <RawPage {...commonProps} {...props} />;
   return (
     <div id={`proc-${pid}`} style={{ height: '100%' }}>
@@ -472,6 +593,9 @@ const DynamicRenderer =({
   forceReStartApp, reStartApp, onKill ,generateAppSetting,ref:renderRef
 }) => {
   const [modules, setModules] = useState(null)
+  // 编译/运行阶段的错误列表，每条对应一个模块的结构化错误
+  // 格式：Array<{ key: string, errorDetail: object, phase: string }>
+  const [compileErrors, setCompileErrors] = useState([])
 
   const [iframeMountNode, setIframeMountNode] = useState(null);
   // 物理沙箱模式下，iframe.contentWindow 作为 JS 执行上下文
@@ -537,8 +661,14 @@ const DynamicRenderer =({
   useEffect(() => {
     if (!stableResource) return
     let cancelled = false; // 防止 resource 切换时旧编译结果覆盖新结果
+    // 编译开始前清空上一次的编译错误，避免旧错误残留误导开发者
+    setCompileErrors([]);
+
     const loadAll = async () => {
       const resultMap = {};
+      // 收集本次编译过程中产生的所有模块错误，统一在编译结束后 setState
+      const errorList = [];
+
       // JS 执行上下文选择：
       // - 桥接 / Virtual Worker 模式：获取唯一的全局共享沙箱（隐藏 Iframe，UI 在宿主 DOM 渲染）
       // - 寄生模式：宿主 window （UI 直接渲染在宿主 DOM）
@@ -551,39 +681,110 @@ const DynamicRenderer =({
       // 物理沙箱模式下，必须等 iframe mount 完成后才有 contentWindow
       if (!isParasitism && !useBridgeMode && !sandboxWin) return;
 
-      const compileAndRun = async (code) => {
-        // 传入 sandboxWin 的 Function 构造器，使 factory 内部的 globalThis 指向该沙箱 window
-        // 物理沙箱模式下 globalThis=iframe.contentWindow → document=iframe.document
-        const res = await compileSourceAsync(code, pid, sandboxWin?.Function)
-        if (!res.error) {
+      /**
+       * 编译并执行单个模块代码
+       * 所有阶段（Babel 转译、Function 构建、factory 执行）的错误均被结构化捕获，
+       * 并以友好的错误 Component 回退，同时收集到 errorList 供页面展示。
+       */
+      const compileAndRun = async (code, key) => {
+        try {
+          // 传入 sandboxWin 的 Function 构造器，使 factory 内部的 globalThis 指向该沙箱 window
+          // 物理沙箱模式下 globalThis=iframe.contentWindow → document=iframe.document
+          const res = await compileSourceAsync({ sourceCode: code, pid, targetFunctionConstructor: sandboxWin?.Function, module: key })
+          if (!res || res.error) {
+            // 收集编译阶段错误（含结构化 errorDetail）
+            const detail = res?.errorDetail || { phase: 'compile', message: res?.error || '解析错误', stack: '', loc: '' };
+            errorList.push({ key, errorDetail: detail });
+            return {
+              Component: () => (
+                <ErrorDetailPanel
+                  errorDetail={detail}
+                  title={`编译失败 [${key}]`}
+                  moduleKey={key}
+                />
+              ),
+              style: ''
+            };
+          }
           const exports = {}
-          // 将 factory 绑定到沙箱 window 上执行
-          // 此时如果 App 尝试使用 this.indexedDB 将直接抛出拦截异常
-          // 而 instanceSDK.System.localStorage 等 API 因为是代理，可以安全、隔离地使用
-          res.factory.call(sandboxWin, { exports }, exports, instanceSDK)
-          return { Component: exports.default || exports, style: exports.style || '' }
+          try {
+            // 将 factory 绑定到沙箱 window 上执行
+            // 此时如果 App 尝试使用 this.indexedDB 将直接抛出拦截异常
+            // 而 instanceSDK.System.localStorage 等 API 因为是代理，可以安全、隔离地使用
+            res.factory.call(sandboxWin, { exports }, exports, instanceSDK)
+            return { Component: exports.default || exports, style: exports.style || '' }
+          } catch (evalError) {
+            // 收集 factory 执行阶段错误
+            const detail = {
+              phase: 'runtime',
+              message: evalError.message,
+              stack: evalError.stack || evalError.message,
+              loc: '',
+              raw: evalError
+            };
+            errorList.push({ key, errorDetail: detail });
+            return {
+              Component: () => (
+                <ErrorDetailPanel
+                  errorDetail={detail}
+                  title={`初始化运行时异常 [${key}]`}
+                  moduleKey={key}
+                />
+              ),
+              style: ''
+            };
+          }
+        } catch (e) {
+          // 收集未预期的顶层异常
+          const detail = {
+            phase: 'unknown',
+            message: e.message,
+            stack: e.stack || e.message,
+            loc: '',
+            raw: e
+          };
+          errorList.push({ key, errorDetail: detail });
+          return {
+            Component: () => (
+              <ErrorDetailPanel
+                errorDetail={detail}
+                title={`解析沙箱失败 [${key}]`}
+                moduleKey={key}
+              />
+            ),
+            style: ''
+          };
         }
-        return null;
       }
       if (!stableResource.isBundle) {
-        resultMap['main'] = await compileAndRun(stableResource.content);
+        resultMap['main'] = await compileAndRun(stableResource.content, 'main');
       } else {
         const files = Object.entries(stableResource.content)
         for (const [key, code] of files) {
           if (typeof code === 'string') {
-            resultMap[key] = await compileAndRun(code);
+            resultMap[key] = await compileAndRun(code, key);
           }
         }
       }
-      if (!cancelled) setModules(resultMap)
+      if (!cancelled) {
+        setModules(resultMap)
+        // 统一更新编译错误列表，供外层使用（如日志、监控等）
+        if (errorList.length > 0) {
+          setCompileErrors(errorList);
+        }
+      }
     };
     loadAll();
     return () => { cancelled = true; };
   }, [resource, iframeMountNode]);
 
+  // CSS 提取器：增加 Boolean 强过滤和默认值，避免 null page 引发的 style 读取异常
   const combinedCss = useMemo(() => {
     if (!modules) return '';
-    const rawCss = Object.values(modules).map(m => m.style).join('\n');
+    const rawCss = Object.values(modules)
+      .filter(Boolean)
+      .map(m => m.style || '')
+      .join('\n');
     return scopeCss(rawCss, pid);
   }, [modules, pid]);
 

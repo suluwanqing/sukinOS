@@ -28,6 +28,7 @@ import { appCustomMapper, appCustom, appTypes } from '@/sukinos/utils/config';
 import fs from '@/sukinos/utils/file/fileKernel';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import { FileType } from "@/sukinos/utils/config";
+import permissionManageAPI from "@/apis/system/permissionManage";
 
 //ENV_KEY_IS_BUNDLE 这注意这个文件和setting的bundle没有区分,因为这里不会对外产生影响不再修改,而且会增加逻辑负担于=》upload
 const bem = createNamespace('developer');
@@ -41,8 +42,8 @@ function Developer({ app }) {
   const [activeMain, setActiveMain] = useState('editor');
 
   const userInfo = useSelector(selectorUserInfo);
-  // 判断是否已登录
-  const isLogin = userInfo && Object.keys(userInfo).length !== 0;
+  // 判断是否已登录,开发环境直通，生产环境根据 userInfo 判断
+  const isLogin = import.meta.env.DEV || (userInfo && Object.keys(userInfo).length !== 0);
   const [uploadType, setUploadType] = useState('bundle');
   const [previewApp, setPreviewApp] = useState(null);
 
@@ -68,7 +69,16 @@ function Developer({ app }) {
   const [isAutoSave, setIsAutoSave] = useState(false);
   const [showWorkspaceModal, setShowWorkspaceModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [registerToPool, setRegisterToPool] = useState(false);
+  const [canRegister, setCanRegister] = useState(false);
   const saveTimeoutRef = useRef({});
+
+  useEffect(() => {
+    if (!userInfo?.id) return;
+    permissionManageAPI.checkCanRegister().then(res => {
+      if (res.code === 200 && (res.data?.canRegister || res.data?.can_register)) setCanRegister(true);
+    }).catch(() => {});
+  }, [userInfo?.id]);
 
   // 使用 ref 来存储最新的值，避免闭包问题
   const isMappedRef = useRef(isMapped);
@@ -319,8 +329,16 @@ function Developer({ app }) {
         [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: logicCode, [ENV_KEY_META_INFO]: baseMetaInfo
       };
     }
-    kernel.uploadResource(payload);
+    kernel.uploadResource(payload).then(resourceId => {
+      if (registerToPool && resourceId) {
+        permissionManageAPI.registerApp({
+          resource_id: resourceId,
+          permission_enabled: true,
+        }).catch(e => console.error("注册权限失败", e));
+      }
+    }).catch(e => console.error("上传失败", e));
     alert.success(`应用指令已发送`);
+    setRegisterToPool(false);
   };
 
   const handlePreviewApp = () => {
@@ -383,7 +401,7 @@ function Developer({ app }) {
                />
             )}
             {activeSidebar === 'setting' && (
-               <Setting appCustomMapper={appCustomMapper} appMeta={appMeta} appTypes={appTypes} onUpdateAppMeta={updateAppMeta} onCreate={handleDevCenterCreate} onPreview={handlePreviewApp} uploadType={uploadType} setUploadType={setUploadType} />
+               <Setting appCustomMapper={appCustomMapper} appMeta={appMeta} appTypes={appTypes} onUpdateAppMeta={updateAppMeta} onCreate={handleDevCenterCreate} onPreview={handlePreviewApp} uploadType={uploadType} setUploadType={setUploadType} canRegister={canRegister} registerToPool={registerToPool} onRegisterToggle={setRegisterToPool} />
             )}
           </Suspense>
         </div>

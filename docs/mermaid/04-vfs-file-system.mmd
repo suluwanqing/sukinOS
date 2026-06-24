@@ -1,0 +1,64 @@
+---
+title: 虚拟文件系统 (VFS) 架构
+---
+graph TB
+    subgraph VFS["fileKernel 虚拟文件系统内核"]
+        direction TB
+        InodeMap["inodeMap: Map id→Inode<br/>文件索引"]
+        TreeMap["treeMap: Map parentId→Set childId<br/>目录树索引"]
+        Boot["boot() 启动挂载"]
+        FormatDisk["formatDisk() 格式化"]
+        SyncMemory["syncMemory() 内存同步"]
+    end
+
+    subgraph InodeStruct["Inode 数据结构"]
+        direction TB
+        ID["id: String 唯一标识"]
+        Name["name: String 文件名"]
+        Type["type: FileType 文件类型<br/>directory | file | symlink"]
+        ParentId["parentId: String 父目录ID"]
+        Content["content: any 文件内容"]
+        Meta["meta: Object 元数据<br/>size, createdAt, modifiedAt"]
+    end
+
+    subgraph APIOperations["VFS API 操作"]
+        direction TB
+        Mkdir["mkdir(path) 创建目录"]
+        WriteFile["writeFile(path, content) 写文件"]
+        ReadFile["readFile(path) 读文件"]
+        Readdir["readdir(path) 列目录"]
+        Unlink["unlink(path) 删除"]
+        Rename["rename(oldPath, newPath) 重命名"]
+        UpdateContent["updateContent(path, content) 更新"]
+        GetPath["getPath(id) 获取路径"]
+        Watch["watch(path, callback) 监听变化"]
+        GetStats["getStats() 文件统计"]
+    end
+
+    subgraph IndexedDB["fileIndexDb IndexedDB 持久化"]
+        direction TB
+        Mount["mount() 挂载数据库"]
+        OpenDB["openDB() 打开连接"]
+        WriteInode["writeInode(inode) 写入节点"]
+        ReadInode["readInode(id) 读取节点"]
+        UnlinkInode["unlinkInode(id) 删除节点"]
+        LoadAll["loadAllInodes() 全量加载"]
+        Exists["exists(name, parentId) 复合索引查询"]
+        AutoMount["自动挂载预设系统资源"]
+    end
+
+    subgraph IndexedDBStore["IndexedDB 存储结构"]
+        direction TB
+        ObjectStore["ObjectStore: 'inodes'"]
+        KeyPath["keyPath: 'id'"]
+        CompositeIndex["复合索引: [name, parentId]"]
+        TimestampIdx["时间戳索引: 'modifiedAt'"]
+    end
+
+    VFS --> InodeStruct
+    VFS --> APIOperations
+    APIOperations --> IndexedDB
+    IndexedDB --> IndexedDBStore
+    Boot --> LoadAll
+    FormatDisk --> IndexedDB
+    SyncMemory --> WriteInode

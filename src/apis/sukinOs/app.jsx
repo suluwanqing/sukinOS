@@ -3,7 +3,7 @@ import { instanceWithoutBaseURL} from "@/url/main";
 import {
   SUKINOS_STORE_REMOTE_UPLOAD, SUKINOS_STORE_REMOTE_TOTAL, SUKINOS_STORE_REMOTE_CHECK_UPDATES,
   SUKINOS_STORE_REMOTE_SEARCH, SUKINOS_STORE_REMOTE_MY_UPLOAD, SUKINOS_STORE_REMOTE_DELETE,
-  SUKINOS_STORE_REMOTE_UPDATE
+  SUKINOS_STORE_REMOTE_UPDATE, SUKINOS_STORE_REMOTE_BASE
 } from "@/sukinos/utils/config"
 
 export const uploadApp = async (data) => {
@@ -38,7 +38,7 @@ export const downLoadApp = async (data) => {
 };
 
 export const getApps = async (data) => {
-  const { current = 1, pageSize = 1, url } = data || {};
+  const { current = 1, pageSize = 20, url } = data || {};
   return  instanceWithoutBaseURL({
     method: 'GET',
     url: url || SUKINOS_STORE_REMOTE_TOTAL,

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { createNamespace } from '/utils/js/classcreate';
 import style from './style.module.css';
@@ -37,16 +37,80 @@ export const Select = ({
   placeholder = '请选择',
   boxStyle = {},
   dropdownStyle = {},
-  optionStyle = {}
+  optionStyle = {},
+  searchable = false,
+  optionsAsync = null,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredTooltip, setHoveredTooltip] = useState(null);
+  const [searchText, setSearchText] = useState('');
+  const [asyncItems, setAsyncItems] = useState([]);
+  const [asyncTotal, setAsyncTotal] = useState(0);
+  const [asyncLoading, setAsyncLoading] = useState(false);
+  const [asyncPage, setAsyncPage] = useState(1);
   const containerRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const debounceTimer = useRef(null);
+  const PAGE_SIZE = 20;
 
   useClickOutside(containerRef, () => {
     setIsOpen(false);
-    setHoveredTooltip(null);
+    setSearchText('');
+    setAsyncItems([]);
+    setAsyncTotal(0);
+    setAsyncPage(1);
   });
+
+
+  useEffect(() => {
+    if (isOpen && searchable && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen, searchable]);
+
+
+  const doAsyncSearch = useCallback((query, page = 1) => {
+    if (!optionsAsync) return;
+    setAsyncLoading(true);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        const result = await optionsAsync({ page, pageSize: PAGE_SIZE, searchQuery: query });
+        if (page === 1) {
+          setAsyncItems(result.items || []);
+        } else {
+          setAsyncItems(prev => [...prev, ...(result.items || [])]);
+        }
+        setAsyncTotal(result.total || 0);
+      } catch {
+        setAsyncItems([]);
+        setAsyncTotal(0);
+      } finally {
+        setAsyncLoading(false);
+      }
+    }, 300);
+  }, [optionsAsync]);
+
+
+  useEffect(() => {
+    if (isOpen && searchable && optionsAsync) {
+      doAsyncSearch(searchText, 1);
+      setAsyncPage(1);
+    }
+  }, [isOpen, searchable, optionsAsync, doAsyncSearch, searchText]);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchText(val);
+    setAsyncPage(1);
+    doAsyncSearch(val, 1);
+  };
+
+  const handleLoadMore = () => {
+    const nextPage = asyncPage + 1;
+    setAsyncPage(nextPage);
+    doAsyncSearch(searchText, nextPage);
+  };
 
   const handleSelect = (optionValue) => {
     if (optionValue !== value) {
@@ -54,6 +118,10 @@ export const Select = ({
     }
     setIsOpen(false);
     setHoveredTooltip(null);
+    setSearchText('');
+    setAsyncItems([]);
+    setAsyncTotal(0);
+    setAsyncPage(1);
   };
 
   const handleMouseEnter = (event, text) => {
@@ -73,6 +141,14 @@ export const Select = ({
   useEffect(() => {
     setHoveredTooltip(null);
   }, [isOpen]);
+
+
+  const displayOptions = searchable && optionsAsync ? asyncItems : options;
+
+
+  const filteredOptions = searchable && !optionsAsync
+    ? options.filter(opt => opt.label.toLowerCase().includes(searchText.toLowerCase()))
+    : options;
 
   const currentOption = options.find(opt => opt.value === value);
   const currentLabel = currentOption ? currentOption.label : value || placeholder;
@@ -108,7 +184,27 @@ export const Select = ({
           className={style[bem.e('options')]}
           style={dropdownStyle}
         >
-          {options.map((opt) => (
+          {searchable && (
+            <div className={style[bem.e('search')]}>
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchText}
+                onChange={handleSearchChange}
+                placeholder="搜索..."
+                className={style[bem.e('search-input')]}
+                onKeyDown={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
+              />
+            </div>
+          )}
+          {asyncLoading && asyncPage === 1 && (
+            <div className={style[bem.e('status')]}>搜索中...</div>
+          )}
+          {!asyncLoading && displayOptions.length === 0 && (
+            <div className={style[bem.e('status')]}>无匹配结果</div>
+          )}
+          {(searchable && optionsAsync ? asyncItems : filteredOptions).map((opt) => (
             <div
               key={opt.value}
               className={[
@@ -123,6 +219,14 @@ export const Select = ({
               <span className={style[bem.e('option-text')]}>{opt.label}</span>
             </div>
           ))}
+          {searchable && optionsAsync && asyncTotal > asyncItems.length && (
+            <div
+              className={style[bem.e('load-more')]}
+              onClick={handleLoadMore}
+            >
+              {asyncLoading ? '加载中...' : `加载更多 (${asyncItems.length}/${asyncTotal})`}
+            </div>
+          )}
         </div>
       )}
 

@@ -1,0 +1,67 @@
+---
+title: JWT 双 Token 认证流程
+---
+sequenceDiagram
+    participant C as 客户端 (SukinOS)
+    participant M as 中间件 (RequestLog/StaticAuth)
+    participant A as Auth 模块
+    participant DB as MySQL 数据库
+    participant R as Redis 缓存
+
+    Note over C,R: === 登录流程 ===
+    C->>A: POST /api/user/login {account, password, code}
+    A->>R: 校验验证码
+    R-->>A: 验证通过
+    A->>DB: 查询用户 (account)
+    DB-->>A: 返回 User 对象
+    A->>A: bcrypt.verify(password, user.hash_ps)
+    A->>A: create_access_token(user_id, 30min)
+    A->>A: create_refresh_token(user_id, 7天)
+    A-->>C: Set-Cookie: access_token + refresh_token
+    A-->>C: Response: {user, token_expire}
+
+    Note over C,R: === 认证流程 (verify_auth) ===
+    C->>M: GET /api/protected (Cookie: access_token)
+    M->>A: verify_auth() 依赖注入
+
+    alt Access Token 有效
+        A->>A: jwt.decode(access_token)
+        A->>DB: 查询用户状态 (is_active)
+        DB-->>A: 用户活跃
+        A->>A: 权限校验 (superuser/role/power)
+        A-->>M: 认证通过
+        M-->>C: 正常响应
+    else Access Token 过期
+        A->>A: jwt.decode() → ExpiredSignatureError
+        A->>C: 读取 Cookie 中的 refresh_token
+        A->>A: jwt.decode(refresh_token)
+
+        alt Refresh Token 有效
+            A->>DB: 查询用户状态
+            DB-->>A: 用户活跃
+            A->>A: 重新签发 Token 对
+            A-->>C: Set-Cookie: 新 access_token + refresh_token
+            A-->>M: 认证通过
+            M-->>C: 正常响应
+        else Refresh Token 也过期
+            A-->>M: 认证失败 401
+            M-->>C: 401 Unauthorized
+        end
+    else 用户被禁用
+        A->>DB: 查询用户状态
+        DB-->>A: is_active = false
+        A-->>M: 认证失败 403
+        M-->>C: 403 Forbidden
+    end
+
+    Note over C,R: === 权限模式详解 ===
+    rect rgb(240, 248, 255)
+        Note over A: superuser: root=true
+        Note over A: role: permission.role 匹配
+        Note over A: power: 位运算 first/second 级别
+    end
+
+    Note over C,R: === 登出流程 ===
+    C->>A: POST /api/user/logout
+    A-->>C: Set-Cookie: 清除 Token
+    A->>DB: 更新 isonline = false

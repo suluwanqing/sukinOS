@@ -14,6 +14,8 @@ import Sheet from "@/sukinos/resources/sheet/layout"
 import  * as AllComponent from "@/component/main"
 import * as hooks from "@/sukinos/hooks/main"
 
+
+import * as middleware from "@/sukinos/middleware/main"
 // 从抽离出的安全模块统一引入
 import {
   createStorageProxy,
@@ -44,7 +46,8 @@ export const devAppSdk = {
   },
   hooks: {
       useFileSystem:hooks.useFileSystem
-  }
+  },
+  middleware
 };
 
 export const adminAppSdk = {

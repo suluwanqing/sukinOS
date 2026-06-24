@@ -1,0 +1,231 @@
+.su-system-apps-access__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  padding: 20px 24px;
+}
+
+.su-system-apps-access__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.su-system-apps-access__section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #171717;
+}
+
+.su-system-apps-access__desc {
+  font-size: 13px;
+  color: #60646c;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.su-system-apps-access__table-wrap {
+  overflow-x: auto;
+}
+
+.su-system-apps-access__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.su-system-apps-access__table th {
+  text-align: left;
+  padding: 10px 12px;
+  background-color: #fafafa;
+  font-weight: 600;
+  color: #171717;
+  border-bottom: 1px solid #f0f0f3;
+  white-space: nowrap;
+}
+
+.su-system-apps-access__table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #f0f0f3;
+  color: #171717;
+}
+
+.su-system-apps-access__table tr:hover td {
+  background-color: #fafafa;
+}
+
+.su-system-apps-access__code {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  color: #60646c;
+}
+
+.su-system-apps-access__badge-on {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background-color: rgba(82, 196, 26, 0.1);
+  color: #52c41a;
+}
+
+.su-system-apps-access__badge-off {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background-color: rgba(255, 77, 79, 0.1);
+  color: #ff4d4f;
+}
+
+.su-system-apps-access__inline-select {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-system-apps-access__tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.su-system-apps-access__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  background-color: #f0f0f3;
+  border-radius: 4px;
+  color: #171717;
+}
+
+.su-system-apps-access__tag-remove {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #999;
+  padding: 0;
+  line-height: 1;
+}
+
+.su-system-apps-access__tag-remove:hover {
+  color: #ff4d4f;
+}
+
+.su-system-apps-access__empty {
+  text-align: center;
+  padding: 40px 20px;
+  color: #60646c;
+}
+
+.su-system-apps-access__actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.su-system-apps-access__dirty {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #faad14;
+  flex-shrink: 0;
+}
+
+/* ── Form elements ── */
+.su-system-apps-access__form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-system-apps-access__form-group label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #222;
+}
+
+.su-system-apps-access__form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 16px;
+  border-top: 1px solid #f0f0f3;
+}
+
+
+.su-system-apps-access__split-left {
+  padding-right: 20px;
+  border-right: 1px solid #f0f0f3;
+}
+
+.su-system-apps-access__split-left-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #6a6a6a;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 8px;
+}
+
+.su-system-apps-access__split-left-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 4px;
+}
+
+.su-system-apps-access__split-left-sub {
+  font-size: 13px;
+  color: #6a6a6a;
+}
+
+.su-system-apps-access__split-left-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.su-system-apps-access__split-left-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: #f7f7f7;
+  color: #222;
+}
+
+.su-system-apps-access__split-left-badge-on {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: #f0fff0;
+  color: #22c55e;
+}
+
+.su-system-apps-access__split-left-badge-off {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 9999px;
+  background: #f7f7f7;
+  color: #ef4444;
+}
+
+
+.su-system-apps-access__split-right {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}

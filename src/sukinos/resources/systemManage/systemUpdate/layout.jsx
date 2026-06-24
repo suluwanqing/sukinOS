@@ -361,7 +361,7 @@ function SystemUpdate({ user }) {
       }
 
       if (res.code === 200) {
-        alert.success(editingItem ? '修改成功' : '发布成功')
+        alert.success(res.message || (editingItem ? '修改成功' : '发布成功'))
         setModalVisible(false)
         setEditingItem(null)
         fetchUpdates()
@@ -381,7 +381,7 @@ function SystemUpdate({ user }) {
         try {
           const res = await deleteSystemUpdate({ id })
           if (res.code === 200) {
-            alert.success('删除成功')
+            alert.success(res.message || '删除成功')
             fetchUpdates()
           } else {
             alert.failure(res.message || '删除失败')

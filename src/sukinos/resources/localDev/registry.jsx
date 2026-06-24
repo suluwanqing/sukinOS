@@ -9,7 +9,7 @@ const logo  = () => {
 };
 
 export default {
-  "ENV_KEY_RESOURCE_ID": 'sys-loacl-dev',
+  "ENV_KEY_RESOURCE_ID": 'sys-local-dev',
   "ENV_KEY_NAME": '本地开发',
   "ENV_KEY_IS_BUNDLE": false,
   "ENV_KEY_CONTENT": `

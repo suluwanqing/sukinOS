@@ -68,6 +68,8 @@ export const SUKINOS_STORE_REMOTE_CHECK_UPDATES=`${SUKINOS_STORE_REMOTE_BASE}/su
 export const SUKINOS_STORE_REMOTE_SEARCH=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/searchApp`
 export const SUKINOS_STORE_REMOTE_MY_UPLOAD=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/myUpload`
 export const SUKINOS_STORE_REMOTE_DELETE=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/delete`
+export const SUKINOS_STORE_REMOTE_WITH_PERMISSION=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/withPermission`
+export const SUKINOS_STORE_REMOTE_AUTHORIZED=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/authorized`
 
 export const DB_RES = {
   DB_NAME: 'SukinOS_Res',
@@ -358,7 +360,7 @@ export const LOCAL_DEV_SYMPLE_LINKS={
       standard: 'https://sukin.top/api/resource/sukinos/static/vite.config.js',
       logic: 'https://sukin.top/api/resource/sukinos/static/sukinOsLocalDevSDK.zip'
     };
-// 暂时这么处理后续增加选区认证
+// 暂时这么处理后续增加选区认证，这是前端处理的硬性要求,禁止被获取到非root用户
 export const ADMIN_APP_IDS = [
   'sys-systemManage'
 ]

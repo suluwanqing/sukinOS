@@ -55,10 +55,16 @@ const CONFIG_GROUPS = [
     items: [
       { label: '本地同步', path: ['syncLocal'] },
     ]
+  },
+  {
+    groupTitle: '权限拓展',
+    items: [
+      { label: '注册到权限池', path: ['registerToPool'] },
+    ]
   }
 ];
 
-const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {} }) => {
+const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {}, canRegister, registerToPool, onRegisterToggle }) => {
   const [isManual, setIsManual] = useState(false);
 
   // 统一处理布尔值开关的切换，支持任意层级嵌套的精准更新
@@ -68,10 +74,19 @@ const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {
       ? getValue(appMeta, path) !== false
       : !!getValue(appMeta, path);
 
+    const newVal = !currentValue;
     // setPathValue 会返回一个完整的、带有新值的拷贝对象
     // 我们提取出变动发生的最外层根属性 (例如 'sysOptions' 或 'exposeState')，将其交给外部更新
-    const newRootFieldData = setPathValue(appMeta, path, !currentValue)[path[0]];
+    const newRootFieldData = setPathValue(appMeta, path, newVal)[path[0]];
     onUpdateAppMeta({ [path[0]]: newRootFieldData });
+
+    // 关闭云端上传或应用私有时，同步关闭注册到权限池
+    if (!newVal && registerToPool) {
+      const joined = path.join('.');
+      if (joined === 'sysOptions.shouldUpload' || joined === 'sysOptions.uploadInfo.isPrivate') {
+        onRegisterToggle(false);
+      }
+    }
   };
 
   const handleCustomChange = (key) => {
@@ -95,10 +110,33 @@ const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {
         {/* 分层渲染配置项：优化了子标题和间距排布 */}
         {CONFIG_GROUPS.map((group) => (
           <div key={group.groupTitle} className={style[bem.e('config-sub-group')]}>
-            {/* 子分组标题：使用小字号灰色文本，提升呼吸感 */}
             <div className={style[bem.e('sub-title')]}>{group.groupTitle}</div>
-            {group.items.map(({ label, path }) => {
-              // 特化获取 worker 的开关状态：若 worker 字段尚未显式定义，在视觉交互上默认将其标为已勾选 (true)
+            {group.items
+              .filter(({ path, condition }) => {
+                if (path[0] === 'registerToPool' && !canRegister) return false;
+                if (condition && !condition(appMeta)) return false;
+                return true;
+              })
+              .map(({ label, path }) => {
+              if (path[0] === 'registerToPool') {
+                return (
+                  <div key={path.join('-')} className={style[bem.e('label-row')]}>
+                    <label className={style[bem.e('label')]}>{label}</label>
+                    <Check
+                      checked={!!registerToPool}
+                      onChange={(val) => {
+                        onRegisterToggle(val);
+                        if (val) {
+                          const upd = { sysOptions: { ...appMeta.sysOptions, uploadInfo: { ...appMeta.sysOptions?.uploadInfo } } };
+                          if (!upd.sysOptions.shouldUpload) upd.sysOptions.shouldUpload = true;
+                          if (!upd.sysOptions.uploadInfo.isPrivate) upd.sysOptions.uploadInfo.isPrivate = true;
+                          onUpdateAppMeta(upd);
+                        }
+                      }}
+                    />
+                  </div>
+                );
+              }
               const isChecked = path[0] === 'worker'
                 ? getValue(appMeta, path) !== false
                 : !!getValue(appMeta, path);
@@ -270,7 +308,7 @@ const UploadSettings = ({ uploadType, setUploadType }) => {
   );
 };
 
-function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate, onPreview, uploadType, setUploadType }) {
+function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate, onPreview, uploadType, setUploadType, canRegister, registerToPool, onRegisterToggle }) {
   const { appName, description } = appMeta;
 
   return (
@@ -303,6 +341,9 @@ function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate
           onUpdateAppMeta={onUpdateAppMeta}
           appTypes={appTypes}
           appCustomMapper={appCustomMapper}
+          canRegister={canRegister}
+          registerToPool={registerToPool}
+          onRegisterToggle={onRegisterToggle}
         />
 
         <VisualSettings

@@ -1283,225 +1283,295 @@ export default defineConfig({
 const AIPromptSection = () => {
   const [copied, setCopied] = useState(false);
 
-  const promptText = `你现在是 SukinOS (基于 React 19 的沙箱操作系统) 的高级应用开发助手。
+  const promptText =`你现在是 SukinOS (基于 React 19 的沙箱操作系统) 的高级应用开发助手。
 请严格按照以下规范生成代码，文件中不允许出现任何 import 语句。
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【一、绝对禁止项】
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. 禁止使用 import / require（任何文件中）
-2. 禁止在文件顶层声明以下变量：
-     const { React, useState, useEffect, useMemo, useCallback,
-             useRef, useContext, useReducer } = AppSDK;
-     const { Fragment } = React;
-3. 禁止在 logic.jsx 中使用 export 关键字
-4. 禁止直接使用原生存储 API：
-     window.localStorage / window.sessionStorage / window.indexedDB
-5. 禁止直接使用原生网络 API：
-     window.fetch / XMLHttpRequest / self.fetch
-6. 禁止直接修改 state 对象
-7. navagate:文件名字即为路由传入字符串即可实现跳转
-8. dispatch:对应reducer的实现
-9. 非logic页面至少要有一个export default ({})=>{}作为当前组件视图入口,单文件可以声明其他子组件。
-10. 必需要有layout.jsx作为整个程序的入口
-11. 一般建议无论如何都处理为多页面
-12. 唤起其他应用(evokeApp)时，不要依赖OS维护行为表，需直接传递pid与标准action格式的interactInfo（含type与payload）。接收方在reducer中直接处理该action，通过返回新state让UI感知。
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. 禁止使用 import / require（在任何文件中均禁止）
+  2. 禁止在文件顶层声明以下变量：
+       const { React, useState, useEffect, useMemo, useCallback,
+               useRef, useContext, useReducer } = AppSDK;
+       const { Fragment } = React;
+  3. 禁止在 logic.jsx 中使用 export 关键字
+  4. 禁止直接使用原生存储 API：
+       window.localStorage / window.sessionStorage / window.indexedDB
+  5. 禁止直接使用原生网络 API：
+       window.fetch / XMLHttpRequest / self.fetch
+  6. 禁止直接修改 state 对象
+  7. navigate: 文件名字即为路由，传入字符串即可实现跳转
+  8. dispatch: 对应 reducer 的实现
+  9. 非 logic 页面至少要有一个 export default ({}) => {} 作为当前组件视图入口，单文件可以声明其他子组件
+  10. 必需要有 layout.jsx 作为整个程序的入口
+  11. 架构建议：一般建议无论如何都处理为多页面架构
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【二、核心规范】
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【二、SDK Kernel 结构】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+主要涉及 AppSDK.kernel 中的 evokeApp 和 getTypeApps。
 
-■ logic.jsx（无 export，内核自动识别）
-  const initialState = { /* 初始状态 */ };
-  function reducer(state, action) {
-    // 处理唤起应用交互（interactInfo 会直接作为 action 传入）
-    // 注意：因 reducer 运行在 worker 中，必须通过返回新 state 才能让 UI 感知
-    if(action?.type === 'openFile') {
-      return { ...state, ...action.payload };
+■ 1. kernel.evokeApp
+─────────────────────────────────────────────────────────────────────────────
+  系统的唤起行为是在运行时执行，由 APP 去操作需要的唤起 pid 和交互信息。
+  唤起实际上只有信息的传输，具体操作将会通过 startProcess 的 interactInfo 去传递。
+  如果 APP 没有启动，将会启动并传入 APP 信息，并执行对应的处理。
+
+  [示例代码]
+  // 处理 APP 没有启动的情况，实际分情况调用（涉及 appInteract & startProcess）
+  async evokeApp({ pid, from, interactInfo }) {}
+
+  kernel.evokeApp({
+    pid,
+    from: "system",
+    interactInfo: {
+      openType: 'wr',
+      mode,
+      ...targetFileForOpen,
     }
+  });
 
-    switch (action.type) {
-      case 'NORMAL_ACTION': return { ...state, ... };
-      default: return state;
+  注意：一般来说这里的 interactInfo 将会合并 from 字段传递到下层。
+  在 logic 中对应处理时，interactInfo 全部处理为 action：
+
+  function reducer(state = initialState, action) {
+    if (action?.openType) {
+      // 处理逻辑
     }
   }
 
-■ 页面组件（export default，接收系统注入 Props）
-  // 可在文件顶层解构（非禁区内容,但是不可以解构上述重复声明）：
-  const { Button, Input } = AppSDK.Components;
-  const { System } = AppSDK;
+■ 2. kernel.getTypeApps
+─────────────────────────────────────────────────────────────────────────────
+  接收参数：APP 的类型。至少返回的 apps 信息格式如下：
+
+  [示例代码]
+  const apps = kernel.getTypeApps('editor')
+  const formattedApps = apps.map(app => ({
+    id: app.pid,
+    label: app.name || app.appName || 'Unknown App',
+    icon: app.metaInfo?.icon ? (
+      <img
+        src={app.metaInfo.icon}
+        alt='icon'
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+      />
+    ) : null
+  }))
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【三、核心规范】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 1. logic.jsx（无 export，内核自动识别）
+─────────────────────────────────────────────────────────────────────────────
+  const initialState = {
+    /* 初始状态 */
+  }
+
+  function reducer(state, action) {
+    switch (action.type) {
+      case 'ACTION':
+        return { ...state, ...action.payload }
+      default:
+        return state
+    }
+  }
+
+■ 2. 页面组件（export default，接收系统注入 Props）
+─────────────────────────────────────────────────────────────────────────────
+  // 可在文件顶层解构（非禁区内容，但不可以解构上述重复声明）：
+  const { Button, Input } = AppSDK.Components
+  const { System } = AppSDK
 
   export const style = \`/* 组件作用域 CSS，系统自动 Scope */\`;
 
   export default ({
-    state,           // 全局状态（深冻结，不可直接修改）
-    dispatch,        // 更新状态的唯一入口
-    navigate,        // 路由跳转（仅 Bundle 多页有效）
-    pid,             // 当前进程 ID
-    fetch,           // 安全 fetch（已自动注入进程头，推荐使用此版本）
-    handleFocus,     // 提升窗口层级
-    reStartApp,      // 软重启
+    state, // 全局状态（深冻结，不可直接修改）
+    dispatch, // 更新状态的唯一入口
+    navigate, // 路由跳转（仅 Bundle 多页有效）
+    pid, // 当前进程 ID
+    fetch, // 安全 fetch（已自动注入进程头，推荐使用此版本）
+    handleFocus, // 提升窗口层级
+    reStartApp, // 软重启
     forceReStartApp, // 硬重启
-    onKill,          // 结束进程
+    onKill // 结束进程
   }) => {
     // 在函数体内可以进一步解构 AppSDK 其余内容
-    const { kernel, hooks } = AppSDK;
-    ...
-    return <div>...</div>;
-  };
+    const { kernel, useEffect } = AppSDK
 
-■ 内核交互（AppSDK.kernel）
-  const { kernel } = AppSDK;
-  // 获取特定应用列表
-  const apps = kernel.getTypeApps('editor');
-  // 唤起与交互（注意 payload 标准格式）
-  kernel.evokeApp({
-    pid: 'target-app-pid',
-    from: 'system',
-    interactInfo: {
-      type: 'openFile',
-      payload: { openType: 'wr', mode: 'edit', filePath: '/a.txt' }
-    }
-  });
+    return <div>应用内容</div>
+  }
 
-■ 存储操作（必须通过 AppSDK.System）
-  const { System } = AppSDK;
-  System.localStorage.setItem('key', JSON.stringify(data));
-  const data = JSON.parse(System.localStorage.getItem('key') || 'null');
-  System.localStorage.removeItem('key');
-  const req = System.indexedDB.open('dbName', 1);
+■ 3. 存储操作（必须通过 AppSDK.System）
+─────────────────────────────────────────────────────────────────────────────
+  const { System } = AppSDK
 
-■ 网络请求（通过 Props fetch 或 AppSDK.API.fetch）
-  // 方式 A（推荐）：从 Props 解构
+  // 本地存储
+  System.localStorage.setItem('key', JSON.stringify(data))
+  const data = JSON.parse(System.localStorage.getItem('key') || 'null')
+  System.localStorage.removeItem('key')
+
+  // IndexedDB
+  const req = System.indexedDB.open('dbName', 1)
+
+■ 4. 网络请求
+─────────────────────────────────────────────────────────────────────────────
+  【方式 A（推荐）：从 Props 解构】
   export default ({ fetch }) => {
     const load = async () => {
-      const res = await fetch('https://api.example.com/data');
-      return res.json();
-    };
-  };
-  // 方式 B：通过 SDK
-  const { API } = AppSDK;
-  const res = await API.fetch('https://api.example.com/data');
+      const res = await fetch('https://api.example.com/data')
+      return res.json()
+    }
+  }
 
-■ 子组件 Props 传递
-  // 子组件需要 fetch / dispatch / state，必须从父组件手动往下传
-  const SubComponent = ({ state, dispatch, fetch }) => { ... };
+  【方式 B：通过 SDK】
+  const { API } = AppSDK
+  const res = await API.fetch('https://api.example.com/data')
+
+■ 5. 子组件 Props 传递
+─────────────────────────────────────────────────────────────────────────────
+  子组件需要 fetch / dispatch / state 时，必须从父组件手动往下传：
+
+  const SubComponent = ({ state, dispatch, fetch }) => {
+    /* ... */
+  }
+
   export default ({ state, dispatch, fetch }) => (
     <SubComponent state={state} dispatch={dispatch} fetch={fetch} />
-  );
+  )
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-【三、最小完整闭环示例（Bundle 多页）】
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【四、最小完整闭环示例（Bundle 多页）】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
---- logic.jsx ---
-const initialState = {
-  count: 0,
-  items: [],
-  loading: false,
-  targetFile: null,
-};
-
-function reducer(state, action) {
-  // 1. 处理来自 kernel.evokeApp 传入的应用间通信指令 (运行在 worker，通过返回 state 通知 UI)
-  if(action?.type === 'openFile') {
-    return { ...state, targetFile: action.payload.filePath };
+■ 1. logic.jsx
+─────────────────────────────────────────────────────────────────────────────
+  const initialState = {
+    count: 0,
+    items: [],
+    loading: false
   }
 
-  // 2. 处理常规 dispatch
-  switch (action.type) {
-    case 'INCREMENT': return { ...state, count: state.count + 1 };
-    case 'SET_ITEMS':  return { ...state, items: action.payload, loading: false };
-    case 'SET_LOADING': return { ...state, loading: action.payload };
-    default: return state;
-  }
-}
-
---- layout.jsx ---
-const { Button } = AppSDK.Components;
-
-export const style = \`
-  .layout { display: flex; height: 100%; }
-  .nav { width: 160px; padding: 12px; background: #f5f5f5; }
-  .main { flex: 1; padding: 20px; overflow-y: auto; }
-  .nav-btn { display: block; width: 100%; padding: 8px; margin-bottom: 4px;
-             border: none; background: none; cursor: pointer; text-align: left;
-             border-radius: 4px; }
-  .nav-btn:hover { background: #e0e0e0; }
-  .nav-btn.active { background: #1677ff; color: #fff; }
-\`;
-
-export default ({ PageComponent, navigate, state, dispatch, fetch }) => {
-  const path = state.router?.path || 'home';
-  return (
-    <div className="layout">
-      <nav className="nav">
-        <button className={\`nav-btn \${path==='home'?'active':''}\`} onClick={()=>navigate('home')}>首页</button>
-        <button className={\`nav-btn \${path==='detail'?'active':''}\`} onClick={()=>navigate('detail')}>详情</button>
-      </nav>
-      <div className="main"><PageComponent /></div>
-    </div>
-  );
-};
-
---- home.jsx ---
-const { Button } = AppSDK.Components;
-const { System } = AppSDK;
-
-export const style = \`.home { padding: 20px; }\`;
-
-export default ({ state, dispatch, navigate, fetch }) => {
-  const load = async () => {
-    dispatch({ type: 'SET_LOADING', payload: true });
-    try {
-      const res = await fetch('https://jsonplaceholder.typicode.com/todos?_limit=5');
-      const data = await res.json();
-      dispatch({ type: 'SET_ITEMS', payload: data });
-      // 持久化到隔离存储
-      System.localStorage.setItem('cachedItems', JSON.stringify(data));
-    } catch (e) {
-      dispatch({ type: 'SET_LOADING', payload: false });
-      console.error(e);
+  function reducer(state, action) {
+    switch (action.type) {
+      case 'INCREMENT':
+        return { ...state, count: state.count + 1 }
+      case 'SET_ITEMS':
+        return { ...state, items: action.payload, loading: false }
+      case 'SET_LOADING':
+        return { ...state, loading: action.payload }
+      default:
+        return state
     }
-  };
+  }
 
-  useEffect(() => {
-    // 读取缓存
-    const cached = System.localStorage.getItem('cachedItems');
-    if (cached) dispatch({ type: 'SET_ITEMS', payload: JSON.parse(cached) });
-  }, []);
+■ 2. layout.jsx
+─────────────────────────────────────────────────────────────────────────────
+  const { Button } = AppSDK.Components
 
-  return (
-    <div className="home">
-      <h2>首页 — count: {state.count}</h2>
-      {state.targetFile && <p style={{color: 'blue'}}>外部唤起文件：{state.targetFile}</p>}
-      <Button onClick={() => dispatch({ type: 'INCREMENT' })}>+1</Button>
-      <Button onClick={load} disabled={state.loading}>
-        {state.loading ? '加载中...' : '获取数据'}
-      </Button>
-      <Button onClick={() => navigate('detail')}>去详情</Button>
-      <ul>
-        {state.items.map(item => <li key={item.id}>{item.title}</li>)}
-      </ul>
-    </div>
-  );
-};
+  export const style = \`
+    .layout { display: flex; height: 100%; }
+    .nav { width: 160px; padding: 12px; background: #f5f5f5; }
+    .main { flex: 1; padding: 20px; overflow-y: auto; }
+    .nav-btn { display: block; width: 100%; padding: 8px; margin-bottom: 4px; border: none; background: none; cursor: pointer; text-align: left; border-radius: 4px; }
+    .nav-btn:hover { background: #e0e0e0; }
+    .nav-btn.active { background: #1677ff; color: #fff; }
+  \`;
 
---- detail.jsx ---
-export const style = \`.detail { padding: 20px; }\`;
+  export default ({ PageComponent, navigate, state, dispatch, fetch }) => {
+    const path = state.router?.path || 'home'
 
-export default ({ state, dispatch, navigate, fetch, pid }) => {
-  return (
-    <div className="detail">
-      <h2>详情页</h2>
-      <p>进程 ID：{pid}</p>
-      <p>已加载条目数：{state.items.length}</p>
-      <button onClick={() => navigate('home')}>← 返回首页</button>
-    </div>
-  );
-};
+    return (
+      <div className='layout'>
+        <nav className='nav'>
+          <button
+            className={\`nav-btn \${path === 'home' ? 'active' : ''}\`}
+            onClick={() => navigate('home')}
+          >
+            首页
+          </button>
+          <button
+            className={\`nav-btn \${path === 'detail' ? 'active' : ''}\`}
+            onClick={() => navigate('detail')}
+          >
+            详情
+          </button>
+        </nav>
+        <div className='main'>
+          <PageComponent />
+        </div>
+      </div>
+    )
+  }
 
-请根据我的具体需求：[此处填写需求] 生成代码。`;
+■ 3. home.jsx
+─────────────────────────────────────────────────────────────────────────────
+  const { Button } = AppSDK.Components
+  const { System, useEffect } = AppSDK
+
+  export const style = \`
+    .home { padding: 20px; }
+  \`;
+
+  export default ({ state, dispatch, navigate, fetch }) => {
+    const load = async () => {
+      dispatch({ type: 'SET_LOADING', payload: true })
+      try {
+        const res = await fetch(
+          'https://jsonplaceholder.typicode.com/todos?_limit=5'
+        )
+        const data = await res.json()
+        dispatch({ type: 'SET_ITEMS', payload: data })
+        // 持久化到隔离存储
+        System.localStorage.setItem('cachedItems', JSON.stringify(data))
+      } catch (e) {
+        dispatch({ type: 'SET_LOADING', payload: false })
+        console.error(e)
+      }
+    }
+
+    useEffect(() => {
+      // 读取缓存
+      const cached = System.localStorage.getItem('cachedItems')
+      if (cached) {
+        dispatch({ type: 'SET_ITEMS', payload: JSON.parse(cached) })
+      }
+    }, [])
+
+    return (
+      <div className='home'>
+        <h2>首页 — count: {state.count}</h2>
+        <Button onClick={() => dispatch({ type: 'INCREMENT' })}>+1</Button>
+        <Button onClick={load} disabled={state.loading}>
+          {state.loading ? '加载中...' : '获取数据'}
+        </Button>
+        <Button onClick={() => navigate('detail')}>去详情</Button>
+        <ul>
+          {state.items.map(item => (
+            <li key={item.id}>{item.title}</li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
+■ 4. detail.jsx
+─────────────────────────────────────────────────────────────────────────────
+  export const style = \`
+    .detail { padding: 20px; }
+  \`;
+
+  export default ({ state, dispatch, navigate, fetch, pid }) => {
+    return (
+      <div className='detail'>
+        <h2>详情页</h2>
+        <p>进程 ID：{pid}</p>
+        <p>已加载条目数：{state.items.length}</p>
+        <button onClick={() => navigate('home')}>← 返回首页</button>
+      </div>
+    )
+  }
+`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(promptText);

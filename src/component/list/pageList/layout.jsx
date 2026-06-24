@@ -6,6 +6,13 @@ import style from './style.module.css';
 
 const bem = createNamespace('pagelist');
 
+// 自增 ID 生成器（只在 rowKey 缺失时兜底使用）
+let _uid = 0;
+const ensureKey = (record, rowKey) => {
+  const k = record?.[rowKey];
+  return k !== null && k !== undefined ? k : `__auto_${++_uid}`;
+};
+
 const ChevronRightIcon = () => (
   <svg width="1.1em" height="1.1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle" }}>
     <polyline points="9 18 15 12 9 6"></polyline>
@@ -226,7 +233,7 @@ export const PageList = ({
   const getAllRowKeys = (list) => {
     let keys = [];
     list.forEach(item => {
-      keys.push(item[rowKey]);
+      keys.push(ensureKey(item, rowKey));
       if (item[childrenColumnName] && Array.isArray(item[childrenColumnName])) {
         keys = keys.concat(getAllRowKeys(item[childrenColumnName]));
       }
@@ -336,7 +343,7 @@ export const PageList = ({
   };
 
   const renderRow = (record, level = 0) => {
-    const key = record[rowKey];
+    const key = ensureKey(record, rowKey);
     const isSelected = selectedRowKeys.includes(key);
     const isExpanded = expandedRowKeys.includes(key);
     const hasChildren = record[childrenColumnName] && Array.isArray(record[childrenColumnName]) && record[childrenColumnName].length > 0;

@@ -9,10 +9,12 @@ import Button from "@/component/button/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
+import { usePermission } from "@/hooks/usePermission/main";
 
 const bem = createNamespace("config-items-manager");
 
 function ConfigItemsManager() {
+  const { hasPermission } = usePermission();
   const [configs, setConfigs] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,6 +24,7 @@ function ConfigItemsManager() {
   const [oldKey, setOldKey] = useState("");
   const [targetKey, setTargetKey] = useState("");
   const [rawJsonValue, setRawJsonValue] = useState("");
+  const [configDescription, setConfigDescription] = useState("");
   const [saving, setSaving] = useState(false);
 
   // 状态化存储后端动态供给的标准预置项和保留键数组
@@ -74,6 +77,7 @@ function ConfigItemsManager() {
     setModalType("create");
     setOldKey("");
     setTargetKey("");
+    setConfigDescription("");
     setSelectedTemplate("");
     setRawJsonValue(JSON.stringify({ enabled: true }, null, 2));
     setModalVisible(true);
@@ -83,6 +87,7 @@ function ConfigItemsManager() {
     setModalType("edit");
     setOldKey(item.configKey);
     setTargetKey(item.configKey);
+    setConfigDescription(item.configDescription || "");
     setSelectedTemplate("");
     setRawJsonValue(JSON.stringify(item.configValue, null, 2));
     setModalVisible(true);
@@ -120,10 +125,10 @@ function ConfigItemsManager() {
     setSaving(true);
 
     if (modalType === "create") {
-      sysConfigAPI.createConfigItem({ configKey: trimmedKey, configValue: parsedValue })
+      sysConfigAPI.createConfigItem({ configKey: trimmedKey, configValue: parsedValue, configDescription })
         .then(res => {
           if (res?.code === 200) {
-            alert.success("配置项成功创建");
+            alert.success(res.message || "配置项成功创建");
             setModalVisible(false);
             loadConfigs();
           } else {
@@ -140,11 +145,12 @@ function ConfigItemsManager() {
       sysConfigAPI.updateConfigItem({
         oldConfigKey: oldKey,
         newConfigKey: trimmedKey,
-        configValue: parsedValue
+        configValue: parsedValue,
+        configDescription
       })
         .then(res => {
           if (res?.code === 200) {
-            alert.success("配置项信息及键名已更新");
+            alert.success(res.message || "配置项信息及键名已更新");
             setModalVisible(false);
             loadConfigs();
           } else {
@@ -171,10 +177,10 @@ function ConfigItemsManager() {
       title: "物理删除静态配置项",
       content: `警告：彻底移除配置标识 ${item.configKey} 可能会导致关联的后端模块崩溃，是否确认删除该核心字典？`,
       onConfirm: () => {
-        sysConfigAPI.deleteConfigItem(item.configKey)
+        sysConfigAPI.deleteConfigItem({ configKey: item.configKey })
           .then(res => {
             if (res?.code === 200) {
-              alert.success("配置项物理删除成功");
+              alert.success(res.message || "配置项物理删除成功");
               loadConfigs();
             } else {
               alert.failure(res?.message || "物理移除失败");
@@ -204,9 +210,11 @@ function ConfigItemsManager() {
             onChange={e => setSearchQuery(e.target.value)}
           />
         </div>
-        <Button type="dark" size="medium" onClick={handleOpenCreateModal}>
-          <span>新增全局配置项</span>
-        </Button>
+        {hasPermission("system:config:manage") && (
+          <Button type="dark" size="medium" onClick={handleOpenCreateModal}>
+            <span>新增全局配置项</span>
+          </Button>
+        )}
       </div>
 
       <div className={style[bem.e("list-container")]}>
@@ -223,25 +231,34 @@ function ConfigItemsManager() {
                     <span className={style[bem.e("card-title")]}>{item.configKey}</span>
                   </div>
                   <div className={style[bem.e("card-actions")]}>
-                    <button
-                      className={style[bem.e("action-btn-edit")]}
-                      title="编辑修改内容及修改标识键"
-                      onClick={() => handleOpenEditModal(item)}
-                    >
-                      编辑
-                    </button>
-                    {/* 包含于保留键列表的项不可显示删除按钮 */}
-                    {!reservedConfigKeys.includes(item.configKey) && (
-                      <button
-                        className={style[bem.e("action-btn-delete")]}
-                        title="物理彻底删除"
-                        onClick={() => handleDeleteItem(item)}
-                      >
-                        删除
-                      </button>
+                    {hasPermission("system:config:manage") && (
+                      <>
+                        <button
+                          className={style[bem.e("action-btn-edit")]}
+                          title="编辑修改内容及修改标识键"
+                          onClick={() => handleOpenEditModal(item)}
+                        >
+                          编辑
+                        </button>
+                        {/* 包含于保留键列表的项不可显示删除按钮 */}
+                        {!reservedConfigKeys.includes(item.configKey) && (
+                          <button
+                            className={style[bem.e("action-btn-delete")]}
+                            title="物理彻底删除"
+                            onClick={() => handleDeleteItem(item)}
+                          >
+                            删除
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
+                {item.configDescription && (
+                  <div className={style[bem.e("card-desc")]}>
+                    {item.configDescription}
+                  </div>
+                )}
                 <div className={style[bem.e("card-body")]}>
                   <pre className={style[bem.e("code-block")]}>
                     {JSON.stringify(item.configValue, null, 2)}

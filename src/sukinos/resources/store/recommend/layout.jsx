@@ -19,14 +19,20 @@ function Recommend({
   searchKeyword,
   onKeywordChange,
   searchLoading,
-  onUpdate
+  onUpdate,
 }) {
   const observerTarget = useRef(null);
 
   const displayList = useMemo(() => {
     const list = searchResults !== null ? searchResults : remoteApps;
 
-    return list.map(app => {
+    return list
+      .filter(app => {
+        // 只显示公有 APP（注册池过滤由后端处理）
+        if (app.isPrivate) return false;
+        return true;
+      })
+      .map(app => {
       // 检查是否已安装：强制字符串比对，防止 ID 类型差异导致的匹配失败
       const installedInfo = installedApps.find(i => String(i.resourceId) === String(app.resourceId));
       // 检查是否有更新

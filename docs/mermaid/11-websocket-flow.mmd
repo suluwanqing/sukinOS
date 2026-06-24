@@ -1,0 +1,68 @@
+---
+title: WebSocket 多标签页管理流程
+---
+sequenceDiagram
+    participant Tab1 as 浏览器 Tab1
+    participant Tab2 as 浏览器 Tab2
+    participant WS as WebSocket /ws/{user_id}
+    participant CM as ConnectionManager
+    participant DB as MySQL 数据库
+    participant Admin as 管理员
+
+    Note over Tab1,Admin: === 连接建立 ===
+
+    Tab1->>WS: WebSocket 连接 (user_id=100)
+    WS->>CM: connect(100, websocket1)
+    CM->>CM: 检查 active_connections[100]
+    CM->>CM: 首次连接: Set 为空
+    CM->>DB: handle_user_login(db, 100)
+    DB-->>CM: 更新 isonline=true, last_login
+    CM-->>WS: 连接成功
+
+    Tab2->>WS: WebSocket 连接 (user_id=100)
+    WS->>CM: connect(100, websocket2)
+    CM->>CM: 检查 active_connections[100]
+    CM->>CM: 已有连接: Set 不为空
+    Note over CM: 不触发 handle_user_login
+    CM-->>WS: 连接成功
+
+    Note over Tab1,Admin: === 消息广播 ===
+
+    WS->>CM: send_to_user(100, {type: "notification"})
+    CM->>Tab1: 推送消息
+    CM->>Tab2: 推送消息
+
+    Note over Tab1,Admin: === 心跳检测 ===
+
+    loop 每35秒
+        CM->>Tab1: ping 检测
+        Tab1-->>CM: pong 响应
+        CM->>Tab2: ping 检测
+        Tab2-->>CM: pong 响应
+    end
+
+    Note over Tab1,Admin: === 标签页断开 ===
+
+    Tab1->>WS: 断开连接
+    WS->>CM: disconnect(100, websocket1)
+    CM->>CM: 移除 websocket1
+    CM->>CM: 检查 Set 是否为空
+    Note over CM: Set 不为空 (Tab2 还在)
+    Note over CM: 不触发 handle_user_logout
+
+    Tab2->>WS: 断开连接
+    WS->>CM: disconnect(100, websocket2)
+    CM->>CM: 移除 websocket2
+    CM->>CM: Set 为空
+    CM->>DB: handle_user_logout(db, 100)
+    DB-->>CM: 计算会话时长, 写入日/周统计
+    DB-->>CM: 更新 isonline=false
+    CM-->>WS: 清理完成
+
+    Note over Tab1,Admin: === 管理员强制断开 ===
+
+    Admin->>CM: kick_user(100)
+    CM->>Tab1: 发送断开消息
+    CM->>Tab2: 发送断开消息
+    CM->>CM: 清理所有连接
+    CM->>DB: handle_user_logout(db, 100)

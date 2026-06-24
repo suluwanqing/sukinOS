@@ -1,0 +1,111 @@
+---
+title: 数据库 ER 图 (8张表)
+---
+erDiagram
+    users ||--o| user_expand : "id 1:1"
+    users ||--o| user_time_behavior : "id 1:1"
+    users ||--o{ user_time_week : "id 1:N"
+    users ||--o{ sukinos_app : "id 1:N"
+    users ||--o{ request_logs : "id 0:N"
+
+    users {
+        int id PK "自增主键"
+        boolean is_active "激活状态"
+        varchar username "(20) 用户名"
+        varchar account "(20) UK 账号"
+        varchar password "(20) 明文密码"
+        varchar hash_ps "(80) bcrypt哈希"
+        boolean root "超级管理员"
+        varchar email "(25) UK 邮箱"
+        int age "年龄"
+        varchar name "(8) 姓名"
+        varchar sex "(1) 性别"
+        varchar phone "(11) 电话"
+        varchar address "(25) 地址"
+        mediumtext avatar "头像 Base64"
+        json permission "角色权限"
+    }
+
+    user_expand {
+        int id PK,FK "关联users.id"
+        boolean isonline "在线状态"
+        bigint total_active_time "总活跃时长(秒)"
+    }
+
+    user_time_behavior {
+        int user_id PK,FK "关联users.id"
+        bigint last_login "最后登录时间戳"
+        json d_mon "周一登录/活跃时长"
+        json d_tue "周二登录/活跃时长"
+        json d_wed "周三登录/活跃时长"
+        json d_thu "周四登录/活跃时长"
+        json d_fri "周五登录/活跃时长"
+        json d_sat "周六登录/活跃时长"
+        json d_sun "周日登录/活跃时长"
+        json time_parts "时段分布统计"
+    }
+
+    user_time_week {
+        int id PK "自增主键"
+        int user_id FK "关联users.id"
+        int d_mon "周一活跃分钟"
+        int d_tue "周二活跃分钟"
+        int d_wed "周三活跃分钟"
+        int d_thu "周四活跃分钟"
+        int d_fri "周五活跃分钟"
+        int d_sat "周六活跃分钟"
+        int d_sun "周日活跃分钟"
+        bigint week_start_ts "周一时间戳"
+    }
+
+    sukinos_app {
+        varchar resource_id PK "(120) 资源ID"
+        int user_id FK "上传者"
+        varchar app_name "(20) 应用名"
+        datetime created_at "创建时间"
+        varchar url "(120) 下载URL"
+        boolean is_private "是否私有"
+        int size "文件大小(字节)"
+        varchar file_name "(50) 文件名"
+        json meta_info "元数据"
+        varchar version "(20) 版本号(乐观锁)"
+        varchar status "(20) 审核状态"
+        varchar audit_opinion "(255) 审核意见"
+    }
+
+    request_logs {
+        int id PK "自增主键"
+        datetime created_at "请求时间"
+        varchar method "(12) HTTP方法"
+        varchar path "(255) 请求路径"
+        varchar full_url "(512) 完整URL"
+        int status_code "响应状态码"
+        boolean success "是否成功"
+        int duration_ms "耗时(毫秒)"
+        int operator_id "操作者ID"
+        varchar operator_account "(120) 操作者账号"
+        varchar operator_username "(120) 操作者用户名"
+        varchar ip "(64) 客户端IP"
+        varchar user_agent "(512) UA"
+        json request_query "查询参数"
+        text request_body "请求体"
+        text response_body "响应体"
+        varchar error_message "(500) 错误信息"
+    }
+
+    system_configs {
+        int id PK "自增主键"
+        varchar config_key "(100) UK 配置键"
+        json config_value "配置值"
+        datetime created_at "创建时间"
+        datetime updated_at "更新时间"
+    }
+
+    system_updates {
+        int id PK "自增主键"
+        varchar version "(50) 版本号"
+        varchar title "(100) 更新标题"
+        json items "更新项列表"
+        datetime created_at "创建时间"
+        datetime updated_at "更新时间"
+    }

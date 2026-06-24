@@ -1,0 +1,47 @@
+---
+title: 应用生命周期状态机
+---
+stateDiagram-v2
+    [*] --> 未安装: 系统初始状态
+
+    未安装 --> 安装中: extInstallResource()
+    安装中 --> 已安装: 安装成功
+    安装中 --> 未安装: 安装失败
+
+    已安装 --> 运行中: startProcess() 冷启动
+    已安装 --> 运行中: evokeApp() 唤醒
+
+    运行中 --> 休眠中: hibernate()
+    运行中 --> 已安装: forceKillProcess()
+    运行中 --> 已安装: forceResetApp()
+
+    休眠中 --> 运行中: restoreSession()
+    休眠中 --> 已安装: forceKillProcess()
+
+    已安装 --> 更新中: extUploadCloud() / extUpdateCloud()
+    更新中 --> 已安装: 更新成功
+    更新中 --> 已安装: 更新失败
+
+    已安装 --> 卸载中: extDeleteApp()
+    卸载中 --> 未安装: 卸载成功
+    卸载中 --> 已安装: 卸载失败
+
+    运行中 --> 僵尸进程: Worker 异常终止
+    休眠中 --> 僵尸进程: 数据损坏
+    僵尸进程 --> 已安装: extInspectZombieFile() 清理
+
+    note right of 运行中
+        Worker 状态:
+        - VirtualWorker: with(self) + Proxy
+        - NoWorker: 宿主线程模拟
+        - Worker: 独立 Web Worker
+    end note
+
+    note right of 安装中
+        安装步骤:
+        1. 下载资源
+        2. 解析 metaInfo
+        3. 写入注册表
+        4. 构建缓存
+        5. 同步文件系统
+    end note

@@ -446,6 +446,41 @@ class Kernel {
     this.registry.initializeSystemApps()
   }
 
+  /**
+   * 从后端同步当前用户有权访问的系统 APP 列表，过滤掉无权限的应用
+   */
+  async syncSystemAccess() {
+    try {
+      const mod = await import("@/apis/system/permissionManage");
+      const res = await mod.default.getAvailableSystemApps();
+      if (res.code !== 200 || !res.data) {
+        // API 返回错误或空数据 → 清空所有系统 APP，不展示不可控的应用
+        this.systemApps.clear();
+        this.pidToResourceId.clear();
+        this.resourceIdToPid.clear();
+        return;
+      }
+
+      const allowedMap = {};
+      (res.data || []).forEach(item => { allowedMap[item.app_id || item.appId] = item.allowed; });
+      for (const [pid, app] of this.systemApps) {
+        const resourceId = app.resourceId;
+        // 白名单：仅在 allowedMap 中明确标记为 true 才保留，其他全部移除
+        if (!resourceId || allowedMap[resourceId] !== true) {
+          this.systemApps.delete(pid);
+          this.pidToResourceId.delete(pid);
+          if (resourceId) this.resourceIdToPid.delete(resourceId);
+        }
+      }
+
+    } catch (e) {
+      console.warn("[内核] 系统APP权限同步失败，清空系统APP列表:", e);
+      this.systemApps.clear();
+      this.pidToResourceId.clear();
+      this.resourceIdToPid.clear();
+    }
+  }
+
   //更新用户app信息
   updateUserAppInfo(pid, info) {
     this.registry.updateUserAppInfo(pid, info)

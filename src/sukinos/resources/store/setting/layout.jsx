@@ -12,7 +12,9 @@ import {
   SUKINOS_STORE_REMOTE_CHECK_UPDATES,
   SUKINOS_STORE_REMOTE_SEARCH,
   SUKINOS_STORE_REMOTE_MY_UPLOAD,
-  SUKINOS_STORE_REMOTE_DELETE
+  SUKINOS_STORE_REMOTE_DELETE,
+  SUKINOS_STORE_REMOTE_WITH_PERMISSION,
+  SUKINOS_STORE_REMOTE_AUTHORIZED,
 } from "@/sukinos/utils/config";
 
 const bem = createNamespace('setting');
@@ -62,7 +64,9 @@ const SECTIONS = [
     items: [
       { key: 'uploadUrl', label: '上传接口', defaultVal: getRelativePath(SUKINOS_STORE_REMOTE_UPLOAD, SUKINOS_STORE_REMOTE_BASE) },
       { key: 'myUploadUrl', label: '我的应用接口', defaultVal: getRelativePath(SUKINOS_STORE_REMOTE_MY_UPLOAD, SUKINOS_STORE_REMOTE_BASE) },
-      { key: 'deleteUrl', label: '删除接口', defaultVal: getRelativePath(SUKINOS_STORE_REMOTE_DELETE, SUKINOS_STORE_REMOTE_BASE) }
+      { key: 'deleteUrl', label: '删除接口', defaultVal: getRelativePath(SUKINOS_STORE_REMOTE_DELETE, SUKINOS_STORE_REMOTE_BASE) },
+      { key: 'withPermissionUrl', label: '权限应用列表接口', defaultVal: getRelativePath(SUKINOS_STORE_REMOTE_WITH_PERMISSION, SUKINOS_STORE_REMOTE_BASE) },
+      { key: 'authorizedUrl', label: '已授权应用列表接口', defaultVal: getRelativePath(SUKINOS_STORE_REMOTE_AUTHORIZED, SUKINOS_STORE_REMOTE_BASE) }
     ]
   }
 ];

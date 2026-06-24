@@ -1,0 +1,48 @@
+---
+title: SSE 本地开发热更新流程
+---
+sequenceDiagram
+    participant IDE as 本地 IDE (Vite)
+    participant SDK as sukinOsLocalDevSDK
+    participant SSE as SSE 端点 /api/sukinos/localdev
+    participant Auth as Auth 认证
+    participant Kernel as SukinOS Kernel
+    participant Worker as Logic Worker
+    participant UI as RenderProcess
+
+    Note over IDE,UI: === 初始化阶段 ===
+
+    IDE->>IDE: Vite 启动开发服务器
+    SDK->>SSE: 建立 SSE 连接 (带 Token)
+    SSE->>Auth: 验证 Token
+    Auth-->>SSE: 认证通过
+    SSE-->>SDK: 连接成功, 保持长连接
+    SDK->>Kernel: 注册本地开发应用
+    Kernel->>Worker: 创建 Logic Worker
+    Kernel->>UI: 渲染应用窗口
+
+    Note over IDE,UI: === 代码变更检测 ===
+
+    IDE->>IDE: Vite HMR 检测文件变更
+    IDE->>SDK: 文件变更通知
+    SDK->>SSE: POST 变更事件 (Token 认证)
+    SSE-->>SDK: 200 OK
+
+    Note over IDE,UI: === 热更新推送 ===
+
+    SSE-->>SDK: SSE 推送: event: update
+    SDK->>Kernel: 通知内核应用已更新
+    Kernel->>Kernel: 重新编译源代码 (Babel)
+    Kernel->>Worker: terminate 旧 Worker
+    Kernel->>Worker: 创建新 Logic Worker
+    Kernel->>UI: 重新渲染 View 组件
+    UI-->>SDK: 渲染完成
+
+    Note over IDE,UI: === 断开连接 ===
+
+    IDE->>IDE: Vite 停止
+    SDK->>SSE: 断开 SSE 连接
+    SSE-->>SDK: 连接关闭
+    SDK->>Kernel: 卸载本地开发应用
+    Kernel->>Worker: terminate Worker
+    Kernel->>UI: 关闭应用窗口

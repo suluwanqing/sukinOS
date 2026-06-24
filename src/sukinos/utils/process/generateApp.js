@@ -257,15 +257,9 @@ export async function extExecuteInstallation(kernel, params) {
           await extRegisterAppSys(kernel, data);
           // console.info(`[内核队列] 已完成僵尸应用注册: ${data?.[ENV_KEY_NAME]}`);
         } else if (mode === 'INSTALL_APP') {
-          // 常规安装逻辑
-          try {
-            const resource = parseWorkerCode(data.worker);
-            // 内部直接使用核心安装逻辑，避免再去排队引发任务卡死的互相等待
-            await extInstallResource(kernel, { ...resource, version: data.version });
-          }
-          catch (err) {
-            console.log(err)
-          }
+          // 常规安装逻辑 — 移除内层 try-catch，错误由外层统一处理并 reject
+          const resource = parseWorkerCode(data.worker);
+          await extInstallResource(kernel, { ...resource, version: data.version });
         }
         kernel.emitChange({ type: 'APP_REGISTRY' });
         resolve();
@@ -307,8 +301,9 @@ export async function extUploadResource(kernel, args) {
   const sysOptions = args?.sysOptions || {};
   const shouldUpload = sysOptions.shouldUpload || false;
 
-  if (!metaInfo?.authorId) { //简单处理
-    const errorMsg = "操作失败：请先登录！"
+  // 开发环境直接跳过
+  if (!import.meta.env.DEV && !metaInfo?.authorId) {
+    const errorMsg = '操作失败：请先登录！'
     alert.warning(errorMsg)
     return Promise.reject(new Error(errorMsg))
   }

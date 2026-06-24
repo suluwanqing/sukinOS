@@ -7,6 +7,7 @@ import { useSelector } from 'react-redux';
 import { selectorUserInfo, selectorStoreSettingStorePath } from '@/sukinos/store';
 import { sukinOs as sukinApi } from '@/apis/main';
 import { extUpdateCloud } from '@/sukinos/utils/process/generateApp';
+import permissionManageAPI from '@/apis/system/permissionManage';
 import {
   ENV_KEY_NAME, ENV_KEY_RESOURCE_ID, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO,
   appCustom, appCustomMapper, appTypes, DEFAULT_LOGIC, LOCAL_DEV_SYMPLE_LINKS,DEFAULT_LOGO
@@ -308,7 +309,10 @@ const AppPanel = ({
   updateMsg,
   updateMsgType,
   isUpdating,
-  canUpdate
+  canUpdate,
+  canRegister,
+  registerToPool,
+  onRegisterToggle,
 }) => (
   <div className={style[bem.e('panel-body')]}>
     <Cap>基础信息</Cap>
@@ -356,8 +360,25 @@ const AppPanel = ({
       <Toggle label="暴露状态" checked={!!appMeta.exposeState} onChange={e => updateAppMeta({ exposeState: e.target.checked })} />
       <Toggle label="状态持久化" checked={!!appMeta.saveState} onChange={e => updateAppMeta({ saveState: e.target.checked })} />
       <Toggle label="Worker 运行" checked={!!appMeta.worker} onChange={e => updateAppMeta({ worker: e.target.checked })} />
-      <Toggle label="云端上传" checked={!!appMeta.sysOptions?.shouldUpload} onChange={e => updateAppMeta({ sysOptions: { ...appMeta.sysOptions, shouldUpload: e.target.checked } })} />
-      <Toggle label="应用私有" checked={!!appMeta.sysOptions?.uploadInfo?.isPrivate} onChange={e => updateAppMeta({ sysOptions: { ...appMeta.sysOptions, uploadInfo: { ...appMeta.sysOptions?.uploadInfo, isPrivate: e.target.checked } } })} />
+      <Toggle label="云端上传" checked={!!appMeta.sysOptions?.shouldUpload} onChange={e => {
+            updateAppMeta({ sysOptions: { ...appMeta.sysOptions, shouldUpload: e.target.checked } });
+            if (!e.target.checked && registerToPool) onRegisterToggle(false);
+          }} />
+      <Toggle label="应用私有" checked={!!appMeta.sysOptions?.uploadInfo?.isPrivate} onChange={e => {
+            updateAppMeta({ sysOptions: { ...appMeta.sysOptions, uploadInfo: { ...appMeta.sysOptions?.uploadInfo, isPrivate: e.target.checked } } });
+            if (!e.target.checked && registerToPool) onRegisterToggle(false);
+          }} />
+      {(canRegister) && (
+        <Toggle label="注册到权限池" checked={registerToPool} onChange={e => {
+            onRegisterToggle(e.target.checked);
+            if (e.target.checked) {
+              const upd = { sysOptions: { ...appMeta.sysOptions, uploadInfo: { ...appMeta.sysOptions?.uploadInfo } } };
+              if (!upd.sysOptions.shouldUpload) upd.sysOptions.shouldUpload = true;
+              if (!upd.sysOptions.uploadInfo.isPrivate) upd.sysOptions.uploadInfo.isPrivate = true;
+              updateAppMeta(upd);
+            }
+          }} />
+      )}
     </div>
     {appCustomMapper && Object.keys(appCustomMapper).length > 0 && (
       <>
@@ -714,6 +735,15 @@ const PANEL_TITLES = { connect: '连接配置', app: '应用配置', status: '�
 const LocalDev = () => {
   const userInfo = useSelector(selectorUserInfo);
   const storePath = useSelector(selectorStoreSettingStorePath);
+  const [registerToPool, setRegisterToPool] = useState(false);
+  const [canRegister, setCanRegister] = useState(false);
+
+  useEffect(() => {
+    if (!userInfo?.id) return;
+    permissionManageAPI.checkCanRegister().then(res => {
+      if (res.code === 200 && (res.data?.canRegister || res.data?.can_register)) setCanRegister(true);
+    }).catch(() => {});
+  }, [userInfo?.id]);
   const [config, setConfig] = useState(loadSaved);
   const [draft, setDraft] = useState(loadSaved);
   const [fetchStatus, setFetchStatus] = useState('idle');
@@ -924,17 +954,34 @@ const LocalDev = () => {
     fetchDbRef.current = setTimeout(() => performSync(configRef.current, false), configRef.current.fetchDebounce);
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!appMeta.appName) { alert.warning('请输入应用名称'); return; }
     if (missingRequired.length > 0) { alert.warning(`缺少必要文件：${missingRequired.join('、')}`); return; }
     const installedApps = kernel.getInstalledApps();
     if (installedApps.some(a => a?.[ENV_KEY_NAME] === appMeta.appName)) { alert.warning('名称已被占用'); return; }
     const { appName, appIcon, sysOptions, ...restMetaInfo } = appMeta;
     const baseMetaInfo = { seed: Date.now().toString(), authorId: userInfo?.id, icon: appIcon, ...restMetaInfo };
+    if (registerToPool) baseMetaInfo.registryEnabled = true;
     const finalSysOptions = { ...sysOptions, userInfo, storePath };
+    if (registerToPool) {
+      finalSysOptions.uploadInfo = { ...(finalSysOptions.uploadInfo || {}), isPrivate: true };
+    }
     const cleanFiles = {};
     for (const [k, v] of Object.entries(localFiles)) { cleanFiles[k.replace(/\.(jsx|js)$/, '')] = v; }
-    kernel.uploadResource({ sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: true, [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: localLogicCode, [ENV_KEY_META_INFO]: baseMetaInfo });
+    const resourceId = await kernel.uploadResource({ sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: true, [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: localLogicCode, [ENV_KEY_META_INFO]: baseMetaInfo });
+    if (registerToPool && resourceId) {
+      try {
+        const regRes = await permissionManageAPI.registerApp({
+          resource_id: resourceId,
+          permission_enabled: true,
+        });
+        if (regRes.code === 200) {
+          alert.success(regRes.message || "已注册到权限控制池");
+        }
+      } catch (e) {
+        console.error("注册权限失败", e);
+      }
+    }
     alert.success('应用指令已发送');
   };
 
@@ -1056,6 +1103,9 @@ const LocalDev = () => {
               updateMsgType={updateMsgType}
               isUpdating={isUpdating}
               canUpdate={canUpdate}
+              canRegister={canRegister}
+              registerToPool={registerToPool}
+              onRegisterToggle={setRegisterToPool}
             />
           )}
           {activeNav === 'status' && <FilesPanel fetchStatus={displayStatus} lastSync={lastSync} errorMsg={errorMsg} missingRequired={missingRequired} compileErr={compileErr} fileList={fileList} hasLogic={hasLogic} compiling={compiling} handleManualSync={handleManualSync} handleCreate={handleCreate} appMeta={appMeta} syncPaused={syncPaused} onTogglePause={handleTogglePause} />}

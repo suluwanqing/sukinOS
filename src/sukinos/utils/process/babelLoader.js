@@ -4,7 +4,10 @@ export const BabelLoader = {
   CDN_URL: 'https://cdn.bootcdn.net/ajax/libs/babel-standalone/7.23.5/babel.min.js',
 
   async load() {
-    if (this.loaded || window.Babel) { this.loaded = true; return; }
+    if (this.loaded || window.Babel) {
+      this.loaded = true
+      return
+    }
     try {
       const localModule = await import('@babel/standalone')
       window.Babel = localModule.default || localModule
@@ -22,18 +25,19 @@ export const BabelLoader = {
       script.onload = () => {
         if (window.Babel) {
           this.loaded = true
-          resolve();
+          resolve()
         } else {
-          reject(new Error("Babel丢失!"))
+          reject(new Error('Babel丢失!'))
         }
-      };
-      script.onerror = () => reject(new Error("babel加载失败"))
+      }
+      script.onerror = () => reject(new Error('babel加载失败'))
       document.head.appendChild(script)
-    });
+    })
   },
 
-  transform(code) {
-    if (!window.Babel) throw new Error("WAIT_FOR_BABEL")
+  transform(code, options = {}) {
+    const {type = 'jsx', module = 'component'} = options
+    if (!window.Babel) throw new Error('WAIT_FOR_BABEL')
     try {
       // 原始配置 presets: ['react', 'env'] 会导致编译后的代码直接调用 `React.createElement`。
       // 在我们的沙箱环境中，没有顶级的 `React` 变量，只有 `AppSDK.React`。
@@ -42,26 +46,30 @@ export const BabelLoader = {
         presets: [
           'env', // env preset 保持不变，用于转换ES6+语法
           // 我们将 'react' 字符串替换为一个详细的配置数组
-          ['react', {
-            // pragma 指示 Babel 在遇到 JSX 标签 (如 <div>) 时应该使用哪个函数。
-            // 我们将其设置为 'AppSDK.React.createElement'，
-            // 这样 `<div>` 就会被编译成 `AppSDK.React.createElement('div', ...)`。
-            pragma: 'AppSDK.React.createElement',
-            // pragmaFrag 指示 Babel 在遇到 JSX Fragment (如 <>) 时应该使用哪个组件。
-            // 其设置为 'AppSDK.React.Fragment'。
-            pragmaFrag: 'AppSDK.React.Fragment',
-            // 必须使用 'classic' runtime 来启用 pragma 和 pragmaFrag 的自定义配置。
-            // 'automatic' runtime 使用不同的机制，需要注入 '@babel/runtime/jsx-runtime'，
-            // 这会使我们的注入逻辑复杂化。
-            runtime: 'classic',
-          }]
+          [
+            'react',
+            {
+              // pragma 指示 Babel 在遇到 JSX 标签 (如 <div>) 时应该使用哪个函数。
+              // 我们将其设置为 'AppSDK.React.createElement'，
+              // 这样 `<div>` 就会被编译成 `AppSDK.React.createElement('div', ...)`。
+              pragma: 'AppSDK.React.createElement',
+              // pragmaFrag 指示 Babel 在遇到 JSX Fragment (如 <>) 时应该使用哪个组件。
+              // 其设置为 'AppSDK.React.Fragment'。
+              pragmaFrag: 'AppSDK.React.Fragment',
+              // 必须使用 'classic' runtime 来启用 pragma 和 pragmaFrag 的自定义配置。
+              // 'automatic' runtime 使用不同的机制，需要注入 '@babel/runtime/jsx-runtime'，
+              // 这会使我们的注入逻辑复杂化。
+              runtime: 'classic',
+            },
+          ],
         ],
-        filename: 'component.jsx',
-        sourceType: 'module'
+        filename: `${module}.${type}` || 'component.jsx',
+        // 这里为后续配置化操作预留
+        sourceType: 'module',
       }).code
     } catch (e) {
       // 包装原始错误以提供更清晰的上下文
       throw new Error(`babel加载失败: ${e.message}`)
     }
-  }
+  },
 }

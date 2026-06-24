@@ -5,10 +5,12 @@ import Recommend from "./recommend/layout";
 import Manage from "./manage/layout";
 import Update from "./update/layout";
 import MyUpLoad from "./myUpLoad/layout";
+import Authorized from "./authorized/layout";
 import Helper from "./helper/layout"
 import Setting from "./setting/layout";
 import { createNamespace } from '/utils/js/classcreate';
 import AppAPI from '@/apis/sukinOs/app.jsx';
+import permissionManageAPI from '@/apis/system/permissionManage';
 import { alert } from "@/component/alert/layout";
 import useKernel from "@/sukinos/hooks/useKernel"
 import { confirm } from '@/component/Confirm/layout';
@@ -22,6 +24,8 @@ function Store() {
   const [updateApps, setUpdateApps] = useState([]);
   const [installedApps, setInstalledApps] = useState([]);
   const [myUploadList, setMyUploadList] = useState([]);
+  const [authorizedIds, setAuthorizedIds] = useState(null);
+  const [authorizedAppList, setAuthorizedAppList] = useState([]);
   const [searchResults, setSearchResults] = useState(null);
   const [searchKeyword, setSearchKeyword] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
@@ -86,6 +90,24 @@ function Store() {
         });
       }
     } finally { setLoading(false); }
+  };
+
+  // 获取当前用户有权从商店拉取的 APP resource_id 列表（来自本地权限注册池）
+  const fetchAuthorizedIds = async () => {
+    try {
+      const res = await permissionManageAPI.getMyAuthorizedIds();
+      if (res.code === 200) {
+        setAuthorizedIds(res.data?.authorized_ids || []);
+        setAuthorizedAppList(res.data?.apps || []);
+      } else {
+        setAuthorizedIds([]);
+        setAuthorizedAppList([]);
+      }
+    } catch (e) {
+      console.error("获取授权资源失败", e);
+      setAuthorizedIds([]);
+      setAuthorizedAppList([]);
+    }
   };
 
   // 搜索逻辑
@@ -175,6 +197,10 @@ function Store() {
         url: storePath.deleteUrl
       });
       if (res.code === 200) {
+        // 同步从权限注册池移除
+        try {
+          await permissionManageAPI.registerApp({ resource_id: app.resourceId, permission_enabled: false });
+        } catch (e) { console.error("移除权限注册失败", e); }
         alert.success('云端记录已删除');
         await refreshAll();
         return true;
@@ -186,6 +212,7 @@ function Store() {
   // 初始化加载
   useEffect(() => {
     fetchShopData(1, false);
+    fetchAuthorizedIds();
     refreshAll();
   }, [storePath, refreshAll]);
 
@@ -217,8 +244,9 @@ function Store() {
             searchResults={searchResults}
             searchKeyword={searchKeyword}
             onUpdate={handleUpdateApp}
-            onKeywordChange={setSearchKeyword} // 状态提升：将更新函数传给子组件
+            onKeywordChange={setSearchKeyword}
             searchLoading={searchLoading}
+            authorizedIds={authorizedIds}
           />
         );
       case 'manage':
@@ -234,6 +262,15 @@ function Store() {
             onDeleteUpload={handleDeleteUpload}
           />
         );
+      case 'authorized':
+        return (
+          <Authorized
+            appList={authorizedAppList}
+            installedApps={installedApps}
+            startApp={startApp}
+            installApp={handleInstallApp}
+          />
+        );
       case 'setting':
         return <Setting />;
       case 'helper':
@@ -245,6 +282,7 @@ function Store() {
 
   const NAV_ITEMS = [
     { id: 'recommend', title: '商店' },
+    { id: 'authorized', title: '已授权' },
     { id: 'manage', title: '已安装' },
     { id: 'update', title: '更新' },
     { id: 'myUpload', title: '我的上传' },

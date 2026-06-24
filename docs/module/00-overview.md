@@ -2,7 +2,7 @@
 
 ## 1. 系统概述
 
-SukinOS 是一个运行在浏览器端的**桌面操作系统 Web 应用**，采用 **React + Redux + Web Worker** 三层架构。它模拟了传统操作系统的核心能力：应用的安装、启动、运行、休眠、窗口管理、虚拟文件系统、进程间通信以及安全沙箱隔离。
+SukinOS 是一个运行在浏览器端的**桌面操作系统 Web 应用**，采用 **React + Redux + Web Worker** 前端架构，搭配 **FastAPI + SQLAlchemy + Celery + Redis + MySQL** 后端服务。它模拟了传统操作系统的核心能力：应用的安装、启动、运行、休眠、窗口管理、虚拟文件系统、进程间通信以及安全沙箱隔离。
 
 ### 核心特性
 
@@ -15,7 +15,11 @@ SukinOS 是一个运行在浏览器端的**桌面操作系统 Web 应用**，采
 | 内置应用 | 10 个系统级应用（文件管理器、笔记本、画板等） |
 | 用户应用 | 支持通过开发者工具或应用商店安装第三方应用 |
 | 个性化 | 主题、窗口偏好、桌面快捷方式等用户配置 |
-| 数据持久化 | 5 个 IndexedDB 数据库实现全量数据本地持久化 |
+| 数据持久化 | 5 个 IndexedDB 数据库 + MySQL 8 张表 |
+| JWT 认证 | 双 Token 机制（Access 30min + Refresh 7天）+ 静默刷新 |
+| 请求审计 | 全量 API 请求日志 + 敏感信息脱敏 |
+| WebSocket | 多标签页管理 + 心跳检测 + 登录时长追踪 |
+| SSE 本地开发 | 服务端推送热更新 + Token 鉴权 |
 
 ---
 
@@ -784,3 +788,70 @@ stateDiagram-v2
 4. **休眠** — 保存状态到 `savedState`，Worker 线程挂起
 5. **唤醒** — 恢复 Worker 线程，加载 `savedState`
 6. **终止** — 调用 `kill()` 终止 Worker，通过 `clearSandboxStorageByPid` 清理存储
+
+---
+
+## 附录A：Mermaid 架构图索引
+
+详细的 Mermaid 语法文件位于 `docs/mermaid/` 目录，可直接复制到 https://mermaid.live/ 或 https://mermaid.ai/ 查看渲染效果：
+
+| 文件 | 内容 |
+|------|------|
+| `01-system-overview.mmd` | 系统整体架构（前端 + 后端） |
+| `02-kernel-architecture.mmd` | Kernel 进程内核详细架构 |
+| `03-commhub-communication.mmd` | CommHub 通信枢纽架构 |
+| `04-vfs-file-system.mmd` | 虚拟文件系统 (VFS) 架构 |
+| `05-security-sandbox.mmd` | 安全沙箱体系 |
+| `06-app-lifecycle.mmd` | 应用生命周期状态机 |
+| `07-backend-architecture.mmd` | 后端 FastAPI 架构 |
+| `08-auth-flow.mmd` | JWT 双 Token 认证流程（时序图） |
+| `09-database-er.mmd` | 数据库 ER 图（8 张表） |
+| `10-backend-routes.mmd` | 后端 API 路由结构 |
+| `11-websocket-flow.mmd` | WebSocket 多标签页管理流程 |
+| `12-sse-localdev.mmd` | SSE 本地开发热更新流程 |
+| `13-request-log-middleware.mmd` | 请求日志中间件流程 |
+| `14-app-store-flow.mmd` | 应用商店安装与更新流程 |
+| `15-redux-store.mmd` | Redux Store 状态树 |
+
+## 附录B：数据库 SQL 索引
+
+原始 SQL 建表语句位于 `docs/sql/` 目录：
+
+| 文件 | 内容 |
+|------|------|
+| `schema.sql` | 8 张表的完整 CREATE TABLE 语句（含注释和外键） |
+| `init-data.sql` | 初始化数据（管理员用户、默认配置、更新日志） |
+| `queries.sql` | 常用查询语句（用户统计、应用管理、日志分析） |
+
+### 后端数据库表概览
+
+| # | 表名 | 模型类 | 说明 |
+|---|------|--------|------|
+| 1 | `users` | `User` | 用户表（账号、密码、权限、头像） |
+| 2 | `user_expand` | `UserExpand` | 用户扩展信息（在线状态、总活跃时长） |
+| 3 | `user_time_behavior` | `UserTimeBehavior` | 用户行为时间统计（每日、时段分布） |
+| 4 | `user_time_week` | `TimeWeek` | 用户周活跃统计（按周汇总） |
+| 5 | `sukinos_app` | `D_SukinosApp` | SukinOS 应用表（乐观锁版本控制） |
+| 6 | `request_logs` | `D_RequestLog` | 请求审计日志表 |
+| 7 | `system_configs` | `D_SystemConfig` | 系统配置表 |
+| 8 | `system_updates` | `D_SystemUpdate` | 系统更新日志表 |
+
+## 附录C：后端 API 路由概览
+
+| 路由前缀 | 模块 | 主要端点 |
+|----------|------|---------|
+| `/api/user` | 用户模块 | login, register, logout, refresh, info, update, avatar, captcha |
+| `/api/sukinos/app` | SukinOS 应用 | upload, update, appList, searchApp, myUpload, delete, checkUpdates |
+| `/api/sukinos/localdev` | 本地开发 | SSE 热更新端点 |
+| `/api/system` | 系统管理 | config, status, updates, requestLog, appManage |
+| `/ws/{user_id}` | WebSocket | 多标签页连接、心跳、登录/登出追踪 |
+
+### 中间件链（由内到外）
+
+```
+RequestLogMiddleware → StaticAuthMiddleware → CORSMiddleware
+```
+
+1. **RequestLogMiddleware** — 记录全量 API 请求（含敏感信息脱敏、JWT 操作者识别）
+2. **StaticAuthMiddleware** — 静态文件鉴权（检查资源所有权和隐私设置）
+3. **CORSMiddleware** — 跨域请求处理（最外层）

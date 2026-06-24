@@ -277,11 +277,11 @@ flowchart LR
 
 **功能说明**：系统开始菜单/启动器，使用 `Start` 系统组件渲染。`hasShortcut: false` 表示不创建桌面快捷方式。
 
-### 3.7 本地开发 — `sys-loacl-dev`
+### 3.7 本地开发 — `sys-local-dev`
 
 | 字段 | 值 |
 |------|-----|
-| `ENV_KEY_RESOURCE_ID` | `sys-loacl-dev` |
+| `ENV_KEY_RESOURCE_ID` | `sys-local-dev` |
 | `ENV_KEY_NAME` | 本地开发 |
 | `ENV_KEY_IS_BUNDLE` | `false` |
 | `worker` | `true` |
@@ -292,7 +292,7 @@ flowchart LR
 
 **功能说明**：本地开发环境，使用 `LocalDev` 系统组件渲染。
 
-> **注意**：资源 ID 存在拼写问题 `sys-loacl-dev`（应为 `sys-local-dev`），但已在代码中固化为当前值。
+> **注意**：资源 ID 存在拼写问题 `sys-local-dev`（应为 `sys-local-dev`），但已在代码中固化为当前值。
 
 ### 3.8 系统管理 — `sys-systemManage`
 
@@ -495,7 +495,7 @@ flowchart TD
 | APP商店 | `sys-store` | system | false | false | false | - | true | false |
 | 设置 | `sys-setting` | system | true | false | false | true | true | true |
 | 开始 | `sys-start` | system | false | false | false | - | false | true |
-| 本地开发 | `sys-loacl-dev` | system | true | false | false | - | true | false |
+| 本地开发 | `sys-local-dev` | system | true | false | false | - | true | false |
 | 系统管理 | `sys-systemManage` | system | false | false | false | - | true | false |
 | 画板 | `sys-drawBoard` | system | true | false | false | true | true | false |
 | 表格 | `sys-sheet` | system | true | false | true | true | true | false |

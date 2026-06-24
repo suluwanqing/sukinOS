@@ -60,7 +60,8 @@ function useChart(ref, option, deps) {
   }, []);
 }
 
-function StatCard({ icon, label, value, color }) {
+
+function StatCard({ icon, label, value, subText, color }) {
   return (
     <div className={`${style[bem.e("stat-card")]} ${style[bem.em("stat-card", color)]}`}>
       <div className={style[bem.e("stat-icon")]}>{icon}</div>
@@ -71,6 +72,11 @@ function StatCard({ icon, label, value, color }) {
             ? value
             : <span className={style[bem.e("spinner")]} />}
         </div>
+        {subText && (
+          <div style={{ fontSize: "11px", color: "var(--su-gray-500, #9ca3af)", marginTop: "4px", fontWeight: "normal" }}>
+            {subText}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -270,6 +276,7 @@ function Overview() {
           icon={<PeopleOutlineIcon fontSize="inherit" />}
           label="账户注册总数"
           value={stats?.totalUsers}
+          subText={stats ? `正常 ${stats.enabledUsers} | 禁用 ${stats.disabledUsers}` : null}
           color="indigo"
         />
         <StatCard

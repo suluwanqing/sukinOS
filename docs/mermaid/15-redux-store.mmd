@@ -1,0 +1,56 @@
+---
+title: Redux Store 状态树
+---
+graph TB
+    subgraph Store["Redux Store"]
+        direction TB
+        Config["configureStore()"]
+        PersistConfig["redux-persist 配置<br/>key: 'sukinOs'<br/>storage: localStorage"]
+        MiddlewareSwitch["中间件开关<br/>switchableMiddleware"]
+        DynamicInject["动态 Reducer/Middleware 注入"]
+    end
+
+    subgraph Slices["State Slices"]
+        direction TB
+
+        subgraph SukinosSlice["sukinosSlice"]
+            direction TB
+            Apps["apps: Map pid→AppState"]
+            ProcessState["processState: Map pid→ProcessStatus"]
+            Windows["windows: Map windowId→WindowConfig"]
+            DeskBook["deskBook: DeskBookState"]
+            Personalization["personalization: PersonalizationConfig"]
+            SystemConfig["systemConfig: SystemConfig"]
+            AuthState["auth: AuthState<br/>token, user, isLogin"]
+        end
+
+        subgraph DynamicSlices["动态注入的 Slice"]
+            direction TB
+            FileSystemSlice["fileSystem<br/>文件系统状态"]
+            DevSlice["developer<br/>开发者工具状态"]
+            AppSlices["...各应用自定义 Slice"]
+        end
+    end
+
+    subgraph Selectors["Selectors 选择器"]
+        direction TB
+        SelApps["selectAllApps"]
+        SelRunning["selectRunningApps"]
+        SelWindow["selectWindowById"]
+        SelAuth["selectAuthState"]
+        SelPersonal["selectPersonalization"]
+    end
+
+    subgraph PersistWhitelist["持久化白名单"]
+        direction TB
+        P1["personalization 个性化设置"]
+        P2["systemConfig 系统配置"]
+        P3["auth.token 认证令牌"]
+        P4["deskBook.shortcuts 桌面快捷方式"]
+    end
+
+    Store --> SukinosSlice
+    Store --> DynamicSlices
+    SukinosSlice --> Selectors
+    Store --> PersistConfig
+    PersistConfig --> PersistWhitelist

@@ -187,7 +187,7 @@ function LogConfig() {
     sysConfigAPI.updateLogConfig(settings)
       .then(res => {
         if (res?.code === 200) {
-          alert.success("配置更新成功并已同步");
+          alert.success(res.message || "配置更新成功并已同步");
         } else {
           alert.failure(res?.message || "更新配置失败");
         }

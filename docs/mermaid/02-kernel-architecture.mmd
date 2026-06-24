@@ -1,0 +1,99 @@
+---
+title: Kernel 进程内核架构
+---
+graph TB
+    subgraph KernelClass["Kernel 类 (单例)"]
+        direction TB
+        KernelInstance["Kernel 实例"]
+        Processes["processes: Map pid→Process"]
+        SystemApps["systemApps: Map pid→Registry"]
+        UserApps["userApps: Map pid→Registry"]
+        ResourceCache["resourceCache: Map resource_id→Resource"]
+        InstallQueue["installQueue: 安装队列"]
+    end
+
+    subgraph KernelParts["KernelParts 子模块 (10个)"]
+        direction TB
+
+        subgraph Part1["Lifecycle 生命周期"]
+            StartProcess["startProcess() 冷启动"]
+            Hibernate["hibernate() 休眠"]
+            ForceKill["forceKillProcess() 强制终止"]
+            RestoreSession["restoreSession() 恢复会话"]
+            EvokeApp["evokeApp() 唤醒应用"]
+            VirtualWorker["VirtualWorker 虚拟沙箱"]
+            NoWorker["NoWorker 宿主沙箱"]
+        end
+
+        subgraph Part2["Registry 注册表"]
+            InitSystemApps["initializeSystemApps()"]
+            LoadUserApps["loadUserAppsFromDb()"]
+            GetApp["getApp() 查询应用"]
+            GetRunningApps["getRunningApps()"]
+            GetInstalledApps["getInstalledApps()"]
+            GetHibernatedApps["getHibernatedApps()"]
+        end
+
+        subgraph Part3["Messaging 消息分发"]
+            Dispatch["dispatch() 消息路由"]
+            SubscribeApp["subscribeApp() 应用订阅"]
+            SubscribeSystem["subscribeSystem() 系统订阅"]
+            Publish["publish() 发布"]
+            AppIntereact["appIntereact() 跨应用通信"]
+            SystemSwitch["systemSwitch() 系统调用"]
+        end
+
+        subgraph Part4["Core 核心"]
+            Init["init() 内核初始化"]
+            PresetLoad["预设资源加载"]
+            CacheBuild["资源缓存构建"]
+            Install["安装/同步/上传/删除"]
+        end
+
+        subgraph Part5["其他子模块"]
+            CacheModule["Cache 缓存代理"]
+            Settings["Settings 设置管理"]
+            Flags["Flags 标志位"]
+            Instance["Instance IndexedDB"]
+            Internals["Internals 内部工具"]
+            ResourceAccess["ResourceAccess 资源"]
+        end
+    end
+
+    subgraph CommHub["CommHub 通信枢纽"]
+        MessageQueue["消息队列"]
+        EventTarget["EventTarget 事件系统"]
+        StateCache["stateCache 状态缓存"]
+        ProcessSubs["processSubscriptions 进程订阅"]
+        PubSubTopics["发布订阅主题"]
+    end
+
+    subgraph GenerateApp["generateApp 应用管理"]
+        ExtInstall["extInstallResource() 安装"]
+        ExtSync["extSyncRegistry() 同步注册表"]
+        ExtUpload["extUploadCloud() 云端上传"]
+        ExtDelete["extDeleteApp() 删除"]
+        ExtZombie["extInspectZombieFile() 僵尸检测"]
+    end
+
+    subgraph Workers["Worker 执行环境"]
+        LogicWorker["Logic Worker (业务逻辑)"]
+        ViewRender["RenderProcess (视图渲染)"]
+        GhostSandbox["Ghost Sandbox (隔离)"]
+    end
+
+    KernelInstance --> KernelParts
+    Lifecycle --> StartProcess
+    Lifecycle --> Hibernate
+    Lifecycle --> VirtualWorker
+    Lifecycle --> NoWorker
+    Registry --> InitSystemApps
+    Registry --> LoadUserApps
+    Messaging --> Dispatch
+    Messaging --> Publish
+    Core --> Init
+    Core --> Install
+    KernelParts --> CommHub
+    CommHub --> Workers
+    GenerateApp --> Core
+    GenerateApp --> Registry

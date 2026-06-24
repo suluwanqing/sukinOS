@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSelector } from "react-redux";
 import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
@@ -10,6 +10,7 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import FactCheckIcon from '@mui/icons-material/FactCheck';
 import SettingsIcon from "@mui/icons-material/Settings";
 import AppsIcon from '@mui/icons-material/Apps';
+import LockIcon from '@mui/icons-material/Lock';
 import Overview from './overview/layout';
 import Users from './users/layout';
 import Behavior from './behavior/layout';
@@ -17,20 +18,25 @@ import SystemUpdate from "./systemUpdate/layout";
 import SystemLog from "./systemLog/layout";
 import SystemConfig from "./systemConfig/layout";
 import AppManage from "./appManage/layout";
+import PermissionManage from "./permissionManage/layout";
 import { DEFAULT_LOGO } from '@/sukinos/utils/config';
 import { selectorUserInfo } from "@/sukinos/store";
+import { usePermission } from "@/hooks/usePermission/main";
+import systemAPI from '@/apis/system/main';
 
 const bem = createNamespace("system");
 
-const NAV_ITEMS = [
-  { id: "overview", label: "管理概览", icon: <DashboardIcon fontSize="small" /> },
-  { id: "users", label: "成员中心", icon: <PeopleIcon fontSize="small" /> },
-  { id: "behavior", label: "审计分析", icon: <TimelineIcon fontSize="small" /> },
-  { id: "systemConfig", label: "系统配置", icon: <SettingsIcon fontSize="small" /> },
-  { id: "systemUpdate", label: "更新日志", icon: <AccessTimeIcon fontSize="small" /> },
-  { id: "systemLog", label: "系统日志", icon: <FactCheckIcon fontSize="small" /> },
-  { id: "appManage", label: "应用管理", icon: <AppsIcon fontSize="small" /> }
-];
+// [后端初始化: 导航图标由 icon 字段映射]
+const ICON_MAP = {
+  Dashboard: <DashboardIcon fontSize="small" />,
+  People: <PeopleIcon fontSize="small" />,
+  Timeline: <TimelineIcon fontSize="small" />,
+  Settings: <SettingsIcon fontSize="small" />,
+  AccessTime: <AccessTimeIcon fontSize="small" />,
+  FactCheck: <FactCheckIcon fontSize="small" />,
+  Apps: <AppsIcon fontSize="small" />,
+  Lock: <LockIcon fontSize="small" />,
+};
 
 export function Avatar({ user, size = 32 }) {
   const initials = (user?.username || user?.account || "U")[0].toUpperCase();
@@ -46,9 +52,37 @@ export function Avatar({ user, size = 32 }) {
 
 function SystemDashboard() {
   const [tab, setTab] = useState("overview");
+  const [navItems, setNavItems] = useState([]);
   const currentUser = useSelector(selectorUserInfo);
-  const activeNavItem = NAV_ITEMS.find(i => i.id === tab);
+  const { hasMenuPermission, isRoot } = usePermission();
+
+  useEffect(() => {
+    systemAPI.getNavItems().then(res => {
+      if (res.code === 200) {
+        const groups = ((res.data || {}).systemManage || []);
+        // [层级导航：从后台 parent→children 结构扁平化为 Nav 的 flat list]
+        const flat = [];
+        groups.forEach(group => {
+          (group.children || []).forEach(child => {
+            flat.push({ ...child, icon: ICON_MAP[child.icon] || null });
+          });
+        });
+        setNavItems(flat);
+      }
+    });
+  }, []);
+
+  const visibleNavItems = useMemo(() => {
+    return navItems.filter(item => isRoot || hasMenuPermission(item.id));
+  }, [navItems, isRoot, hasMenuPermission]);
+
+  const activeNavItem = visibleNavItems.find(i => i.id === tab) || visibleNavItems[0];
   const activeLabel = activeNavItem?.label || "管理概览";
+  const activeTabId = activeNavItem?.id || "overview";
+  useEffect(() => {
+    if (tab !== activeTabId) setTab(activeTabId);
+  }, [activeTabId, tab]);
+
   const tabContentMap = {
     overview: <Overview />,
     users: <Users />,
@@ -56,9 +90,10 @@ function SystemDashboard() {
     systemUpdate: <SystemUpdate user={currentUser} />,
     systemLog: <SystemLog />,
     systemConfig: <SystemConfig />,
-    appManage: <AppManage />
+    appManage: <AppManage />,
+    permissionManage: <PermissionManage />
   };
-  const activeContent = tabContentMap[tab] || <Overview />;
+  const activeContent = tabContentMap[tab] || tabContentMap[activeTabId] || <Overview />;
 
   return (
     <div className={style[bem.b()]}>
@@ -71,7 +106,7 @@ function SystemDashboard() {
             <strong>sukin</strong>
           </div>
         </div>
-        <Nav items={NAV_ITEMS} activeId={tab} onChange={setTab} theme="dark" />
+        <Nav items={visibleNavItems} activeId={tab} onChange={setTab} theme="dark" />
       </aside>
 
       <main className={style[bem.e("main")]}>

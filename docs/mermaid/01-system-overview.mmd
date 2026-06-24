@@ -1,0 +1,91 @@
+---
+title: SukinOS 系统整体架构
+---
+graph TB
+    subgraph Browser["浏览器环境"]
+        direction TB
+        subgraph UI["UI 主线程 (React 19)"]
+            direction LR
+            DeskBook["DeskBook 桌面环境"]
+            StatusBar["StatusBar 状态栏"]
+            BootScreen["Boot 启动画面"]
+            Shortcut["Shortcut 桌面快捷方式"]
+            AppWindows["ProcessWindow 应用窗口"]
+            FSView["FileSystemView 文件视图"]
+        end
+
+        subgraph Kernel["Kernel 进程内核 (单例)"]
+            direction TB
+            Core["Core 核心调度"]
+            Lifecycle["Lifecycle 生命周期"]
+            Registry["Registry 注册表"]
+            Messaging["Messaging 消息分发"]
+            Cache["Cache 缓存管理"]
+            Settings["Settings 设置"]
+            Flags["Flags 标志位"]
+            Instance["Instance 实例"]
+            Internals["Internals 内部工具"]
+            ResourceAccess["ResourceAccess 资源访问"]
+        end
+
+        subgraph Comm["CommHub 通信枢纽"]
+            EventBus["EventBus 事件总线"]
+            PubSub["PubSub 发布订阅"]
+            StateCache["StateCache 状态缓存"]
+        end
+
+        subgraph Sandbox["安全沙箱"]
+            WorkerSandbox["Worker 沙箱"]
+            GhostSandbox["Ghost 幽灵沙箱"]
+            VirtualWorker["VirtualWorker 虚拟沙箱"]
+            NoWorker["NoWorker 宿主沙箱"]
+            StorageProxy["Storage 代理"]
+            FetchProxy["Fetch 代理"]
+        end
+
+        subgraph VFS["虚拟文件系统 (VFS)"]
+            fileKernel["fileKernel 内核"]
+            fileIndexDb["fileIndexDb IndexedDB 驱动"]
+            InodeMap["inodeMap 索引"]
+            TreeMap["treeMap 目录树"]
+        end
+
+        subgraph Store["Redux Store"]
+            sukinosSlice["sukinosSlice 主状态"]
+            reduxPersist["redux-persist 持久化"]
+            dynamicReducer["动态 Reducer 注入"]
+        end
+
+        subgraph DB["IndexedDB 数据库"]
+            SysDB["sysDB 系统应用库"]
+            ConfigDB["configDB 配置库"]
+            FileDB["fileDB 文件库"]
+            CacheDB["cacheDB 缓存库"]
+            StoreDB["storeDB 商店库"]
+        end
+    end
+
+    subgraph Backend["后端服务 (FastAPI)"]
+        direction TB
+        API["API 路由层"]
+        Auth["Auth 认证模块"]
+        Middleware["中间件链"]
+        Celery["Celery Worker"]
+        Redis["Redis 缓存"]
+        MySQL["MySQL 数据库"]
+    end
+
+    UI -->|"dispatch(action)"| Store
+    Store -->|"状态更新"| UI
+    Kernel -->|"消息分发"| Comm
+    Comm -->|"事件订阅"| UI
+    Kernel --> VFS
+    VFS --> DB
+    Sandbox -->|"沙箱化进程"| Kernel
+    Store -->|"持久化"| DB
+    Comm --> Kernel
+    Kernel --> Sandbox
+    Kernel -->|"API 调用"| Backend
+    Backend -->|"JWT Token"| Kernel
+    MySQL -->|"数据存储"| Backend
+    Redis -->|"缓存/验证码"| Backend

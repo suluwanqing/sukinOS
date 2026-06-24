@@ -3,7 +3,7 @@ import {
   getSharedSandboxUtilities,
   createStorageProxy,
   createIndexedDBProxy,
-  createSecureFetch
+  createSecureFetch,
 } from '@/sukinos/utils/security'
 
 export const scopeCss = (css, pid) =>
@@ -18,7 +18,42 @@ const hashString = async str => {
   const data = encoder.encode(str)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  // hash 结果也应该缓存，避免重复 digest
+  const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  hashCache.set(str, hash)
+  return hash
+}
+
+/**
+ * 将 Babel / 运行时抛出的原始 Error 对象标准化为结构化错误描述对象。
+ * 保留行列号、原始 stack，方便 DynamicRenderer 渲染详细错误 UI。
+ * @param {Error|string} err - 原始错误
+ * @param {'compile'|'runtime'|'babel'} phase - 出错阶段
+ * @param {string} key - 模块 key，如 'main' / 'layout'
+ * @returns {{ message: string, stack: string, phase: string, key: string, loc: string }}
+ */
+const normalizeError = (err, phase, key = '') => {
+  const isError = err instanceof Error
+  const message = isError ? err.message : String(err)
+  const stack = isError ? err.stack || message : message
+
+  // 尝试从 Babel / V8 stack 中提取行列位置，格式如 (xxx:行:列) 或 at xxx (行:列)
+  const locMatch = stack.match(/:(\d+):(\d+)/)
+  const loc = locMatch ? `行 ${locMatch[1]}，列 ${locMatch[2]}` : ''
+
+  // 部分 Babel 错误在 err.loc 上有结构化位置
+  const babelLoc = err?.loc ? `行 ${err.loc.line}，列 ${err.loc.column}` : ''
+
+  return {
+    message,
+    stack,
+    phase,
+    key,
+    // 优先使用 babel 结构化位置，其次正则提取
+    loc: babelLoc || loc,
+    // 原始错误对象，供外层按需使用
+    raw: err,
+  }
 }
 
 /**
@@ -30,8 +65,16 @@ const hashString = async str => {
  *   从而消除 JS 执行上下文与 UI 渲染位置（iframe 内）的跨文档断裂问题。
  *   不传则默认使用宿主 Function（向后兼容 LocalDev / 幽灵沙箱模式）。
  */
-export const compileSourceAsync = async (sourceCode, pid, targetFunctionConstructor) => {
-  if (typeof sourceCode !== 'string') return {error: '无效资源!'}
+export const compileSourceAsync = async (
+  {sourceCode, pid, targetFunctionConstructor, module = 'component'},
+  options = {}
+) => {
+  if (typeof sourceCode !== 'string') {
+    return {
+      error: '无效资源：sourceCode 必须是字符串',
+      errorDetail: normalizeError(new Error('无效资源：sourceCode 必须是字符串'), 'validate'),
+    }
+  }
   const cacheKey = await hashString(sourceCode + pid)
   // 当存在自定义 FunctionCtor（物理沙箱 iframe），跳过缓存
   // 因为 iframe 销毁重建后旧 factory 的 globalThis 指向已销毁窗口，会导致代理层异常
@@ -40,7 +83,18 @@ export const compileSourceAsync = async (sourceCode, pid, targetFunctionConstruc
 
   try {
     await BabelLoader.load()
-    const cjsCode = BabelLoader.transform(sourceCode)
+
+    let cjsCode
+    try {
+      cjsCode = BabelLoader.transform(sourceCode, {module})
+    } catch (babelErr) {
+      // Babel 转译阶段失败：不写缓存，返回结构化错误
+      const errorDetail = normalizeError(babelErr, 'babel')
+      return {
+        error: `Babel 转译失败：${errorDetail.message}${errorDetail.loc ? `（${errorDetail.loc}）` : ''}`,
+        errorDetail,
+      }
+    }
 
     const storageProxySource = createStorageProxy.toString()
     const indexedDBProxySource = createIndexedDBProxy.toString()
@@ -142,15 +196,33 @@ export const compileSourceAsync = async (sourceCode, pid, targetFunctionConstruc
     `
 
     const finalCode = contextPreamble + '\n' + cjsCode + '\n}'
-    // 使用目标环境的 Function 构造器创建 factory，决定 factory 内部的 globalThis
-    const FactoryCtor = targetFunctionConstructor || Function
-    const factory = new FactoryCtor('module', 'exports', 'AppSDK', finalCode)
+
+    let factory
+    try {
+      // 使用目标环境的 Function 构造器创建 factory，决定 factory 内部的 globalThis
+      const FactoryCtor = targetFunctionConstructor || Function
+      factory = new FactoryCtor('module', 'exports', 'AppSDK', finalCode)
+    } catch (factoryErr) {
+      // new Function 构造阶段失败（语法错误等），不写缓存，返回结构化错误
+      const errorDetail = normalizeError(factoryErr, 'compile')
+      return {
+        error: `沙箱 Function 构建失败：${errorDetail.message}${errorDetail.loc ? `（${errorDetail.loc}）` : ''}`,
+        errorDetail,
+      }
+    }
+
     const result = {factory}
+    // 只有完全成功时才写入缓存，避免缓存到残缺或失败的编译结果
     if (!shouldSkipCache) {
       compileCache.set(cacheKey, result)
     }
     return result
   } catch (e) {
-    return {error: e.message}
+    // 捕获未预期的顶层异常，同样不写缓存
+    const errorDetail = normalizeError(e, 'unknown')
+    return {
+      error: e.message,
+      errorDetail,
+    }
   }
 }

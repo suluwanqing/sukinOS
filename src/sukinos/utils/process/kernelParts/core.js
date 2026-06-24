@@ -51,6 +51,9 @@ export class Core {
       // 初始化系统的注册表。
       this.#kernel.initializeSystemApps()
 
+      // 从后端同步系统APP访问权限，移除当前用户无权访问的系统应用
+      await this.#kernel.syncSystemAccess()
+
       // 通过资源(Res)构建/补全注册表(Sys)。
       // 此时内存中已有 userApps，此函数会安全地为那些“有资源但没注册”的应用生成新记录
       await this.#kernel.syncRegistryByRes()

@@ -1,11 +1,14 @@
 import instance from "@/url/main";
 
 const systemAPI = {
+  getCurrentUserProfile: async () => {
+    return instance({ method: 'GET', url: '/system/usermanage/profile' });
+  },
   getOverview: async () => {
     return instance({ method: 'GET', url: '/system/usermanage/overview' });
   },
-  getUserList: async (params = {}) => {
-    const { page = 1, pageSize = 10, keyword, isActive, isOnline } = params;
+  getUserList: async (data) => {
+    const { page = 1, pageSize = 10, keyword, isActive, isOnline } = data || {};
     return instance({
       method: 'GET',
       url: '/system/usermanage/users',
@@ -19,11 +22,13 @@ const systemAPI = {
     });
   },
 
-  getUserDetail: async (userId) => {
+  getUserDetail: async (data) => {
+    const { userId } = data || {};
     return instance({ method: 'GET', url: `/system/usermanage/users/${userId}` });
   },
 
-  toggleUserStatus: async (userId, isActive) => {
+  toggleUserStatus: async (data) => {
+    const { userId, isActive } = data || {};
     return instance({
       method: 'PUT',
       url: `/system/usermanage/users/${userId}/status`,
@@ -31,7 +36,8 @@ const systemAPI = {
     });
   },
 
-  updateUserInfo: async (userId, infoData) => {
+  updateUserInfo: async (data) => {
+    const { userId, ...infoData } = data || {};
     return instance({
       method: 'PUT',
       url: `/system/usermanage/users/${userId}/info`,
@@ -39,7 +45,8 @@ const systemAPI = {
     });
   },
 
-  updateUserPermission: async (userId, permission) => {
+  updateUserPermission: async (data) => {
+    const { userId, permission } = data || {};
     return instance({
       method: 'PUT',
       url: `/system/usermanage/users/${userId}/permission`,
@@ -47,11 +54,13 @@ const systemAPI = {
     });
   },
 
-  deleteUser: async (userId) => {
+  deleteUser: async (data) => {
+    const { userId } = data || {};
     return instance({ method: 'DELETE', url: `/system/usermanage/users/${userId}` });
   },
 
-  batchAction: async (userIds, action) => {
+  batchAction: async (data) => {
+    const { userIds, action } = data || {};
     return instance({
       method: 'POST',
       url: '/system/usermanage/users/batch',
@@ -60,6 +69,9 @@ const systemAPI = {
   },
   getBehaviorOverview: async () => {
     return instance({ method: 'GET', url: '/system/usermanage/behavior/overview' });
+  },
+  getNavItems: async () => {
+    return instance({ method: 'GET', url: '/system/systemconfig/nav-items' });
   },
 };
 

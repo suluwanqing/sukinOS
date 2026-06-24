@@ -1,0 +1,70 @@
+---
+title: 安全沙箱体系
+---
+graph TB
+    subgraph SandboxTypes["沙箱类型"]
+        direction TB
+        WorkerSandbox["Worker Sandbox<br/>Web Worker 完全隔离"]
+        VirtualWorker["VirtualWorker<br/>with(self) + Proxy + Shared Iframe"]
+        NoWorker["NoWorker<br/>宿主线程模拟 Worker 协议"]
+        GhostSandbox["Ghost Sandbox<br/>单例 iframe 完全隔离"]
+    end
+
+    subgraph WorkerSandboxDetail["Worker Sandbox 详细结构"]
+        direction TB
+        Preamble["getWorkerSandboxPreamble()<br/>沙箱前导代码"]
+        WithEnv["with(self) 环境隔离"]
+        WorkerProxy["Proxy 代理层<br/>拦截全局对象访问"]
+        ImportScripts["importScripts 拦截"]
+        PostMessage["postMessage 通信"]
+    end
+
+    subgraph IsolationLayer["隔离层 (多级代理)"]
+        direction TB
+
+        subgraph StorageProxy["Storage 代理"]
+            LocalStorageProxy["localStorage<br/>PID 前缀隔离"]
+            SessionStorageProxy["sessionStorage<br/>PID 前缀隔离"]
+        end
+
+        subgraph IndexedDBProxy["IndexedDB 代理"]
+            IDBOpen["open() 拦截"]
+            IDBDelete["deleteDatabase() 拦截"]
+            IDBName["数据库名前缀: PID_"]
+        end
+
+        subgraph FetchProxy["Fetch 代理"]
+            SecureFetch["createSecureFetch()"]
+            KernelHeader["注入 x-kernel-process-id"]
+            CDNWhitelist["CDN 白名单校验<br/>白名单域名直接放行"]
+            BlobSandbox["Blob URL 递归沙箱化"]
+        end
+
+        subgraph NavProxy["Navigator/Document 代理"]
+            NavigatorProxy["navigator 安全代理"]
+            DocumentProxy["document 安全代理"]
+            ServiceWorkerBlock["ServiceWorker 注册禁用"]
+        end
+
+        subgraph SDKProxy["SDK 代理"]
+            ReadonlySDK["createReadonlySDKProxy()<br/>只读 SDK 冻结"]
+            SDKFreeze["Object.freeze + 深度只读"]
+            SensitiveApi["敏感 API 禁用<br/>eval, Function 等"]
+        end
+    end
+
+    subgraph CleanupTools["沙箱清理工具"]
+        ClearStorage["clearSandboxStorageByPid()<br/>清理 Storage 数据"]
+        ClearIndexedDB["清理 IndexedDB"]
+        ClearBlobURLs["撤销 Blob URLs"]
+        ClearWorker["terminate Worker"]
+    end
+
+    SandboxTypes --> WorkerSandboxDetail
+    SandboxTypes --> IsolationLayer
+    IsolationLayer --> StorageProxy
+    IsolationLayer --> IndexedDBProxy
+    IsolationLayer --> FetchProxy
+    IsolationLayer --> NavProxy
+    IsolationLayer --> SDKProxy
+    CleanupTools --> SandboxTypes

@@ -105,7 +105,7 @@ function LogDetailModal({ logId, onClose }) {
 
   useEffect(() => {
     setLoading(true);
-    requestLogAPI.getLogDetail(logId)
+    requestLogAPI.getLogDetail({ logId })
       .then(res => {
         if (res?.code === 200) {
           setDetail(res.data);
@@ -456,9 +456,9 @@ function SystemLog() {
           title: "删除确认",
           content: "确定删除该条日志记录吗？",
           onConfirm: async () => {
-            const res = await requestLogAPI.deleteLog(row.id);
+            const res = await requestLogAPI.deleteLog({ logId: row.id });
             if (res?.code === 200) {
-              alert.success("删除成功");
+              alert.success(res.message || "删除成功");
               loadList();
               loadStats();
             } else {
@@ -476,9 +476,9 @@ function SystemLog() {
       title: "批量删除确认",
       content: `确定删除选中的 ${selected.length} 条日志吗？`,
       onConfirm: async () => {
-        const res = await requestLogAPI.deleteLogs(selected);
+        const res = await requestLogAPI.deleteLogs({ ids: selected });
         if (res?.code === 200) {
-          alert.success("批量删除成功");
+          alert.success(res.message || "批量删除成功");
           setSelected([]);
           loadList();
           loadStats();

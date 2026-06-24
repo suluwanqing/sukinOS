@@ -7,17 +7,22 @@ import { CanvasRenderer } from "echarts/renderers";
 import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import systemAPI from "@/apis/system/main.jsx";
+import permissionManageAPI from "@/apis/system/permissionManage";
 import Check from '@/component/check/layout';
 import Button from '@/component/button/layout';
+import Select from '@/component/select/drowSelection/layout';
 import PageList from '@/component/list/pagelist/layout';
 import { alert } from '@/component/alert/layout';
 import { confirm } from '@/component/confirm/layout';
+import Modal from '@/component/modal/layout';
+import { usePermission } from "@/hooks/usePermission/main";
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EmailIcon from '@mui/icons-material/Email';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import EditIcon from '@mui/icons-material/Edit';
 
 use([
   LineChart,
@@ -93,7 +98,7 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
 
   useEffect(() => {
     setLoading(true);
-    systemAPI.getUserDetail(userId)
+    systemAPI.getUserDetail({ userId })
       .then(res => {
         if (res?.code === 200) {
           setUser(res.data);
@@ -181,7 +186,7 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
       if (res?.code === 200) {
         setUser({ ...user, isActive: v });
         onRefresh();
-        alert.success("状态更新成功");
+        alert.success(res.message || "状态更新成功");
       } else {
         alert.failure(res?.message || "状态更新失败");
       }
@@ -261,12 +266,22 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
 }
 
 function Users() {
+  const { isRoot } = usePermission();
   const [userRes, setUserRes] = useState({ items: [], total: 0, totalPages: 1 });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState([]);
   const [detailId, setDetailId] = useState(null);
+  const [editModal, setEditModal] = useState({ visible: false, user: null });
+  const [editForm, setEditForm] = useState({ username: "", email: "", sex: "U", age: "", phone: "", address: "", role: "user" });
+  const [roleOptions, setRoleOptions] = useState([]);
+
+  useEffect(() => {
+    permissionManageAPI.getRoleList().then(res => {
+      if (res.code === 200) setRoleOptions((res.data || []).map(r => ({ label: r.label, value: r.name })));
+    });
+  }, []);
 
   const loadData = useCallback(() => {
     systemAPI.getUserList({ page, pageSize, keyword: search || undefined })
@@ -281,15 +296,56 @@ function Users() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const openEditModal = (u) => {
+    setEditForm({
+      username: u.username || "",
+      email: u.email || "",
+      sex: u.sex || "U",
+      age: u.age ? String(u.age) : "",
+      phone: u.phone || "",
+      address: u.address || "",
+      role: u.permission?.role || "user",
+    });
+    setEditModal({ visible: true, user: u });
+  };
+
+  const handleEditSave = async () => {
+    const u = editModal.user;
+    if (!u) return;
+    const payload = {};
+    if (editForm.username && editForm.username !== u.username) payload.username = editForm.username;
+    if (editForm.email && editForm.email !== u.email) payload.email = editForm.email;
+    if (editForm.sex !== u.sex) payload.sex = editForm.sex;
+    if (editForm.age && Number(editForm.age) !== u.age) payload.age = Number(editForm.age);
+    if (editForm.phone && editForm.phone !== u.phone) payload.phone = editForm.phone;
+    if (editForm.address && editForm.address !== u.address) payload.address = editForm.address;
+    try {
+      if (Object.keys(payload).length > 0) {
+        const r1 = await systemAPI.updateUserInfo({ userId: u.id, ...payload });
+        if (r1?.code !== 200) { alert.failure(r1?.message || "更新失败"); return; }
+      }
+      const newRole = editForm.role;
+      if (newRole !== (u.permission?.role || "user")) {
+        const r2 = await systemAPI.updateUserPermission({ userId: u.id, permission: { role: newRole, keys: u.permission?.keys || [] } });
+        if (r2?.code !== 200) { alert.failure(r2?.message || "角色更新失败"); return; }
+        alert.success(r2.message || "用户信息已更新");
+      } else {
+        alert.success(r1.message || "用户信息已更新");
+      }
+      setEditModal({ visible: false, user: null });
+      loadData();
+    } catch (e) { alert.failure(e?.message || "更新失败"); }
+  };
+
   const onBatch = (action) => {
     if (!selected.length) return;
     confirm.show({
       title: "批量处理确认",
       content: `确定对选中的 ${selected.length} 个账户执行 [${action}] 操作吗？`,
       onConfirm: async () => {
-        const res = await systemAPI.batchAction(selected, action);
+        const res = await systemAPI.batchAction({ userIds: selected, action });
         if (res?.code === 200) {
-          alert.success("批量操作成功");
+          alert.success(res.message || "批量操作成功");
           loadData();
           setSelected([]);
         } else {
@@ -341,10 +397,10 @@ function Users() {
           checked={u.isActive}
           size="small"
           round
-          onChange={v => systemAPI.toggleUserStatus(u.id, v).then(res => {
+          onChange={v => systemAPI.toggleUserStatus({ userId: u.id, isActive: v }).then(res => {
             if (res?.code === 200) {
               loadData();
-              alert.success("状态已变更");
+              alert.success(res.message || "状态已变更");
             } else {
               alert.failure(res?.message || "更新失败");
             }
@@ -378,7 +434,12 @@ function Users() {
       icon: <VisibilityIcon style={{ color: '#6366f1' }} />,
       onClick: (u) => setDetailId(u.id)
     },
-    {
+    ...(isRoot ? [{
+      label: '编辑',
+      icon: <EditIcon style={{ color: '#171717' }} />,
+      onClick: (u) => openEditModal(u)
+    }] : []),
+    ...(isRoot ? [{
       label: '移除',
       icon: <DeleteIcon style={{ color: '#f43f5e' }} />,
       onClick: (u) => {
@@ -386,9 +447,9 @@ function Users() {
           title: "删除确认",
           content: `确认要彻底移除成员 ${u.username} 吗？`,
           onConfirm: async () => {
-            const res = await systemAPI.batchAction([u.id], 'delete');
+            const res = await systemAPI.batchAction({ userIds: [u.id], action: 'delete' });
             if (res?.code === 200) {
-              alert.success("用户已移除");
+              alert.success(res.message || "用户已移除");
               loadData();
             } else {
               alert.failure(res?.message || "移除失败");
@@ -396,7 +457,7 @@ function Users() {
           }
         });
       }
-    }
+    }] : []),
   ];
 
   return (
@@ -445,6 +506,57 @@ function Users() {
           onRefresh={loadData}
         />
       )}
+
+      <Modal
+        title={`编辑用户 - ${editModal.user?.username || ""}`}
+        visible={editModal.visible}
+        onClose={() => setEditModal({ visible: false, user: null })}
+        width={540}
+      >
+        <div style={{ padding: "4px 0", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>用户名</label>
+              <input value={editForm.username} onChange={e => setEditForm(p => ({ ...p, username: e.target.value }))}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>邮箱</label>
+              <input value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>性别</label>
+              <Select value={editForm.sex} onChange={v => setEditForm(p => ({ ...p, sex: v }))}
+                options={[{ label: "男", value: "M" }, { label: "女", value: "F" }, { label: "保密", value: "U" }]}
+                direction="bottom" size="small" />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>年龄</label>
+              <input type="number" value={editForm.age} onChange={e => setEditForm(p => ({ ...p, age: e.target.value }))}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>电话</label>
+              <input value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))}
+                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>角色</label>
+              <Select value={editForm.role} onChange={v => setEditForm(p => ({ ...p, role: v }))}
+                options={roleOptions} direction="bottom" size="small" />
+            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+            <Button type="default" size="small" onClick={() => setEditModal({ visible: false, user: null })}>取消</Button>
+            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleEditSave}>保存</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

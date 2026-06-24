@@ -5,7 +5,7 @@ import { alert } from "@/component/alert/layout"
 import useStateHandle from "@/sukinos/hooks/useStateHandle"
 import { generateShortId } from "/utils/js/rootSeed"
 import { formatTimeSlash} from "@/sukinos/utils/date"
-import { dataToBase64Mapper } from "/utils/js/func/data/exChangeBase64"
+import { dataToBase64Mapper, dataDeBase64Mapper } from "/utils/js/func/data/exChangeBase64"
 
 // 全局 ID 映射，防止 React 渲染周期内 ID 变更
 const globalFileIdMap = new Map()
@@ -400,6 +400,100 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
           return { ...item, content }
       } catch (e) { return null }
     },
+    // 文件导出功能
+    handleExportFile: async (item) => {
+      try {
+        if (item.type === FileType.DIRECTORY) {
+          alert.warning("不支持导出文件夹");
+          return false;
+        }
+
+        let content;
+        try {
+          content = mode === 'virtual'
+            ? await fs.readFile(item.id)
+            : await (await (globalHandleRegistry.get(item.id)?.handle || item.handle).getFile()).text();
+        } catch (e) {
+          alert.failure("读取文件内容失败");
+          return false;
+        }
+
+        if (content === undefined || content === null) {
+          alert.failure("文件无内容");
+          return false;
+        }
+
+        let blob;
+        const ext = item.name.split('.').pop().toLowerCase();
+        let mimeType = 'application/octet-stream';
+
+        // 识别映射类型
+        const mapperType = (() => {
+          if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return 'Image';
+          if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'Video';
+          if (['mp3', 'wav', 'flac', 'aac'].includes(ext)) return 'Audio';
+          if (ext === 'html') return 'Html';
+          if (ext === 'json') return 'Json';
+          return 'Txt';
+        })();
+
+        if (mode === 'virtual') {
+          if (typeof content === 'string') {
+            try {
+              let pureBase64 = content;
+              if (content.startsWith('data:')) {
+                const match = content.match(/^data:([^;]+);base64,/);
+                if (match) mimeType = match[1];
+                pureBase64 = content.split(',')[1];
+              }
+              const decoded = await dataDeBase64Mapper(pureBase64, mapperType);
+              if (decoded) {
+                if (decoded instanceof ArrayBuffer) {
+                  blob = new Blob([decoded], { type: mimeType });
+                } else if (typeof decoded === 'object') {
+                  blob = new Blob([JSON.stringify(decoded, null, 2)], { type: 'application/json' });
+                } else {
+                  blob = new Blob([decoded], { type: mimeType || 'text/plain' });
+                }
+              }
+            } catch (e) {
+              console.warn("Base64解码失败，回退至原始文本下载:", e);
+              blob = new Blob([content], { type: 'text/plain' });
+            }
+          } else if (content instanceof ArrayBuffer) {
+            blob = new Blob([content], { type: 'application/octet-stream' });
+          } else if (content instanceof Blob) {
+            blob = content;
+          } else {
+            blob = new Blob([String(content)], { type: 'text/plain' });
+          }
+        } else {
+          // 本地/OPFS 磁盘下直接获取文件 Blob
+          const record = globalHandleRegistry.get(item.id);
+          if (record && record.handle) {
+            blob = await record.handle.getFile();
+          } else {
+            blob = new Blob([content], { type: 'application/octet-stream' });
+          }
+        }
+
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = item.name;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          return true;
+        }
+      } catch (err) {
+        console.error("文件导出发生错误: ", err);
+        alert.failure("文件导出失败");
+      }
+      return false;
+    },
     //跳过创建临时空文件，直接生成真实文件名+内容，避开时序重名碰撞
     handleSave: wrapNotify('save', async ({ id, content, parentId, name }) => {
       try {
@@ -544,7 +638,7 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
   }
 }
 
-// 系统级 Hook：专为系统流程处理设计，不执行 pid 的前缀隔离，仅需传入 mode
+// 系统级 Hook：专为 system 流程处理设计，不执行 pid 的前缀隔离，仅需传入 mode
 export const useSystemFileSystem = (mode = 'virtual') => {
   return useBaseFileSystem(mode);
 }
