@@ -320,17 +320,20 @@ function Users() {
     if (editForm.phone && editForm.phone !== u.phone) payload.phone = editForm.phone;
     if (editForm.address && editForm.address !== u.address) payload.address = editForm.address;
     try {
+      let infoRes;
       if (Object.keys(payload).length > 0) {
-        const r1 = await systemAPI.updateUserInfo({ userId: u.id, ...payload });
-        if (r1?.code !== 200) { alert.failure(r1?.message || "更新失败"); return; }
+        infoRes = await systemAPI.updateUserInfo({ userId: u.id, ...payload });
+        if (infoRes?.code !== 200) { alert.failure(infoRes?.message || "更新失败"); return; }
       }
       const newRole = editForm.role;
       if (newRole !== (u.permission?.role || "user")) {
-        const r2 = await systemAPI.updateUserPermission({ userId: u.id, permission: { role: newRole, keys: u.permission?.keys || [] } });
-        if (r2?.code !== 200) { alert.failure(r2?.message || "角色更新失败"); return; }
-        alert.success(r2.message || "用户信息已更新");
+        const permRes = await systemAPI.updateUserPermission({ userId: u.id, permission: { role: newRole, keys: u.permission?.keys || [] } });
+        if (permRes?.code !== 200) { alert.failure(permRes?.message || "角色更新失败"); return; }
+        alert.success(permRes.message || "用户信息已更新");
+      } else if (Object.keys(payload).length > 0) {
+        alert.success(infoRes.message || "用户信息已更新");
       } else {
-        alert.success(r1.message || "用户信息已更新");
+        alert.success("未作任何更改");
       }
       setEditModal({ visible: false, user: null });
       loadData();
