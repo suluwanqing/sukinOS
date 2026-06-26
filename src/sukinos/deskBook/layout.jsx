@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
+import React, { useEffect, useRef, useState, useCallback, useMemo, useDeferredValue } from 'react'
 import { createPortal } from 'react-dom'
 import style from "./style.module.css"
 import { createNamespace } from '/utils/js/classcreate'
 import StatusBar from "./statusBar/layout"
 import Shortcut from "./shortcut/layout"
 import ProcessWindow from "./window/layout"
+import AdaptiveWindowPlaceholder from "./window/AdaptivePlaceholder"
 import useKernel from "@/sukinos/hooks/useKernel"
 import { WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_META_INFO, ENV_KEY_NAME, ENV_KEY_RESOURCE_ID } from "@/sukinos/utils/config"
 import Boot from "./boot/layout"
@@ -26,7 +27,7 @@ const GAP_SIZE = 10;   // 对应CSS中的gap, 和padding计算 (px)
 function DeskBook() {
   // --- 初始化 Hooks ---
   const dispatch = useDispatch()
-  const { refreshConfig } = usePersonalization(); // 个性化配置 Hook
+  const { refreshConfig, config: personalConfig } = usePersonalization(); // 个性化配置 Hook
 
   // --- 内核状态与方法 ---
   const {
@@ -125,6 +126,10 @@ function DeskBook() {
   }, [isRunningApps, zOrders, currentFocus]);
 
   // --- 窗口引用搜集器 ---
+  // 使用 useDeferredValue 优先处理焦点窗口的渲染，非焦点窗口更新可延迟
+  const deferredZOrders = useDeferredValue(zOrders);
+  const deferredCurrentFocus = useDeferredValue(currentFocus);
+
   // 使用 Ref 和 pid 作为键搜集每个 ProcessWindow 的 DOM 引用，用于 switcher 动画效果
   const windowRefsMap = useRef(new Map());
 
@@ -183,6 +188,34 @@ function DeskBook() {
     })
     setCurrentFocus(prev => (prev === pid ? null : prev))
   }, [kernel])
+
+  // --- LRU 自动休眠：窗口数量超过上限时，自动休眠最近最少使用的非焦点窗口 ---
+  useEffect(() => {
+    const maxWindows = generateAppSetting?.maxWindows ?? personalConfig?.maxWindows ?? 10;
+    const workerLRUEnabled = generateAppSetting?.workerLRU !== false && personalConfig?.workerLRU !== false;
+    if (!maxWindows || !workerLRUEnabled || !currentFocus) return;
+
+    const visibleWindows = isRunningApps.filter(a => showDisplay[a.pid]);
+    if (visibleWindows.length <= maxWindows) return;
+
+    // 按 zOrders 升序排列（最旧的在前），保留焦点窗口
+    const toHibernate = [...visibleWindows]
+      .filter(a => a.pid !== currentFocus)
+      .sort((a, b) => (zOrders[a.pid] || 0) - (zOrders[b.pid] || 0))
+      .slice(0, visibleWindows.length - maxWindows);
+
+    toHibernate.forEach(app => {
+      // hibernate 仅改变状态标记为 HIBERNATED，Worker 继续后台运行保持热状态
+      // 若应用开启了 backgroundSleep → useProcessBridge 自动停止状态订阅
+      kernel.hibernate(app.pid);
+      // 清理 zIndex
+      setZOrders(prev => {
+        const next = { ...prev };
+        delete next[app.pid];
+        return next;
+      });
+    });
+  }, [isRunningApps, currentFocus, showDisplay, zOrders, generateAppSetting, personalConfig, kernel]);
 
   // --- 窗口切换器(Switcher) 逻辑控制 ---
   const closeWindowSwitcher = () => {
@@ -525,6 +558,12 @@ function DeskBook() {
     setStatusBarOpen(JSON.parse(statusBar));
   }, []);
 
+  // 启动/聚焦 APP 时自动隐藏状态栏（基于 Personalization 配置）
+  useEffect(() => {
+    if (!personalConfig?.autoHideStatusBar || !currentFocus) return;
+    setStatusBarOpen(false);
+  }, [currentFocus, personalConfig?.autoHideStatusBar]);
+
   // 绑定全局退出及保存布局事件（单独依赖 handleUnload，不随 apps 频繁绑定导致清空）
   useEffect(() => {
     window.addEventListener('beforeunload', handleBeforeUnload);
@@ -667,17 +706,35 @@ function DeskBook() {
                     gridTemplateColumns: `repeat(${gridSize.cols}, ${CELL_SIZE}px)`,
                     gridTemplateRows: `repeat(${gridSize.rows}, ${CELL_SIZE}px)`,
                     /* 激活切换器时背景虚化 */
-                    filter: showWindowSwitcher ? 'blur(18px) brightness(0.55)' : 'none',
+                    filter: showWindowSwitcher ? 'blur(8px) brightness(0.65)' : 'none',
                 }}
             >
               {renderGridCells()}
             </div>
           </ContextMenu>
 
-          {/* 渲染正在运行的窗口进程 [保留原始 isRunningApps 渲染保证DOM结构稳定不重排] */}
+          {/* 渲染正在运行的窗口进程 — 支持自适应挂载优化 */}
           {isRunningApps.map((app, index) => {
             // 判断当前窗口是否在调度器中被选中 [通过pid比对避免DOM循序错乱]
             const isSelected = sortedRunningApps[selectedWindowIndex]?.pid === app.pid;
+            const isVisible = showDisplay[app.pid] || showWindowSwitcher;
+            const custom = app?.[ENV_KEY_META_INFO]?.custom || {};
+            // adaptiveMount 默认 true：后台非焦点窗口仅渲染轻量占位
+            const useAdaptive = custom.adaptiveMount !== false;
+
+            // 非可见窗口且开启了自适应挂载 → 使用轻量占位组件
+            if (!isVisible && useAdaptive && !showWindowSwitcher) {
+              return (
+                <AdaptiveWindowPlaceholder
+                  key={app.pid}
+                  pid={app.pid}
+                  app={app}
+                  zIndex={deferredZOrders[app.pid] || 10}
+                />
+              );
+            }
+
+            // 完整窗口渲染
             return (
               <ProcessWindow
                 key={app.pid}
@@ -686,7 +743,7 @@ function DeskBook() {
                 pid={app.pid}
                 fileName={app?.[ENV_KEY_NAME] || ''}
                 initialIndex={index}
-                zIndex={zOrders[app.pid] || 10}
+                zIndex={deferredZOrders[app.pid] || 10}
                 onFocus={handleFocus}
                 onClose={handleColseApp}
                 onKill={handleForceKill}
@@ -694,6 +751,7 @@ function DeskBook() {
                 windowSize={WindowSize}
                 isDisplay={setting?.isDisplay || false}
                 isShow={showDisplay[app.pid]}
+                isFocused={deferredCurrentFocus === app.pid}
                 exposeState={app?.[ENV_KEY_META_INFO]?.exposeState}
                 reStartApp={reStartApp}
                 forceReStartApp={forceReStartApp}

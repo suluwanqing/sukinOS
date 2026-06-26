@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react"
 import kernel from "@/sukinos/utils/process/kernel"
 
-export const useProcessBridge = (pid) => {
+export const useProcessBridge = (pid, { isVisible = true, backgroundSleep = false } = {}) => {
   // 优先从内核缓存中读取初始状态，防止主线程虚拟 Worker 同步初始化时丢失首帧状态
   const [state, setState] = useState(() => {
     if (pid) {
@@ -14,9 +14,16 @@ export const useProcessBridge = (pid) => {
   const renderFrameRef = useRef(null);
   // 使用 ref 跟踪当前组件实例创建的全局消息主题订阅，用于卸载时自动清理
   const activeSubscriptionsRef = useRef(new Set());
+  // 非可见窗口跳帧计数器：每 3 帧才处理一次 state 更新
+  const frameSkipRef = useRef(0);
 
   useEffect(() => {
     if (!pid) return
+
+    // 后台静默 + 不可见 → 完全不订阅 worker 状态，零开销
+    if (backgroundSleep && !isVisible) {
+      return
+    }
 
     // 挂载时立即拉取一次最新缓存状态，防止挂载间隙漏掉状态更新
     const latestCache = kernel.getCachedState(pid)
@@ -28,6 +35,11 @@ export const useProcessBridge = (pid) => {
     // 直接使用 Worker 的纯净状态，不做全局合并，避免 App 状态变化影响其他窗口
     const unsubscribeApp = kernel.subscribeApp(pid, (msg) => {
       if (msg.type === 'STATE') {
+        // 非可见窗口跳帧节流：跳过中间帧，仅处理每第 3 次，降低主线程压力
+        if (!isVisible && !backgroundSleep) {
+          frameSkipRef.current++;
+          if (frameSkipRef.current % 3 !== 0) return;
+        }
         if (renderFrameRef.current) {
           cancelAnimationFrame(renderFrameRef.current);
         }
@@ -43,7 +55,7 @@ export const useProcessBridge = (pid) => {
         cancelAnimationFrame(renderFrameRef.current);
       }
     }
-  }, [pid])
+  }, [pid, isVisible, backgroundSleep])
 
   const dispatch = useCallback((action) => kernel.dispatch(pid, action), [pid])
 

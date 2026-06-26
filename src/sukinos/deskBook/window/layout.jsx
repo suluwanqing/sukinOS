@@ -19,9 +19,13 @@ const ScreenIcon = ({ isMaximized }) => {
 // 组件现在接收 initialRect
 const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKill, windowSize, initialRect, zIndex,
   onFocus, isDisplay, isShow, reStartApp, forceReStartApp, generateAppSetting, renderRef, ref,
-  showWindowSwitcher, isSelected
+  showWindowSwitcher, isSelected, isFocused
 }) => {
-  const { state, dispatch } = useProcessBridge(pid);
+  const custom = useMemo(() => app?.[ENV_KEY_META_INFO]?.custom || {}, [app]);
+  const { state, dispatch } = useProcessBridge(pid, {
+    isVisible: isShow,
+    backgroundSleep: custom.backgroundSleep === true
+  });
   const resource = (kernel && state?.config?.[ENV_KEY_RESOURCE_ID]) ? kernel.getResource(state.config[ENV_KEY_RESOURCE_ID]) : null
 
   // 提取自定义参数
@@ -48,9 +52,38 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
     allowResize: resource?.[ENV_KEY_META_INFO]?.custom?.allowResize || true,
     isIframeMode: isPhysicalSandbox
   })
-  const handleCompound‌MouseDown = (e,type) => {
+  const handleCompoundMouseDown = (e, type) => {
     onFocus(pid)
-    handleMouseDown(e,type)
+    handleMouseDown(e, type)
+  }
+
+  // 非焦点窗口边缘 resize 聚焦优先：基于鼠标位置计算缩放方向
+  const EDGE_SIZE = 8
+  const handleEdgeMouseDown = (e) => {
+    if (isFocused || !windowElRef.current) return
+    e.stopPropagation()
+    const rect = windowElRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const onLeft = x < EDGE_SIZE
+    const onRight = x > rect.width - EDGE_SIZE
+    const onTop = y < EDGE_SIZE
+    const onBottom = y > rect.height - EDGE_SIZE
+
+    let dir = null
+    if (onTop && onLeft) dir = 'nw'
+    else if (onTop && onRight) dir = 'ne'
+    else if (onBottom && onLeft) dir = 'sw'
+    else if (onBottom && onRight) dir = 'se'
+    else if (onTop) dir = 'n'
+    else if (onBottom) dir = 's'
+    else if (onLeft) dir = 'w'
+    else if (onRight) dir = 'e'
+
+    if (dir) {
+      onFocus(pid)
+      handleMouseDown(e, dir)
+    }
   }
   // 将内部的 DOM 引用，向外暴露给父组件 DeskBook 传入的 ref
   useEffect(() => {
@@ -101,11 +134,13 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   const resizeHandles = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
   const renderResizeHandles = () => {
+    // 仅焦点窗口渲染 8 个可视缩放手柄，减少非活动窗口的 GPU 合成层和 DOM 节点数
+    if (!isFocused) return null
     return resizeHandles.map(dir => (
       <div
         key={dir}
         className={[style[bem.e('resize-handle')], style[bem.em('resize-handle', dir)]].join(' ')}
-        onMouseDown={(e) => handleCompound‌MouseDown(e, dir)}
+        onMouseDown={(e) => handleCompoundMouseDown(e, dir)}
       />
     ))
   };
@@ -116,13 +151,18 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
       className={[
         style[bem.b()],
         customConfig.hideHeaderHover ? 'is-hide-header-hover' : '',
-        /* 介入 BEM 控制显隐。调度模式下强制屏蔽 display:none */
-        style[bem.is('display', !showWindowSwitcher && isDisplay && (!isShow))],
+        /* BEM 控制活性显隐 */
         style[bem.is('active', showWindowSwitcher ? isSelected : isShow)],
+        /* BEM 控制焦点，GPU 合成层分配依据 */
+        style[bem.is('focused', isFocused)],
         /* 挂载预制类 */
         showWindowSwitcher && (isSelected ? 'sukin-ubuntu-preview-mode' : 'sukin-ubuntu-hidden-mode')
       ].join(' ')}
-      onMouseDown={() => onFocus && onFocus(pid)}
+      onMouseDown={(e) => {
+        // 非焦点窗口边缘点击触发聚焦优先 resize
+        handleEdgeMouseDown(e)
+        if (!e.defaultPrevented) onFocus && onFocus(pid)
+      }}
       data-header-height={headerHeight}
       style={{
         position: 'absolute',
@@ -134,6 +174,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
            这可以在保留 iframe 内存状态（不重载）的前提下，完全免除隐藏窗口的 GPU 绘制与排版开销
         */
         contentVisibility: (!showWindowSwitcher && !isShow) ? 'hidden' : 'auto',
+        containIntrinsicSize: (!showWindowSwitcher && !isShow) ? '500px 400px' : undefined,
       }}
     >
       {/* 绝对定位在顶部最外侧，不占空间，不影响宽高，必须作为 header 的紧邻前置兄弟节点以供 CSS 的 '+' 选择器捕获 */}
@@ -144,7 +185,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
       {/* 标题栏 */}
       <div
         className={style[bem.e('header')]}
-        onMouseDown={(e) => handleCompound‌MouseDown(e, 'drag')}
+        onMouseDown={(e) => handleCompoundMouseDown(e, 'drag')}
         onDoubleClick={toggleMaximize}
         /* 调度模式下彻底移除 Header 干扰 */
         style={{ display: showWindowSwitcher ? 'none' : 'flex' }}
@@ -175,6 +216,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
             reStartApp={reStartApp}
             onKill={onKill}
             ref={renderRef}
+            isVisible={isShow}
           />
         ) : (
           /* 挂起状态的降级预览 */
@@ -202,20 +244,13 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
 const memoEqual = (prevProps, nextProps) => {
   return (
     prevProps.pid === nextProps.pid &&
-    prevProps.app === nextProps.app &&
     prevProps.zIndex === nextProps.zIndex &&
     prevProps.isShow === nextProps.isShow &&
     prevProps.isDisplay === nextProps.isDisplay &&
     prevProps.exposeState === nextProps.exposeState &&
-    prevProps.initialRect === nextProps.initialRect &&
-    prevProps.onFocus === nextProps.onFocus &&
-    prevProps.onClose === nextProps.onClose &&
-    prevProps.onKill === nextProps.onKill &&
-    prevProps.reStartApp === nextProps.reStartApp &&
-    prevProps.forceReStartApp === nextProps.forceReStartApp &&
     prevProps.showWindowSwitcher === nextProps.showWindowSwitcher &&
     prevProps.isSelected === nextProps.isSelected &&
-    prevProps.generateAppSetting === nextProps.generateAppSetting
+    prevProps.isFocused === nextProps.isFocused
   );
 };
 

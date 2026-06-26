@@ -385,7 +385,7 @@ const IframeStyleProvider = memo(({ children, containerNode }) => {
  * 核心沙箱组件：物理隔离并同步系统样式
  * 添加 CSS contain 属性减少重排影响范围
  */
-const IframeSandbox = memo(({ css, pid, onMount }) => {
+const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
   const frameRef = useRef(null);
   // 移除每实例的 syncDebounceRef / syncedStylesRef / 私有 syncStyles
   // 这些工作全部交给全局 styleSyncHub 处理
@@ -526,16 +526,16 @@ const IframeSandbox = memo(({ css, pid, onMount }) => {
     }
   }, [css, pid]);
 
-  return (
+  return isVisible ? (
     <iframe
       ref={frameRef}
       title={`sandbox-${pid}`}
       style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
     />
-  );
+  ) : null;
 }, (prev, next) => {
   // 注意 onMount 必须由父级 useCallback 稳定引用，否则等于无 memo
-  return prev.pid === next.pid && prev.css === next.css && prev.onMount === next.onMount;
+  return prev.pid === next.pid && prev.css === next.css && prev.onMount === next.onMount && prev.isVisible === next.isVisible;
 });
 
 /**
@@ -590,7 +590,7 @@ const deepEqual = (a, b) => {
  */
 const DynamicRenderer =({
   resource, state, dispatch, pid, isSystemApp, onFocus,
-  forceReStartApp, reStartApp, onKill ,generateAppSetting,ref:renderRef
+  forceReStartApp, reStartApp, onKill ,generateAppSetting,ref:renderRef, isVisible
 }) => {
   const [modules, setModules] = useState(null)
   // 编译/运行阶段的错误列表，每条对应一个模块的结构化错误
@@ -860,7 +860,7 @@ const DynamicRenderer =({
           // 物理沙箱模式：UI 泵入隔离 Iframe
           // IframeSandbox必须先渲染，iframe挂载后iframeContentWinRef才可用，loadAll()才能编译
           <>
-            <IframeSandbox pid={pid} css={combinedCss} onMount={handleIframeMount} />
+            <IframeSandbox pid={pid} css={combinedCss} onMount={handleIframeMount} isVisible={isVisible} />
             {portalMountNode && createPortal(
               <IframeStyleProvider key={pid} containerNode={portalMountNode}>
                 {modules ? (

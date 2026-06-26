@@ -36,7 +36,10 @@ const initialState = {
     generateApp: {
       singleIframe: false,
       truthAllApp: false,
-      useVirtualWorker: false // 是否启用主线程 with(sandbox) + 共享 Iframe 的轻量 替代方案
+      useVirtualWorker: false, // 是否启用主线程 with(sandbox) + 共享 Iframe 的轻量 替代方案
+      maxWindows: 10,       // 最大可见窗口数（超出时自动 LRU 休眠）
+      maxWorkers: 5,        // 最大并发 Worker 数
+      workerLRU: true,      // 是否启用 LRU 自动休眠
     },
   },
   fileSystemConfig: {

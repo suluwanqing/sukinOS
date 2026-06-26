@@ -14,7 +14,9 @@ const bem = createNamespace('customapp')
 
 const DEFAULT_CUSTOM_FALLBACK = {
   hideHeaderHover: false,
-  hasShortcut: true
+  hasShortcut: true,
+  backgroundSleep: false,
+  adaptiveMount: true,
 }
 
 const localAppCustomMapper = {

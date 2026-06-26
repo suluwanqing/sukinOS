@@ -103,7 +103,7 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
       el.removeEventListener('wheel', onWheel)
       if (scrollTimeout) clearTimeout(scrollTimeout)
     }
-  }, [displayApps])
+  }, []) 
 
   return (
     <div className={[style[bem.b()], className].join(' ')} >
@@ -132,4 +132,12 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
   )
 }
 
-export default React.memo(StatusBar)
+export default React.memo(StatusBar, (prev, next) => {
+  return prev.className === next.className
+    && prev.currentFocus === next.currentFocus
+    && prev.isRunningApps === next.isRunningApps
+    && prev.blockEdApps === next.blockEdApps
+    && prev.onFocus === next.onFocus
+    && prev.startApp === next.startApp
+    && prev.hibernateApp === next.hibernateApp;
+})

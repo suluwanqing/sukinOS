@@ -14,6 +14,7 @@ import WebAssetOutlinedIcon from '@mui/icons-material/WebAssetOutlined';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
 import StyleOutlinedIcon from '@mui/icons-material/StyleOutlined';
+import MemoryIcon from '@mui/icons-material/Memory';
 
 import usePersonalization, {
   PRESET_BG_COLORS,
@@ -497,6 +498,37 @@ const Personalization = () => {
           <SliderRow label="背景透明" hint="不会穿透" value={config.windowOpacity} min={0} max={100} unit="%" onChange={(val) => updateConfig('windowOpacity', val)} />
           <div className={style[bem.e('divider')]}></div>
           <SliderRow label="窗口内距" value={config.windowPadding} min={0} max={40} unit="px" onChange={(val) => updateConfig('windowPadding', val)} />
+        </div>
+      </div>
+
+      <div className={style[bem.e('section')]}>
+        <div className={style[bem.e('section-title')]}><MemoryIcon style={{ fontSize: 18, marginRight: 8 }} /> 性能优化</div>
+        <div className={style[bem.e('card')]}>
+          <SliderRow label="最大可见窗口" hint="超出自动 LRU 休眠" value={config.maxWindows} min={3} max={30} step={1} unit="" onChange={(val) => updateConfig('maxWindows', val)} />
+          <div className={style[bem.e('divider')]}></div>
+          <SliderRow label="最大并发 Worker" value={config.maxWorkers} min={1} max={20} step={1} unit="" onChange={(val) => updateConfig('maxWorkers', val)} />
+          <div className={style[bem.e('divider')]}></div>
+          <div className={style[bem.e('toggle-row')]}>
+            <div>
+              <span className={style[bem.e('label-bold')]}>LRU 自动休眠</span>
+              <span className={style[bem.e('description')]}>超出最大窗口数时自动休眠最久未使用的窗口</span>
+            </div>
+            <div className={`${style[bem.e('switch')]} ${config.workerLRU !== false ? style[bem.is('on', true)] : ''}`}
+              onClick={() => updateConfig('workerLRU', config.workerLRU === false ? true : false)}>
+              <div className={style[bem.e('switch-knob')]}></div>
+            </div>
+          </div>
+          <div className={style[bem.e('divider')]}></div>
+          <div className={style[bem.e('toggle-row')]}>
+            <div>
+              <span className={style[bem.e('label-bold')]}>启动APP时自动隐藏状态栏</span>
+              <span className={style[bem.e('description')]}>聚焦或启动应用后自动收起底部状态栏 (Ctrl+Alt+O 恢复)</span>
+            </div>
+            <div className={`${style[bem.e('switch')]} ${config.autoHideStatusBar ? style[bem.is('on', true)] : ''}`}
+              onClick={() => updateConfig('autoHideStatusBar', !config.autoHideStatusBar)}>
+              <div className={style[bem.e('switch-knob')]}></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

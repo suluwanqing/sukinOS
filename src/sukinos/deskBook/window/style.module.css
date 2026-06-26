@@ -9,30 +9,35 @@
   position: absolute;
   /* 使用动态生成的具有透明度通道的变量 */
   background: var(--su-os-surface-bg, var(--su-white)) !important;
-  /* 背景模糊过滤层，实现视觉上的毛玻璃 */
-  backdrop-filter: var(--su-os-backdrop, none);
-  -webkit-backdrop-filter: var(--su-os-backdrop, none);
 
   border-radius: var(--custom-window-border-radius);
   display: flex;
   flex-direction: column;
-  box-shadow:
-    0 10px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  /* 使用动态计算生成的带透明度边框颜色 */
   border: 1px solid var(--su-os-border-color, var(--su-border-color));
   overflow: hidden;
   user-select: none;
   --header-height: attr(data-header-height px);
   /* 这个还是比较重要的 */
   max-height: 100dvh;
-  will-change: transform;
-  transform: translateZ(0);
 }
 
 /* 如果窗口不具有 .is-active 类（即已被隐藏/最小化），则强制彻底移出渲染树，防止隐形盒子在 body 拦截悬停 */
 .su-window:not(.is-active) {
   display: none !important;
+  contain: strict !important;
+}
+
+/* 仅焦点窗口应用毛玻璃背景 */
+.su-window.is-focused {
+  transform: translateZ(0);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  backdrop-filter: var(--su-os-backdrop, none);
+  -webkit-backdrop-filter: var(--su-os-backdrop, none);
+}
+
+/* 非焦点可见窗口：最简阴影，不创建 GPU 合成层 */
+.su-window.is-active:not(.is-focused) {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .su-window__header {
@@ -243,7 +248,7 @@
   display: flex !important;
   transform: translate(-50%, -50%) scale(0.78) !important;
   z-index: 1800000 !important;
-  box-shadow: 0 60px 180px rgba(0, 0, 0, 0.9) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5) !important;
   border-radius: 16px !important;
   pointer-events: none !important;
   opacity: 1 !important;
@@ -274,6 +279,7 @@
   left: 0 !important;
   right: 0 !important;
   z-index: 1001 !important; /* 展开后高于感应带，实现正常点击交互 */
+  /* will-change: transform, opacity; */
   transform: translateY(-100%) !important;
   opacity: 0 !important;
   transition:

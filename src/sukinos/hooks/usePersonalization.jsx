@@ -443,7 +443,11 @@ export const defaultPersonalization = {
   customWindowHeaderColor: {
     baseColor: 'dark',
     shade: 800
-  }
+  },
+  maxWindows: 10,    // 最大可见窗口
+  maxWorkers: 5,     // 最大并发 Worker
+  workerLRU: true,   // 启用 LRU 淘汰
+  autoHideStatusBar: false, // 启动/聚焦APP时自动关闭状态栏
 };
 
 export const colorSystemPre = '--su';
@@ -481,8 +485,26 @@ export const getColorFromCSSVar = (cssVar) => {
   return cssVar;
 };
 
+// ─── 模块级单例 store：所有 usePersonalization 实例共享同一份 config 状态 ───
+const store = {
+  config: { ...defaultPersonalization },
+  listeners: new Set(),
+  get: () => store.config,
+  set(updater) {
+    const next = typeof updater === 'function' ? updater(store.config) : updater;
+    if (next === store.config) return;
+    store.config = next;
+    store.listeners.forEach(fn => fn(next));
+  },
+  subscribe(fn) {
+    store.listeners.add(fn);
+    return () => store.listeners.delete(fn);
+  }
+};
+
 export const usePersonalization = () => {
-  const [config, setConfig] = useState(defaultPersonalization);
+  const [config, setConfig] = useState(() => store.get());
+  useEffect(() => store.subscribe(setConfig), []);
   const [localAssets, setLocalAssets] = useState({ images: [], videos: [], fonts: [] });
   const configIdRef = useRef(null);
   const activeResourceId = useRef({ bg: null, font: null });
@@ -569,7 +591,7 @@ export const usePersonalization = () => {
                   jsonStr = new TextDecoder('utf-8').decode(content.buffer);
               }
               const parsed = JSON.parse(jsonStr);
-              setConfig(prev => ({ ...prev, ...parsed }));
+              store.set(prev => ({ ...prev, ...parsed }));
             } catch (e) { console.error("配置解析失败，使用默认"); }
           }
         } else {
@@ -583,19 +605,19 @@ export const usePersonalization = () => {
 
   const updateConfig = useCallback((key, value) => {
     hasPendingChangesRef.current = true;
-    setConfig(prev => ({ ...prev, [key]: value }));
+    store.set(prev => ({ ...prev, [key]: value }));
   }, []);
 
   const updateMultipleConfigs = useCallback((updates) => {
     hasPendingChangesRef.current = true;
-    setConfig(prev => ({ ...prev, ...updates }));
+    store.set(prev => ({ ...prev, ...updates }));
   }, []);
 
   const applyPresetStyle = useCallback((presetKey) => {
     const preset = PRESET_STYLES[presetKey];
     if (preset && preset.config) {
       hasPendingChangesRef.current = true;
-      setConfig(prev => ({ ...prev, ...preset.config }));
+      store.set(prev => ({ ...prev, ...preset.config }));
       return true;
     }
     return false;
@@ -614,15 +636,15 @@ export const usePersonalization = () => {
     const newVar = `var(${colorSystemPre}-${baseColor}-${shade})`;
     hasPendingChangesRef.current = true;
     if (target === 'accent') {
-      setConfig(prev => ({ ...prev, accentColor: newVar, customColor: { baseColor, shade } }));
+      store.set(prev => ({ ...prev, accentColor: newVar, customColor: { baseColor, shade } }));
     } else if (target === 'bg') {
-      setConfig(prev => ({ ...prev, bgType: 'color', bgValue: newVar, customBgColor: { baseColor, shade } }));
+      store.set(prev => ({ ...prev, bgType: 'color', bgValue: newVar, customBgColor: { baseColor, shade } }));
     } else if (target === 'deskFont') {
-      setConfig(prev => ({ ...prev, deskFontColor: newVar, customDeskFontColor: { baseColor, shade } }));
+      store.set(prev => ({ ...prev, deskFontColor: newVar, customDeskFontColor: { baseColor, shade } }));
     } else if (target === 'windowHeaderBg') {
-      setConfig(prev => ({ ...prev, windowHeaderBg: newVar, customWindowHeaderBg: { baseColor, shade } }));
+      store.set(prev => ({ ...prev, windowHeaderBg: newVar, customWindowHeaderBg: { baseColor, shade } }));
     } else if (target === 'windowHeaderColor') {
-      setConfig(prev => ({ ...prev, windowHeaderColor: newVar, customWindowHeaderColor: { baseColor, shade } }));
+      store.set(prev => ({ ...prev, windowHeaderColor: newVar, customWindowHeaderColor: { baseColor, shade } }));
     }
   }, []);
 
@@ -646,7 +668,7 @@ export const usePersonalization = () => {
               jsonStr = new TextDecoder('utf-8').decode(content.buffer);
           }
           const parsed = JSON.parse(jsonStr);
-          setConfig(prev => ({ ...prev, ...parsed }));
+          store.set(prev => ({ ...prev, ...parsed }));
         }
       } catch (e) {
         console.error("重新加载配置失败:", e);

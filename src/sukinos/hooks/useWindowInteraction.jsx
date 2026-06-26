@@ -68,8 +68,9 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
   // 物理沙箱模式下：使用 will-change 提示浏览器优化
   const prepareForInteraction = useCallback((el) => {
     if (!el) return
-    // 交互开始：强制禁用 transition 避免位移延迟带来的缩放/拖拽偏移感
+    // 交互开始：分配 GPU 合成层，禁用 transition 避免拖拽偏移
     el.style.transition = 'none'
+    el.style.transform = 'translateZ(0)'
 
     if (isIframeMode) {
       // 临时禁用 iframe 内的指针事件，防止鼠标移动过快进入 iframe 导致事件丢失
@@ -83,6 +84,11 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
   // 恢复交互后的状态
   const finishInteraction = useCallback((el) => {
     if (!el) return
+
+    // 清除交互期间注入的 inline transform，让 CSS class 接管 GPU 合成层分配
+    // 焦点窗口通过 .is-focused { translateZ(0) } 获得 GPU 层
+    // 非焦点窗口无 CSS transform，自动释放 GPU 层
+    el.style.transform = ''
     // 交互结束：恢复 transition 效果（可根据需要从外部传入或默认）
     el.style.transition = isIframeMode ? 'none' : 'width 0.2s ease-out, height 0.2s ease-out, left 0.2s ease-out, top 0.2s ease-out'
 
@@ -246,7 +252,7 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
         if (realLeft !== undefined && realTop !== undefined) {
           el.style.left = `${realLeft}px`
           el.style.top = `${realTop}px`
-          el.style.transform = 'none'
+          el.style.transform = ''
           delete el.dataset.realLeft
           delete el.dataset.realTop
         }
@@ -340,7 +346,8 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
         el.style.top = `${restoredRect.y}px`
         el.style.width = `${restoredRect.w}px`
         el.style.height = `${restoredRect.h}px`
-        el.style.transform = 'none'
+        // 清除 inline transform，让 CSS .is-focused 自动接管 GPU 合成层
+        el.style.transform = ''
       }
     }
   }, [initialState])
