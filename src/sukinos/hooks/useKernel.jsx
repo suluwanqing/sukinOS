@@ -62,7 +62,14 @@ export const useKernel = () => {
       case 'APP_STATUS': {
         updateAppsByPid(change.pid, (app) => {
           if (!app || app.status === change.status) return app
-          return { ...app, status: change.status, isRunning: change.status === 'RUNNING' }
+          const kernelApp = kernel.getApp(change.pid)
+          // 适配新变化,增量state
+          return {
+            ...app,
+            status: change.status,
+            isRunning: change.status === 'RUNNING',
+            savedState: kernelApp?.savedState ?? app.savedState,
+          }
         })
         refreshAppStatus()
         return

@@ -44,7 +44,12 @@ const initialState = {
   },
   fileSystemConfig: {
       isPrivate: true
-    }
+    },
+  routePermissions: {
+    config: null,
+    loaded: false,
+    lastUpdated: null,
+  },
 }
 
 /*============================================ 切片主体 ===============================================*/
@@ -117,6 +122,16 @@ const sukinOsSlice = createSlice({
       const { key, value } = action.payload;
       state.fileSystemConfig[key] = value;
     },
+    setRoutePermissions: (state, action) => {
+      state.routePermissions.config = action.payload;
+      state.routePermissions.loaded = true;
+      state.routePermissions.lastUpdated = Date.now();
+    },
+    clearRoutePermissions: (state) => {
+      state.routePermissions.config = null;
+      state.routePermissions.loaded = false;
+      state.routePermissions.lastUpdated = null;
+    },
     setGenerateApp: (state,action)=>{
       const { key, value } = action.payload
       state.appStore.generateApp[key] = value;
@@ -147,6 +162,16 @@ export const selectGenerateApp = createSelector([selectSukinOs],
   (sukinos) => sukinos.appStore.generateApp)
 export const selectFileSystemConfig = createSelector([selectSukinOs]
   , (sukinos) => sukinos.fileSystemConfig)
+
+export const selectorRoutePermissions = createSelector(
+  [selectSukinOs],
+  (sukinos) => sukinos?.routePermissions?.config || null
+);
+
+export const selectorRoutePermissionsLoaded = createSelector(
+  [selectSukinOs],
+  (sukinos) => sukinos?.routePermissions?.loaded || false
+);
 
 // 提取验证码基础状态
 const selectAssistant = createSelector(

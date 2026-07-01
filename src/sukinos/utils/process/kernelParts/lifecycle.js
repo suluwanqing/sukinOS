@@ -386,7 +386,7 @@ export class Lifecycle {
 
   /**
    * 启动一个应用进程
- * 这是一个核心的调度方法，它能处理冷启动和从休眠状态恢复两种情况。
+   * 这是一个核心的调度方法，它能处理冷启动和从休眠状态恢复两种情况。
    * interactInfo 应该是一个对象对应用户的 reducer 开发处理
    function reducer(state[自动注入], action[App 交互传输的 interactInfo]) {
       switch(action.type) {
@@ -411,9 +411,12 @@ export class Lifecycle {
     if (!app) {
       alert.warning(`[内核] 尝试启动一个不存在的应用，pid: ${truthPid}`)
     }
-    //无论何种情况，都先准备好将要返回的窗口几何信息。
+    // 无论何种情况，都先准备好将要返回的窗口几何信息。
     // 这保证了 API 的调用者总能获得预期的返回值。
     const resource = this.#kernel.getResource(truthResourceId)
+
+    // 记录进程启动前的初始状态，以此判断它是真正的全新启动，还是会话恢复阶段的冷拉起
+    const originalStatus = app?.status
 
     // 进程已在运行 (Worker 实例已存在)
     if (this.#kernel.processes.has(truthPid)) {
@@ -500,12 +503,17 @@ export class Lifecycle {
       if (interactInfo) {
         this.#kernel.appIntereact({process: worker, interactInfo})
       }
-      // 更新内存和 DB 中的状态为 'RUNNING'
-      app.status = 'RUNNING'
+
+
+      // 确定要写入状态机和数据库的目标状态。
+      // 如果该应用启动前的初始状态是 HIBERNATED (会话恢复)，则建立好后台 Worker 实例后应当保持其 HIBERNATED 状态，绝不强行转为 RUNNING
+      const targetStatus = originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING'
+      app.status = targetStatus
+
       if (!app.isSystemApp) {
-        await this.#kernel.sysDb.updateData(app?.[ENV_KEY_NAME], {status: 'RUNNING'})
+        await this.#kernel.sysDb.updateData(app?.[ENV_KEY_NAME], {status: targetStatus})
       }
-      this.#kernel.emitChange({type: 'APP_STATUS', pid: truthPid, status: 'RUNNING'})
+      this.#kernel.emitChange({type: 'APP_STATUS', pid: truthPid, status: targetStatus})
       return {isStart: true}
     } catch (e) {
       // console.log(e)
@@ -515,7 +523,7 @@ export class Lifecycle {
     }
   }
 
-  //存储这个关于,窗口状态,后续可以考虑多模式处理,是冷启动还是热。主要方案1.适用display全部热启动。方案二:外壳全部display,内层冷启动
+  // 存储这个关于,窗口状态,后续可以考虑多模式处理,是冷启动还是热。主要方案1.适用display全部热启动。方案二:外壳全部display,内层冷启动
   async saveWindowState(pid, windowRect) {
     const app = this.#kernel.getApp(pid)
     if (!app) return
@@ -542,8 +550,8 @@ export class Lifecycle {
     for (const pid of this.#kernel.processes.keys()) {
       const p = this.#kernel.processes.get(pid)
       if (p && p.worker) {
-      // 向每个 worker 发送保存状态的指令。
-      // 这是一个“即发即忘”的操作，因为 beforeunload 事件的执行时间有限，我们 不等待回复。
+        // 向每个 worker 发送保存状态的指令。
+        // 这是一个“即发即忘”的操作，因为 beforeunload 事件的执行时间有限，我们 不等待回复。
         p.worker.postMessage({type: 'SAVE_STATE'})
       }
     }
@@ -585,11 +593,18 @@ export class Lifecycle {
   async clearAppSavedState(pid) {
     const app = this.#kernel.getApp(pid)
     if (app) {
-      app.savedState = null // 强制清除内存中的状态
+
+      // 增量清理：只重置应用的内部业务状态（app），保留窗口的大小、缩放、最大化及位置信息（window）
+      const prevSavedState = app.savedState || {app: null, window: null}
+      app.savedState = {
+        ...prevSavedState,
+        app: null, // 只将应用级数据置空，保留 window 配置
+      }
+
       const appName = app[ENV_KEY_NAME] || '未知应用'
       // 数据库更新（非系统应用）
       if (!app.isSystemApp) {
-        await this.#kernel.sysDb.updateData(appName, {savedState: null})
+        await this.#kernel.sysDb.updateData(appName, {savedState: app.savedState})
       }
       // console.log(`[内核] 应用 ${appName} (pid: ${pid}) 的持久化状态已被清空。`)
       this.#kernel.emitChange({type: 'APP_STATE_CLEARED', pid})
@@ -605,9 +620,9 @@ export class Lifecycle {
     this.#kernel.kill(pid)
     // 清理缓存
     this.#kernel.clearCachedState(pid)
-      // 获取应用信息
+    // 获取应用信息
 
-      const app = this.#kernel.getApp(pid)
+    const app = this.#kernel.getApp(pid)
     if (app) {
       const appName = app[ENV_KEY_NAME] || '未知应用'
       // 更新应用状态为已安装
@@ -772,7 +787,7 @@ export const clearAppSandboxData = async app => {
       console.warn('[DB] 匹配系统应用数据表失败:', e)
     }
   }
-  
+
   // 后续: 针对特定系统应用的独立宿主存储清理
   // 后续: 若应用在虚拟文件系统中建立了专属目录/节点 [通常以 resourceId 命名]，尝试将其一并清空
 }

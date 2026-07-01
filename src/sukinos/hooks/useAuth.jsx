@@ -1,8 +1,10 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
-import { sukinOsActions, selectorUserInfo, selectVerificationData } from "@/sukinos/store";
+import { sukinOsActions, selectorUserInfo, selectorRoutePermissionsLoaded, selectVerificationData } from "@/sukinos/store";
 import { asistant as asistantApi, login as loginApi, user as userApi } from '@/apis/auth';
+import permissionManageAPI from "@/apis/system/permissionManage";
+import { updateRoutePermissionCache } from '@/middleware/routePermission/cache';
 import { alert } from '@/component/Alert/layout';
 import generateShortSeed from "/utils/js/rootSeed"
 import loginDateWs from '/utils/js/socket/loginDate/main'
@@ -140,6 +142,13 @@ export const useAuth = (bizType = 'login') => {
         if (mode !== 'recoverPassword') {
           dispatch(sukinOsActions.setUserInfo(userData));
           loginDateWs.createWsDate(userData?.id)
+          // 登录成功后获取路由权限配置
+          permissionManageAPI.getRoutePermissions().then(permRes => {
+            if (permRes.code === 200 && permRes.data) {
+              dispatch(sukinOsActions.setRoutePermissions(permRes.data));
+              updateRoutePermissionCache(permRes.data);
+            }
+          }).catch(() => {});
         }
         dispatch(sukinOsActions.resetVerification(bizType));
         if (onSuccess) {
@@ -183,6 +192,13 @@ export const useAuth = (bizType = 'login') => {
       if (res.code === 200) {
         dispatch(sukinOsActions.setUserInfo(res.user || res.data));
         loginDateWs.createWsDate(res?.user?.id)
+        // 校验成功后获取路由权限配置
+        permissionManageAPI.getRoutePermissions().then(permRes => {
+          if (permRes.code === 200 && permRes.data) {
+            dispatch(sukinOsActions.setRoutePermissions(permRes.data));
+            updateRoutePermissionCache(permRes.data);
+          }
+        }).catch(() => {});
         return true;
       }
       dispatch(sukinOsActions.setUserInfo({}));

@@ -1,4 +1,7 @@
 import { useState, useEffect } from "react";
+import { useDispatch } from 'react-redux';
+import { sukinOsActions } from '@/sukinos/store';
+import { updateRoutePermissionCache } from '@/middleware/routePermission/cache';
 import style from "../style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import permissionManageAPI from "@/apis/system/permissionManage";
@@ -35,6 +38,7 @@ const userOptionsAsync = async ({ page, pageSize, searchQuery }) => {
 };
 
 function RoutePermissionPanel() {
+  const dispatch = useDispatch();
   const [config, setConfig] = useState({ routes: {} });
   const [loading, setLoading] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -61,7 +65,12 @@ function RoutePermissionPanel() {
     setLoading(true);
     try {
       const res = await permissionManageAPI.getRoutePermissions();
-      if (res.code === 200) setConfig(res.data || { routes: {} });
+      if (res.code === 200) {
+        const data = res.data || { routes: {} };
+        setConfig(data);
+        dispatch(sukinOsActions.setRoutePermissions(data));
+        updateRoutePermissionCache(data);
+      }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

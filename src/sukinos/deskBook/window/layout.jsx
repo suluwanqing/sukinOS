@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, memo } from 'react'
+import { useState, useMemo, useEffect, memo, useCallback } from 'react'
 import { createNamespace } from '/utils/js/classcreate'
 import { useWindowInteraction } from '@/sukinos/hooks/useWindowInteraction'
 import useProcessBridge from '@/sukinos/hooks/useProcessBridge'
@@ -16,6 +16,11 @@ const bem = createNamespace('window')
 const ScreenIcon = ({ isMaximized }) => {
   return isMaximized ? <FullscreenExitIcon fontSize='small' /> : <FullscreenIcon fontSize='small' />
 }
+
+// 会话级别进程挂载跟踪器
+// 记录已经完成了首次冷启动的进程 PID，即使组件由于挂起被卸载，此状态依然持久保留。
+const launchedProcesses = new Set();
+
 // 组件现在接收 initialRect
 const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKill, windowSize, initialRect, zIndex,
   onFocus, isDisplay, isShow, reStartApp, forceReStartApp, generateAppSetting, renderRef, ref,
@@ -40,15 +45,46 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   // 检测是否为物理沙箱模式（非寄生且非桥接模式）
   const isPhysicalSandbox = useMemo(() => {
     const isParasitism = resource?.[ENV_KEY_META_INFO]?.isParasitism === true;
-    // 开启 singleIframe (共享单实例) 或 useVirtualWorker (主线程虚拟沙箱) 时，均视为桥接/非物理 Iframe 隔离
+    // 开启 singleIframe (共享单实例) 或 useVirtualWorker (主线程虚拟沙箱) 时，均视为 bridge 隔离
     const useBridgeMode = (generateAppSetting?.singleIframe || generateAppSetting?.useVirtualWorker || false) && !isParasitism;
     return !isParasitism && !useBridgeMode;
   }, [resource, generateAppSetting]);
 
-  // 将从 props 接收到的 initialRect 传递给 useWindowInteraction hook，并传递物理沙箱标识
-  // Hook 内部现在直接操作 DOM
+  //判定冷热启动与恢复布局
+  // 检查当前进程在本次前端交互生命周期中是否为首次渲染
+  const isFirstLaunch = useMemo(() => {
+    if (!launchedProcesses.has(pid)) {
+      launchedProcesses.add(pid);
+      return true;
+    }
+    return false;
+  }, [pid]);
+
+  // 检查是否包含上一次会话保存下来的窗口几何信息
+  const hasSavedWindow = !!app?.savedState?.window;
+
+  // 统一的关闭/杀死进程处理器，彻底关闭时清理 Set 缓存，使得下一次启动可以重新触发 isFullScreen
+  const handleKillProcess = useCallback((targetPid) => {
+    // 这里需要清除内存缓存
+    launchedProcesses.delete(targetPid);
+    onKill(targetPid);
+  }, [onKill]);
+
+  //空坐标回退
+  const calculatedWinSize = useMemo(() => {
+    // 首次且无历史存档且配置全屏，则采用全屏尺寸；否则采用传入的 initialRect
+    const targetSize = (isFirstLaunch && !hasSavedWindow && resource?.[ENV_KEY_META_INFO]?.custom?.isFullScreen)
+      ? windowSize
+      : initialRect;
+
+    // 安全回退：如果由于状态同步覆盖原因，导致算出来的目标坐标为 null/undefined，
+    // 则强制降级使用标准的 windowSize 兜底，防止窗口折叠、崩溃或缩成一个不可见的小点。
+    return targetSize || windowSize;
+  }, [isFirstLaunch, hasSavedWindow, resource, windowSize, initialRect]);
+
+  // 将计算后的安全尺寸传递给窗口交互 Hook
   const { windowElRef, handleMouseDown, setMaximized, getCurrentRect } = useWindowInteraction({
-    winSize: resource?.[ENV_KEY_META_INFO]?.custom?.isFullScreen ? windowSize : initialRect,
+    winSize: calculatedWinSize,
     allowResize: resource?.[ENV_KEY_META_INFO]?.custom?.allowResize || true,
     isIframeMode: isPhysicalSandbox
   })
@@ -128,8 +164,8 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
     ...(exposeState ? [{ id: 'state', icon: <CodeIcon fontSize='small' />, onClick: () => setShowState(!showState) }] : []),
     { id: 'back', icon: <HorizontalRuleIcon fontSize='small' />, onClick: handleClose },
     { id: 'window', icon: <ScreenIcon isMaximized={isMaximized} />, onClick: toggleMaximize },
-    { id: 'close', icon: <CloseIcon fontSize='small' />, onClick: () => onKill(pid) },
-  ].filter(Boolean), [exposeState, showState, isMaximized, handleClose, toggleMaximize, onKill]);
+    { id: 'close', icon: <CloseIcon fontSize='small' />, onClick: () => handleKillProcess(pid) },
+  ].filter(Boolean), [exposeState, showState, isMaximized, handleClose, toggleMaximize, handleKillProcess, pid]);
 
   const resizeHandles = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
@@ -214,7 +250,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
             onFocus={onFocus}
             forceReStartApp={forceReStartApp}
             reStartApp={reStartApp}
-            onKill={onKill}
+            onKill={handleKillProcess}
             ref={renderRef}
             isVisible={isShow}
           />
@@ -239,7 +275,6 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
     </div>
   );
 };
-
 
 const memoEqual = (prevProps, nextProps) => {
   return (
