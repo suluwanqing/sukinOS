@@ -128,6 +128,7 @@ CREATE TABLE IF NOT EXISTS `sukinos_app` (
     `version`       VARCHAR(20)   NOT NULL DEFAULT '0.1'        COMMENT '版本号（乐观锁版本列）',
     `status`        VARCHAR(20)   NOT NULL DEFAULT 'under_review' COMMENT '审核状态',
     `audit_opinion` VARCHAR(255)  DEFAULT NULL                  COMMENT '审核意见',
+    `registry_enabled` BOOLEAN   NOT NULL DEFAULT FALSE        COMMENT '是否在权限注册池中',
     PRIMARY KEY (`resource_id`),
     KEY `idx_user_id` (`user_id`),
     KEY `idx_status` (`status`),
@@ -235,3 +236,42 @@ CREATE TABLE IF NOT EXISTS `system_updates` (
 
 -- 应用审核管理查询（常用）
 -- CREATE INDEX idx_sukinos_app_status_created ON sukinos_app(status, created_at);
+
+-- ============================================================
+-- 表14: system_builtin_apps - 系统内置 APP 定义表
+-- 对应模型: Model.DbModel.system.systemApp.D_SystemBuiltinApp
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `system_builtin_apps` (
+    `id`              INT           AUTO_INCREMENT PRIMARY KEY,
+    `app_id`          VARCHAR(100)  NOT NULL UNIQUE               COMMENT 'APP唯一标识符',
+    `label`           VARCHAR(100)  NOT NULL                      COMMENT 'APP显示名称',
+    `description`     VARCHAR(500)  DEFAULT ''                    COMMENT 'APP描述',
+    `default_visible_to` JSON       DEFAULT ('["user"]')          COMMENT '默认可见角色列表',
+    `hidden`          VARCHAR(5)    DEFAULT 'false'               COMMENT '是否隐藏',
+    `created_at`      INT           DEFAULT 0                     COMMENT '创建时间戳',
+    `updated_at`      INT           DEFAULT 0                     COMMENT '更新时间戳'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统内置APP定义表';
+
+-- ============================================================
+-- 表15: system_roles - 角色管理表
+-- 对应模型: Model.DbModel.system.role.D_Role
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `system_roles` (
+    `id`          INT           AUTO_INCREMENT PRIMARY KEY,
+    `name`        VARCHAR(50)   NOT NULL UNIQUE                   COMMENT '角色标识 e.g. admin, developer',
+    `label`       VARCHAR(100)  NOT NULL                          COMMENT '角色显示名 e.g. 管理员, 开发者',
+    `description` VARCHAR(255)  DEFAULT ''                        COMMENT '角色描述',
+    `is_system`   BOOLEAN       DEFAULT FALSE                     COMMENT '系统内置角色(不可删除)',
+    `created_at`  DATETIME      DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='角色管理表';
+
+-- ============================================================
+-- 表16: app_permission_registry - APP 权限注册表
+-- 对应模型: Model.DbModel.system.appPermission.D_AppPermissionRegistry
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `app_permission_registry` (
+    `resource_id`       VARCHAR(120)  NOT NULL PRIMARY KEY        COMMENT 'APP 资源唯一标识',
+    `permission_enabled` BOOLEAN      NOT NULL DEFAULT FALSE      COMMENT '是否启用权限控制',
+    `actor_rules`       JSON          DEFAULT NULL                COMMENT '权限分配规则 JSON',
+    `created_at`        DATETIME      DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='APP权限注册表';

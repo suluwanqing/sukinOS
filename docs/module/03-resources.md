@@ -292,7 +292,7 @@ flowchart LR
 
 **功能说明**：本地开发环境，使用 `LocalDev` 系统组件渲染。
 
-> **注意**：资源 ID 存在拼写问题 `sys-local-dev`（应为 `sys-local-dev`），但已在代码中固化为当前值。
+> **注意**：资源 ID 历史上是 `sys-loacl-dev`（拼写错误），已于 2026-06 统一修正为 `sys-local-dev`。若数据库中仍存在旧 ID，启动时会自动迁移。
 
 ### 3.8 系统管理 — `sys-systemManage`
 
@@ -307,7 +307,31 @@ flowchart LR
 | `hasShortcut` | `true` |
 | `blockEd` | `false` |
 
-**功能说明**：系统仪表盘，使用 `SystemDashboard` 系统组件渲染。
+**功能说明**：系统仪表盘，使用 `SystemDashboard` 系统组件渲染。包含 6 个管理面板：
+
+| 面板 | 路由 | 说明 |
+|------|------|------|
+| 管理概览 | `overview/` | 系统运行状态概览 |
+| 成员中心 | `users/` | 用户管理（CRUD、状态、编辑） |
+| 审计分析 | `behavior/` | 全平台活跃趋势图表 |
+| 系统配置 | `systemConfig/` | 日志配置、配置项管理器、系统APP放权 |
+| 更新日志 | `systemUpdate/` | 系统更新日志 |
+| 系统日志 | `systemLog/` | 请求日志查询与导出 |
+| 应用管理 | `appManage/` | 应用审核与强制销毁 |
+| **权限管理** | `permissionManage/` | **6 个子面板 + 中间件白名单** |
+
+**权限管理子模块**（`permissionManage/`）：
+
+```
+permissionManage/
+├── layout.jsx              # 主布局 + 侧边栏导航
+├── registry/               # 权限注册池（APP 白名单/黑名单）
+├── role/                   # 角色管理
+├── menuPermission/         # 菜单权限（侧边栏可见性）
+├── routePermission/        # 路由权限（API 接口访问控制）
+├── registryPower/          # 注册权管理（谁能操作池）
+└── middlewareWhitelist/    # 中间件白名单（root 配置）
+```
 
 ### 3.9 画板 — `sys-drawBoard`
 

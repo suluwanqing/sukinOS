@@ -124,6 +124,21 @@ import { useKernel, useAuth, useProcessBridge } from '@/sukinos/hooks'
 **依赖**:
 - `kernel` 单例 (`@/sukinos/utils/process/kernel`)
 
+**参数**:
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `pid` | `string` | — | 进程 PID |
+| `isVisible` | `boolean` | `true` | 窗口是否可见 |
+| `backgroundSleep` | `boolean` | `false` | 后台静默模式 |
+
+**后台静默优化**:
+
+当 `backgroundSleep === true && isVisible === false` 时，`useProcessBridge` **完全跳过** `kernel.subscribeApp` 订阅：
+- Worker 状态变更完全不会进入 React 渲染管道
+- 零 RAF 调度、零 setState 调用、零 memo 比较
+- 适合未开启自适应挂载但希望降低后台窗口 CPU 开销的场景
+
 **内部状态**:
 
 | 状态 | 说明 |
@@ -146,6 +161,7 @@ import { useKernel, useAuth, useProcessBridge } from '@/sukinos/hooks'
 - 通过 `kernel.subscribeApp(pid)` 订阅应用自身 Worker 的状态变更
 - 状态更新使用 `requestAnimationFrame` 节流，避免高频渲染
 - 组件卸载时自动注销所有主题订阅
+- `backgroundSleep` 模式下主动跳过订阅，窗口恢复可见时从 `kernel.getCachedState(pid)` 恢复
 
 **额外导出 — `useProcessDispatch(pid)`**:
 
@@ -156,10 +172,11 @@ import { useProcessDispatch } from '@/sukinos/hooks'
 const { dispatch, publish } = useProcessDispatch(pid)
 ```
 
-**返回值**:
+**签名**:
 
 ```js
-{ state, dispatch, publish, subscribe }
+useProcessBridge(pid, { isVisible = true, backgroundSleep = false })
+// → { state, dispatch, publish, subscribe }
 ```
 
 ---
@@ -444,12 +461,29 @@ const { state, navigation, operation } = useFileSystem('virtual', { pid: 'app-xx
 
 **文件**: `usePersonalization.jsx`
 
-**职责**: 管理桌面个性化配置（颜色、字体、背景、图标、窗口透明度等），提供 15 套预设主题和自动 CSS 变量注入。
+**职责**: 管理桌面个性化配置（颜色、字体、背景、图标、窗口透明度、性能优化等），提供 15 套预设主题和自动 CSS 变量注入。
 
 > **注意**: 此 Hook 未在 `main.jsx` 中导出，需直接引用：
 > ```js
 > import usePersonalization from '@/sukinos/hooks/usePersonalization'
 > ```
+
+#### 架构：模块级单例 Store
+
+```javascript
+const store = {
+  config,       // 模块级共享配置对象
+  listeners,    // 所有 hook 实例的 setState 集合
+  get,          // 读取当前 config
+  set(updater), // 更新 config + 通知所有实例
+  subscribe(fn) // 挂载时注册 setState，卸载时注销
+}
+```
+
+`usePersonalization` 的 `config` 状态使用**模块级单例 store**而非每个组件实例各自独立的 `useState`。所有调用 `usePersonalization()` 的组件共享同一份 `config`：
+- Personalization 设置面板修改配置 → `store.set()` → 所有实例实时同步
+- DeskBook 等消费者无需额外同步机制即获取最新配置
+- 对应关系：`config`（store 共享）| `localAssets`（组件实例独立）
 
 **依赖**:
 - `fileKernel` (`@/sukinos/utils/file/fileKernel`)
@@ -457,10 +491,10 @@ const { state, navigation, operation } = useFileSystem('virtual', { pid: 'app-xx
 
 **内部状态**:
 
-| 状态 | 说明 |
-|------|------|
-| `config` | 个性化配置对象（颜色、字体、背景、透明度等） |
-| `localAssets` | 本地资源文件列表 `{ images, videos, fonts }` |
+| 状态 | 存储级别 | 说明 |
+|------|---------|------|
+| `config` | 模块级 store | 个性化配置对象，所有实例共享 |
+| `localAssets` | 实例级 useState | 本地资源文件列表 `{ images, videos, fonts }` |
 
 **15 套预设主题（`PRESET_STYLES`）**:
 
@@ -482,18 +516,41 @@ const { state, navigation, operation } = useFileSystem('virtual', { pid: 'app-xx
 | `oceanSong` | 海洋之歌 | 清新凉爽的海洋主题 |
 | `goldenClassic` | 高贵金典 | 奢华高贵的金色主题 |
 
+**默认配置（`defaultPersonalization`）各字段说明**:
+
+| 字段 | 默认值 | 说明 |
+|------|--------|------|
+| `themeMode` | `'light'` | 主题模式（light/dark） |
+| `accentColor` | `'#0067c0'` | 强调色 |
+| `bgType` | `'video'` | 背景类型（color/image/video） |
+| `bgValue` | `'system_2mp4'` | 背景值 |
+| `fontSize` | `14` | 字号（px） |
+| `fontType` | `'preset'` | 字体类型（preset/custom） |
+| `fontValue` | `'Segoe UI, system-ui, sans-serif'` | 字体值 |
+| `borderRadius` | `10` | 容器圆角（px） |
+| `glassEffect` | `true` | 毛玻璃特效 |
+| `deskIconSize` | `50` | 桌面图标尺寸 |
+| `deskFontColor` | `'#ffffff'` | 桌面文字颜色 |
+| `windowOpacity` | `80` | 窗口背景透明度（%） |
+| `windowHeaderBg` | `'var(--su-gray-50)'` | 窗口头部背景色 |
+| `windowPadding` | `0` | 窗口内容内边距 |
+| `maxWindows` | `10` | 最大可见窗口数（超出 LRU 休眠） |
+| `maxWorkers` | `5` | 最大并发 Worker 数 |
+| `workerLRU` | `true` | 启用 LRU 自动淘汰 |
+| `autoHideStatusBar` | `false` | 启动/聚焦 APP 时自动隐藏状态栏 |
+
 **方法**:
 
 | 方法 | 说明 |
 |------|------|
-| `updateConfig(key, value)` | 更新单个配置项 |
+| `updateConfig(key, value)` | 更新单个配置项（写入 store → 所有实例同步） |
 | `updateMultipleConfigs(updates)` | 批量更新配置 |
 | `applyPresetStyle(presetKey)` | 应用预设主题 |
 | `getAllPresetStyles()` | 获取所有预设主题列表 |
 | `updateCustomColor(target, baseColor, shade)` | 更新自定义颜色（映射到 CSS 变量） |
 | `getCurrentAccentColor()` | 获取当前主题强调色 |
 | `getFileBase64(fileId)` | 从 VFS 读取文件并转为 Base64 |
-| `refreshConfig()` | 触发配置刷新 |
+| `refreshConfig()` | 从 VFS 重新加载配置 |
 
 **自动持久化**:
 - `config` 变化 → 防抖 800ms → 写入 `sukin_config.json` 到 VFS
@@ -764,3 +821,42 @@ graph LR
 | 性能敏感输入 | `useDebounce` / `useThrottle` | 防抖/节流 |
 | 横向滚动容器 | `useWheelToHorizontalScroll` | 滚轮转水平滚动 |
 | OPFS 文件操作 | `useOPFS` | 浏览器原生文件系统 |
+| 权限检查 | `usePermission` | 菜单/路由/角色权限检查（`src/hooks/usePermission/`） |
+
+## 7. `usePermission` — 权限检查 Hook
+
+**文件**: `src/hooks/usePermission/main.jsx`
+
+SukinOS 前端权限检查钩子，不依赖 Redux，直接从 `selectorUserInfo` 获取当前用户信息。
+
+### 7.1 返回值
+
+| 方法 | 返回值 | 说明 |
+|------|--------|------|
+| `hasMenuPermission(menuId)` | `boolean` | 当前用户是否有权查看指定菜单项。未配置的菜单默认可见。root 始终 true |
+| `hasPermission(key)` | `boolean` | 当前用户是否拥有指定的权限 Key（如 `system:users:delete`） |
+| `hasRole(roles)` | `boolean` | 当前用户是否属于指定角色之一 |
+| `hasRegistryPower()` | `boolean` | 当前用户是否有注册权（操作权限注册池） |
+| `isRoot` | `boolean` | 当前用户是否为 root |
+| `role` | `string \| null` | 当前用户的角色名 |
+
+### 7.2 菜单权限判定逻辑
+
+```
+root → 始终 true
+菜单无配置 → true（默认全可见）
+匹配 defaultRoles → true
+匹配 allowedUsers → true
+匹配 allowedRoles → true
+有配置但都不匹配 → false
+```
+
+> 三种规则为 **OR** 关系，任一匹配即放行。
+
+### 7.3 依赖
+
+| 依赖 | 说明 |
+|------|------|
+| `permissionManageAPI.getMenuPermissions()` | 菜单权限配置（加载到缓存） |
+| `selectorUserInfo` | 当前登录用户信息 |
+| `updateCurrentUser` | 同步用户到路由权限中间件缓存 |

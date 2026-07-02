@@ -291,8 +291,8 @@ export const appCustomMapper = {
   autoStart: '开机自动运行',
   allowResize: '允许调整窗口大小',
   showInLauncher: '在启动器中显示',
-  backgroundSleep: '后台静默(停止Worker)',
-  adaptiveMount: '后台自适应挂载(节约内存)'
+  backgroundSleep: '后台静默(暂停订阅)',
+  adaptiveMount: '后台自适应挂载(不保存APP内部状态)'
 }
 //app用户个人习惯可选
 export const appCustom = {
@@ -303,7 +303,7 @@ export const appCustom = {
     allowResize: true,
     showInLauncher: false,
     backgroundSleep: false,
-    adaptiveMount: true,
+    adaptiveMount: false,
 }
 //应用类似
 export const appTypes = [

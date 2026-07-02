@@ -14,6 +14,7 @@ graph TB
     subgraph InitConfig["exit.py init_config()"]
         direction TB
         StartupClean["启动清理<br/>所有用户 isonline=false"]
+        AutoSeedRoutes["自动扫描路由权限<br/>auto_seed_route_permissions"]
         ExceptionHandler["全局异常处理<br/>StarletteHTTPException<br/>RequestValidationError"]
         MiddlewareChain["中间件注册链"]
         StaticMount["静态文件挂载"]
@@ -24,67 +25,68 @@ graph TB
     subgraph Middleware["中间件链 (由内到外)"]
         direction LR
         M1["RequestLogMiddleware<br/>请求日志记录"]
-        M2["StaticAuthMiddleware<br/>静态文件鉴权"]
-        M3["CORSMiddleware<br/>跨域处理"]
-        M1 --> M2 --> M3
+        M2["RoutePermissionMiddleware<br/>动态路由权限检查"]
+        M3["StaticAuthMiddleware<br/>静态文件鉴权"]
+        M4["CORSMiddleware<br/>跨域处理"]
+        M1 --> M2 --> M3 --> M4
     end
 
     subgraph Routes["路由模块"]
         direction TB
 
-        subgraph UserInfo["/api/user"]
-            Login["POST /login 登录"]
-            Register["POST /register 注册"]
+        subgraph UserInfo["/api/user/status"]
+            Login["POST /token 登录"]
+            Register["POST /VerificationCode 注册验证码"]
+            Refresh["POST /refresh/token 刷新Token"]
             Logout["POST /logout 登出"]
-            Refresh["POST /refresh 刷新Token"]
-            Info["GET /info 用户信息"]
-            Update["PUT /update 更新信息"]
-            Avatar["POST /avatar 上传头像"]
         end
 
         subgraph SukinOS["/api/sukinos"]
             Upload["POST /app/upload 上传应用"]
-            UpdateApp["POST /app/update 更新应用"]
             AppList["GET /app/appList 应用列表"]
-            Search["GET /app/searchApp 搜索"]
-            MyUpload["GET /app/myUpload 我的上传"]
-            Delete["POST /app/delete 删除应用"]
-            CheckUpdate["POST /app/checkUpdates 检查更新"]
+            Search["GET /app/search 搜索"]
             LocalDev["/localdev 本地开发 SSE"]
         end
 
-        subgraph SocketApi["WebSocket /ws"]
-            WSConnect["/{user_id} WebSocket 连接"]
-            Heartbeat["心跳检测 35s"]
-            LoginTrack["登录时间追踪"]
-            LogoutTrack["登出时间统计"]
-            KickUser["管理员强制断开"]
+        subgraph Permission["/api/system/permission"]
+            Registry["GET/POST /registry<br/>权限注册池"]
+            Actors["PUT /registry/{id}/actors<br/>黑白名单"]
+            Menus["GET/PUT /menus<br/>菜单权限"]
+            RoutesPerm["GET/PUT /routes-permission<br/>路由权限"]
+            Role["GET/POST /role<br/>角色管理"]
+            SysApps["GET/PUT /system-apps<br/>POST/DELETE system-apps<br/>系统APP放权"]
+            Power["GET/PUT /registry-power<br/>注册权"]
+            Whitelist["GET/PUT /middleware-whitelist<br/>中间件白名单"]
         end
 
-        subgraph LocationSystem["/api/system"]
-            Config["配置管理"]
-            Status["系统状态监控"]
-            UpdateLog["更新日志"]
-            RequestLog["请求日志查询"]
-            AppManage["应用审核管理"]
+        subgraph SystemMgr["/api/system 其他"]
+            Config["/systemconfig 系统配置"]
+            Status["/status 系统监控"]
+            AppMgmt["/sukinos 应用审核"]
+            UserMgmt["/usermanage 用户管理"]
+        end
+
+        subgraph SocketApi["WebSocket /ws"]
+            WSConnect["/{user_id} 连接"]
+            Heartbeat["心跳 35s"]
+            LoginTrack["时间追踪"]
         end
     end
 
     subgraph Auth["Auth.py 认证模块"]
         direction TB
         JwtCreate["create_access_token() 30min<br/>create_refresh_token() 7天"]
-        VerifyAuth["verify_auth() 工厂函数<br/>4阶段认证流程"]
-        SilentRefresh["静默 Token 刷新"]
-        Permission["权限模式<br/>superuser | role | power(位运算)"]
-        PasswordHash["bcrypt 密码哈希<br/>passlib CryptContext"]
+        VerifyAuth["verify_auth() 工厂"]
+        SilentRefresh["静默刷新"]
+        RequireRoot["@RequireRoot() 装饰器"]
+        Permission["权限位验证"]
     end
 
     subgraph Database["数据层"]
         direction TB
         SQLAlchemy["SQLAlchemy ORM"]
         MySQL_[(MySQL 数据库)]
-        RedisCache[("Redis 缓存<br/>验证码/会话")]
-        ConnectionPool["连接池<br/>pool_size + overflow"]
+        RedisCache[("Redis 验证码")]
     end
 
     Entry --> InitConfig

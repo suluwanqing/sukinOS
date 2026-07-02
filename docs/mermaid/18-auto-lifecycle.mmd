@@ -1,0 +1,35 @@
+---
+title: 路由权限配置 _auto 生命周期
+---
+stateDiagram-v2
+    [*] --> AutoRegistered: 启动时自动扫描 app.routes
+
+    AutoRegistered --> AutoRegistered: _auto = true\n中间件放行\n(管理员还没配置)
+
+    AutoRegistered --> ManualConfigured: 管理员通过前端面板\n或 API 手动配置权限
+
+    ManualConfigured --> ManualConfigured: _auto 被移除\nallowed_roles / allowed_users 生效\n中间件开始严格检查
+
+    ManualConfigured --> [*]: 配置被删除\n路由重新变成未配置
+
+    ManualConfigured --> Locked: 受保护路由\n(/system/permission/ 前缀)
+
+    Locked --> Locked: _locked = true\n仅 root，不可修改
+
+    note right of AutoRegistered
+        新接口刚开发完时
+        不会因为没配权限 → 403
+        给管理员缓冲期去配置
+    end note
+
+    note right of ManualConfigured
+        一旦有人管了
+        就严格管起来
+        不再自动放行
+    end note
+
+    note right of Locked
+        权限管理自身路由
+        永久锁定为 root only
+        面板上不可修改
+    end note

@@ -269,6 +269,8 @@ export const useAuth = (bizType = 'login') => { ... }
 
 **目录**: `src/sukinos/middleware/`
 
+> 本文档仅涵盖**前端**中间件。后端中间件链（`RoutePermissionMiddleware` → `StaticAuthMiddleware` → `CORSMiddleware`）及全局路由权限检查在 `00-overview.md` 第 6 章中描述。
+
 ### 4.1 文件结构
 
 ```
@@ -386,6 +388,60 @@ const vfsImageCache = new Map();
 组件使用 `React.memo` 包裹。
 
 ---
+
+## 5. 后端三层权限控制机制
+
+> 后端中间件链 + 装饰器 + 依赖注入构成三层独立防线，详见 `00-overview.md` 第 6 章。
+
+### 5.1 三层关系
+
+| 层级 | 实现 | 作用范围 | 检查依据 | 拦截结果 |
+|---|---|---|---|---|
+| **L1 配置驱动层** | `RoutePermissionMiddleware` | 所有 API 路由 | `D_SystemConfig` 的 `system_api_route_permission` | `403` |
+| **L2 代码声明层** | `@RequireRoot` / `@RequirePermission` / `@RequireRole` | 加了装饰器的路由 | `user.root` / `user.permission.role` / `user.permission.keys` | `403` |
+| **L3 身份认证层** | `Depends(verify_auth())` | 路由参数级 | JWT Cookie（Access + Refresh Token） | `401` |
+
+### 5.2 `_auto` 机制
+
+L1 中间件的路由权限配置中有一个关键标记 `_auto`：
+
+| 阶段 | `_auto` 值 | 中间件行为 |
+|---|---|---|
+| 新接口启动自动注册 | `true` | 放行（管理员没配过规则，不误杀） |
+| 管理员通过面板配置后 | 被移除 | 严格按 `allowed_roles` / `allowed_users` 检查 |
+| 受保护路由 (`/system/permission/`) | `_locked: true` | 仅 root，面板上不可修改 |
+
+### 5.3 完整请求执行链路
+
+```
+HTTP 请求
+  │
+  ├─ L1: RoutePermissionMiddleware
+  │   → 白名单? → 是 → 直接放行
+  │   → root? → 是 → 放行
+  │   → _auto? → 是 → 放行（管理员未配置）
+  │   → allowed_roles / allowed_users 匹配? → 否 → ❌ 403
+  │
+  ├─ L3: Depends(verify_auth())
+  │   → JWT 有效? → 是 → 返回 User
+  │   → JWT 过期 → Refresh Token 静默刷新
+  │
+  ├─ L2: @RequireRoot()
+  │   → root? → 否 → ❌ 403
+  │
+  ▼ 全部通过
+  执行业务逻辑 → 记录请求日志 → 返回响应
+```
+
+### 5.4 为什么要三层？
+
+| 缺少哪层 | 风险 |
+|---|---|
+| 缺 L1 | 新人忘加 `@RequireRoot()`，接口裸奔 |
+| 缺 L2 | 管理员误操作把配置改成公开，接口变不设防 |
+| 缺 L3 | 拿不到 `current_user`，无法做任何身份相关操作 |
+
+即使面板配置被误改，代码中的 `@RequireRoot()` 和 `Depends(verify_auth())` 依然能拦截非授权用户。三层互不依赖，互相 backup。
 
 ## 5. 架构调用链
 

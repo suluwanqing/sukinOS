@@ -1,0 +1,64 @@
+---
+title: 三层权限控制与 _auto 机制
+---
+flowchart TD
+    subgraph Legend["图例说明"]
+        L1["🟧 L1 配置驱动层<br/>RoutePermissionMiddleware"]
+        L2["🟦 L2 代码声明层<br/>@RequireRoot / @RequirePermission"]
+        L3["🟩 L3 身份认证层<br/>Depends(verify_auth())"]
+    end
+
+    START(["HTTP 请求"]) --> WHITELIST{白名单路径?}
+
+    WHITELIST -->|"是"| PASS["✅ 直接放行"]
+
+    WHITELIST -->|"否"| L1_CHECK
+
+    subgraph L1_CHECK["L1 配置驱动层 · RoutePermissionMiddleware"]
+        direction TB
+        L1_1["解析 Cookie JWT<br/>获取当前用户"] --> L1_2{"root 用户?"}
+        L1_2 -->|"是"| L1_PASS["✅ L1 放行"]
+        L1_2 -->|"否"| L1_3{"路由在配置中?"}
+        L1_3 -->|"不在 → 放行"| L1_PASS
+        L1_3 -->|"在"| L1_AUTO{"_auto: true?"}
+        L1_AUTO -->|"是 → 自动注册，<br/>管理员未配置 → 放行"| L1_PASS
+        L1_AUTO -->|"否 → 严格检查"| L1_RULE{"allowed_roles<br/>或 allowed_users<br/>匹配?"}
+        L1_RULE -->|"匹配 → 放行"| L1_PASS
+        L1_RULE -->|"不匹配"| L1_FAIL["❌ L1 拦截<br/>返回 403"]
+    end
+
+    L1_FAIL --> END1(["请求终止"])
+    L1_PASS --> L3_CHECK
+
+    subgraph L3_CHECK["L3 身份认证层 · Depends(verify_auth())"]
+        direction TB
+        L3_1["access_token 有效?"]
+        L3_1 -->|"有效"| L3_OK["✅ 解析 JWT → User 对象"]
+        L3_1 -->|"过期/无效"| L3_RT{"refresh_token 有效?"}
+        L3_RT -->|"有效"| L3_REFRESH["静默签发新 Token 对<br/>→ 注入 Response Cookie"]
+        L3_REFRESH --> L3_OK
+        L3_RT -->|"过期/无效"| L3_FAIL["❌ L3 拦截<br/>返回 401 会话过期"]
+    end
+
+    L3_FAIL --> END1
+    L3_OK --> L2_CHECK
+
+    subgraph L2_CHECK["L2 代码声明层 · @RequireRoot()"]
+        direction TB
+        L2_1{"有 @RequireRoot 装饰器?"}
+        L2_1 -->|"无"| L2_OK["✅ L2 放行"]
+        L2_1 -->|"有"| L2_ROOT{"user.root?"}
+        L2_ROOT -->|"是"| L2_OK
+        L2_ROOT -->|"否"| L2_FAIL["❌ L2 拦截<br/>返回 403 需要 root 权限"]
+    end
+
+    L2_FAIL --> END1
+    L2_OK --> BUSINESS(["执行业务逻辑 → 200 OK"])
+
+    style L1_CHECK fill:#fff3e0,stroke:#e65100,color:#000
+    style L3_CHECK fill:#e8f5e9,stroke:#2e7d32,color:#000
+    style L2_CHECK fill:#e3f2fd,stroke:#1565c0,color:#000
+    style PASS fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style L1_FAIL fill:#ffcdd2,stroke:#c62828,color:#000
+    style L2_FAIL fill:#ffcdd2,stroke:#c62828,color:#000
+    style L3_FAIL fill:#ffcdd2,stroke:#c62828,color:#000

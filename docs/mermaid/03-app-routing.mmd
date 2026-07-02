@@ -1,0 +1,587 @@
+---
+title: 应用路由导航机制（含浏览器级路由、三种Worker模式、Pub/Sub体系）
+---
+graph TB
+
+    subgraph Legend["图例"]
+        direction LR
+        L1("Bundle 自动路由（黄金路径）")
+        L2("系统 App 手动路由（补充）")
+        L3("NoWorker 逃生路径 / Echo 回调")
+        L4("消息分发（KERNEL_CALL 内核路径）")
+    end
+
+    subgraph DIMENSION_INTRO["四层维度（先拆解再综合）"]
+        direction LR
+        D1["① Bundle vs 非Bundle<br/>路由策略的根本分界"]
+        D2["② Worker vs NoWorker<br/>消息处理能力的分界"]
+        D3["③ 消息分发机制<br/>KERNEL_CALL vs UI_ACTION"]
+        D4["④ saveState 持久化链<br/>含 saveState 布尔配置"]
+    end
+
+    subgraph BUNDLE_AUTO["1. Bundle App Level 1：系统自动路由"]
+        direction TB
+
+        B0["用户点击 navigate('network')"]
+        B1["SDK: dispatch({type:'NAVIGATE', payload:'network'})"]
+        B2["Worker 收到 UI_ACTION"]
+        B3["① reducerFn 执行（用户 reducer）"]
+        B4{"② isBundle + NAVIGATE?"}
+        B5["✅ 自动注入 router.path = action.payload"]
+        B6["broadcast() → STATE_UPDATE"]
+        B7["AppInternalRenderer: currentPath='network'"]
+        B8["✅ 渲染 modules['network']"]
+
+        B0 --> B1
+        B1 -->|"sdk.jsx:93"| B2
+        B2 --> B3
+        B3 --> B4
+        B4 -->|"自动拦截"| B5
+        B5 --> B6
+        B6 -->|"commHub → stateCache"| B7
+        B7 --> B8
+    end
+
+    subgraph NON_BUNDLE["2. 系统 App Level 1：手动路由"]
+        direction TB
+
+        NB0["registry.jsx 定义 reducer"]
+        NB1["case 'NAV': router.path = payload"]
+        NB2["dispatch({type:'NAV', payload:'intro'})"]
+        NB3["Worker reducerFn 执行"]
+        NB4["state.router.path 更新"]
+        NB5["broadcast() → STATE_UPDATE"]
+        NB6["组件读取 state.router?.path"]
+
+        NB0 --> NB1
+        NB2 --> NB3
+        NB3 --> NB4
+        NB4 --> NB5
+        NB5 --> NB6
+
+        subgraph DRAWBOARD_EXAMPLE["实际案例：DrawBoard"]
+            direction TB
+            DB1["非 Bundle（isBundle:false）"]
+            DB2["saveState: false"]
+            DB3["registry.jsx:50"]
+            DB4["case 'NAV': return {...state,<br/>router: {path: action.payload}}"]
+            DB5["dispatch({type:'NAV', payload:'network'})"]
+            DB6["Worker 执行 reducer → 更新 router"]
+            DB7["页面刷新时 forceSaveAllStates<br/>无条件保存 ✅"]
+            DB1 --> DB2 --> DB3 --> DB4
+            DB5 --> DB6
+            DB4 --> DB6
+            DB2 -.-> DB7
+        end
+    end
+
+    subgraph MESSAGING_DISPATCH["3. 消息分发：dispatch 的两条路径"]
+        direction TB
+
+        MD0["dispatch(pid, action)"]
+        MD1{"action.type === 'KERNEL_CALL'?"}
+        MD2["✅ KERNEL_CALL 路径"]
+        MD3["systemSwitch / notSystemSwitch"]
+        MD4["内核直接处理（UPLOAD_RESOURCE 等）"]
+        MD5["结果通过 UI_ACTION 回写 Worker"]
+        MD6["❌ 其他 action"]
+        MD7["p.worker.postMessage({type:'UI_ACTION', payload:action})"]
+        MD8["Worker 沙箱中执行"]
+
+        MD0 --> MD1
+        MD1 -->|"✅"| MD2 --> MD3 --> MD4 --> MD5
+        MD1 -->|"❌"| MD6 --> MD7 --> MD8
+    end
+
+    subgraph WORKER_VS_NOWORKER["4. Worker vs NoWorker 差异（含 Echo 机制）"]
+        direction TB
+
+        subgraph WORKER_PATH["Worker（默认）"]
+            direction TB
+            W1["dispatch(action)"]
+            W2["reducerFn(_state, action)"]
+            W3["NAV → reducer ✅"]
+            W4["Bundle + NAVIGATE → 自动注入 ✅"]
+            W5["STATE_UPDATE → 走 reducer ⚠️"]
+            W1 --> W2
+            W2 --> W3
+            W2 --> W4
+            W2 --> W5
+        end
+
+        subgraph NOWORKER_PATH["NoWorker（特殊）"]
+            direction TB
+            NW1["NoWorker.postMessage(action)"]
+            NW2{"action.type?"}
+            NW3["STATE_UPDATE → 直接合并 ✅"]
+            NW4["其他 action"]
+            NW5["processStateAction"]
+            NW6{"isBundle + NAVIGATE?"}
+            NW7["更新 router ✅"]
+            NW8["processStateAction<br/>返回同引用"]
+            NW9["触发 ACTION_ECHO"]
+            NW10["this.onmessage({data:<br/>{type:'ACTION_ECHO', payload:action}})"]
+            NW11["确保非 state 变更的 action<br/>（日志、事件通知等）不被静默丢弃"]
+
+            NW1 --> NW2
+            NW2 --> NW3
+            NW2 --> NW4
+            NW4 --> NW5
+            NW5 --> NW6
+            NW6 -->|"✅"| NW7
+            NW6 -->|"❌ 非 NAVIGATE"| NW8
+            NW8 --> NW9 --> NW10 --> NW11
+        end
+    end
+
+    subgraph SAVESTATE_CHAIN["5. saveState 持久化链"]
+        direction TB
+
+        subgraph THREE_LAYER["三层存储"]
+            direction LR
+            T1["stateCache（Map）<br/>页面会话"]
+            T2["app.savedState.app（内存）<br/>页面会话"]
+            T3["IndexedDB（sysDb）<br/>跨页面刷新 ✅"]
+            T1 --> T2 --> T3
+        end
+
+        subgraph WRITE_LINK["写入链路"]
+            direction TB
+            WL1["Worker dispatch → save()"]
+            WL2["postMessage(SAVE_STATE)"]
+            WL3["commHub.saveState"]
+            WL4["app.savedState.app = payload"]
+            WL5{"isSystemApp?"}
+            WL6["✅ 仅内存"]
+            WL7["❌ 写入 IndexedDB"]
+            WL1 --> WL2 --> WL3 --> WL4 --> WL5
+            WL5 -->|"是"| WL6
+            WL5 -->|"否"| WL7
+        end
+
+        subgraph SAVESTATE_CONFIG["saveState 布尔配置：冷启动 vs 热启动"]
+            direction TB
+            SC1["ENV_KEY_META_INFO.saveState"]
+            SC2{"saveState: true?"}
+            SC3["✅ forceKill/forceReStart：<br/>保留 app.savedState → 热启动"]
+            SC4["❌ forceKill/forceReStart：<br/>clearAppSavedState → 冷启动"]
+            SC5["saveState:true 示例：<br/>sheet（表格数据应用）"]
+            SC6["saveState:false 示例：<br/>developer, drawBoard,<br/>fileSystem（系统工具）"]
+            SC1 --> SC2
+            SC2 -->|"✅"| SC3
+            SC2 -->|"❌"| SC4
+            SC5 -.-> SC3
+            SC6 -.-> SC4
+        end
+
+        subgraph STATE_SPLIT["clearAppSavedState：分裂式清理"]
+            direction TB
+            SS1["prevSavedState = {app, window}"]
+            SS2["app.savedState = {app: null,<br/>window: 保留}"]
+            SS3["router.path 等业务状态清除 ❌"]
+            SS4["窗口位置大小保留 ✅"]
+            SS1 --> SS2
+            SS2 --> SS3
+            SS2 --> SS4
+        end
+
+        subgraph FORCE_SAVE["forceSaveAllStates 无条件保存"]
+            direction TB
+            FS1["页面刷新（beforeunload）"]
+            FS2["forceSaveAllStates()"]
+            FS3["不检查 saveState 标志"]
+            FS4["遍历所有进程 → 每个 Worker"]
+            FS5["postMessage({type:'SAVE_STATE'})"]
+            FS6["即使 saveState:false<br/>也能跨刷新恢复 ✅"]
+            FS1 --> FS2 --> FS3 --> FS4 --> FS5 --> FS6
+        end
+    end
+
+    subgraph HIBERNATE_BEHAVIOR["6. 挂起恢复综合行为"]
+        direction TB
+
+        subgraph HIBERNATE_OK["hibernate + resume（同会话）"]
+            direction TB
+            H1["hibernate：只改状态标记"]
+            H2["Worker 保持活动 ✅"]
+            H3["组件保持挂载 ✅"]
+            H4["Level 1 router.path：保留 ✅"]
+            H5["Level 2 useState：保留 ✅（组件未卸载）"]
+            H1 --> H2 --> H3 --> H4 --> H5
+        end
+
+        subgraph KILL_RESTART["kill + restart（同会话）"]
+            direction TB
+            K1["kill：终止 Worker + 卸载组件"]
+            K2["restart：startProcess 重建"]
+            K3{"检查 app.savedState?.app<br/>（受 saveState 配置影响）"}
+            K4["Worker 收到 RESTORE（保留时）"]
+            K5["Worker 收到 INIT（清除时）"]
+            K6["Level 1 router.path：<br/>从 savedState 恢复 ✅ / INIT 重置 ❌"]
+            K7["Level 2 useState：重置 ❌"]
+            K1 --> K2 --> K3
+            K3 -->|"有状态"| K4 --> K6
+            K3 -->|"被清除"| K5 --> K6
+            K6 --> K7
+        end
+
+        subgraph PAGE_REFRESH["页面刷新（JS 运行时全部销毁重建）"]
+            direction TB
+            R1["主线程 + Worker 全部销毁"]
+            R2["所有 React 组件卸载"]
+            R3["useState 回到初始值"]
+            R4["app.savedState（内存）消失"]
+            R5["forceSaveAllStates 已存入 IndexedDB ✅"]
+            R6{"系统 App（无 IndexedDB）？"}
+            R7["✅ 是：router 丢失 ❌"]
+            R8["❌ 否：从 IndexedDB 恢复 ✅"]
+            R1 --> R2 --> R3 --> R4 --> R5
+            R5 --> R6
+            R6 -->|"是"| R7
+            R6 -->|"否"| R8
+        end
+    end
+
+    subgraph RENDER_SPLIT["AppInternalRenderer 渲染分流"]
+        direction TB
+        RS0["DynamicRenderer"]
+        RS1{"resource.isBundle?"}
+        RS2["✅ 是（Bundle）"]
+        RS3["读取 Layout + modules[currentPath]"]
+        RS4["<Layout PageComponent={ConnectedPage} />"]
+        RS5["❌ 否（系统 App）"]
+        RS6["读取 modules['main']"]
+        RS7["<Main PageComponent={() => <div/>} />"]
+        RS0 --> RS1
+        RS1 --> RS2 --> RS3 --> RS4
+        RS1 --> RS5 --> RS6 --> RS7
+    end
+
+    subgraph LEVEL2_PRACTICE["7. Level 2（useState）与持久化的对比"]
+        direction TB
+
+        L2A["const [tab, setTab] = useState('fetch')"]
+        L2B["hibernate + resume：保留 ✅ 组件挂载中"]
+        L2C["kill + restart：重置 ❌ 组件卸载"]
+        L2D["页面刷新：重置 ❌"]
+        L2E["如需持久化 Level 2 → 将 subTab 存入 router.subPath"]
+
+        L2A --> L2B
+        L2A --> L2C
+        L2A --> L2D
+        L2D --> L2E
+    end
+
+    subgraph COMPARISON_TABLE["8. 三种模式速查"]
+        direction LR
+
+        subgraph BUNDLE_MODE["Bundle App"]
+            direction TB
+            BM1["isBundle=true"]
+            BM2["navigate('path')"]
+            BM3["系统自动处理"]
+            BM4["零代码成本 ✅"]
+            BM5["router.path 自动持久化"]
+            BM1 --> BM2 --> BM3 --> BM4 --> BM5
+        end
+
+        subgraph SYS_WORKER["系统App+Worker"]
+            direction TB
+            SW1["isBundle=false, worker=true"]
+            SW2["dispatch({type:'NAV'})"]
+            SW3["reducer 处理"]
+            SW4["需定义 reducer"]
+            SW5["实际案例：DrawBoard"]
+            SW6["registry.jsx: case 'NAV'"]
+            SW1 --> SW2 --> SW3 --> SW4
+            SW4 --> SW5 --> SW6
+        end
+
+        subgraph SYS_NOWORKER["系统App+NoWorker"]
+            direction TB
+            SN1["isBundle=false, worker=false"]
+            SN2["STATE_UPDATE 逃生"]
+            SN3["直接合并到 state"]
+            SN4["无 reducer ⚠️"]
+            SN5["其他 action → ACTION_ECHO 回调"]
+            SN1 --> SN2 --> SN3 --> SN4
+            SN4 --> SN5
+        end
+    end
+
+    B6 -.->|"驱动渲染"| RS0
+    NB5 -.-> RS0
+
+    subgraph CASE_ANALYSIS["9. 实际案例：Developer Helper"]
+        direction TB
+
+        subgraph CASE_CURRENT["现状：useState 管理 16 个导航项"]
+            direction TB
+            C1["const [tab, setTab] = useState('intro')"]
+            C2["hibernate+resume：保留 ✅"]
+            C3["kill+restart：重置 ❌"]
+            C4["页面刷新：重置 ❌"]
+            C1 --> C2 --> C3 --> C4
+        end
+
+        subgraph CASE_OPTION_A["方案 A：reducer + NAV（系统 App 标准模式）"]
+            direction TB
+            CA1["logic.jsx: case 'NAV' → router.path"]
+            CA2["dispatch({type:'NAV', payload:'storage'})"]
+            CA3["进入 saveState 持久化链"]
+            CA4["页面刷新：IndexedDB 恢复 ✅"]
+            CA5["需额外写 reducer ✅"]
+            CA1 --> CA2 --> CA3 --> CA4 --> CA5
+        end
+
+        subgraph CASE_OPTION_B["方案 B：Bundle navigate（自动路由）"]
+            direction TB
+            CB1["改为 Bundle 多页架构"]
+            CB2["layout.jsx: navigate('storage')"]
+            CB3["系统自动注入 router.path"]
+            CB4["零代码成本自动持久化"]
+            CB5["需拆分为多文件架构"]
+            CB1 --> CB2 --> CB3 --> CB4 --> CB5
+        end
+
+        subgraph CASE_OPTION_C["方案 C：reducer 持久化 Level 2"]
+            direction TB
+            CC1["logic.jsx: router.subPath"]
+            CC2["dispatch({type:'NAV_SUB', payload:'security'})"]
+            CC3["子标签状态进入 saveState"]
+            CC4["kill+restart 和刷新都不丢失 ✅"]
+            CC5["比 useState 多几行 reducer 代码"]
+            CC1 --> CC2 --> CC3 --> CC4 --> CC5
+        end
+    end
+
+    subgraph BROWSER_AUTH_GUARD["10. 浏览器级路由：AuthGuard 鉴权守卫"]
+        direction TB
+
+        BA0["LazyAuthLoad: importFunc + requireAuth"]
+        BA1["AuthWrapper 注入 AuthGuard"]
+        BA2{"isVerifying?<br/>(后端校验session)"}
+        BA3["<Loading text='安全会话同步中...' />"]
+        BA4{"isLoginPage?<br/>(/sukinos)"}
+        BA5{"isAuthenticated?"}
+        BA6["<Navigate to='/sukinos/deskbook' />"]
+        BA7["正常渲染登录页"]
+        BA8{"isProtectedPath<br/>&& !isAuthenticated?"}
+        BA9["<Navigate to='/sukinos'<br/>state={{from:pathname}} />"]
+        BA10{"allowRoles.length>0<br/>&& !includes(userRole)?"}
+        BA11["<Navigate to='/jump?title=权限不足' />"]
+        BA12{"RoutePermission检查"}
+        BA13["<Navigate to='/jump?title=路由权限不足' />"]
+        BA14["✅ 通过鉴权 → 渲染 element"]
+
+        BA0 --> BA1 --> BA2
+        BA2 -->|"是"| BA3
+        BA2 -->|"否"| BA4
+        BA4 --> BA5
+        BA5 -->|"已登录"| BA6
+        BA5 -->|"未登录"| BA7
+        BA4 -->|"否"| BA8
+        BA8 -->|"未登录"| BA9
+        BA8 -->|"已登录"| BA10
+        BA10 -->|"权限不足"| BA11
+        BA10 -->|"权限OK"| BA12
+        BA12 -->|"权限不足"| BA13
+        BA12 -->|"权限OK"| BA14
+    end
+
+    subgraph VIRTUALWORKER_MESSAGE["11. VirtualWorker 消息分流机制"]
+        direction TB
+
+        VW0["VirtualWorker.postMessage(msg)"]
+        VW1{"msg.type === 'STATE_UPDATE'?"}
+        VW2["requestAnimationFrame 帧对齐节流"]
+        VW3["每帧最多投递一次最新状态"]
+        VW4["setTimeout(0) 微任务快速投递"]
+        VW5["其他控制流事件（INIT/RESTORE等）"]
+
+        VW0 --> VW1
+        VW1 -->|"是"| VW2 --> VW3
+        VW1 -->|"否"| VW4 --> VW5
+
+        subgraph VW_RESOURCE["资源追踪注册表（4类）"]
+            direction LR
+            VWR1["activeTimeouts<br/>setTimeout拦截"]
+            VWR2["activeIntervals<br/>setInterval拦截"]
+            VWR3["activeRAFFrames<br/>RAF拦截"]
+            VWR4["attachedEventListeners<br/>addEventListener拦截"]
+        end
+
+        subgraph VW_TERMINATE["terminate() 强制清理"]
+            direction TB
+            VWT1["遍历 clearTimeout(id)"]
+            VWT2["遍历 clearInterval(id)"]
+            VWT3["遍历 cancelAnimationFrame(id)"]
+            VWT4["遍历 removeEventListener"]
+            VWT5["✅ 防CPU空转+内存泄漏"]
+            VWT1 --> VWT2 --> VWT3 --> VWT4 --> VWT5
+        end
+
+        subgraph VW_PROXY["Proxy 代理层设计"]
+            direction TB
+            VWP1["new Proxy(iframeWin, handler)"]
+            VWP2["has:() => true<br/>with(sandbox)必配"]
+            VWP3["set → localStore<br/>独立内存空间"]
+            VWP4["get → sandboxSelf优先<br/>→ localStore次之<br/>→ iframeWin兜底"]
+            VWP5["boundMethodsCache<br/>WeakMap缓存.bind()"]
+            VWP1 --> VWP2 --> VWP3 --> VWP4 --> VWP5
+        end
+    end
+
+    subgraph NOWORKER_DEEP["12. NoWorker 消息处理深化"]
+        direction TB
+
+        subgraph NW_SYSCONFIG["sysConfig 构建与注入"]
+            direction TB
+            NSC0["NoWorker constructor"]
+            NSC1["从 app 提取 ENV_KEY_RESOURCE_ID"]
+            NSC2["从 app 提取 ENV_KEY_NAME"]
+            NSC3["isBundle 参数"]
+            NSC4["this.sysConfig = {resourceId, name, isBundle}"]
+            NSC5["与 Worker 端 SYS_CONFIG 等价"]
+            NSC6["广播 STATE_UPDATE 含 config: sysConfig"]
+            NSC0 --> NSC1 --> NSC2 --> NSC3 --> NSC4 --> NSC5 --> NSC6
+        end
+
+        subgraph NW_INITSTATE["initializeState 校准器"]
+            direction TB
+            NIS0["initializeState(initialState, isBundle)"]
+            NIS1["与 Worker INIT handler 完全一致"]
+            NIS2["isBundle + 无router → 注入{router:{path:'home'}}"]
+            NIS3["✅ Bundle NoWorker也获初始路由"]
+            NIS4["如有calibratedState → 广播给CommHub"]
+            NIS0 --> NIS1 --> NIS2 --> NIS3 --> NIS4
+        end
+
+        subgraph NW_ACTION["UI_ACTION 三种处理路径"]
+            direction TB
+            NWA0["NoWorker.postMessage(UI_ACTION)"]
+            NWA1{"action.type?"}
+            NWA2["STATE_UPDATE/UPDATE_STATE<br/>→ 直接合并到 this.state ✅"]
+            NWA3["其他action<br/>→ processStateAction"]
+            NWA4{"nextState !== prevState?"}
+            NWA5["✅ 是 → broadcast STATE_UPDATE"]
+            NWA6["❌ 否 → ACTION_ECHO"]
+            NWA7["setTimeout → onmessage<br/>{type:'ACTION_ECHO', payload:action}"]
+            NWA8["确保副作用型action<br/>不被静默丢弃"]
+
+            NWA0 --> NWA1
+            NWA1 -->|"STATE_UPDATE"| NWA2
+            NWA1 -->|"其他"| NWA3 --> NWA4
+            NWA4 -->|"是"| NWA5
+            NWA4 -->|"否"| NWA6 --> NWA7 --> NWA8
+        end
+
+        subgraph NW_SAVE["SAVE_STATE 兼容处理"]
+            direction TB
+            NWS0["NoWorker.postMessage(SAVE_STATE)"]
+            NWS1["getCachedState(pid)"]
+            NWS2["commHub.saveState(pid, currentState)"]
+            NWS0 --> NWS1 --> NWS2
+        end
+    end
+
+    subgraph EVOKE_AND_RESTORE["13. 跨应用唤起与会话恢复"]
+        direction TB
+
+        subgraph EVOKE_FLOW["evokeApp 跨应用唤起"]
+            direction TB
+            EA0["App A → evokeApp({pid:'B', from:'A', interactInfo})"]
+            EA1["注入 from='A' 信息"]
+            EA2{"App B 已运行?"}
+            EA3["✅ 已运行 → appIntereact<br/>→ Worker B 收到 APP_INTERACT"]
+            EA4["❌ 未运行 → startProcess({pid, interactInfo})"]
+            EA5["冷启动 + 交互消息"]
+            EA0 --> EA1 --> EA2
+            EA2 -->|"是"| EA3
+            EA2 -->|"否"| EA4 --> EA5
+        end
+
+        subgraph RESTORE_SESSION["restoreSession 会话恢复"]
+            direction TB
+            RS0["系统初始化 → restoreSession()"]
+            RS1["遍历 systemApps + userApps"]
+            RS2["筛选: status=RUNNING / HIBERNATED / autoStart=true"]
+            RS3["异步批量 startProcess({pid})"]
+            RS4["不阻塞主流程"]
+            RS0 --> RS1 --> RS2 --> RS3 --> RS4
+        end
+
+        subgraph SESSION_PROTECT["startProcess 会话恢复保护"]
+            direction TB
+            SP0["startProcess 冷启动"]
+            SP1["记录 originalStatus = app.status"]
+            SP2{"originalStatus === 'HIBERNATED'?"}
+            SP3["✅ targetStatus = 'HIBERNATED'<br/>Worker保持热但不显示窗口"]
+            SP4["❌ targetStatus = 'RUNNING'<br/>正常启动显示窗口"]
+            SP5["避免休眠应用同时弹出窗口"]
+            SP0 --> SP1 --> SP2
+            SP2 -->|"是"| SP3
+            SP2 -->|"否"| SP4
+            SP3 -.-> SP5
+        end
+
+        subgraph FORCE_RESET["forceResetApp 无条件重置"]
+            direction TB
+            FR0["forceResetApp(pid)"]
+            FR1["kill(pid) + clearCachedState"]
+            FR2["app.status = 'INSTALLED'"]
+            FR3["无视 saveState 配置!"]
+            FR4["clearAppSavedState(pid)"]
+            FR5["emitChange({type:'APP_RESET'})"]
+            FR0 --> FR1 --> FR2 --> FR3 --> FR4 --> FR5
+        end
+    end
+
+    subgraph PUBSUB_TOPIC["14. Pub/Sub 主题消息体系"]
+        direction TB
+
+        subgraph PUBSUB_PROTOCOL["三消息协议"]
+            direction LR
+            PP1["SUBSCRIBE_TOPIC<br/>{topic}"]
+            PP2["PUBLISH_TOPIC<br/>{topic, data}"]
+            PP3["UNSUBSCRIBE_TOPIC<br/>{topic}"]
+        end
+
+        subgraph PUBSUB_COMMHUB["CommHub 宿主端转发"]
+            direction TB
+            PC0["Worker A → SUBSCRIBE_TOPIC"]
+            PC1["processSubscriptions.set(pidA,<br/>Map(topic → unsubFn))"]
+            PC2["subscribe(topic, cb)"]
+            PC3["cb = data → sendToWorker(pidA,<br/>{type:'TOPIC_MESSAGE', payload:{topic,data}})"]
+
+            PC4["Worker B → PUBLISH_TOPIC"]
+            PC5["publish(topic, data)"]
+            PC6["topicSubscribers 遍历回调"]
+            PC7["包括 Worker A 的转发回调"]
+
+            PC0 --> PC1 --> PC2 --> PC3
+            PC4 --> PC5 --> PC6 --> PC7
+        end
+
+        subgraph PUBSUB_GAP["⚠️ TOPIC_MESSAGE 缺口"]
+            direction TB
+            PG0["CommHub → sendToWorker → TOPIC_MESSAGE"]
+            PG1["Worker onmessage 路由器"]
+            PG2["当前只处理: INIT / RESTORE<br/>UI_ACTION / APP_INTERACT"]
+            PG3["TOPIC_MESSAGE → default: break"]
+            PG4["❌ 被静默丢弃!"]
+            PG5["需在 Worker 路由器中<br/>新增 TOPIC_MESSAGE case"]
+
+            PG0 --> PG1 --> PG2 --> PG3 --> PG4 --> PG5
+        end
+
+        subgraph PUBSUB_CLEANUP["进程注销时订阅清理"]
+            direction TB
+            PCL0["kill(pid)"]
+            PCL1["clearProcessSubscriptions(pid)"]
+            PCL2["遍历 processSubscriptions"]
+            PCL3["每个 unsubFn() → 从 topicSubscribers 移除"]
+            PCL4["✅ 防内存泄漏"]
+            PCL0 --> PCL1 --> PCL2 --> PCL3 --> PCL4
+        end
+    end

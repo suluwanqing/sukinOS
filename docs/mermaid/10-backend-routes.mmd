@@ -5,61 +5,107 @@ graph LR
     subgraph FastAPI["FastAPI 应用"]
         direction TB
 
-        subgraph UserRoutes["/api/user 用户模块"]
+        subgraph UserRoutes["/user/status 用户认证"]
             direction TB
-            R1["POST /login<br/>用户登录"]
-            R2["POST /register<br/>用户注册"]
-            R3["POST /logout<br/>用户登出"]
-            R4["POST /refresh<br/>刷新Token"]
-            R5["GET /info<br/>用户信息"]
-            R6["PUT /update<br/>更新信息"]
-            R7["POST /avatar<br/>上传头像"]
-            R8["GET /captcha<br/>获取验证码"]
+            R1["POST /token<br/>登录"]
+            R2["POST /VerificationCode/get<br/>获取验证码"]
+            R3["POST /VerificationCode/judge<br/>校验验证码"]
+            R4["POST /refresh/token<br/>刷新Token"]
+            R5["GET /judge/access_token<br/>校验Token"]
+            R6["POST /logout<br/>登出"]
+            R7["GET /user_info_public<br/>公开信息"]
+            R8["POST /profile/update<br/>更新信息"]
+            R9["POST /password/update<br/>修改密码"]
+            R10["POST /change<br/>状态变更"]
         end
 
-        subgraph SukinosRoutes["/api/sukinos SukinOS模块"]
+        subgraph SukinosRoutes["/sukinos 应用管理"]
             direction TB
-
-            subgraph AppManage["/app (需认证)"]
-                S1["POST /upload<br/>上传应用"]
-                S2["POST /update<br/>更新应用"]
-                S3["GET /appList<br/>应用列表"]
-                S4["GET /searchApp<br/>搜索应用"]
-                S5["GET /myUpload<br/>我的上传"]
-                S6["POST /delete<br/>删除应用"]
-                S7["POST /checkUpdates<br/>检查更新"]
-            end
-
-            subgraph LocalDev["/localdev 本地开发"]
-                L1["SSE 端点<br/>热更新推送"]
-                L2["Token 鉴权"]
-            end
+            S1["POST /app/upload<br/>上传应用"]
+            S2["POST /app/update<br/>更新应用"]
+            S3["GET /app/appList<br/>应用列表"]
+            S4["GET /app/search<br/>搜索"]
         end
 
-        subgraph SystemRoutes["/api/system 系统模块"]
+        subgraph SystemManage["/system 系统管理"]
             direction TB
-            T1["/config<br/>系统配置管理"]
-            T2["/status<br/>系统状态监控<br/>Redis/DB/资源"]
-            T3["/updates<br/>系统更新日志"]
-            T4["/requestLog<br/>请求日志查询"]
-            T5["/appManage<br/>应用审核管理"]
+
+            subgraph SM_User["/usermanage 用户"]
+                SM1["GET /overview<br/>管理概览"]
+                SM2["GET /users<br/>用户列表"]
+                SM3["GET /users/{id}<br/>用户详情"]
+                SM4["PUT /users/{id}/info<br/>修改信息"]
+                SM5["PUT /users/{id}/status<br/>切换状态"]
+                SM6["PUT /users/{id}/permission<br/>修改权限"]
+                SM7["POST /users/batch<br/>批量操作"]
+                SM8["GET /behavior/overview<br/>活跃概览"]
+            end
+
+            subgraph SM_Perm["/permission 权限管理"]
+                SP1["GET /registry<br/>注册表"]
+                SP2["POST /registry<br/>注册 APP"]
+                SP3["PUT /registry/actors/{id}<br/>授权"]
+                SP4["GET /menus<br/>菜单配置"]
+                SP5["PUT /menus<br/>更新菜单"]
+                SP6["GET /routes-permission<br/>路由权限"]
+                SP7["PUT /routes-permission/{path}<br/>更新路由"]
+                SP8["POST /routes-permission/seed<br/>扫描路由"]
+                SP9["GET /can-register<br/>检查注册权"]
+                SP12["GET /system-apps<br/>系统APP列表"]
+                SP13["PUT /system-apps/{id}<br/>可见性配置"]
+                SP14["GET /system-apps/available<br/>用户可见APP"]
+                SP15["GET /registry-power<br/>注册权配置"]
+                SP16["PUT /registry-power<br/>更新注册权"]
+                SP17["GET /role/list<br/>角色列表"]
+                SP18["POST /role/create<br/>创建角色"]
+                SP19["GET /my-authorized-ids<br/>授权APP列表"]
+                SP20["GET /middleware-whitelist<br/>白名单"]
+                SP21["PUT /middleware-whitelist<br/>更新白名单"]
+                SP22["POST /system-apps<br/>添加APP"]
+                SP23["DELETE /system-apps/{id}<br/>删除APP"]
+            end
+
+            subgraph SM_APP["/sukinos 应用审核"]
+                SA1["GET /appList<br/>应用列表"]
+                SA2["GET /statistics<br/>统计"]
+                SA3["POST /updateStatus<br/>变更状态"]
+                SA4["GET /detail/{id}<br/>应用详情"]
+                SA5["POST /delete/{id}<br/>强制删除"]
+                SA6["GET /appList/withPermission<br/>带权限列表"]
+            end
+
+            subgraph SM_Config["/systemconfig 系统配置"]
+                SC1["GET /routes<br/>路由列表"]
+                SC2["GET /all<br/>全部配置"]
+                SC3["POST /create<br/>创建配置"]
+                SC4["POST /item/update<br/>更新配置"]
+                SC5["DELETE /delete/{key}<br/>删除配置"]
+                SC6["POST /staticlist<br/>静态配置"]
+            end
         end
 
         subgraph WsRoutes["WebSocket /ws"]
             W1["/{user_id}<br/>多标签页连接"]
-            W2["心跳检测 35s"]
+            W2["心跳检测"]
             W3["登录/登出追踪"]
         end
+    end
+
+    subgraph Middleware["全局中间件"]
+        M1["RoutePermissionMiddleware<br/>根据 DB 配置检查路由权限"]
+        M2["StaticAuthMiddleware<br/>静态文件鉴权"]
+        M3["RequestLogMiddleware<br/>请求日志"]
     end
 
     subgraph Auth["认证依赖"]
         A1["verify_auth()<br/>通用认证"]
         A2["verify_auth(mode='superuser')<br/>超管认证"]
-        A3["verify_auth(mode='role')<br/>角色认证"]
-        A4["verify_auth(mode='power')<br/>权限位认证"]
+        A3["@RequireRoot()<br/>仅 root 装饰器"]
+        A4["@RequirePermission(key)<br/>权限 Key 装饰器"]
+        A5["check_route_permission()<br/>动态路由权限"]
     end
 
-    AppManage --> Auth
-    SystemRoutes --> Auth
-    LocalDev --> L2
-    UserRoutes --> A1
+    SystemManage --> Middleware
+    Middleware --> M1
+    SukinosRoutes --> M1
+    WsRoutes --> W2

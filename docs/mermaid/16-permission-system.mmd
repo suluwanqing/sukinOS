@@ -1,0 +1,96 @@
+---
+title: 权限管理系统
+---
+graph TB
+    subgraph Frontend["前端权限面板"]
+        direction TB
+        F1["权限注册池<br/>registry/layout.jsx"]
+        F2["角色管理<br/>role/layout.jsx"]
+        F3["菜单权限管理<br/>menuPermission/layout.jsx"]
+        F4["路由权限管理<br/>routePermission/layout.jsx"]
+        F5["注册权管理<br/>registryPower/layout.jsx"]
+        F6["中间件白名单<br/>middlewareWhitelist/layout.jsx"]
+        F7["系统APP放权<br/>systemAppsAccess/layout.jsx"]
+    end
+
+    subgraph Backend["后端权限路由 /system/permission"]
+        direction TB
+        B1["GET /registry<br/>权限注册表"]
+        B2["POST /registry<br/>注册/注销 APP"]
+        B3["PUT /registry/actors/{id}<br/>分配角色/用户"]
+        B4["GET /menus<br/>菜单权限配置"]
+        B5["PUT /menus<br/>更新菜单权限"]
+        B6["GET /routes-permission<br/>路由权限配置"]
+        B7["PUT /routes-permission/{path}<br/>更新路由权限"]
+        B8["POST /routes-permission/seed<br/>扫描同步路由"]
+        B9["GET /can-register<br/>注册权检查"]
+        B10["GET /system-apps<br/>系统APP列表"]
+        B11["PUT /system-apps/{id}<br/>更新系统APP可见性"]
+        B12["GET /system-apps/available<br/>当前用户可见APP"]
+        B13["POST /system-apps<br/>创建系统APP"]
+        B14["DELETE /system-apps/{app_id}<br/>删除系统APP"]
+        B15["GET /registry-power<br/>注册权配置"]
+        B16["PUT /registry-power<br/>更新注册权"]
+        B17["GET /role/list<br/>角色列表"]
+        B18["POST /role/create<br/>创建角色"]
+        B19["GET /my-authorized-ids<br/>用户授权APP列表"]
+        B20["GET /middleware-whitelist<br/>中间件白名单"]
+        B21["PUT /middleware-whitelist<br/>更新白名单"]
+    end
+
+    subgraph Middleware["路由权限中间件 (L1 配置驱动层)"]
+        direction TB
+        M1["RoutePermissionMiddleware<br/>校验每条请求"]
+        M2["_get_whitelist()<br/>读取白名单配置"]
+        M3["check_route_permission()<br/>检查路由权限配置"]
+        M3A["_auto: true?<br/>→ 自动注册未配置→放行"]
+        M3B["_auto: false?<br/>→ 严格检查 allowed_roles/allowed_users"]
+        M4["未登录且配置了 require_auth<br/>→ 401"]
+        M5["非 root 且无权限<br/>→ 403"]
+        M6["白名单路径<br/>→ 直接放行"]
+    end
+
+    subgraph AuthDeps["L3 身份认证层 - Depends(verify_auth())"]
+        direction TB
+        A1["读取 Cookie access_token"]
+        A2["decode JWT → payload"]
+        A3["Access Token 有效 → 返回 User"]
+        A4["Access Token 过期 → 尝试 Refresh Token"]
+        A5["Refresh Token 有效 → 静默签发新 Token 对"]
+        A6["Refresh Token 过期 → 401 重新登录"]
+    end
+
+    subgraph Decorators["L2 代码声明层 - 装饰器"]
+        direction TB
+        D1["@RequireRoot()<br/>检查 user.root"]
+        D2["@RequirePermission('key')<br/>检查 user.permission.keys"]
+        D3["@RequireRole('admin')<br/>检查 user.permission.role"]
+    end
+
+    Middleware -->|L1 放行| AuthDeps
+    AuthDeps -->|L3 通过| Decorators
+    Decorators -->|L2 通过| BUSINESS["执行业务逻辑"]
+
+    subgraph Store["商店权限集成"]
+        direction TB
+        S1["上传勾选注册到池<br/>→ registryEnabled + isPrivate"]
+        S2["删除上传<br/>→ 同步移出注册池"]
+        S3["已授权页面<br/>→ fetchAuthorizedIds()"]
+        S4["静态文件鉴权<br/>→ StaticAuthMiddleware"]
+    end
+
+    Frontend -->|HTTP| Backend
+    Backend -->|写入| Middleware
+    Middleware --> M2
+    Middleware --> M3
+    Store --> S3
+    S3 -->|调用| B19
+
+    classDef panel fill:#e8f5e9,stroke:#2e7d32
+    classDef route fill:#e3f2fd,stroke:#1565c0
+    classDef mw fill:#fff3e0,stroke:#e65100
+    classDef store fill:#f3e5f5,stroke:#7b1fa2
+    class F1,F2,F3,F4,F5,F6,F7 panel
+    class B1,B2,B3,B4,B5,B6,B7,B8,B9,B10,B11,B12,B13,B14,B15,B16,B17,B18,B19,B20,B21 route
+    class M1,M2,M3,M4,M5,M6 mw
+    class S1,S2,S3,S4 store

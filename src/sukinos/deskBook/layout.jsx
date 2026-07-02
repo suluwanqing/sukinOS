@@ -5,7 +5,7 @@ import { createNamespace } from '/utils/js/classcreate'
 import StatusBar from "./statusBar/layout"
 import Shortcut from "./shortcut/layout"
 import ProcessWindow from "./window/layout"
-import AdaptiveWindowPlaceholder from "./window/AdaptivePlaceholder"
+import AdaptiveWindowPlaceholder from "./AdaptivePlaceholder"
 import useKernel from "@/sukinos/hooks/useKernel"
 import { WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_META_INFO, ENV_KEY_NAME, ENV_KEY_RESOURCE_ID } from "@/sukinos/utils/config"
 import Boot from "./boot/layout"

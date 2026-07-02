@@ -16,7 +16,7 @@ const DEFAULT_CUSTOM_FALLBACK = {
   hideHeaderHover: false,
   hasShortcut: true,
   backgroundSleep: false,
-  adaptiveMount: true,
+  adaptiveMount: false,
 }
 
 const localAppCustomMapper = {

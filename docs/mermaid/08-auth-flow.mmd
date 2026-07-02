@@ -1,67 +1,72 @@
 ---
-title: JWT 双 Token 认证流程
+title: JWT 双 Token 认证与路由权限流程
 ---
 sequenceDiagram
     participant C as 客户端 (SukinOS)
-    participant M as 中间件 (RequestLog/StaticAuth)
+    participant R as RoutePermissionMiddleware
     participant A as Auth 模块
+    participant P as Permission Cache
     participant DB as MySQL 数据库
-    participant R as Redis 缓存
+    participant RD as Redis 缓存
 
-    Note over C,R: === 登录流程 ===
-    C->>A: POST /api/user/login {account, password, code}
-    A->>R: 校验验证码
-    R-->>A: 验证通过
-    A->>DB: 查询用户 (account)
-    DB-->>A: 返回 User 对象
-    A->>A: bcrypt.verify(password, user.hash_ps)
-    A->>A: create_access_token(user_id, 30min)
-    A->>A: create_refresh_token(user_id, 7天)
+    Note over C,RD: === 登录流程 ===
+    C->>A: POST /api/user/status/token
+    A->>RD: 校验验证码
+    RD-->>A: 验证通过
+    A->>DB: 查询用户
+    DB-->>A: User 对象
+    A->>A: create_access_token + create_refresh_token
     A-->>C: Set-Cookie: access_token + refresh_token
-    A-->>C: Response: {user, token_expire}
+    A->>A: handle_user_login(db, user_id)
+    A->>DB: 写入 UserTimeBehavior
 
-    Note over C,R: === 认证流程 (verify_auth) ===
-    C->>M: GET /api/protected (Cookie: access_token)
-    M->>A: verify_auth() 依赖注入
+    Note over C,RD: === 全局路由权限检查 ===
+    C->>R: 请求 (Cookie: access_token)
+    R->>R: _get_whitelist() - 读取白名单
 
-    alt Access Token 有效
-        A->>A: jwt.decode(access_token)
-        A->>DB: 查询用户状态 (is_active)
-        DB-->>A: 用户活跃
-        A->>A: 权限校验 (superuser/role/power)
-        A-->>M: 认证通过
-        M-->>C: 正常响应
-    else Access Token 过期
-        A->>A: jwt.decode() → ExpiredSignatureError
-        A->>C: 读取 Cookie 中的 refresh_token
-        A->>A: jwt.decode(refresh_token)
+    alt 白名单路径
+        R-->>C: 直接放行
+    else 非白名单
+        R->>R: _get_user_from_cookies()
+        R->>DB: 查用户
+        DB-->>R: 用户信息
 
-        alt Refresh Token 有效
-            A->>DB: 查询用户状态
-            DB-->>A: 用户活跃
-            A->>A: 重新签发 Token 对
-            A-->>C: Set-Cookie: 新 access_token + refresh_token
-            A-->>M: 认证通过
-            M-->>C: 正常响应
-        else Refresh Token 也过期
-            A-->>M: 认证失败 401
-            M-->>C: 401 Unauthorized
+        alt 未登录
+            R->>R: 检查路由 require_auth 配置
+            R-->>C: 401 请先登录
+        else root 用户
+            R-->>C: 直接放行
+        else 非 root 已登录
+            R->>R: check_route_permission()
+            P-->>R: 返回权限判定
+            alt 有权限
+                R-->>C: 放行到真实路由
+            else 无权限
+                R-->>C: 403 无权访问
+            end
         end
-    else 用户被禁用
-        A->>DB: 查询用户状态
-        DB-->>A: is_active = false
-        A-->>M: 认证失败 403
-        M-->>C: 403 Forbidden
     end
 
-    Note over C,R: === 权限模式详解 ===
-    rect rgb(240, 248, 255)
-        Note over A: superuser: root=true
-        Note over A: role: permission.role 匹配
-        Note over A: power: 位运算 first/second 级别
+    Note over C,RD: === 后端 API 处理 ===
+    C->>A: 到达业务路由
+    A->>A: verify_auth() 依赖注入
+    alt @RequireRoot()
+        A->>A: 检查 root 标志
     end
+    A->>DB: 业务处理
+    A-->>C: api_response(data)
 
-    Note over C,R: === 登出流程 ===
-    C->>A: POST /api/user/logout
-    A-->>C: Set-Cookie: 清除 Token
-    A->>DB: 更新 isonline = false
+    Note over C,RD: === APP 静态文件鉴权 ===
+    C->>R: GET /resource/app/file (私有 APP)
+    R->>R: StaticAuthMiddleware
+    R->>DB: 查询 D_SukinosApp
+    DB-->>R: is_private + registry_enabled
+    alt 上传者
+        R-->>C: 放行
+    else 注册池授权用户
+        R->>P: check_permission(resource_id, user)
+        P-->>R: bool 有无权限
+        R-->>C: 放行
+    else 无权限
+        R-->>C: 403
+    end

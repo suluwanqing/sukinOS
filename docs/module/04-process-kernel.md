@@ -182,6 +182,7 @@ graph LR
 | `init(info)` | 内核初始化，加载资源、构建注册表、恢复会话 |
 | `ensurePresets()` | 将系统预置资源写入 resDb |
 | `loadAllResources()` | 从 resDb 加载所有资源到内存缓存 |
+| `syncSystemAccess()` | 从后端同步当前用户有权访问的系统 APP 列表，白名单模式（仅 `allowed: true` 保留），API 错误时清空所有系统 APP |
 | `syncResourcesToFiles()` | 将资源同步写入本地文件系统 |
 | `syncRegistry()` | 同步本地文件与注册表（处理僵尸文件/孤儿记录） |
 | `syncRegistryByRes()` | 通过资源库构建/补全注册表 |
@@ -465,38 +466,129 @@ graph TD
 
 #### VirtualWorker
 
-`VirtualWorker` 是 Web Worker 的轻量化替代方案，使用 `with(sandbox) + Proxy + Shared Iframe` 实现 JS 沙箱隔离。
+`VirtualWorker` 是 Web Worker 的轻量化替代方案，使用 `with(sandbox) + Proxy + Shared Iframe` 实现 JS 沙箱隔离。定义在 `lifecycle.js:41-269`。
 
 特性：
 - 通过 `new Function('self', 'with(self) { code }')` 执行代码
-- 使用隐藏 iframe 的 `contentWindow` 提供隔离环境
+- 使用隐藏 iframe 的 `contentWindow` 提供隔离环境（`getSharedSandboxIframe()` 创建全局共享沙箱 iframe）
 - 拦截并接管 `setTimeout`/`setInterval`/`requestAnimationFrame`，在销毁时自动清理
 - 托管全局事件监听器，避免内存泄漏
-- STATE_UPDATE 消息通过 `requestAnimationFrame` 帧对齐节流
-- 支持 `importScripts` 同步脚本加载
+- STATE_UPDATE 消息通过 `requestAnimationFrame` 帧对齐节流，其他消息通过 `setTimeout(0)` 快速投递
+- 支持 `importScripts` 同步脚本加载（通过 XHR 同步请求）
+- `addEventListener('message', handler)` 被拦截为 `this.appOnMessage = handler`，确保沙箱内只接收宿主消息
+
+**资源追踪注册表**（lifecycle.js:49-53）：
+
+| 注册表 | 拦截的 API | terminate 清理方式 |
+|--------|-----------|-------------------|
+| `activeTimeouts` (Set) | `setTimeout` | 遍历 `clearTimeout` |
+| `activeIntervals` (Set) | `setInterval` | 遍历 `clearInterval` |
+| `activeRAFFrames` (Set) | `requestAnimationFrame` | 遍历 `cancelAnimationFrame` |
+| `attachedEventListeners` (Array) | `addEventListener` (非 message) | 遍历 `removeEventListener` |
+
+**消息分流机制**（lifecycle.js:58-81）：
+
+| 消息类型 | 投递方式 | 设计理由 |
+|----------|---------|---------|
+| `STATE_UPDATE` | `requestAnimationFrame` 帧对齐节流 | 高频状态更新，确保每帧最多投递一次最新的状态 |
+| 其他控制流事件 | `setTimeout(0)` 微任务 | 低频事件，需要尽快投递 |
+
+**Proxy 代理层**（lifecycle.js:164-205）：
+- `sandboxSelfProxy` 基于 `iframe.contentWindow` 创建 Proxy
+- `has: () => true` 确保 `with(sandbox)` 下所有变量查找被拦截
+- 所有写操作进入 `localStore`（每个 VirtualWorker 独立内存）
+- `boundMethodsCache` (WeakMap) 缓存 `.bind()` 结果防 GC 压力
+- 大写开头全局类（Object, Array, Promise）不 bind，直接返回原始引用
+- `self` / `globalThis` / `window` 均指向 `sandboxSelfProxy` 自身
+
+> VirtualWorker 消息分流与 Proxy 代理层的完整代码分析详见 [07-app-routing.md](./07-app-routing.md) §3.3
 
 #### NoWorker
 
-`NoWorker` 针对纯前端应用（`worker: false`），在宿主线程模拟 Worker 通信协议：
-- 接收 `UI_ACTION` 消息并直接处理状态更新
-- 支持 `STATE_UPDATE`/`UPDATE_STATE` 增量合并
-- 支持 `NAVIGATE` 等通用路由 action
-- 兼容 `SAVE_STATE` 持久化指令
+`NoWorker` 针对纯前端应用（`worker: false`），在宿主线程模拟 Worker 通信协议。定义在 `lifecycle.js:275-377`。
+
+**sysConfig 构建与注入**（lifecycle.js:286-294）：
+NoWorker 在构造时构建完全等价于 Worker 端 `SYS_CONFIG` 的 `sysConfig`，确保广播的 `STATE_UPDATE` payload 格式一致：
+```js
+this.sysConfig = {
+  [ENV_KEY_RESOURCE_ID]: app?.[ENV_KEY_RESOURCE_ID] || '',
+  [ENV_KEY_NAME]: app?.[ENV_KEY_NAME] || '',
+  [ENV_KEY_IS_BUNDLE]: isBundle,
+};
+```
+
+**initializeState 校准器**（lifecycle.js:297）：
+使用 `initializeState(initialState, isBundle)` 与 Worker 端 INIT handler 完全一致的逻辑初始化状态。Bundle App 的 NoWorker 实例也获得 `{router: {path: 'home'}}` 初始路由。
+
+**初始化时状态广播**（lifecycle.js:301-313）：
+构造后，如果存在历史持久化状态（calibratedState 不为 null），立即通过 `setTimeout(0)` 广播给 CommHub 填充 `stateCache`。
+
+**UI_ACTION 处理三种路径**：
+
+| Action 类型 | 处理方式 | 是否改变 state | Echo |
+|-------------|---------|---------------|------|
+| `STATE_UPDATE` / `UPDATE_STATE` | 直接合并到 `this.state` | ✅ 是 | ❌ |
+| `NAVIGATE`（Bundle） | `processStateAction` 注入 `router.path` | ✅ 是 | ❌ |
+| 其他 action | `processStateAction` 返回同引用 | ❌ 否 | ✅ ACTION_ECHO |
+
+**ACTION_ECHO 机制**（lifecycle.js:353-360）：
+当 `processStateAction` 返回 `nextState === prevState`（无状态变更），NoWorker 产生 `ACTION_ECHO` 消息回调到应用监听器，确保副作用型 action 不被静默跳过。
+
+**SAVE_STATE 兼容**（lifecycle.js:365-370）：
+NoWorker 的 `postMessage` 兼容 `SAVE_STATE` 消息，通过 `getCachedState(pid)` 获取缓存状态后调用 `commHub.saveState` 持久化。
+
+> NoWorker sysConfig 注入、processStateAction、ACTION_ECHO 的完整代码分析详见 [07-app-routing.md](./07-app-routing.md) §3.4
 
 | 方法 | 说明 |
 |------|------|
-| `startProcess({pid, resourceId, interactInfo})` | 启动/唤醒进程 |
-| `hibernate(pid)` | 休眠应用（仅改标记） |
-| `forceKillProcess(pid)` | 强制终止进程 |
-| `reStartApp({pid})` | 热重启 |
-| `forceReStartApp({pid})` | 强制重启 |
-| `forceResetApp(pid)` | 强制重置（清空状态 + 杀进程） |
+| `startProcess({pid, resourceId, interactInfo})` | 启动/唤醒进程（含会话恢复保护） |
+| `hibernate(pid)` | 休眠应用（仅改标记，Worker 保持热状态） |
+| `forceKillProcess(pid)` | 强制终止进程（根据 saveState 配置决定是否清除状态） |
+| `reStartApp({pid})` | 热重启（不清除状态） |
+| `forceReStartApp({pid})` | 强制重启（根据 saveState 配置决定清除状态后重启） |
+| `forceResetApp(pid)` | 强制重置（**无视 saveState 配置**，清空所有状态 + 杀进程） |
 | `saveWindowState(pid, windowRect)` | 保存窗口几何信息 |
-| `forceSaveAllStates()` | 强制保存所有运行中应用状态 |
-| `restoreSession()` | 恢复上一次会话 |
-| `evokeApp({pid, from, interactInfo})` | 唤起应用（支持跨应用交互） |
-| `clearAppSavedState(pid)` | 清除应用持久化状态 |
-| `clearAppSandboxData(app)` | 清理应用沙箱数据（localStorage/IndexedDB） |
+| `forceSaveAllStates()` | 强制保存所有运行中应用状态（**不检查 saveState 配置**） |
+| `restoreSession()` | 恢复上一次会话（批量启动 RUNNING/HIBERNATED/autoStart 应用） |
+| `evokeApp({pid, from, interactInfo})` | 唤起应用（支持跨应用交互，注入 from 信息） |
+| `clearAppSavedState(pid)` | 清除应用持久化状态（分裂式：只清 app 保留 window） |
+| `clearAppSandboxData(app)` | 清理应用沙箱数据（localStorage/sessionStorage/IndexedDB） |
+
+#### startProcess 会话恢复保护
+
+`startProcess` 在冷启动时有会话恢复保护逻辑（lifecycle.js:508-510）：
+
+```js
+const targetStatus = originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING';
+```
+
+休眠应用在会话恢复时先建立 Worker 实例保持"热"状态，但不自动显示窗口，避免所有休眠应用同时弹出。
+
+#### clearAppSavedState 分裂式清理
+
+`clearAppSavedState` 是**分裂式清理**（lifecycle.js:593-612）——只重置 `app` 业务状态，保留 `window` 窗口几何信息：
+
+```js
+app.savedState = { ...prevSavedState, app: null };  // 保留 window 配置
+```
+
+#### forceSaveAllStates 紧急保存
+
+页面刷新触发 `forceSaveAllStates`（lifecycle.js:548-558），向所有 Worker 发送 `SAVE_STATE`，**即发即忘**、**不检查 saveState 配置**，无论配置如何都强制保存。
+
+#### restoreSession 会话恢复
+
+`restoreSession()`（lifecycle.js:697-716）批量恢复 `RUNNING`/`HIBERNATED`/`autoStart` 应用，异步启动不阻塞主流程。
+
+#### evokeApp 跨应用唤起
+
+`evokeApp({pid, from, interactInfo})`（lifecycle.js:719-731）注入 `from` 信息，目标 App 已运行则直接发送 `APP_INTERACT`，未运行则冷启动+交互。
+
+#### forceResetApp 无条件重置
+
+`forceResetApp(pid)`（lifecycle.js:618-639）**无视 saveState 配置**强制清空所有状态并杀死进程，用于用户主动发起的彻底重置操作。
+
+> 以上所有 Lifecycle API 的完整调用链与代码分析详见 [07-app-routing.md](./07-app-routing.md) §5-6
 
 ### 3.8 Messaging - 消息通信
 
@@ -516,7 +608,13 @@ graph TD
 | `notify(pid, type, data)` | 通知进程订阅者 |
 | `systemSwitch(process, payload)` | 系统应用内核调用路由 |
 | `notSystemSwitch(payload)` | 非系统应用内核调用路由 |
-| `appIntereact(process, interactInfo)` | 跨应用交互（发送 APP_INTERACT 消息） |
+| `appIntereact(process, interactInfo)` | 跨应用交互（发送 APP_INTERACT 消息，由 evokeApp 注入 from 信息） |
+
+#### TOPIC_MESSAGE 缺口说明
+
+**重要设计缺口**：当 CommHub 通过 `sendToWorker` 向订阅进程转发 `TOPIC_MESSAGE` 时，该消息类型在 Worker 内部的消息路由器（workerDrive.js）中**缺少对应的 case 处理**。当前 Worker `onmessage` 只处理 `INIT`、`RESTORE`、`UI_ACTION`、`APP_INTERACT` 四种类型，`TOPIC_MESSAGE` 会落入 `default: break` 被静默丢弃。需要在 Worker 消息路由器中新增 `TOPIC_MESSAGE` case 才能使跨沙箱 Pub/Sub 完整工作。
+
+> Pub/Sub 主题体系的完整协议与转发机制详见 [07-app-routing.md](./07-app-routing.md) §7
 
 ### 3.9 Registry - 注册表
 

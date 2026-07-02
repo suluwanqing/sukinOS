@@ -1,57 +1,54 @@
 ---
-title: 应用商店安装与更新流程
+title: 应用商店与权限注册池流程
 ---
 sequenceDiagram
     participant User as 用户
     participant Store as APP商店 UI
+    participant LocalAPI as 本地权限后端
     participant Kernel as Kernel
-    participant GenerateApp as generateApp
-    participant Backend as 后端 /api/sukinos
-    participant VFS as VFS 文件系统
     participant DB as IndexedDB
+    participant Cloud as 云端 Store API
 
-    Note over User,DB: === 浏览应用商店 ===
+    Note over User,Cloud: === 浏览商店（推荐） ===
+    User->>Store: 打开商店
+    Store->>Cloud: GET 应用列表
+    Cloud-->>Store: 返回全部公开应用
+    Store-->>User: 渲染应用卡片
 
-    User->>Store: 打开应用商店
-    Store->>Backend: GET /app/appList?page=1&size=20
-    Backend-->>Store: 应用列表 (公开+已激活)
-    Store->>Store: 渲染应用卡片
+    Note over User,Cloud: === 浏览商店（已授权） ===
+    User->>Store: 切换到"已授权"标签
+    Store->>LocalAPI: GET /system/permission/my-authorized-ids
+    LocalAPI->>LocalAPI: 查询 permission_cache
+    LocalAPI-->>Store: authorized_ids + apps 列表
+    Store-->>User: 显示有权限的 APP
 
-    Note over User,DB: === 安装应用 ===
+    Note over User,Cloud: === 注册到权限池（上传流程） ===
+    User->>Store: 上传 APP 时勾选"注册到权限池"
+    Store->>Kernel: uploadResource(registryEnabled=true)
+    Kernel->>Cloud: 上传到云端 (isPrivate=true)
+    Store->>LocalAPI: POST /system/permission/registry (permission_enabled=true)
+    LocalAPI->>LocalAPI: register_app()
+    LocalAPI->>LocalAPI: 自动添加上传者到 allowed_users
+    LocalAPI->>LocalAPI: 更新 D_SukinosApp.registry_enabled=true
+    LocalAPI-->>Store: 注册成功
 
-    User->>Store: 点击安装
-    Store->>Kernel: installApp(resource_id)
-    Kernel->>GenerateApp: extInstallResource(resource_id)
-    GenerateApp->>Backend: GET 下载应用资源包
-    Backend-->>GenerateApp: 返回资源包 (JS/CSS/JSON)
+    Note over User,Cloud: === 授权管理（注册池面板） ===
+    User->>LocalAPI: PUT /system/permission/registry/{id}/actors
+    LocalAPI->>LocalAPI: 更新 actor_rules (黑白名单)
+    LocalAPI-->>User: 更新成功
 
-    GenerateApp->>GenerateApp: 解析 metaInfo
-    GenerateApp->>GenerateApp: 验证资源完整性
+    Note over User,Cloud: === 删除 APP 清理注册池 ===
+    User->>Cloud: 删除云端上传
+    User->>LocalAPI: POST /system/permission/registry (permission_enabled=false)
+    LocalAPI->>LocalAPI: registry_enabled=false
+    LocalAPI-->>User: 移除完成
 
-    GenerateApp->>DB: 写入系统应用库 (sysDB)
-    DB-->>GenerateApp: 写入成功
-
-    GenerateApp->>Kernel: 注册到 userApps Map
-    Kernel->>Kernel: 更新 resourceCache
-
-    GenerateApp->>VFS: 同步应用文件
-    VFS->>DB: 创建文件节点 (fileDB)
-    DB-->>VFS: 节点创建完成
-
-    GenerateApp-->>Store: 安装完成
-    Store-->>User: 显示"已安装"
-
-    Note over User,DB: === 检查更新 ===
-
-    Store->>Backend: POST /app/checkUpdates
-    Note over Store: 发送已安装应用列表 {resource_id: version}
-    Backend-->>Store: 返回需要更新的应用列表
-
-    User->>Store: 点击更新
-    Store->>Kernel: updateApp(resource_id)
-    Kernel->>GenerateApp: extUpdateCloud(resource_id)
-    GenerateApp->>Backend: 下载新版本资源
-    GenerateApp->>Kernel: 终止旧进程
-    GenerateApp->>DB: 更新应用数据
-    GenerateApp->>Kernel: 更新注册表版本
-    GenerateApp-->>Store: 更新完成
+    Note over User,Cloud: === 静态文件访问（授权用户） ===
+    User->>Kernel: 打开私有 APP
+    Kernel->>LocalAPI: StaticAuthMiddleware
+    LocalAPI->>LocalAPI: check_permission(resource_id, user)
+    alt 上传者 or 授权用户
+        LocalAPI-->>Kernel: 放行
+    else 无权限
+        LocalAPI-->>Kernel: 403 拒绝
+    end

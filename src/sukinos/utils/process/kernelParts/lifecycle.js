@@ -456,7 +456,7 @@ export class Lifecycle {
           workerCode = generateWorker(resource)
         } else {
           // 原有的架构是非系统都将进入到本地中。新引入了: 本地同步可选机制。
-          // 兼容处理, 处理没有进行本地同步 of APP, 这个时候认为是进入到了资源缓存中
+          // 兼容处理, 处理没有进行本地同步APP, 这个时候认为是进入到了资源缓存中
           // 先检查 app 和 app.handle 是否存在
           if (app && app.handle) {
             if ((await app.handle.queryPermission({mode: 'read'})) !== 'granted') {

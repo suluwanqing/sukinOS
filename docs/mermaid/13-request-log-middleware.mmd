@@ -1,67 +1,30 @@
 ---
-title: 请求日志中间件流程
+title: 完整的后端中间件链
 ---
 sequenceDiagram
     participant Client as 客户端
     participant ASGI as ASGI Server (uvicorn)
     participant RLM as RequestLogMiddleware
-    participant Config as log_config_cache
-    participant Next as 下一个中间件/路由
-    participant DB as MySQL (request_logs)
+    participant RPM as RoutePermissionMiddleware
+    participant SAM as StaticAuthMiddleware
+    participant CORS as CORSMiddleware
+    participant Route as 业务路由
+    participant DB as MySQL
 
     Client->>ASGI: HTTP Request
-    ASGI->>RLM: __call__(scope, receive, send)
-
-    Note over RLM: === 1. 判断是否记录 ===
-    RLM->>RLM: 检查 scope['type'] == 'http'
-    RLM->>Config: should_log(method, path)
-    Config-->>RLM: true/false
-
-    alt 不需要记录
-        RLM->>Next: 直接透传
-        Next-->>RLM: 响应
-        RLM-->>ASGI: 返回响应
-    end
-
-    Note over RLM: === 2. 收集请求体 ===
-    RLM->>RLM: 包装 receive 函数
-    RLM->>Next: await self.app(scope, wrapped_receive, wrapped_send)
-    Next->>Next: 处理请求
-    Next-->>RLM: 请求体 chunks 已收集
-
-    Note over RLM: === 3. 收集响应体 ===
-    RLM->>RLM: 包装 send 函数
-    RLM->>RLM: 捕获 http.response.body
-    RLM->>RLM: 仅收集 JSON Content-Type 响应
-
-    Note over RLM: === 4. 敏感信息脱敏 ===
-    RLM->>RLM: _process_json_payload(request_body)
-    Note over RLM: 12个敏感字段替换为 ***:
-    Note over RLM: password, token, secret, hash_ps,
-    Note over RLM: authorization, access_token, refresh_token,
-    Note over RLM: api_key, private_key, credential,
-    Note over RLM: cookie, set-cookie
-
-    Note over RLM: === 5. 操作者识别 ===
-    RLM->>RLM: _get_operator_info(scope)
-    Note over RLM: 从 Cookie access_token 或
-    Note over RLM: Authorization header 解码 JWT
-    RLM->>RLM: 提取 operator_id, account, username
-
-    Note over RLM: === 6. 异步持久化 ===
-    RLM->>RLM: 计算 duration_ms
-    RLM->>DB: INSERT INTO request_logs
-    Note over DB: method, path, full_url, status_code,
-    Note over DB: success, duration_ms, operator_*,
-    Note over DB: ip, user_agent, request_query,
-    Note over DB: request_body, response_body, error_message
-
-    alt 写入失败
-        DB-->>RLM: 异常
-        RLM->>RLM: db.rollback()
-        Note over RLM: 不影响业务响应
-    else 写入成功
-        DB-->>RLM: 提交成功
-    end
-
-    RLM-->>ASGI: 返回响应给客户端
+    ASGI->>RLM: 中间件 1: 请求日志
+    Note over RLM: 记录请求体、URL、操作者
+    RLM->>RPM: 中间件 2: 路由权限
+    Note over RPM: 白名单放行 → 检查 require_auth → 检查角色/用户权限
+    RPM->>SAM: 中间件 3: 静态文件鉴权
+    Note over SAM: 仅检查挂载路径的静态文件
+    SAM->>CORS: 中间件 4: 跨域
+    CORS->>Route: 到达业务路由
+    Route->>DB: 业务处理
+    DB-->>Route: 结果
+    Route-->>CORS: api_response()
+    CORS-->>SAM: 响应
+    SAM-->>RPM: 响应
+    RPM-->>RLM: 响应
+    RLM-->>ASGI: 响应
+    ASGI-->>Client: 最终响应

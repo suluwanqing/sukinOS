@@ -1,5 +1,5 @@
 ---
-title: 数据库 ER 图 (8张表)
+title: 数据库 ER 图 (11张表)
 ---
 erDiagram
     users ||--o| user_expand : "id 1:1"
@@ -7,6 +7,7 @@ erDiagram
     users ||--o{ user_time_week : "id 1:N"
     users ||--o{ sukinos_app : "id 1:N"
     users ||--o{ request_logs : "id 0:N"
+    sukinos_app ||--o| app_permission_registry : "resource_id 1:0..1"
 
     users {
         int id PK "自增主键"
@@ -71,6 +72,7 @@ erDiagram
         varchar version "(20) 版本号(乐观锁)"
         varchar status "(20) 审核状态"
         varchar audit_opinion "(255) 审核意见"
+        boolean registry_enabled "是否在权限注册池中"
     }
 
     request_logs {
@@ -109,3 +111,31 @@ erDiagram
         datetime created_at "创建时间"
         datetime updated_at "更新时间"
     }
+
+    system_builtin_apps {
+        int id PK "自增主键"
+        varchar app_id "(100) UK APP标识"
+        varchar label "(100) 显示名"
+        varchar description "(500) 描述"
+        json default_visible_to "默认可见角色"
+        varchar hidden "(5) 是否隐藏"
+        int created_at "创建时间戳"
+        int updated_at "更新时间戳"
+    }
+
+    system_roles {
+        int id PK "自增主键"
+        varchar name "(50) UK 角色标识"
+        varchar label "(100) 显示名"
+        varchar description "(255) 描述"
+        boolean is_system "系统内置角色"
+        datetime created_at "创建时间"
+    }
+
+    app_permission_registry {
+        varchar resource_id PK "(120) APP资源ID FK"
+        boolean permission_enabled "启用权限控制"
+        json actor_rules "权限分配规则"
+        datetime created_at "创建时间"
+    }
+
