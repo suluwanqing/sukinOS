@@ -593,18 +593,11 @@ export class Lifecycle {
   async clearAppSavedState(pid) {
     const app = this.#kernel.getApp(pid)
     if (app) {
-
-      // 增量清理：只重置应用的内部业务状态（app），保留窗口的大小、缩放、最大化及位置信息（window）
-      const prevSavedState = app.savedState || {app: null, window: null}
-      app.savedState = {
-        ...prevSavedState,
-        app: null, // 只将应用级数据置空，保留 window 配置
-      }
-
+      app.savedState = null // 强制清除内存中的状态
       const appName = app[ENV_KEY_NAME] || '未知应用'
       // 数据库更新（非系统应用）
       if (!app.isSystemApp) {
-        await this.#kernel.sysDb.updateData(appName, {savedState: app.savedState})
+        await this.#kernel.sysDb.updateData(appName, {savedState: null})
       }
       // console.log(`[内核] 应用 ${appName} (pid: ${pid}) 的持久化状态已被清空。`)
       this.#kernel.emitChange({type: 'APP_STATE_CLEARED', pid})

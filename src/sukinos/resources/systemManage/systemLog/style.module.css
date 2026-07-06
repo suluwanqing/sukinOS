@@ -308,6 +308,30 @@
   animation: su-system-log-spin 0.8s linear infinite;
 }
 
+.su-system-log__btn-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  background: transparent;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.su-system-log__btn-reset:hover {
+  color: #f43f5e;
+  border-color: #f43f5e;
+  background: #fff1f2;
+}
+
 .su-system-log__batch-bar {
   display: flex;
   align-items: center;

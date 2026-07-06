@@ -489,6 +489,18 @@ function SystemLog() {
     });
   };
 
+  const handleReset = () => {
+    setKeywordInput("");
+    setKeyword("");
+    setOperatorInput("");
+    setOperator("");
+    setMethod("");
+    setSuccess("");
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+  };
+
   const handleExport = () => {
     requestLogAPI.exportLogs({
       keyword: keyword || undefined,
@@ -518,7 +530,7 @@ function SystemLog() {
       <div className={style[bem.e("container")]}>
         <div className={style[bem.e("left-pane")]}>
           <div className={style[bem.e("card")]}>
-            <div className={style[bem.e("card-head")]}>数据指标概览</div>
+            <div className={style[bem.e("card-head")]}>当前指标</div>
             <div className={style[bem.e("stat-grid")]}>
               <StatCard
                 icon={<TimelineIcon fontSize="inherit" />}
@@ -624,6 +636,10 @@ function SystemLog() {
                   onChange={e => { setEndDate(e.target.value); setPage(1); }}
                 />
               </div>
+
+              <button className={style[bem.e("btn-reset")]} onClick={handleReset}>
+                重置
+              </button>
             </div>
 
             <div className={style[bem.e("toolbar-right")]}>
