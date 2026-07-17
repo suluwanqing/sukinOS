@@ -202,10 +202,8 @@ function RoutePermissionPanel() {
     {
       label: "编辑",
       icon: <EditIcon style={{ color: "#171717" }} />,
-      onClick: (r) => {
-        if (r._locked) { alert.failure("该路由为系统保护路由，仅 root 可访问，不可编辑"); return; }
-        openRouteEditModal(r._path);
-      },
+      onClick: (r) => openRouteEditModal(r._path),
+      // 暂时不做对if (r._locked)强制不可修改,增加细粒度,白名单锁只做为方便处理
     },
   ];
 

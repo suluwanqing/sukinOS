@@ -184,6 +184,14 @@ graph LR
     M1 --> M5
     M1 --> M2
     M2 --> M3
+    subgraph M7["7. 开发指南"]
+        DG1[系统APP开发]
+        DG2[非系统APP开发]
+        DG3[Hooks详解]
+        DG4[跨应用通信]
+        DG5[应用生命周期]
+    end
+
     M4 --> M3
 ```
 
@@ -195,6 +203,7 @@ graph LR
 | 4 | **进程内核** | Kernel 单例 + 10 个 kernelParts 子模块 + CommHub 通信枢纽 + 3 种 Worker 运行模式 + 完整生命周期（安装→启动→休眠→恢复→终止）。 | [04-process-kernel.md](./04-process-kernel.md) |
 | 5 | **文件系统与安全** | VFS 内核-驱动两层架构 + Inode 数据模型 + 安全沙箱 8 类策略（PID 命名空间/CDN 白名单/API 禁用/Blob 递归沙箱化/设备屏蔽/SDK 冻结等）+ 系统数据库 + 通用工具。 | [05-file-system-tools.md](./05-file-system-tools.md) |
 | 6 | **中间件与认证** | Redux Store 完整状态树 + 8 个 Reducer + 7 个 Selector + 登录模块 3 种业务模式 + useAuth Hook + 三层权限控制 + AuthGuard 鉴权守卫。 | [06-middleware-login.md](./06-middleware-login.md) |
+| 7 | **开发指南** | 系统APP/非系统APP开发完整指南、14个Hooks核心详解与应用交互、跨应用通信、应用生命周期、从零构建完整教程。 | [08-development.md](./08-development.md) |
 
 > **路由与消息处理** — 双层路由体系（浏览器级 + App级）、三种运行模式消息处理差异（RealWorker/VirtualWorker/NoWorker）、Dispatch 双路径、跨应用唤起与会话恢复、Pub/Sub 主题体系。详见 [07-app-routing.md](./07-app-routing.md)
 
@@ -452,6 +461,7 @@ graph TD
 | [05-file-system-tools.md](./05-file-system-tools.md) | 文件系统与安全 | VFS 内核-驱动两层架构、安全沙箱 8 类策略、系统数据库、通用工具 |
 | [06-middleware-login.md](./06-middleware-login.md) | 中间件与认证 | Redux Store 详情、登录模块、useAuth Hook、三层权限控制 |
 | [07-app-routing.md](./07-app-routing.md) | 路由与消息处理 | 双层路由体系、三种 Worker 模式消息链路、Dispatch 双路径、跨应用唤起、Pub/Sub |
+| [08-development.md](./08-development.md) | 开发指南 | 系统APP/非系统APP开发完整指南、14个Hook详解、跨应用通信、应用生命周期、从零构建教程 |
 
 ## 附录C：后端数据库表概览
 

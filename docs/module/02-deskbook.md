@@ -529,7 +529,7 @@ deskBook/layout.jsx
 | `@/sukinos/utils/config` | `WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_*`, `appCustomMapper`, `appCustom`, `FileType` | 多处 |
 | `@/sukinos/resources/sdk` | `createSdkForInstance` | DynamicRenderer |
 | `@/sukinos/utils/process/renderWindow` | `compileSourceAsync, scopeCss` | DynamicRenderer |
-| `@/sukinos/utils/process/styleSyncHub` | `registerSandboxDoc, updateVisibility` | IframeSandbox |
+| `@/sukinos/utils/process/styleSyncHub` | `registerSandboxDoc` | IframeSandbox |
 | `/utils/js/classcreate` | `createNamespace` | 所有组件 (BEM 命名) |
 | `/utils/js/func/data/exChangeBase64` | `dataToBase64Mapper` | CustomApp |
 | `react-redux` | `useDispatch, useSelector` | DeskBook |
@@ -707,14 +707,14 @@ useProcessBridge(pid, { isVisible, backgroundSleep })
 - 配 `backgroundSleep` 的应用额外停止 `useProcessBridge` 订阅
 - LRU 开关：`generateApp.workerLRU`（默认 true）
 
-### 9.8 StyleSyncHub 可见性过滤（utils/process/styleSyncHub.js）
+### 9.8 StyleSyncHub 样式同步（utils/process/styleSyncHub.js）
 
-| 优化项 | 说明 |
-|--------|------|
-| `visibleDocs` Set | 仅可见窗口的 iframe doc 接收实时样式写入，隐藏 doc 跳过 |
-| `lastCss` 缓存 | CSS 无变化时跳过所有 `flushAll` 写入操作 |
-| `updateVisibility()` | 对外 API：窗口可见性变化时调用，恢复可见时立即同步一次最新样式 |
-| ThemeObserver 同步范围 | 仅同步 `visibleDocs`，隐藏窗口的 `<html>` 类名更新不再触发 |
+| 说明 | 详情 |
+|------|------|
+| 同步范围 | 所有已注册的 iframe doc 统一接收实时样式写入 |
+| 写入策略 | 每次 `flushAll` 都读取最新 CSS 规则并通过 `el.textContent !== css` 比对后写入 |
+| 注册 API | `registerSandboxDoc(doc)` — 注册后立即同步并持续跟踪 |
+| ThemeObserver 同步范围 | 同步所有 `targetDocs` 的 `<html>` 类名 |
 
 ### 9.9 桌面 Filter 过渡动画（deskBook/style.module.css）
 
@@ -744,5 +744,5 @@ useProcessBridge(pid, { isVisible, backgroundSleep })
 // - 内存：20 窗口场景下 iframe 是否回落至 maxWindows 上限
 // - LRU：打开 15 窗口，观察最旧的 5 个非焦点窗口是否自动休眠
 // - backgroundSleep：隐藏窗口的 Worker 线程是否停止状态推送
-// - styleSyncHub：隐藏 iframe 是否不再接收样式写入
+// - styleSyncHub：样式同步覆盖所有 iframe
 ```

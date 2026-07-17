@@ -1,0 +1,41 @@
+sequenceDiagram
+    participant AppA as APP A (Worker)
+    participant AppB as APP B (Worker)
+    participant CommHub as CommHub
+    participant KernelUI as UI (React)
+    participant OtherApp as Other APP
+
+    %% STATE_UPDATE: Worker -> UI
+    AppA->>CommHub: STATE_UPDATE {state}
+    CommHub->>CommHub: stateCache.set(pid, state)
+    CommHub->>KernelUI: notify(subscribers, {type:'STATE', payload:state})
+    Note over AppA,KernelUI: RAF 节流: 每帧合并多次更新
+
+    %% UI_ACTION: UI -> Worker
+    KernelUI->>CommHub: dispatch(pid, action)
+    CommHub->>CommHub: action.type === 'KERNEL_CALL'?
+    alt KERNEL_CALL
+        CommHub->>CommHub: systemSwitch / notSystemSwitch
+    else UI_ACTION
+        CommHub->>AppA: postMessage({type:'UI_ACTION', payload:action})
+    end
+
+    %% evokeApp: 跨应用唤起
+    AppB->>CommHub: kernel.evokeApp({pid, from, interactInfo})
+    alt APP 已运行
+        CommHub->>AppA: APP_INTERACT {from, interactInfo}
+    else APP 未运行
+        CommHub->>CommHub: startProcess({pid, interactInfo})
+        CommHub->>AppA: INIT / RESTORE {interactInfo}
+    end
+
+    %% Pub/Sub 主题消息
+    AppB->>CommHub: PUBLISH_TOPIC {topic, payload}
+    CommHub->>CommHub: topicSubscribers.get(topic)
+    CommHub->>OtherApp: notify(callback, payload)
+    CommHub->>AppA: sendToWorker(TOPIC_MESSAGE) [GAP: Worker 未处理]
+
+    %% InteractiveAwakening 中间件
+    AppB->>KernelUI: InteractiveAwakening {visible, type, interactInfo}
+    KernelUI->>KernelUI: 用户选择目标 APP
+    KernelUI->>CommHub: evokeApp({pid: 选择结果, from, interactInfo})

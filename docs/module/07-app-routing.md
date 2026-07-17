@@ -305,7 +305,7 @@ const sandboxSelfProxy = new Proxy(iframeWin, {
     if (prop in target) {
       const val = target[prop];
       if (typeof val === 'function') {
-        // 递归类不 bind（Object, Array, Promise 等）
+        // 遞归类不 bind（Object, Array, Promise 等）
         const isConstructor = /^[A-Z]/.test(prop);
         if (isConstructor) return val;
         // 利用 WeakMap 缓存绑定方法，防 GC 压力
@@ -529,7 +529,7 @@ sequenceDiagram
     participant CommHub as CommHub
 
     UI->>Msg: dispatch(pid, action)
-
+    
     alt action.type === 'KERNEL_CALL'
         Msg->>Kernel: systemSwitch / notSystemSwitch
         Kernel->>Worker: postMessage({type:'UI_ACTION', payload:{type:'MSG', ...}})

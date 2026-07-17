@@ -823,13 +823,13 @@ graph LR
 | OPFS 文件操作 | `useOPFS` | 浏览器原生文件系统 |
 | 权限检查 | `usePermission` | 菜单/路由/角色权限检查（`src/hooks/usePermission/`） |
 
-## 7. `usePermission` — 权限检查 Hook
+## `usePermission` — 权限检查 Hook
 
 **文件**: `src/hooks/usePermission/main.jsx`
 
 SukinOS 前端权限检查钩子，不依赖 Redux，直接从 `selectorUserInfo` 获取当前用户信息。
 
-### 7.1 返回值
+### 返回值
 
 | 方法 | 返回值 | 说明 |
 |------|--------|------|
@@ -840,7 +840,7 @@ SukinOS 前端权限检查钩子，不依赖 Redux，直接从 `selectorUserInfo
 | `isRoot` | `boolean` | 当前用户是否为 root |
 | `role` | `string \| null` | 当前用户的角色名 |
 
-### 7.2 菜单权限判定逻辑
+### 菜单权限判定逻辑
 
 ```
 root → 始终 true
@@ -853,7 +853,7 @@ root → 始终 true
 
 > 三种规则为 **OR** 关系，任一匹配即放行。
 
-### 7.3 依赖
+### 依赖
 
 | 依赖 | 说明 |
 |------|------|

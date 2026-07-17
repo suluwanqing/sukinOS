@@ -1,0 +1,51 @@
+graph TB
+    subgraph App["应用层 (APP Layer)"]
+        SysApp["系统APP<br/>adminAppSdk"]
+        UserApp["用户APP<br/>devAppSdk"]
+    end
+
+    subgraph Registry["注册层 (Registry)"]
+        REG["registry.jsx<br/>ENV_KEY_* 常量"]
+        META["META_INFO<br/>元数据配置"]
+        CONTENT["ENV_KEY_CONTENT<br/>UI 视图"]
+        LOGIC["ENV_KEY_LOGIC<br/>Reducer 逻辑"]
+    end
+
+    subgraph SDK["SDK 交付层"]
+        Factory["createSdkForInstance<br/>(dispatch, pid, isSystemApp)"]
+        PrivateScope["私有 Scope<br/>secureFetch, navigate, pid"]
+        BaseSDK["基础 SDK 模板"]
+        SystemAPIs["系统 API 代理<br/>localStorage/indexedDB"]
+        Security["安全加固<br/>deepFreeze + readonlyProxy"]
+    end
+
+    subgraph Kernel["内核层"]
+        KP["kernel 单例"]
+        CommHub["通信枢纽 commHub"]
+        LM["10 子模块<br/>Lifecycle/Messaging/..."]
+
+        subgraph Worker["Worker 进程池"]
+            RW["RealWorker<br/>Web Worker"]
+            VW["VirtualWorker<br/>iframe + Proxy"]
+            NW["NoWorker<br/>主线程模拟"]
+        end
+    end
+
+    subgraph Render["渲染层"]
+        RN["renderWindow<br/>compileSourceAsync"]
+        RP["renderProcess<br/>预览渲染"]
+    end
+
+    App --> Registry
+    Registry --> SDK
+    SDK --> Factory
+    Factory --> BaseSDK
+    BaseSDK -->|adminAppSdk 或 devAppSdk| PrivateScope
+    PrivateScope --> SystemAPIs
+    SystemAPIs --> Security
+    Security -->|注入到 Worker| Kernel
+
+    Kernel -->|startProcess| Worker
+    Kernel -->|stateCache| Render
+    Worker -->|STATE_UPDATE| CommHub
+    CommHub -->|notify| Render

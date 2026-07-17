@@ -1,0 +1,35 @@
+graph TB
+    subgraph devSdk["devAppSdk (非系统APP)"]
+        D_REACT["React 核心<br/>useState/useEffect/useRef/..."]
+        D_COMPS["公共组件 AllComponent<br/>@/component/main"]
+        D_KERNEL["kernel: evokeApp + getTypeApps"]
+        D_HOOKS["hooks: useFileSystem"]
+        D_MID["middleware: 完整"]
+        D_API["API: {} (运行时注入)"]
+    end
+
+    subgraph adminSdk["adminAppSdk (系统APP) = devAppSdk + 扩展"]
+        A_SYS_COMPS["系统组件完整<br/>Developer/FileSystem/Notebook/..."]
+        A_HOOKS["全部 Hooks<br/>useAuth/useKernel/useProcessBridge/..."]
+        A_KERNEL["完整 kernel<br/>全 API + rootSeed"]
+        A_FS["useSystemFileSystem<br/>无 PID 限制"]
+    end
+
+    subgraph Security["安全层 (两者共享)"]
+        S1["createSecureFetch<br/>x-kernel-process-id"]
+        S2["createStorageProxy<br/>pid-{pid}_ 前缀"]
+        S3["createIndexedDBProxy<br/>数据库名前缀"]
+        S4["safeDeepFreeze<br/>API + System"]
+        S5["createReadonlySDKProxy<br/>Symbol.iterator 防御"]
+    end
+
+    subgraph Usage["使用场景"]
+        U1["用户APP: 应用商店 / 开发者工具安装"]
+        U2["系统APP: preset_resources 内置"]
+    end
+
+    devSdk -->|扩展| adminSdk
+    devSdk --> Security
+    adminSdk --> Security
+    Usage -->|选择| devSdk
+    Usage -->|选择| adminSdk

@@ -1,0 +1,40 @@
+graph TB
+    START["startProcess()"] --> DECIDE{meta.worker}
+
+    DECIDE -->|false| NOWORKER["NoWorker 模式"]
+    DECIDE -->|true| DECIDE_VW{useVirtualWorker?}
+
+    DECIDE_VW -->|true| VIRTUAL["VirtualWorker 模式"]
+    DECIDE_VW -->|false| REAL["RealWorker 模式"]
+
+    subgraph NoWorker
+        NW1["主线程 inline 执行"]
+        NW2["processStateAction"]
+        NW3["ACTION_ECHO 机制"]
+        NW4["无 Worker 隔离"]
+        NW5["initialState 校准器"]
+    end
+
+    subgraph VirtualWorker
+        VW1["共享 hidden iframe"]
+        VW2["with(sandbox) + Proxy"]
+        VW3["RAF 节流 STATE_UPDATE"]
+        VW4["4 资源追踪器<br/>timeout/interval/raf/event"]
+        VW5["中等隔离"]
+    end
+
+    subgraph RealWorker
+        RW1["独立 Web Worker (Blob)"]
+        RW2["完整 postMessage"]
+        RW3["最强隔离"]
+        RW4["独立内存空间"]
+        RW5["浏览器级线程隔离"]
+    end
+
+    subgraph Comparison["对比维度"]
+        D1["隔离级别: 无 / 中 / 强"]
+        D2["STATE_UPDATE: 直接 / RAF / 直接"]
+        D3["资源追踪: 无 / 4 种 / 无"]
+        D4["初始化: calibrator / INIT / INIT"]
+        D5["适用场景: 简单UI / 轻量APP / 复杂APP"]
+    end

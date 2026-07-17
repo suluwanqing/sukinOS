@@ -13,6 +13,7 @@ import {Messaging} from './kernelParts/messaging'
 import {Registry} from './kernelParts/registry'
 import {ResourceAccess} from './kernelParts/resourceAccess'
 import {Settings} from './kernelParts/settings'
+import permissionManageAPI from "@/apis/system/permissionManage"
 
 class Kernel {
   // --- 队列管理属性 ---
@@ -451,8 +452,7 @@ class Kernel {
    */
   async syncSystemAccess() {
     try {
-      const mod = await import("@/apis/system/permissionManage");
-      const res = await mod.default.getAvailableSystemApps();
+      const res = await permissionManageAPI.getAvailableSystemApps();
       if (res.code !== 200 || !res.data) {
         // API 返回错误或空数据 → 清空所有系统 APP，不展示不可控的应用
         this.systemApps.clear();
