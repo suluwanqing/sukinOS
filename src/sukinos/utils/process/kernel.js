@@ -1,5 +1,5 @@
 import IndexDb from './indexDb'
-import {DB_SYS, DB_RES, DB_STATE_INSTANCE, ENV_KEY_NAME} from '@/sukinos/utils/config'
+import {createSysDbConfig, createResDbConfig, createInstanceDbConfig, ENV_KEY_NAME} from '@/sukinos/utils/config'
 import CommHub from './commHub'
 
 // 子模块
@@ -25,10 +25,10 @@ class Kernel {
     this.storeDispatch = null //注意因为我们的命名上已经有一个dispatch,避免同名文题,直接这样处理。
 
     // --- 持久化存储 ---
-    this.sysDb = new IndexDb(DB_SYS) // 负责存储用户应用的注册表信息 (IndexedDB)[app.name为主键]
-    this.resDb = new IndexDb(DB_RES) // 负责存储所有应用的源资源，如代码、元数据 等 (IndexedDB)[app.id为主键]
+    this.sysDb = null // 负责存储用户应用的注册表信息 (IndexedDB)，按用户延迟初始化
+    this.resDb = null // 负责存储所有应用的源资源，如代码、元数据 等 (IndexedDB)，按用户延迟初始化
     this.dirHandle = null // 用户授权的本地文件系统目录句柄
-    this.instanceDb = new IndexDb(DB_STATE_INSTANCE) //管理有状态
+    this.instanceDb = null // 管理有状态实例，按用户延迟初始化
     // --- 运行时状态管理核心 ---
     // 此 Map 存储所有已启动的 Worker 进程实例。
     // 无论是 'RUNNING' (活动) 还是 'HIBERNATED' (休眠) 状态的应用，只要它的进程在运行，就会在这里有记录。
@@ -88,6 +88,26 @@ class Kernel {
   // 检查一个PID是否属于系统应用
   isSystemApp(pid) {
     return this.flags.isSystemApp(pid)
+  }
+
+  /**
+   * 按用户初始化独立的 IndexedDB 数据库
+   * 每个用户拥有独立的 SukinOS_Sys_{userId}、SukinOS_Res_{userId}、SUKIN_STATE_INSTANCE_{userId}
+   */
+  async initDatabases(userId) {
+    const uid = userId || 'default'
+
+    // 关闭旧DB连接（用户切换时）
+    await this.sysDb?.closeDB()
+    await this.resDb?.closeDB()
+    await this.instanceDb?.closeDB()
+
+    this.sysDb = new IndexDb(createSysDbConfig(uid))
+    this.resDb = new IndexDb(createResDbConfig(uid))
+    this.instanceDb = new IndexDb(createInstanceDbConfig(uid))
+    await this.sysDb.openDB()
+    await this.resDb.openDB()
+    await this.instanceDb.openDB()
   }
   //存入仓库操作帧
   setDispatch(dispatch) {

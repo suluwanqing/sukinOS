@@ -125,6 +125,16 @@ export default class IndexDb {
    */
   isOpen() { return !!this.db && !this.db.closed }
 
+  /**
+   * 关闭数据库连接（用户切换时使用）
+   */
+  async closeDB() {
+    if (this.db && !this.db.closed) {
+      this.db.close()
+      this.db = null
+    }
+  }
+
 
     /**
      * 清空所有数据 (Clear)

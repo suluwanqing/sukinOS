@@ -27,6 +27,9 @@ export class Core {
     //立即保存用户信息，以便后续 generateApp 逻辑能访问权限状态
     this.#kernel.currentUser = user
     this.#kernel.useVirtualWorker = useVirtualWorker || false // 在内核实例上保存是否采用虚拟沙箱机制
+
+    // 按用户初始化独立数据库（必须在任何 DB 操作之前）
+    await this.#kernel.initDatabases(user?.id)
     try {
       this.#kernel.dirHandle = isPrivate
         ? await navigator.storage.getDirectory()

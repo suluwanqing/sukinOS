@@ -71,8 +71,8 @@ export const SUKINOS_STORE_REMOTE_DELETE=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/a
 export const SUKINOS_STORE_REMOTE_WITH_PERMISSION=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/withPermission`
 export const SUKINOS_STORE_REMOTE_AUTHORIZED=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/authorized`
 
-export const DB_RES = {
-  DB_NAME: 'SukinOS_Res',
+export const createResDbConfig = (userId) => ({
+  DB_NAME: `SukinOS_Res_${userId || 'default'}`,
   STORE_NAME: 'ui_bundles',
   KEY_PATH: ENV_KEY_RESOURCE_ID,
   VERSION: 1,
@@ -80,10 +80,10 @@ export const DB_RES = {
     { name: ENV_KEY_NAME, keyPath: ENV_KEY_NAME, unique: false }
   ],
   autoTimestamp: true
-};
+});
 
-export const DB_SYS = {
-  DB_NAME: 'SukinOS_Sys',
+export const createSysDbConfig = (userId) => ({
+  DB_NAME: `SukinOS_Sys_${userId || 'default'}`,
   STORE_NAME: 'registry',
   KEY_PATH: ENV_KEY_NAME,
   VERSION: 1,
@@ -92,7 +92,7 @@ export const DB_SYS = {
     { name: 'status', unique: false }
   ],
   autoTimestamp: true
-};
+});
 
 export const DB_VFILE = {
   DB_NAME: 'SUKIN_OS_VFS',
@@ -105,12 +105,12 @@ export const DB_VFILE = {
   ]
 };
 
-export const DB_STATE_INSTANCE = {//存储有状态的instance。如文件句柄
-  DB_NAME: 'SUKIN_STATE_INSTANCE',
+export const createInstanceDbConfig = (userId) => ({//存储有状态的instance。如文件句柄
+  DB_NAME: `SUKIN_STATE_INSTANCE_${userId || 'default'}`,
   STORE_NAME: 'instance',
   VERSION: 2,
   KEY_PATH: 'id',
-}
+})
 // 系统APP需要持久化存储的用户数据,也可以存储在这个库里
 export const DB_SYSTEM_APP='sukin_system_app'
 
