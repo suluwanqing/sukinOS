@@ -171,7 +171,10 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
 
   const renderResizeHandles = () => {
     // 仅焦点窗口渲染 8 个可视缩放手柄，减少非活动窗口的 GPU 合成层和 DOM 节点数
-    if (!isFocused) return null
+    // if (!isFocused) return null
+    // 暂时回调,保持显示:目前的问题,需要处理一下门控比较合适,
+    // 因为如果保持全显示/fouces->显示,都会出现一定判断问题，需要维护DOM确定性比较一下,确定触发和使用一致,可能需要对事件监听增加
+    // 目前focus->显示肯定会出现多窗口交互串的问题[目前没有处理门控]
     return resizeHandles.map(dir => (
       <div
         key={dir}
