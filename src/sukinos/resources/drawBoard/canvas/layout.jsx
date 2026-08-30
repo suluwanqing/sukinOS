@@ -151,7 +151,24 @@ function drawElement(ctx, el, opts = {}) {
 
   if (el.type === 'image') {
     const img = IMAGES_POOL.get(el.src)
-    if (img) ctx.drawImage(img, el.x, el.y, el.w, el.h)
+    if (img) {
+      if (opts.exportScale && el.nw && el.nh) {
+        // ===== 导出清晰度修复 =====
+        // 问题：导出后放大查看图片模糊。
+        // 原因：若按画布显示大小 el.w 绘制，最终像素 = el.w * exportScale，可能小于原始像素 nw，
+        //       图片没有用满原始分辨率，放大查看时像素不足而模糊。
+        // 方案：每张图片独立用满原始分辨率——绘制 nw/exportScale 宽，经整体放大 exportScale 倍后
+        //       最终像素正好 = nw（原始像素），放大后依然清晰。
+        // 注意：低分辨率图片会比画布显示略小，这是保持清晰度的必然取舍。
+        const drawW = el.nw / opts.exportScale
+        const drawH = el.nh / opts.exportScale
+        const dx = el.x + (el.w - drawW) / 2
+        const dy = el.y + (el.h - drawH) / 2
+        ctx.drawImage(img, dx, dy, drawW, drawH)
+      } else {
+        ctx.drawImage(img, el.x, el.y, el.w, el.h)
+      }
+    }
   } else if (el.type === 'rect') {
     if (el.fill && el.fill !== 'transparent') {
       if (el.fillStyle === 'solid') {
@@ -623,60 +640,74 @@ const Canvas = ({state, dispatch, navigate}) => {
     })()
   }, [state.activeBoardId])
 
+  // 立即保存当前画板（含缩略图生成），返回 Promise 以便在离开前等待写入完成
+  const saveNow = useCallback(async () => {
+    if (!state.activeBoardId) return
+    const b = await getBoard(state.activeBoardId)
+    if (!b) return
+    let thumbnail = b.thumbnail
+    try {
+      const els = state.scene.elements
+      if (els.length > 0) {
+        const imageElements = els.filter(el => el.type === 'image' && el.src);
+        await Promise.all(imageElements.map(el => new Promise(resolve => preloadImage(el.src, resolve))));
+
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+        els.forEach(el => {
+          const bbox = getBounds(el)
+          minX = Math.min(minX, bbox.x)
+          minY = Math.min(minY, bbox.y)
+          maxX = Math.max(maxX, bbox.x + bbox.w)
+          maxY = Math.max(maxY, bbox.y + bbox.h)
+        })
+        const pad = 30
+        const w = (maxX - minX) + pad * 2
+        const h = (maxY - minY) + pad * 2
+
+        const maxDimension = 4096;
+        let targetW = 600;
+        let scale = targetW / Math.max(w, 1);
+        if (w * scale > maxDimension || h * scale > maxDimension) {
+          scale = Math.min(maxDimension / w, maxDimension / h);
+          targetW = w * scale;
+        }
+
+        const temp = document.createElement('canvas')
+        temp.width = targetW
+        temp.height = h * scale
+        const tx = temp.getContext('2d')
+        tx.imageSmoothingEnabled = true
+        tx.imageSmoothingQuality = 'high'
+        tx.fillStyle = '#ffffff'
+        tx.fillRect(0, 0, temp.width, temp.height)
+        tx.scale(scale, scale)
+        tx.translate(-minX + pad, -minY + pad)
+        els.forEach(el => {
+          // 缩略图是缩小场景，保持生成比例即可，不传 exportScale（避免图片被错误放大）
+          drawElement(tx, el)
+        })
+        thumbnail = temp.toDataURL('image/png', 0.85)
+      } else {
+        thumbnail = null
+      }
+    } catch {}
+    await putBoard({...b, elements: state.scene.elements, thumbnail, updatedAt: Date.now()})
+  }, [state.activeBoardId, state.scene.elements])
+
   const saveTimer = useRef(null)
   useEffect(() => {
     if (!state.activeBoardId) return
     clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
-      const b = await getBoard(state.activeBoardId)
-      if (!b) return
-      let thumbnail = b.thumbnail
-      try {
-        const els = state.scene.elements
-        if (els.length > 0) {
-          const imageElements = els.filter(el => el.type === 'image' && el.src);
-          await Promise.all(imageElements.map(el => new Promise(resolve => preloadImage(el.src, resolve))));
-
-          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-          els.forEach(el => {
-            const bbox = getBounds(el)
-            minX = Math.min(minX, bbox.x)
-            minY = Math.min(minY, bbox.y)
-            maxX = Math.max(maxX, bbox.x + bbox.w)
-            maxY = Math.max(maxY, bbox.y + bbox.h)
-          })
-          const pad = 30
-          const w = (maxX - minX) + pad * 2
-          const h = (maxY - minY) + pad * 2
-
-          const maxDimension = 4096;
-          let targetW = 600;
-          let scale = targetW / Math.max(w, 1);
-          if (w * scale > maxDimension || h * scale > maxDimension) {
-            scale = Math.min(maxDimension / w, maxDimension / h);
-            targetW = w * scale;
-          }
-
-          const temp = document.createElement('canvas')
-          temp.width = targetW
-          temp.height = h * scale
-          const tx = temp.getContext('2d')
-          tx.fillStyle = '#ffffff'
-          tx.fillRect(0, 0, temp.width, temp.height)
-          tx.scale(scale, scale)
-          tx.translate(-minX + pad, -minY + pad)
-          els.forEach(el => {
-            drawElement(tx, el)
-          })
-          thumbnail = temp.toDataURL('image/png', 0.85)
-        } else {
-          thumbnail = null
-        }
-      } catch {}
-      await putBoard({...b, elements: state.scene.elements, thumbnail, updatedAt: Date.now()})
-    }, 1000)
+    saveTimer.current = setTimeout(() => { saveNow() }, 1000)
     return () => clearTimeout(saveTimer.current)
-  }, [state.scene.elements, state.activeBoardId])
+  }, [state.scene.elements, state.activeBoardId, saveNow])
+
+  // 返回图库前强制保存，避免防抖定时器未触发导致最新编辑丢失
+  const handleBack = useCallback(async () => {
+    clearTimeout(saveTimer.current)
+    await saveNow()
+    navigate('gallery')
+  }, [saveNow, navigate])
 
   const screenToWorld = useCallback(
     e => {
@@ -715,7 +746,6 @@ const Canvas = ({state, dispatch, navigate}) => {
         if (sel) {
           const handle = hitHandle(getBounds(sel), x, y)
           if (handle) {
-            dispatch({type: 'BEGIN_HISTORY'})
             interaction.current = {
               kind: 'resize',
               handle,
@@ -723,6 +753,7 @@ const Canvas = ({state, dispatch, navigate}) => {
               orig: {...sel},
               startX: x,
               startY: y,
+              historyPushed: false,
             }
             return
           }
@@ -771,22 +802,21 @@ const Canvas = ({state, dispatch, navigate}) => {
         }
 
         dispatch({type: 'SET_SELECTED', payload: selectedIds})
-        dispatch({type: 'BEGIN_HISTORY'})
         const origs = {}
         selectedIds.forEach(id => {
           const el = state.scene.elements.find(e => e.id === id)
           if (el) origs[id] = JSON.parse(JSON.stringify(el))
         })
-        interaction.current = {kind: 'move', startX: x, startY: y, ids: selectedIds, origs}
+        interaction.current = {kind: 'move', startX: x, startY: y, ids: selectedIds, origs, historyPushed: false}
       } else {
         dispatch({type: 'SET_SELECTED', payload: []})
         interaction.current = {kind: 'marquee', startX: x, startY: y, marquee: {x, y, w: 0, h: 0}}
       }
     } else if (tool === 'eraser') {
+      dispatch({type: 'BEGIN_HISTORY'})
       interaction.current = {kind: 'erase', toDelete: new Set()}
       eraseAt(x, y)
     } else if (tool === 'pen') {
-      dispatch({type: 'BEGIN_HISTORY'})
       const el = makeElement('pen', state.style, x, y)
       interaction.current = {kind: 'pen', el, preview: el}
     } else if (tool === 'text') {
@@ -862,6 +892,10 @@ const Canvas = ({state, dispatch, navigate}) => {
     } else if (it.kind === 'move') {
       const dx = x - it.startX,
         dy = y - it.startY
+      if (!it.historyPushed) {
+        dispatch({type: 'BEGIN_HISTORY'})
+        it.historyPushed = true
+      }
       const map = {}
       it.ids.forEach(id => {
         const o = it.origs[id]
@@ -873,6 +907,10 @@ const Canvas = ({state, dispatch, navigate}) => {
       })
       dispatch({type: 'UPDATE_ELEMENTS', payload: map})
     } else if (it.kind === 'resize') {
+      if (!it.historyPushed) {
+        dispatch({type: 'BEGIN_HISTORY'})
+        it.historyPushed = true
+      }
       const o = it.orig
       const b = getBounds(o)
       let nx = b.x,
@@ -924,7 +962,6 @@ const Canvas = ({state, dispatch, navigate}) => {
     state.scene.elements.forEach(el => {
       if (hitTest(el, x, y)) it.toDelete.add(el.id)
     })
-    if (it.toDelete.size) dispatch({type: 'DELETE_ELEMENTS', payload: Array.from(it.toDelete)})
   }
 
   const onMouseUp = () => {
@@ -939,7 +976,14 @@ const Canvas = ({state, dispatch, navigate}) => {
       }
       dispatch({type: 'SET_TOOL', payload: 'select'})
     } else if (it.kind === 'pen') {
-      if (it.el.points.length > 1) dispatch({type: 'ADD_ELEMENT', payload: it.el})
+      if (it.el.points.length > 1) {
+        dispatch({type: 'BEGIN_HISTORY'})
+        dispatch({type: 'ADD_ELEMENT', payload: it.el})
+      }
+    } else if (it.kind === 'erase') {
+      if (it.toDelete.size) {
+        dispatch({type: 'DELETE_ELEMENTS', payload: Array.from(it.toDelete)})
+      }
     } else if (it.kind === 'marquee') {
       const m = it.marquee
       const ids = state.scene.elements
@@ -1160,7 +1204,7 @@ const Canvas = ({state, dispatch, navigate}) => {
           if (isNaN(ratio) || !isFinite(ratio)) return
           const w = Math.min(maxW, img.width)
           const h = w * ratio
-          const el = {id: uid(), type: 'image', x, y, w, h, src: reader.result, opacity: 1}
+          const el = {id: uid(), type: 'image', x, y, w, h, nw: img.naturalWidth || img.width, nh: img.naturalHeight || img.height, src: reader.result, opacity: 1}
           dispatch({type: 'BEGIN_HISTORY'})
           dispatch({type: 'ADD_ELEMENT', payload: el})
           dispatch({type: 'SET_TOOL', payload: 'select'})
@@ -1195,8 +1239,18 @@ const Canvas = ({state, dispatch, navigate}) => {
       const w = (maxX - minX) + pad * 2;
       const h = (maxY - minY) + pad * 2;
 
-      const maxDimension = 4096;
-      let exportScale = 2;
+      const maxDimension = 8192;
+      // ===== 导出清晰度修复 =====
+      // exportScale 是整体放大倍数，取所有图片 nw/el.w 的最大值（至少 3），保证整体导出分辨率足够高。
+      // 每张图片在 drawElement 中独立用满原始分辨率（最终像素 = nw），因此放大后查看依然清晰。
+      // 若取最小值，整体分辨率会被最低分辨率图片拖低，导致放大后模糊。
+      let exportScale = 3;
+      els.forEach(el => {
+        if (el.type === 'image' && el.nw && el.w) {
+          const need = el.nw / el.w;
+          if (need > exportScale) exportScale = need;
+        }
+      });
       if (w * exportScale > maxDimension || h * exportScale > maxDimension) {
         exportScale = Math.min(maxDimension / w, maxDimension / h);
       }
@@ -1205,13 +1259,15 @@ const Canvas = ({state, dispatch, navigate}) => {
       exp.width = w * exportScale;
       exp.height = h * exportScale;
       const cx = exp.getContext('2d');
+      cx.imageSmoothingEnabled = true;
+      cx.imageSmoothingQuality = 'high';
       cx.scale(exportScale, exportScale);
       cx.fillStyle = '#ffffff';
       cx.fillRect(0, 0, w, h);
       cx.save();
       cx.translate(-minX + pad, -minY + pad);
       els.forEach(el => {
-        drawElement(cx, el);
+        drawElement(cx, el, {exportScale});
       });
       cx.restore();
       const a = document.createElement('a');
@@ -1351,7 +1407,7 @@ const Canvas = ({state, dispatch, navigate}) => {
         <div className={style[bem.e('topbar')]}>
           <button
             className={style[bem.e('tb-btn')]}
-            onClick={() => navigate('gallery')}
+            onClick={handleBack}
             title="返回图库"
           >
             <svg viewBox="0 0 24 24">

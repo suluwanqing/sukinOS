@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, memo, useCallback } from '
 import { createPortal } from 'react-dom'
 import createCache from '@emotion/cache'
 import { CacheProvider } from '@emotion/react'
-import { compileSourceAsync, scopeCss } from '@/sukinos/utils/process/renderWindow'
-import { ENV_KEY_META_INFO,ENV_KEY_RESOURCE_ID } from '@/sukinos/utils/config'
+import { compileSourceAsync, scopeCss, createCssModule } from '@/sukinos/utils/process/renderWindow'
+import { resolveModuleKey } from '@/sukinos/utils/process/sourceMapper'
+import { ENV_KEY_META_INFO,ENV_KEY_RESOURCE_ID,ENV_KEY_CONTENT_PRECOMPILED } from '@/sukinos/utils/config'
 import { createSdkForInstance } from "@/sukinos/resources/sdk"
 // 引入全局样式同步中心，替换原来每个 iframe 各自的 querySelectorAll + MutationObserver
 import { registerSandboxDoc } from '@/sukinos/utils/process/styleSyncHub'
@@ -554,7 +555,9 @@ const AppInternalRenderer = memo(({ modules, resource, commonProps, currentPath,
   }
   const Layout = modules['layout']?.Component;
   if (!Layout) return <div style={{ padding: '16px', color: '#cf1322', background: '#fff2f0' }}>子应用入口框架 Layout 加载失败</div>;
-  const PageObj = modules[currentPath];
+  // 嵌套路由解析,将 currentPath 规范化为模块 key，支持 pages/about、./pages/about/index 等
+  const pageKey = resolveModuleKey(currentPath, Object.keys(modules));
+  const PageObj = modules[pageKey];
   const RawPage = PageObj?.Component || (() => <div style={{ padding: '16px' }}>404: 页面 [{currentPath}] 加载失败或未找到</div>);
   const ConnectedPage = (props) => <RawPage {...commonProps} {...props} />;
   return (
@@ -681,59 +684,43 @@ const DynamicRenderer =({
       // 物理沙箱模式下，必须等 iframe mount 完成后才有 contentWindow
       if (!isParasitism && !useBridgeMode && !sandboxWin) return;
 
+      // 模块注册表：{ key: { factory, exports } }，供 require 解析相对路径导入
+      const moduleRegistry = {};
+      // 收集所有模块 key，供 require 的 resolveModulePath 匹配候选
+      const moduleKeys = [];
+
       /**
-       * 编译并执行单个模块代码
-       * 所有阶段（Babel 转译、Function 构建、factory 执行）的错误均被结构化捕获，
+       * 第一阶段：编译单个模块代码，构建 moduleRegistry（不执行）
+       * 所有阶段（Babel 转译、Function 构建）的错误均被结构化捕获，
        * 并以友好的错误 Component 回退，同时收集到 errorList 供页面展示。
        */
-      const compileAndRun = async (code, key) => {
+      const compileModule = async (code, key, precompiled = false) => {
         try {
+          // CSS 不走 Babel，走专用 CSS 模块生成器（普通 .css 副作用导入 / .module.css CSS Modules）
+          const isCss = /\.css$/.test(key);
+          if (isCss) {
+            const cssRes = createCssModule(code, key);
+            moduleRegistry[key] = { factory: cssRes.factory, exports: null };
+            moduleKeys.push(key);
+            return true;
+          }
           // 传入 sandboxWin 的 Function 构造器，使 factory 内部的 globalThis 指向该沙箱 window
           // 物理沙箱模式下 globalThis=iframe.contentWindow → document=iframe.document
-          const res = await compileSourceAsync({ sourceCode: code, pid, targetFunctionConstructor: sandboxWin?.Function, module: key })
+          let res = await compileSourceAsync({ sourceCode: code, pid, targetFunctionConstructor: sandboxWin?.Function, module: key, precompiled })
+          // 预编译短路失败时自动降级，用原始 JSX 重新走 Babel 编译兜底
+          if (precompiled && res?.error) {
+            console.warn(`[渲染] 预编译模块 ${key} 执行失败，降级为 Babel 编译:`, res?.error)
+            res = await compileSourceAsync({ sourceCode: code, pid, targetFunctionConstructor: sandboxWin?.Function, module: key, precompiled: false })
+          }
           if (!res || res.error) {
             // 收集编译阶段错误（含结构化 errorDetail）
             const detail = res?.errorDetail || { phase: 'compile', message: res?.error || '解析错误', stack: '', loc: '' };
             errorList.push({ key, errorDetail: detail });
-            return {
-              Component: () => (
-                <ErrorDetailPanel
-                  errorDetail={detail}
-                  title={`编译失败 [${key}]`}
-                  moduleKey={key}
-                />
-              ),
-              style: ''
-            };
+            return false;
           }
-          const exports = {}
-          try {
-            // 将 factory 绑定到沙箱 window 上执行
-            // 此时如果 App 尝试使用 this.indexedDB 将直接抛出拦截异常
-            // 而 instanceSDK.System.localStorage 等 API 因为是代理，可以安全、隔离地使用
-            res.factory.call(sandboxWin, { exports }, exports, instanceSDK)
-            return { Component: exports.default || exports, style: exports.style || '' }
-          } catch (evalError) {
-            // 收集 factory 执行阶段错误
-            const detail = {
-              phase: 'runtime',
-              message: evalError.message,
-              stack: evalError.stack || evalError.message,
-              loc: '',
-              raw: evalError
-            };
-            errorList.push({ key, errorDetail: detail });
-            return {
-              Component: () => (
-                <ErrorDetailPanel
-                  errorDetail={detail}
-                  title={`初始化运行时异常 [${key}]`}
-                  moduleKey={key}
-                />
-              ),
-              style: ''
-            };
-          }
+          moduleRegistry[key] = { factory: res.factory, exports: null };
+          moduleKeys.push(key);
+          return true;
         } catch (e) {
           // 收集未预期的顶层异常
           const detail = {
@@ -744,11 +731,54 @@ const DynamicRenderer =({
             raw: e
           };
           errorList.push({ key, errorDetail: detail });
+          return false;
+        }
+      }
+
+      // 第二阶段：执行单个模块，返回 { Component, style }
+      const runModule = (key) => {
+        const mod = moduleRegistry[key];
+        if (!mod) {
+          // 编译失败：返回错误组件
+          const detail = errorList.find(e => e.key === key)?.errorDetail || { phase: 'compile', message: '模块编译失败', stack: '', loc: '' };
           return {
             Component: () => (
               <ErrorDetailPanel
                 errorDetail={detail}
-                title={`解析沙箱失败 [${key}]`}
+                title={`编译失败 [${key}]`}
+                moduleKey={key}
+              />
+            ),
+            style: ''
+          };
+        }
+        // 已执行过则直接返回缓存的 exports
+        if (mod.exports) {
+          return { Component: mod.exports.default || mod.exports, style: mod.exports.style || '' };
+        }
+        const exports = {}
+        try {
+          // 将 factory 绑定到沙箱 window 上执行，并传入完整模块上下文
+          // 此时如果 App 尝试使用 this.indexedDB 将直接抛出拦截异常
+          // 而 instanceSDK.System.localStorage 等 API 因为是代理，可以安全、隔离地使用
+          mod.factory.call(sandboxWin, { exports }, exports, instanceSDK, moduleRegistry, key, moduleKeys)
+          mod.exports = exports;
+          return { Component: exports.default || exports, style: exports.style || '' }
+        } catch (evalError) {
+          // 收集 factory 执行阶段错误
+          const detail = {
+            phase: 'runtime',
+            message: evalError.message,
+            stack: evalError.stack || evalError.message,
+            loc: '',
+            raw: evalError
+          };
+          errorList.push({ key, errorDetail: detail });
+          return {
+            Component: () => (
+              <ErrorDetailPanel
+                errorDetail={detail}
+                title={`初始化运行时异常 [${key}]`}
                 moduleKey={key}
               />
             ),
@@ -756,15 +786,32 @@ const DynamicRenderer =({
           };
         }
       }
+
+      // 系统 APP 强制走 JSX 编译，保证可调试/可审计
+      const usePrecompiled = !isSystemApp && !!stableResource[ENV_KEY_CONTENT_PRECOMPILED];
+      // 收集所有待编译模块：{ key: { code, precompiled } }
+      const pendingModules = [];
       if (!stableResource.isBundle) {
-        resultMap['main'] = await compileAndRun(stableResource.content, 'main');
+        const precompiledCode = usePrecompiled ? stableResource[ENV_KEY_CONTENT_PRECOMPILED] : null;
+        pendingModules.push({ key: 'main', code: precompiledCode || stableResource.content, precompiled: !!precompiledCode });
       } else {
         const files = Object.entries(stableResource.content)
+        const precompiledFiles = usePrecompiled ? (stableResource[ENV_KEY_CONTENT_PRECOMPILED] || {}) : {};
         for (const [key, code] of files) {
           if (typeof code === 'string') {
-            resultMap[key] = await compileAndRun(code, key);
+            const precompiledCode = precompiledFiles[key];
+            pendingModules.push({ key, code: precompiledCode || code, precompiled: !!precompiledCode });
           }
         }
+      }
+
+      // 第一阶段：编译所有模块，构建 moduleRegistry
+      for (const { key, code, precompiled } of pendingModules) {
+        await compileModule(code, key, precompiled);
+      }
+      // 第二阶段：执行所有模块，构建 resultMap
+      for (const { key } of pendingModules) {
+        resultMap[key] = runModule(key);
       }
       if (!cancelled) {
         setModules(resultMap)

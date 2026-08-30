@@ -125,6 +125,7 @@ flowchart TD
 | `ENV_KEY_NAME` | `name` | `string` | 应用显示名称 |
 | `ENV_KEY_IS_BUNDLE` | `isBundle` | `boolean` | 是否为 Bundle 应用（多文件打包） |
 | `ENV_KEY_CONTENT` | `content` | `string \| object` | UI 视图代码字符串（默认导出 React 组件） |
+| `ENV_KEY_CONTENT_PRECOMPILED` | `precompiledContent` | `string \| object` | 预编译后的界面视图源码（安装时由 Babel 预编译的 JS 产物），运行时优先使用以跳过 Babel 编译，缺失或失败时降级用原始 JSX 重新编译兜底；系统 APP 不生成此字段 |
 | `ENV_KEY_LOGIC` | `logic` | `string` | Worker 逻辑代码字符串（Reducer 模式） |
 | `ENV_KEY_META_INFO` | `metaInfo` | `object` | 元数据配置 |
 
@@ -508,6 +509,10 @@ flowchart TD
 | `isParasitism` | `boolean` | 是否为寄生应用（无独立窗口，嵌入宿主） |
 | `custom.hasShortcut` | `boolean` | 是否创建桌面快捷方式 |
 | `custom.blockEd` | `boolean` | 是否固定至状态栏 |
+| `custom.backgroundSleep` | `boolean` | 后台静默（暂停订阅） |
+| `custom.adaptiveMount` | `boolean` | 后台自适应挂载（不保存 APP 内部状态） |
+| `custom.autoSaveStateInterval` | `number` | 自动保存状态间隔（秒），`0` 表示禁用 |
+| `custom.autoSaveWindowInterval` | `number` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
 
 ### 5.2 应用分类一览
 

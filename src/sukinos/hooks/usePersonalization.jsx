@@ -448,6 +448,8 @@ export const defaultPersonalization = {
   maxWorkers: 5,     // 最大并发 Worker
   workerLRU: true,   // 启用 LRU 淘汰
   autoHideStatusBar: false, // 启动/聚焦APP时自动关闭状态栏
+  autoSaveStateInterval: 0,  // 自动保存状态间隔(秒), 0=禁用
+  autoSaveWindowInterval: 0, // 自动保存窗口位置间隔(秒), 0=禁用
 };
 
 export const colorSystemPre = '--su';
@@ -485,26 +487,26 @@ export const getColorFromCSSVar = (cssVar) => {
   return cssVar;
 };
 
-// ─── 模块级单例 store：所有 usePersonalization 实例共享同一份 config 状态 ───
-const store = {
+// ─── 模块级单例 personalizationStore：所有 usePersonalization 实例共享同一份 config 状态 ───
+export const personalizationStore = {
   config: { ...defaultPersonalization },
   listeners: new Set(),
-  get: () => store.config,
+  get: () => personalizationStore.config,
   set(updater) {
-    const next = typeof updater === 'function' ? updater(store.config) : updater;
-    if (next === store.config) return;
-    store.config = next;
-    store.listeners.forEach(fn => fn(next));
+    const next = typeof updater === 'function' ? updater(personalizationStore.config) : updater;
+    if (next === personalizationStore.config) return;
+    personalizationStore.config = next;
+    personalizationStore.listeners.forEach(fn => fn(next));
   },
   subscribe(fn) {
-    store.listeners.add(fn);
-    return () => store.listeners.delete(fn);
+    personalizationStore.listeners.add(fn);
+    return () => personalizationStore.listeners.delete(fn);
   }
 };
 
 export const usePersonalization = () => {
-  const [config, setConfig] = useState(() => store.get());
-  useEffect(() => store.subscribe(setConfig), []);
+  const [config, setConfig] = useState(() => personalizationStore.get());
+  useEffect(() => personalizationStore.subscribe(setConfig), []);
   const [localAssets, setLocalAssets] = useState({ images: [], videos: [], fonts: [] });
   const configIdRef = useRef(null);
   const activeResourceId = useRef({ bg: null, font: null });
@@ -591,7 +593,7 @@ export const usePersonalization = () => {
                   jsonStr = new TextDecoder('utf-8').decode(content.buffer);
               }
               const parsed = JSON.parse(jsonStr);
-              store.set(prev => ({ ...prev, ...parsed }));
+              personalizationStore.set(prev => ({ ...prev, ...parsed }));
             } catch (e) { console.error("配置解析失败，使用默认"); }
           }
         } else {
@@ -605,19 +607,19 @@ export const usePersonalization = () => {
 
   const updateConfig = useCallback((key, value) => {
     hasPendingChangesRef.current = true;
-    store.set(prev => ({ ...prev, [key]: value }));
+    personalizationStore.set(prev => ({ ...prev, [key]: value }));
   }, []);
 
   const updateMultipleConfigs = useCallback((updates) => {
     hasPendingChangesRef.current = true;
-    store.set(prev => ({ ...prev, ...updates }));
+    personalizationStore.set(prev => ({ ...prev, ...updates }));
   }, []);
 
   const applyPresetStyle = useCallback((presetKey) => {
     const preset = PRESET_STYLES[presetKey];
     if (preset && preset.config) {
       hasPendingChangesRef.current = true;
-      store.set(prev => ({ ...prev, ...preset.config }));
+      personalizationStore.set(prev => ({ ...prev, ...preset.config }));
       return true;
     }
     return false;
@@ -636,15 +638,15 @@ export const usePersonalization = () => {
     const newVar = `var(${colorSystemPre}-${baseColor}-${shade})`;
     hasPendingChangesRef.current = true;
     if (target === 'accent') {
-      store.set(prev => ({ ...prev, accentColor: newVar, customColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, accentColor: newVar, customColor: { baseColor, shade } }));
     } else if (target === 'bg') {
-      store.set(prev => ({ ...prev, bgType: 'color', bgValue: newVar, customBgColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, bgType: 'color', bgValue: newVar, customBgColor: { baseColor, shade } }));
     } else if (target === 'deskFont') {
-      store.set(prev => ({ ...prev, deskFontColor: newVar, customDeskFontColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, deskFontColor: newVar, customDeskFontColor: { baseColor, shade } }));
     } else if (target === 'windowHeaderBg') {
-      store.set(prev => ({ ...prev, windowHeaderBg: newVar, customWindowHeaderBg: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, windowHeaderBg: newVar, customWindowHeaderBg: { baseColor, shade } }));
     } else if (target === 'windowHeaderColor') {
-      store.set(prev => ({ ...prev, windowHeaderColor: newVar, customWindowHeaderColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, windowHeaderColor: newVar, customWindowHeaderColor: { baseColor, shade } }));
     }
   }, []);
 
@@ -668,7 +670,7 @@ export const usePersonalization = () => {
               jsonStr = new TextDecoder('utf-8').decode(content.buffer);
           }
           const parsed = JSON.parse(jsonStr);
-          store.set(prev => ({ ...prev, ...parsed }));
+          personalizationStore.set(prev => ({ ...prev, ...parsed }));
         }
       } catch (e) {
         console.error("重新加载配置失败:", e);

@@ -16,6 +16,7 @@ src/sukinos/hooks/
 ├── useStateHandle.jsx          # IndexedDB/目录句柄管理
 ├── useOpfs.jsx                 # Origin Private File System 封装
 ├── usePersonalization.jsx      # 桌面个性化主题配置
+├── useDeskLayout.js            # 桌面布局持久化 Hook
 ├── userWindowForKernel.jsx     # 内核窗口权限（预留）
 ├── useDebounce.jsx             # 防抖工具 Hook
 ├── useThrottle.jsx             # 节流工具 Hook
@@ -45,7 +46,7 @@ export * from "./useThrottle"
 import { useKernel, useAuth, useProcessBridge } from '@/sukinos/hooks'
 ```
 
-> **注意**: `useOpfs` 和 `usePersonalization` 未在 `main.jsx` 中导出，需直接引用文件路径导入。
+> **注意**: `useOpfs`、`usePersonalization`、`useFileKernel`、`useDeskLayout` 未在 `main.jsx` 中导出，需直接引用文件路径导入。
 
 ---
 
@@ -538,6 +539,8 @@ const store = {
 | `maxWorkers` | `5` | 最大并发 Worker 数 |
 | `workerLRU` | `true` | 启用 LRU 自动淘汰 |
 | `autoHideStatusBar` | `false` | 启动/聚焦 APP 时自动隐藏状态栏 |
+| `autoSaveStateInterval` | `0` | 自动保存状态间隔（秒），`0` 表示禁用 |
+| `autoSaveWindowInterval` | `0` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
 
 **方法**:
 
@@ -575,6 +578,32 @@ const store = {
 ```js
 { config, localAssets, updateConfig, updateMultipleConfigs, updateCustomColor, getCurrentAccentColor, getFileBase64, refreshConfig, applyPresetStyle, getAllPresetStyles }
 ```
+
+---
+
+### 8.5 `useDeskLayout` — 桌面布局持久化 Hook
+
+**文件**: `useDeskLayout.js`
+
+**职责**: 将桌面图标坐标从 localStorage 迁移到 VFS 文件（IndexedDB 底层），实现按用户隔离的桌面布局持久化。所有用户维护在同一个 JSON 文件中，结构为 `{ [userId]: { [pid]: "row-col" } }`。
+
+> **注意**: 此 Hook 未在 `main.jsx` 中导出，需直接引用：
+> ```js
+> import { useDeskLayout } from '@/sukinos/hooks/useDeskLayout'
+> ```
+
+**架构要点**:
+- 模块级缓存 `layoutCache`：所有 Hook 实例共享，避免重复读盘
+- 布局文件 ID `layoutFileId` 缓存：避免每次保存都重新查找文件
+- 保存采用 800ms 防抖写盘，每个 Hook 实例独立定时器，避免相互干扰
+- 文件不存在时自动重新创建
+
+**返回值**:
+
+| 方法 | 参数 | 说明 |
+|------|------|------|
+| `getLayout` | `userId: string` | 读取指定用户的布局坐标 `{ pid: "row-col" }` |
+| `setLayout` | `userId: string, positions: object` | 保存指定用户的布局坐标（防抖 800ms 写盘） |
 
 ---
 

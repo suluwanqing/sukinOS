@@ -86,7 +86,10 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   const { windowElRef, handleMouseDown, setMaximized, getCurrentRect } = useWindowInteraction({
     winSize: calculatedWinSize,
     allowResize: resource?.[ENV_KEY_META_INFO]?.custom?.allowResize || true,
-    isIframeMode: isPhysicalSandbox
+    isIframeMode: isPhysicalSandbox,
+    onDragEnd: useCallback((rect) => {
+      kernel.updateWindowRect(pid, rect)
+    }, [kernel, pid])
   })
   const handleCompoundMouseDown = (e, type) => {
     onFocus(pid)

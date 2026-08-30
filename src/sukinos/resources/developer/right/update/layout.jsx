@@ -52,7 +52,8 @@ const buildPreviewFromWorker = (workerCode) => {
   if (isBundle && content && typeof content === 'object') {
     const restoredFiles = {};
     for (const [k, v] of Object.entries(content)) {
-      const keyWithExt = k.endsWith('.jsx') || k.endsWith('.js') ? k : `${k}.jsx`;
+      // CSS 文件保留 .css 后缀，其余补 .jsx 扩展名
+      const keyWithExt = k.endsWith('.jsx') || k.endsWith('.js') || k.endsWith('.css') ? k : `${k}.jsx`;
       restoredFiles[keyWithExt] = v;
     }
     return { localFiles: restoredFiles, logicCode, isBundle: true };
@@ -270,6 +271,11 @@ function UpdatePanel({ appMeta, uploadType }) {
         if (entry.kind === 'file') {
           const file = await entry.getFile();
           const text = await file.text();
+          // CSS 文件保留 .css 后缀作为 key（供 import './style.css' / import styles from './style.module.css' 解析）
+          if (entry.name.endsWith('.css')) {
+            modules[entry.name] = text;
+            continue;
+          }
           if (entry.name.endsWith('.jsx') || entry.name.endsWith('.js')) {
             hasJsxFiles = true;
             modules[entry.name] = text;

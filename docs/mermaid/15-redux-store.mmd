@@ -4,53 +4,62 @@ title: Redux Store 状态树
 graph TB
     subgraph Store["Redux Store"]
         direction TB
-        Config["configureStore()"]
-        PersistConfig["redux-persist 配置<br/>key: 'sukinOs'<br/>storage: localStorage"]
-        MiddlewareSwitch["中间件开关<br/>switchableMiddleware"]
-        DynamicInject["动态 Reducer/Middleware 注入"]
+        Config["configureStore()<br/>sukinos 切片"]
+        SukinosSlice["sukinosSlice<br/>createSlice"]
     end
 
-    subgraph Slices["State Slices"]
+    subgraph State["initialState 状态域"]
         direction TB
-
-        subgraph SukinosSlice["sukinosSlice"]
-            direction TB
-            Apps["apps: Map pid→AppState"]
-            ProcessState["processState: Map pid→ProcessStatus"]
-            Windows["windows: Map windowId→WindowConfig"]
-            DeskBook["deskBook: DeskBookState"]
-            Personalization["personalization: PersonalizationConfig"]
-            SystemConfig["systemConfig: SystemConfig"]
-            AuthState["auth: AuthState<br/>token, user, isLogin"]
-        end
-
-        subgraph DynamicSlices["动态注入的 Slice"]
-            direction TB
-            FileSystemSlice["fileSystem<br/>文件系统状态"]
-            DevSlice["developer<br/>开发者工具状态"]
-            AppSlices["...各应用自定义 Slice"]
-        end
+        UserInfo["userInfo: {}<br/>用户信息（登录后填充）"]
+        Theme["theme: ''<br/>主题标识"]
+        UI["ui: {}<br/>UI 通用状态"]
+        Assistant["assistant<br/>verificationCodes: {}<br/>验证码状态（按 type 索引）"]
+        Setting["setting<br/>isDisplay: true"]
+        AppStore["appStore"]
+        FileSystemConfig["fileSystemConfig<br/>isPrivate: true"]
+        RoutePermissions["routePermissions<br/>config / loaded / lastUpdated"]
     end
 
-    subgraph Selectors["Selectors 选择器"]
+    subgraph AppStoreDetail["appStore 详情"]
         direction TB
-        SelApps["selectAllApps"]
-        SelRunning["selectRunningApps"]
-        SelWindow["selectWindowById"]
-        SelAuth["selectAuthState"]
-        SelPersonal["selectPersonalization"]
+        StorePath["storePath（9 个 URL）<br/>baseUrl / listUrl / uploadUrl<br/>checkUpdatesUrl / searchUrl<br/>myUploadUrl / deleteUrl<br/>withPermissionUrl / authorizedUrl"]
+        GenerateApp["generateApp<br/>singleIframe / truthAllApp<br/>useVirtualWorker / maxWindows<br/>maxWorkers / workerLRU"]
     end
 
-    subgraph PersistWhitelist["持久化白名单"]
+    subgraph Reducers["Reducers（10 个）"]
         direction TB
-        P1["personalization 个性化设置"]
-        P2["systemConfig 系统配置"]
-        P3["auth.token 认证令牌"]
-        P4["deskBook.shortcuts 桌面快捷方式"]
+        R1["startVerificationCountdown"]
+        R2["resetVerification"]
+        R3["updateSeting"]
+        R4["setUserInfo"]
+        R5["setStorePath / resetStorePath"]
+        R6["setFileSystemConfig"]
+        R7["setRoutePermissions / clearRoutePermissions"]
+        R8["setGenerateApp"]
+    end
+
+    subgraph Selectors["Selectors（9 个）"]
+        direction TB
+        S1["selectSukinOs"]
+        S2["selectorSetting"]
+        S3["selectorUserInfo"]
+        S4["selectorStoreSettingStorePath"]
+        S5["selectGenerateApp"]
+        S6["selectFileSystemConfig"]
+        S7["selectorRoutePermissions / selectorRoutePermissionsLoaded"]
+        S8["selectVerificationData(type)"]
     end
 
     Store --> SukinosSlice
-    Store --> DynamicSlices
+    SukinosSlice --> UserInfo
+    SukinosSlice --> Theme
+    SukinosSlice --> UI
+    SukinosSlice --> Assistant
+    SukinosSlice --> Setting
+    SukinosSlice --> AppStore
+    SukinosSlice --> FileSystemConfig
+    SukinosSlice --> RoutePermissions
+    AppStore --> StorePath
+    AppStore --> GenerateApp
+    SukinosSlice --> Reducers
     SukinosSlice --> Selectors
-    Store --> PersistConfig
-    PersistConfig --> PersistWhitelist

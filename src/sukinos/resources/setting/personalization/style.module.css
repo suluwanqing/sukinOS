@@ -37,19 +37,26 @@
 }
 
 .su-setting-personalize__preset-toggle {
-  border: none;
-  background: var(--su-fill-color-light);
-  padding: 4px 12px;
-  border-radius: 4px;
-  font-size: 11px;
+  border: 1px solid var(--su-border-color, #e2e8f0);
+  background: var(--su-bg-color, #ffffff);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
   cursor: pointer;
-  color: var(--su-os-accent-color);
-
+  color: var(--su-text-color-regular, #475569);
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
 }
 
 .su-setting-personalize__preset-toggle:hover {
-  background: var(--su-fill-color);
-  transform: translateY(-1px);
+  background: var(--su-fill-color-light, #f8fafc);
+  color: var(--su-text-color-primary, #0f172a);
+  border-color: var(--su-border-color-darker, #cbd5e1);
+}
+
+.su-setting-personalize__preset-toggle:active {
+  transform: scale(0.98);
 }
 
 .su-setting-personalize__card {
@@ -57,7 +64,7 @@
   background: var(--su-bg-color);
   border: 1px solid var(--su-border-color-light);
   border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
 }
 
 .su-setting-personalize__preset-grid {
@@ -74,7 +81,6 @@
   padding: 8px;
   border-radius: 12px;
   border: 2px solid transparent;
-
 }
 
 .su-setting-personalize__preset-item.is-selected {
@@ -152,7 +158,6 @@
   padding: 10px;
   border-radius: 10px;
   border: 2px solid transparent;
-
   font-size: 12px;
 }
 
@@ -191,7 +196,6 @@
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid transparent;
-
 }
 
 .su-setting-personalize__color-swatch:hover {
@@ -211,7 +215,6 @@
   border-radius: 50%;
   cursor: pointer;
   border: 2px solid transparent;
-
 }
 
 .su-setting-personalize__color-swatch-small:hover {
@@ -302,14 +305,37 @@
 .su-setting-personalize__control-row {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 16px;
   padding: 10px 0;
+}
+
+.su-setting-personalize__double-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px 0;
+}
+
+.su-setting-personalize__half-col {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.su-setting-personalize__col-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--su-border-color-light);
+  align-self: center;
 }
 
 .su-setting-personalize__label-container {
   display: flex;
   flex-direction: column;
-  width: 60px;
+  flex: 1;
 }
 
 .su-setting-personalize__label {
@@ -350,6 +376,60 @@
   border: 2px solid var(--su-os-accent-color);
   cursor: pointer;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.su-setting-personalize__input-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.su-setting-personalize__number-input {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 32px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid var(--su-border-color, #cbd5e1);
+  background-color: var(--su-bg-color, #ffffff);
+  color: var(--su-text-color-primary, #0f172a);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  outline: none;
+  text-align: center;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+}
+
+.su-setting-personalize__number-input::-webkit-inner-spin-button,
+.su-setting-personalize__number-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.su-setting-personalize__number-input:hover {
+  border-color: var(--su-os-accent-color, #94a3b8);
+}
+
+.su-setting-personalize__number-input:focus {
+  border-color: var(--su-os-accent-color, #2563eb);
+  box-shadow:
+    0 0 0 1px var(--su-os-accent-color, #2563eb),
+    0 0 0 4px rgba(37, 99, 235, 0.1);
+}
+
+.su-setting-personalize__unit {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--su-os-accent-color);
+  width: 24px;
+  text-align: right;
 }
 
 .su-setting-personalize__custom-selector {
@@ -410,7 +490,6 @@
   border-radius: 12px;
   position: relative;
   cursor: pointer;
-
 }
 
 .su-setting-personalize__switch.is-on {
@@ -433,17 +512,28 @@
 }
 
 .su-setting-personalize__chip {
-  padding: 8px 16px;
-  border: none;
-  background: var(--su-fill-color-light);
-  border-radius: 8px;
+  padding: 6px 14px;
+  border: 1px solid var(--su-border-color, #e2e8f0);
+  background: var(--su-bg-color, #ffffff);
+  border-radius: 6px;
   font-size: 12px;
+  font-weight: 500;
+  color: var(--su-text-color-regular, #475569);
   cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+}
+
+.su-setting-personalize__chip:hover {
+  background: var(--su-fill-color-light, #f8fafc);
+  border-color: var(--su-border-color-darker, #cbd5e1);
+  color: var(--su-text-color-primary, #0f172a);
 }
 
 .su-setting-personalize__chip.is-active {
   background: var(--su-os-accent-color);
   color: #fff;
+  border-color: var(--su-os-accent-color);
 }
 
 .su-setting-personalize__divider {

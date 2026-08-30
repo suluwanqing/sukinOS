@@ -65,7 +65,7 @@ AuthGuard({element, allowRoles})
 
 ### 1.3 RoutePermission 路由权限中间件
 
-`RoutePermission`（`src/sukinos/middleware/RoutePermission.jsx`）是后端配置驱动的 API 路由权限检查：
+`RoutePermission`（`src/middleware/routePermission/layout.jsx`）是后端配置驱动的 API 路由权限检查：
 
 - **初始化**：用户登录后，从 `/api/system/permission/routes-permission` 加载权限配置表到 Redux Store
 - **检查逻辑**：`checkRoutePermission(method, path)` 根据配置表判断当前用户是否有权访问该路径

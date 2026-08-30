@@ -24,6 +24,12 @@ export default {
       `,
   "ENV_KEY_LOGIC": `
         const HISTORY_LIMIT = 80;
+        const SRC_REGISTRY = new Map();
+        const SRC_LOOKUP = new Map();
+        let _srcIdCounter = 0;
+        function registerSrc(src) { if (SRC_REGISTRY.has(src)) return SRC_REGISTRY.get(src); const id = '__img_' + (_srcIdCounter++); SRC_REGISTRY.set(src, id); SRC_LOOKUP.set(id, src); return id; }
+        function stripElements(elements) { return JSON.stringify(elements.map(el => { if (el.type === 'image' && el.src && typeof el.src === 'string' && el.src.length > 200) { return {...el, src: registerSrc(el.src)}; } return el; })); }
+        function restoreElements(json) { const arr = JSON.parse(json); return arr.map(el => { if (el.type === 'image' && el.src && SRC_LOOKUP.has(el.src)) { return {...el, src: SRC_LOOKUP.get(el.src)}; } return el; }); }
         const initialState = {
           router: {path: 'gallery'},
           boards: [],
@@ -43,7 +49,7 @@ export default {
           mmSelConnId: null,
           mmHistory: {past: [], future: []},
         };
-        function pushHistory(state) {const past = [...state.history.past, JSON.stringify(state.scene.elements)]; if (past.length > HISTORY_LIMIT) past.shift(); return {past, future: []};}
+        function pushHistory(state) {const past = [...state.history.past, stripElements(state.scene.elements)]; if (past.length > HISTORY_LIMIT) past.shift(); return {past, future: []};}
         function reducer(state = initialState, action) {
           if (action?.openType) return state;
           switch (action.type) {
@@ -58,8 +64,8 @@ export default {
             case 'UPDATE_ELEMENT': {const {id, patch} = action.payload; return {...state, scene: {...state.scene, elements: state.scene.elements.map(e => (e.id === id ? {...e, ...patch} : e))}};}
             case 'UPDATE_ELEMENTS': {const map = action.payload; return {...state, scene: {...state.scene, elements: state.scene.elements.map(e => (map[e.id] ? {...e, ...map[e.id]} : e))}};}
             case 'DELETE_ELEMENTS': {const ids = new Set(action.payload); return {...state, scene: {...state.scene, elements: state.scene.elements.filter(e => !ids.has(e.id)), selectedIds: []}};}
-            case 'UNDO': {if (!state.history.past.length) return state; const past = [...state.history.past]; const prev = past.pop(); const future = [JSON.stringify(state.scene.elements), ...state.history.future].slice(0, HISTORY_LIMIT); return {...state, scene: {...state.scene, elements: JSON.parse(prev), selectedIds: []}, history: {past, future}};}
-            case 'REDO': {if (!state.history.future.length) return state; const [next, ...rest] = state.history.future; const past = [...state.history.past, JSON.stringify(state.scene.elements)].slice(-HISTORY_LIMIT); return {...state, scene: {...state.scene, elements: JSON.parse(next), selectedIds: []}, history: {past, future: rest}};}
+            case 'UNDO': {if (!state.history.past.length) return state; const past = [...state.history.past]; const prev = past.pop(); const future = [stripElements(state.scene.elements), ...state.history.future].slice(0, HISTORY_LIMIT); return {...state, scene: {...state.scene, elements: restoreElements(prev), selectedIds: []}, history: {past, future}};}
+            case 'REDO': {if (!state.history.future.length) return state; const [next, ...rest] = state.history.future; const past = [...state.history.past, stripElements(state.scene.elements)].slice(-HISTORY_LIMIT); return {...state, scene: {...state.scene, elements: restoreElements(next), selectedIds: []}, history: {past, future: rest}};}
             case 'LOAD_BOARDS': return {...state, boards: action.payload};
             case 'SET_ACTIVE_BOARD': return {...state, activeBoardId: action.payload};
             case 'LOAD_SCENE': return {...state, scene: {elements: action.payload || [], selectedIds: []}, history: {past: [], future: []}, view: {zoom: 1, offsetX: 0, offsetY: 0}};

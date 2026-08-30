@@ -5,7 +5,7 @@ import path from 'path'
 
 function sukinLocalDriverPlugin(options = {}) {
   const dirStates = new Map()
-  const {userId = '', triggerUrl = '', defaultDir = 'src', defaultDebounce = 500} = options
+  const {userId = '', triggerUrl = '', defaultDir = 'src/sukinOS', defaultDebounce = 500} = options
 
   console.log('[sukin-local-driver] 插件初始化', {userId, triggerUrl, defaultDir, defaultDebounce})
 
@@ -201,21 +201,38 @@ function sukinLocalDriverPlugin(options = {}) {
             return res.end(JSON.stringify({status: 'error', message: `dir not exist: ${dir}`}))
           }
 
-          const allFiles = fs.readdirSync(absPath)
+          // 递归遍历目录，收集所有 .jsx/.js 文件，key 用相对路径（含子文件夹）
+          const collectFiles = (dirPath, prefix = '') => {
+            const result = []
+            const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+            for (const entry of entries) {
+              const fullPath = path.join(dirPath, entry.name)
+              const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
+              if (entry.isDirectory()) {
+                result.push(...collectFiles(fullPath, relPath))
+              } else if (entry.isFile() && /\.(jsx|js)$/.test(entry.name)) {
+                result.push(relPath)
+              }
+            }
+            return result
+          }
+
+          const allFiles = collectFiles(absPath)
           console.log(`[sukin-local-driver] 目录中的文件:`, allFiles)
 
           let jsFileCount = 0
-          for (const f of allFiles) {
-            if (!/\.(jsx|js)$/.test(f)) continue
+          for (const relPath of allFiles) {
             jsFileCount++
-            console.log(`[sukin-local-driver] 读取 JS/JSX 文件: ${f}`)
-            const content = fs.readFileSync(path.join(absPath, f), 'utf-8')
-            if (f.toLowerCase().startsWith('logic')) {
+            console.log(`[sukin-local-driver] 读取 JS/JSX 文件: ${relPath}`)
+            const content = fs.readFileSync(path.join(absPath, relPath), 'utf-8')
+            // logic 文件按文件名（不含路径）判断，兼容子文件夹中的 logic
+            const baseName = relPath.split('/').pop()
+            if (baseName.toLowerCase().startsWith('logic')) {
               logic = content
               console.log(`[sukin-local-driver] 找到 logic 文件，长度: ${content.length}`)
             } else {
-              files[f] = content
-              console.log(`[sukin-local-driver] 添加文件到 files: ${f}, 长度: ${content.length}`)
+              files[relPath] = content
+              console.log(`[sukin-local-driver] 添加文件到 files: ${relPath}, 长度: ${content.length}`)
             }
           }
 
@@ -244,7 +261,7 @@ export default defineConfig({
     sukinLocalDriverPlugin({
       // userId: '1', // 请传入从前端看到的userID
       // triggerUrl: 'https://sukin.top/api/sukinos/localdev/trigger', // 触发接口URL
-      // defaultDir: 'src/sukinOS', // 默认监听的目录
+      // defaultDir: 'src/sukinOS', // 默认监听的目录（支持递归读取子文件夹）
       // defaultDebounce: 500, // 默认防抖时间(ms)
     }),
   ],

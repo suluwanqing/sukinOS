@@ -1,6 +1,19 @@
 import IndexDb from './indexDb'
-import {createSysDbConfig, createResDbConfig, createInstanceDbConfig, ENV_KEY_NAME} from '@/sukinos/utils/config'
+import {
+  createSysDbConfig,
+  createResDbConfig,
+  createInstanceDbConfig,
+  ENV_KEY_NAME,
+  ENV_KEY_RESOURCE_ID,
+  ENV_KEY_META_INFO,
+  ADMIN_APP_IDS,
+  DEFAULT_USER_ID,
+} from '@/sukinos/utils/config'
 import CommHub from './commHub'
+import {BabelLoader} from './babelLoader'
+import {personalizationStore} from '@/sukinos/hooks/usePersonalization'
+// 引入公共游客状态管理服务
+import {GUEST_INFO, checkIsGuest, setGuestFlag, clearGuestFlag} from '/utils/js/guest'
 
 // 子模块
 import {Cache} from './kernelParts/cache'
@@ -13,7 +26,7 @@ import {Messaging} from './kernelParts/messaging'
 import {Registry} from './kernelParts/registry'
 import {ResourceAccess} from './kernelParts/resourceAccess'
 import {Settings} from './kernelParts/settings'
-import permissionManageAPI from "@/apis/system/permissionManage"
+import permissionManageAPI from '@/apis/system/permissionManage'
 
 class Kernel {
   // --- 队列管理属性 ---
@@ -78,12 +91,18 @@ class Kernel {
         if (p && p.worker) {
           p.worker.postMessage(msg)
         }
-      }
+      },
     })
 
     // --- 预设与会话 ---
     this.presetResourceIds = new Set() // 预设资源的ID集合，用于特殊处理 (如禁止写入,和修改,实际应该更多处理,如版本控制等,字符标胶)
     this.currentUser = null // 当前登录的用户信息
+
+    // --- 自动保存定时器 ---
+    this.autoSaveTimers = new Map() // pid -> { stateTimerId, windowTimerId }
+    this.lastSavedState = new Map() // pid -> last persisted state (脏检查)
+    this.lastSavedWindow = new Map() // pid -> last persisted window rect (脏检查)
+    this._unsubPersonalization = null // 个人化配置变更订阅句柄
   }
   // 检查一个PID是否属于系统应用
   isSystemApp(pid) {
@@ -95,7 +114,7 @@ class Kernel {
    * 每个用户拥有独立的 SukinOS_Sys_{userId}、SukinOS_Res_{userId}、SUKIN_STATE_INSTANCE_{userId}
    */
   async initDatabases(userId) {
-    const uid = userId || 'default'
+    const uid = userId || DEFAULT_USER_ID
 
     // 关闭旧DB连接（用户切换时）
     await this.sysDb?.closeDB()
@@ -109,6 +128,74 @@ class Kernel {
     await this.resDb.openDB()
     await this.instanceDb.openDB()
   }
+
+  /**
+   * 重置内核内存状态（终止进程、清空注册表、关闭数据库连接）
+   * 用于用户登出或切换时清理上一个用户的数据
+   */
+  async reset() {
+    // 停止所有自动保存定时器
+    this.stopAllAutoSave()
+
+    // 强制保存所有正在运行的应用状态
+    this.lifecycle.forceSaveAllStates()
+
+    // 终止所有运行中的 Worker 进程
+    for (const [pid] of this.processes) {
+      this.internals.kill(pid)
+    }
+    this.processes.clear()
+
+    // 清空内存注册表
+    this.systemApps.clear()
+    this.userApps.clear()
+    this.resourceIdToPid.clear()
+    this.pidToResourceId.clear()
+    this.resourceCache = {}
+    this.presetResourceIds.clear()
+
+    // 清空通信枢纽缓存
+    this.commHub.clearAll()
+
+    // 取消个人化配置订阅
+    this._unsubPersonalization?.()
+    this._unsubPersonalization = null
+
+    // 关闭数据库连接
+    await this.sysDb?.closeDB()
+    await this.resDb?.closeDB()
+    await this.instanceDb?.closeDB()
+    this.sysDb = null
+    this.resDb = null
+    this.instanceDb = null
+    this.dirHandle = null
+    this.currentUser = null
+  }
+
+  /**
+   * 用户切换时重新初始化内核
+   * 执行完整的重置 → 数据库初始化 → 资源加载 → 注册表重建 → 会话恢复流程
+   */
+  async reinit(userId) {
+    await this.reset()
+    await this.initDatabases(userId)
+    // 重新获取文件系统句柄（reset 中已置 null）
+    this.dirHandle = await navigator.storage.getDirectory()
+    // 确保 Babel 编译器已加载（Worker 代码生成依赖）
+    await BabelLoader.load()
+    // 重新加载核心资源和注册表
+    await this.core.ensurePresets()
+    await this.core.loadAllResources()
+    await this.loadUserAppsFromDb()
+    this.initializeSystemApps()
+    await this.syncSystemAccess()
+    await this.core.syncRegistryByRes()
+    await this.core.syncRegistry()
+    await this.restoreSession()
+    this.currentUser = {id: userId}
+    this.messaging.emitChange({type: 'APP_REGISTRY'})
+  }
+
   //存入仓库操作帧
   setDispatch(dispatch) {
     this.flags.setDispatch(dispatch)
@@ -117,6 +204,119 @@ class Kernel {
   async init(info) {
     return this.core.init(info)
   }
+  /*================================================Auto-Save 定时保存================================*/
+  // 订阅个人化面板全局配置变更，立即重启所有运行中 app 的定时器
+  subscribePersonalization() {
+    if (this._unsubPersonalization) return
+    this._unsubPersonalization = personalizationStore.subscribe(() => {
+      for (const pid of this.processes.keys()) {
+        this.startAutoSaveState(pid)
+        this.startAutoSaveWindow(pid)
+      }
+    })
+  }
+
+  // 获取有效间隔：App 级 custom > 全局个人化默认
+  getAutoSaveInterval(pid, type) {
+    const app = this.registry.getApp(pid)
+    if (!app) return 0
+    const appVal = app[ENV_KEY_META_INFO]?.custom?.[type]
+    if (appVal !== undefined && appVal > 0) return appVal
+    const globalConfig = personalizationStore.get()
+    return globalConfig?.[type] || 0
+  }
+
+  // 启动状态自动保存（setTimeout 链式，防漂移）
+  startAutoSaveState(pid) {
+    this.stopAutoSaveState(pid)
+    const interval = this.getAutoSaveInterval(pid, 'autoSaveStateInterval')
+    if (interval <= 0) return
+    const metaInfo = this.registry.getApp(pid)?.[ENV_KEY_META_INFO]
+    if (!(metaInfo?.saveState ?? metaInfo?.saveState)) return
+    this.#scheduleNextStateSave(pid, interval)
+  }
+
+  #scheduleNextStateSave(pid, intervalSec) {
+    const timerId = setTimeout(() => {
+      this.autoSaveState(pid)
+      const next = this.getAutoSaveInterval(pid, 'autoSaveStateInterval')
+      if (next > 0) this.#scheduleNextStateSave(pid, next)
+    }, intervalSec * 1000)
+    const timers = this.autoSaveTimers.get(pid) || {}
+    timers.stateTimerId = timerId
+    this.autoSaveTimers.set(pid, timers)
+  }
+
+  // 启动窗口位置自动保存
+  startAutoSaveWindow(pid) {
+    this.stopAutoSaveWindow(pid)
+    const interval = this.getAutoSaveInterval(pid, 'autoSaveWindowInterval')
+    if (interval <= 0) return
+    this.#scheduleNextWindowSave(pid, interval)
+  }
+
+  #scheduleNextWindowSave(pid, intervalSec) {
+    const timerId = setTimeout(() => {
+      this.autoSaveWindow(pid)
+      const next = this.getAutoSaveInterval(pid, 'autoSaveWindowInterval')
+      if (next > 0) this.#scheduleNextWindowSave(pid, next)
+    }, intervalSec * 1000)
+    const timers = this.autoSaveTimers.get(pid) || {}
+    timers.windowTimerId = timerId
+    this.autoSaveTimers.set(pid, timers)
+  }
+
+  // 执行状态保存（带脏检查）
+  autoSaveState(pid) {
+    const app = this.registry.getApp(pid)
+    if (!app || app.isSystemApp) return
+    const cached = this.commHub.getCachedState(pid)
+    if (!cached) return
+    const last = this.lastSavedState.get(pid)
+    if (last && JSON.stringify(last) === JSON.stringify(cached)) return
+    this.lastSavedState.set(pid, cached)
+    if (!app.savedState) app.savedState = {app: null, window: null}
+    app.savedState.app = cached
+    this.sysDb.updateData(app[ENV_KEY_NAME], {savedState: app.savedState}).catch(() => {})
+  }
+
+  // 执行窗口位置保存（带脏检查）
+  autoSaveWindow(pid) {
+    const app = this.registry.getApp(pid)
+    if (!app || app.isSystemApp) return
+    const rect = app.savedState?.window
+    if (!rect) return
+    const last = this.lastSavedWindow.get(pid)
+    if (last && last.x === rect.x && last.y === rect.y && last.w === rect.w && last.h === rect.h)
+      return
+    this.lastSavedWindow.set(pid, {...rect})
+    this.sysDb.updateData(app[ENV_KEY_NAME], {savedState: app.savedState}).catch(() => {})
+  }
+
+  stopAutoSaveState(pid) {
+    const timers = this.autoSaveTimers.get(pid)
+    if (timers?.stateTimerId) {
+      clearTimeout(timers.stateTimerId)
+      timers.stateTimerId = null
+    }
+  }
+  stopAutoSaveWindow(pid) {
+    const timers = this.autoSaveTimers.get(pid)
+    if (timers?.windowTimerId) {
+      clearTimeout(timers.windowTimerId)
+      timers.windowTimerId = null
+    }
+  }
+  stopAllAutoSave() {
+    for (const [pid, timers] of this.autoSaveTimers) {
+      if (timers.stateTimerId) clearTimeout(timers.stateTimerId)
+      if (timers.windowTimerId) clearTimeout(timers.windowTimerId)
+    }
+    this.autoSaveTimers.clear()
+    this.lastSavedState.clear()
+    this.lastSavedWindow.clear()
+  }
+
   /*================================================提供给外部依赖调用的公开代理================================*/
   // 因为带有 # 的私有属性无法在 generateApp.js 中直接调用，所以这里抛出同名的代理函数
   enqueueInstallTask(task) {
@@ -359,6 +559,17 @@ class Kernel {
   }
 
   /**
+   * 仅更新窗口位置到内存（不写磁盘）
+   * 由拖拽/缩放结束后的 mouseup 触发，供 autoSaveWindow 定时器读取脏检查后写入 sysDb
+   */
+  updateWindowRect(pid, rect) {
+    const app = this.registry.getApp(pid)
+    if (!app || app.isSystemApp) return
+    if (!app.savedState) app.savedState = {app: null, window: null}
+    app.savedState = {...app.savedState, window: rect}
+  }
+
+  /**
    * 强制所有正在运行的应用保存其内部状态。
    * 这个接口主要用于页面关闭前（例如在 beforeunload 事件中调用），
    * 以确保所有应用的最新状态都被持久化，从而实现完美的会话恢复。
@@ -471,33 +682,37 @@ class Kernel {
    * 从后端同步当前用户有权访问的系统 APP 列表，过滤掉无权限的应用
    */
   async syncSystemAccess() {
+    if (checkIsGuest) {
+      return
+    }
     try {
-      const res = await permissionManageAPI.getAvailableSystemApps();
+      const res = await permissionManageAPI.getAvailableSystemApps()
       if (res.code !== 200 || !res.data) {
         // API 返回错误或空数据 → 清空所有系统 APP，不展示不可控的应用
-        this.systemApps.clear();
-        this.pidToResourceId.clear();
-        this.resourceIdToPid.clear();
-        return;
+        this.systemApps.clear()
+        this.pidToResourceId.clear()
+        this.resourceIdToPid.clear()
+        return
       }
 
-      const allowedMap = {};
-      (res.data || []).forEach(item => { allowedMap[item.app_id || item.appId] = item.allowed; });
+      const allowedMap = {}
+      ;(res.data || []).forEach(item => {
+        allowedMap[item.app_id || item.appId] = item.allowed
+      })
       for (const [pid, app] of this.systemApps) {
-        const resourceId = app.resourceId;
+        const resourceId = app[ENV_KEY_RESOURCE_ID]
         // 白名单：仅在 allowedMap 中明确标记为 true 才保留，其他全部移除
         if (!resourceId || allowedMap[resourceId] !== true) {
-          this.systemApps.delete(pid);
-          this.pidToResourceId.delete(pid);
-          if (resourceId) this.resourceIdToPid.delete(resourceId);
+          this.systemApps.delete(pid)
+          this.pidToResourceId.delete(pid)
+          if (resourceId) this.resourceIdToPid.delete(resourceId)
         }
       }
-
     } catch (e) {
-      console.warn("[内核] 系统APP权限同步失败，清空系统APP列表:", e);
-      this.systemApps.clear();
-      this.pidToResourceId.clear();
-      this.resourceIdToPid.clear();
+      console.warn('[内核] 系统APP权限同步失败，清空系统APP列表:', e)
+      this.systemApps.clear()
+      this.pidToResourceId.clear()
+      this.resourceIdToPid.clear()
     }
   }
 

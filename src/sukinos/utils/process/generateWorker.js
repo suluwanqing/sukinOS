@@ -4,6 +4,7 @@ import {
   ENV_KEY_IS_BUNDLE,
   ENV_KEY_LOGIC,
   ENV_KEY_CONTENT,
+  ENV_KEY_CONTENT_PRECOMPILED,
   ENV_KEY_META_INFO,
 } from '@/sukinos/utils/config'
 import {
@@ -49,6 +50,7 @@ export const generateWorker = args => {
   const isBundle = args?.[ENV_KEY_IS_BUNDLE]
   const userLogicCode = args?.[ENV_KEY_LOGIC]
   const content = args?.[ENV_KEY_CONTENT]
+  const precompiledContent = args?.[ENV_KEY_CONTENT_PRECOMPILED]
   const metaInfo = args?.[ENV_KEY_META_INFO]
 
   const safeLogic = userLogicCode || `const initialState = {}; function reducer(s) { return s; }`
@@ -62,6 +64,7 @@ export const generateWorker = args => {
   const mSys = getMarkers('SYS_CONFIG')
   const mMeta = getMarkers('APP_METAINFO')
   const mComp = getMarkers('ORIGIN_COMPONENT')
+  const mPrecompiled = getMarkers('PRECOMPILED_COMPONENT')
   const mLogic = getMarkers('USER_LOGIC')
 
   const sysConfigObj = {
@@ -95,10 +98,14 @@ ${getRunnerMessageRouter(ENV_KEY_IS_BUNDLE)}
   // 注入原始组件资源块
   const ORIGIN_COMPONENT = ${mComp.start}${JSON.stringify(content)}${mComp.end};
 
+  // 注入预编译组件资源块（双份存储：原始 JSX + 预编译 JS）
+  const PRECOMPILED_COMPONENT = ${mPrecompiled.start}${JSON.stringify(precompiledContent ?? null)}${mPrecompiled.end};
+
   Object.freeze(SYS_CONFIG);
   Object.freeze(broadcast);
   Object.freeze(save);
   Object.freeze(ORIGIN_COMPONENT);
+  Object.freeze(PRECOMPILED_COMPONENT);
   Object.freeze(dispatch);
 
   /* 用户逻辑逻辑块 */
@@ -120,6 +127,7 @@ export const parseWorkerCode = workerCode => {
     [ENV_KEY_LOGIC]: null,
     initialState: null,
     [ENV_KEY_CONTENT]: null,
+    [ENV_KEY_CONTENT_PRECOMPILED]: null,
     hasReducer: false,
     hasInitFunction: false,
     originalCode: workerCode,
@@ -148,6 +156,15 @@ export const parseWorkerCode = workerCode => {
     const componentRaw = extractByMarkers(workerCode, 'ORIGIN_COMPONENT')
     if (componentRaw) {
       result[ENV_KEY_CONTENT] = JSON.parse(componentRaw)
+    }
+
+    /* 解析 PRECOMPILED_COMPONENT（预编译 JS 产物，可能为 null） */
+    const precompiledRaw = extractByMarkers(workerCode, 'PRECOMPILED_COMPONENT')
+    if (precompiledRaw) {
+      const parsed = JSON.parse(precompiledRaw)
+      if (parsed != null) {
+        result[ENV_KEY_CONTENT_PRECOMPILED] = parsed
+      }
     }
 
     /* 提取用户逻辑代码 */

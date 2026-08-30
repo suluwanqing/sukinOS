@@ -1,5 +1,6 @@
 import React, { useState, useEffect, memo, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
-import { compileSourceAsync, scopeCss } from '@/sukinos/utils/process/renderWindow';
+import { compileSourceAsync, scopeCss, createCssModule } from '@/sukinos/utils/process/renderWindow';
+import { resolveModuleKey } from '@/sukinos/utils/process/sourceMapper';
 import { createSdkForInstance } from '@/sukinos/resources/sdk';
 
 import { generateWorker } from './generateWorker';
@@ -218,7 +219,35 @@ const ErrorDetailPanel = ({ errorDetail, componentStack, title, moduleKey }) => 
 };
 
 /**
- * 运行期错误边界容器
+ * 组件判定：函数组件或含 render 方法的类组件。
+ * 与 React 组件识别规则一致，用于入口模块（main/layout）的严格校验。
+ * @param {*} v - 待判定值
+ * @returns {boolean}
+ */
+const isComponent = (v) =>
+  typeof v === 'function' ||
+  (typeof v === 'object' && v !== null && typeof v.render === 'function');
+
+/**
+ * 入口模块组件解析：严格校验 default 导出为 React 组件。
+ * - exports.default 存在且是组件 → 返回 { component, error: null }
+ * - exports.default 存在但不是组件 → 返回 { component: null, error }
+ * - exports.default 不存在 → 从具名导出中找第一个组件；找不到 → 返回 { component: null, error }
+ * @param {object} exports - 模块执行后的导出对象
+ * @returns {{ component: any, error: string|null }}
+ */
+const resolveComponent = (exports) => {
+  if (exports.default !== undefined) {
+    if (isComponent(exports.default)) return { component: exports.default, error: null };
+    return { component: null, error: '入口模块的 default 导出必须是 React 组件' };
+  }
+  const candidate = Object.values(exports).find(isComponent);
+  if (candidate) return { component: candidate, error: null };
+  return { component: null, error: '入口模块未导出 React 组件' };
+};
+
+/**
+ * 运行期错误边界守卫
  * componentDidCatch 保存 React 组件树调用栈（componentStack）。
  * 错误展示改用结构化 ErrorDetailPanel，含阶段、位置、可展开调用栈。
  */
@@ -410,11 +439,20 @@ const RenderProcess = ({
         const resultMap = {};
         // 收集本轮编译中所有模块的结构化错误，编译结束后统一通知外层
         const errorList = [];
+        // 模块注册表：{ key: { factory, exports } }，供 require 解析相对路径导入
+        const moduleRegistry = {};
+        const moduleKeys = [];
 
+        // 第一阶段：编译所有模块，构建 moduleRegistry（不执行）
         for (const [filename, code] of Object.entries(localFiles)) {
-          const moduleKey = filename.replace(/\.(jsx|js)$/, '');
+          // CSS 模块保留 .css 后缀作为唯一 key，避免与同名 JS 模块冲突
+          const isCss = /\.css$/.test(filename);
+          const moduleKey = isCss ? filename : filename.replace(/\.(jsx|js)$/, '');
 
-          const res = await compileSourceAsync({ sourceCode: code, pid: finalPid, module: moduleKey });
+          // CSS 不走 Babel，走专用 CSS 模块生成器；.jsx/.js 走 Babel 编译
+          const res = isCss
+            ? createCssModule(code, moduleKey)
+            : await compileSourceAsync({ sourceCode: code, pid: finalPid, module: moduleKey });
 
           if (res.error) {
             // 优先使用 renderWindow 返回的结构化 errorDetail，兜底降级为字符串
@@ -426,28 +464,53 @@ const RenderProcess = ({
             };
             errorList.push({ key: moduleKey, errorDetail: detail });
 
-            // 向外层透传人类可读的错误摘要（保持原有字符串接口不变）
+            // 向外层透传结构化可读的错误摘要（保持原有字符串接口不变）
             handleCompileError(`[${moduleKey}] ${detail.message}${detail.loc ? `（${detail.loc}）` : ''}`);
-
-            // 将结构化错误回退为可渲染的错误面板，避免窗口空白
-            resultMap[moduleKey] = {
-              Component: () => (
-                <ErrorDetailPanel
-                  errorDetail={detail}
-                  title={`编译失败 [${moduleKey}]`}
-                  moduleKey={moduleKey}
-                />
-              ),
-              style: ''
-            };
             continue;
           }
 
+          moduleRegistry[moduleKey] = { factory: res.factory, exports: null };
+          moduleKeys.push(moduleKey);
+        }
+
+        // 第二阶段：执行所有模块，构建 resultMap
+        for (const moduleKey of moduleKeys) {
+          const mod = moduleRegistry[moduleKey];
           const exports = {};
           try {
-            // 使用幽灵沙箱环境执行工厂函数，注入 SDK
-            res.factory.call(sandboxWin, { exports }, exports, instanceSDK);
-            resultMap[moduleKey] = { Component: exports.default || exports, style: exports.style || '' };
+            // 使用幽灵沙箱环境执行工厂函数，注入 SDK 与完整模块上下文
+            mod.factory.call(sandboxWin, { exports }, exports, instanceSDK, moduleRegistry, moduleKey, moduleKeys);
+            mod.exports = exports;
+
+            // 入口模块（main/layout）严格校验导出为 React 组件，避免非组件被静默渲染导致 React 报错
+            const isEntry = moduleKey === 'main' || moduleKey === 'layout';
+            if (isEntry) {
+              const { component, error } = resolveComponent(exports);
+              if (error) {
+                const detail = {
+                  phase: 'validate',
+                  message: error,
+                  stack: error,
+                  loc: ''
+                };
+                errorList.push({ key: moduleKey, errorDetail: detail });
+                handleCompileError(`[${moduleKey}] ${error}`);
+                resultMap[moduleKey] = {
+                  Component: () => (
+                    <ErrorDetailPanel
+                      errorDetail={detail}
+                      title={`入口模块导出校验失败 [${moduleKey}]`}
+                      moduleKey={moduleKey}
+                    />
+                  ),
+                  style: exports.style || ''
+                };
+              } else {
+                resultMap[moduleKey] = { Component: component, style: exports.style || '' };
+              }
+            } else {
+              resultMap[moduleKey] = { Component: exports.default || exports, style: exports.style || '' };
+            }
           } catch (evalError) {
             // factory 执行阶段（初始化运行时）异常
             const detail = {
@@ -523,8 +586,9 @@ const RenderProcess = ({
       // 寻找布局组件
       const Layout = modules['layout'].Component;
 
-      // 寻找当前路由对应的页面
-      const Page = modules[currentPath]?.Component || (() => (
+      // 寻找当前路由对应的页面（嵌套路由解析，与 deskBook 对齐）
+      const pageKey = resolveModuleKey(currentPath, Object.keys(modules));
+      const Page = modules[pageKey]?.Component || (() => (
         <div style={{ padding: '20px', color: '#999', textAlign: 'center', fontSize: '14px' }}>
           404 — {currentPath}
         </div>

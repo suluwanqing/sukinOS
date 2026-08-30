@@ -169,4 +169,20 @@ export default class CommHub {
       this.processSubscriptions.delete(pid)
     }
   }
+
+  /**
+   * 清空所有缓存和订阅（用于 kernel reset 时彻底清理）
+   */
+  clearAll() {
+    // 清理所有进程的 topic 订阅
+    for (const pSubs of this.processSubscriptions.values()) {
+      for (const unsubscribe of pSubs.values()) {
+        if (typeof unsubscribe === 'function') unsubscribe()
+      }
+    }
+    this.processSubscriptions.clear()
+    this.subscribers.clear()
+    this.stateCache.clear()
+    this.topicSubscribers.clear()
+  }
 }

@@ -7,7 +7,7 @@ import Shortcut from "./shortcut/layout"
 import ProcessWindow from "./window/layout"
 import AdaptiveWindowPlaceholder from "./AdaptivePlaceholder"
 import useKernel from "@/sukinos/hooks/useKernel"
-import { WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_META_INFO, ENV_KEY_NAME, ENV_KEY_RESOURCE_ID } from "@/sukinos/utils/config"
+import { WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_META_INFO, ENV_KEY_NAME, ENV_KEY_RESOURCE_ID, DEFAULT_USER_ID } from "@/sukinos/utils/config"
 import Boot from "./boot/layout"
 import ContextMenu from "@/component/contextMenu/layout.jsx"
 import { selectorSetting, selectGenerateApp } from "../store"
@@ -17,6 +17,7 @@ import { confirm } from '@/component/confirm/layout'
 import { alert } from "@/component/alert/layout"
 import CustomApp from "./customApp/layout"
 import VfsImage from '@/sukinos/middleware/VfsImage/main.jsx'
+import useDeskLayout from "@/sukinos/hooks/useDeskLayout"
 
 // 创建 BEM 命名空间
 const bem = createNamespace('deskbook')
@@ -35,6 +36,12 @@ function DeskBook() {
     runningApps, hibernatedApps, blockEdApps,
     reStartApp, forceReStartApp
   } = useKernel();
+
+  // --- 桌面布局持久化（按用户隔离，VFS 文件存储） ---
+  const { getLayout, setLayout } = useDeskLayout();
+  const currentUserId = kernel.currentUser?.id || DEFAULT_USER_ID;
+  const currentUserIdRef = useRef(currentUserId);
+  useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
 
   // --- Redux 状态选择器 ---
   const setting = useSelector(selectorSetting)
@@ -426,34 +433,38 @@ function DeskBook() {
   // 当 App 列表或网格大小变化时，同步应用位置
   useEffect(() => {
     if (!isReady || gridSize.cols === 0) return;
-    // 加载持久化位置
-    const savedLayout = JSON.parse(localStorage.getItem('deskbook-layout-positions') || '{}');
-    setAppPositions(prev => {
-        const basePositions = Object.keys(prev).length > 0 ? prev : savedLayout;
-        const currentAppPids = new Set(apps.map(a => a.pid));
-        const validPositions = {};
+    // 加载持久化位置（按用户隔离，从 VFS 文件读取）
+    let cancelled = false;
+    getLayout(currentUserId).then(savedLayout => {
+      if (cancelled) return;
+      setAppPositions(prev => {
+          const basePositions = Object.keys(prev).length > 0 ? prev : savedLayout;
+          const currentAppPids = new Set(apps.map(a => a.pid));
+          const validPositions = {};
 
-        Object.keys(basePositions).forEach(pid => {
-            if(!currentAppPids.has(pid)) return; // 移除已卸载的应用位置
-            const pos = basePositions[pid];
-            if (pos) {
-                const [r, c] = pos.split('-').map(Number);
-                // 响应式检查：如果窗口缩放导致原位置越界，则标记为待重新分配
-                if (r < gridSize.rows && c < gridSize.cols) {
-                    validPositions[pid] = pos;
-                }
-            }
-        });
-        return autoArrangeApps(apps, validPositions, gridSize.rows, gridSize.cols);
+          Object.keys(basePositions).forEach(pid => {
+              if(!currentAppPids.has(pid)) return; // 移除已卸载的应用位置
+              const pos = basePositions[pid];
+              if (pos) {
+                  const [r, c] = pos.split('-').map(Number);
+                  // 响应式检查：如果窗口缩放导致原位置越界，则标记为待重新分配
+                  if (r < gridSize.rows && c < gridSize.cols) {
+                      validPositions[pid] = pos;
+                  }
+              }
+          });
+          return autoArrangeApps(apps, validPositions, gridSize.rows, gridSize.cols);
+      });
     });
-  }, [apps, isReady, gridSize.cols, gridSize.rows, autoArrangeApps]);
+    return () => { cancelled = true; };
+  }, [apps, isReady, gridSize.cols, gridSize.rows, autoArrangeApps, currentUserId, getLayout]);
 
   // 当网格布局更改时，主动写入持久化，形成保存的双保险（系统未就绪或布局为空时禁止保存，防覆盖）
   useEffect(() => {
     if (isReady && Object.keys(appPositions).length > 0) {
-      localStorage.setItem('deskbook-layout-positions', JSON.stringify(appPositions));
+      setLayout(currentUserId, appPositions);
     }
-  }, [appPositions, isReady]);
+  }, [appPositions, isReady, currentUserId, setLayout]);
 
   // --- 拖拽事件处理 ---
   const handleDragStart = (e, pid) => {
@@ -523,12 +534,15 @@ function DeskBook() {
   ]
 
 
-  // 保存布局位置到本地存储（系统未就绪或新布局为空时，拒绝清空本地数据）
+  // 保存布局位置到 VFS 文件（系统未就绪或新布局为空时，拒绝清空本地数据）
   const handleUnload = useCallback(() => {
-    if (isReadyRef.current && Object.keys(appPositionsRef.current).length > 0) {
-      localStorage.setItem('deskbook-layout-positions', JSON.stringify(appPositionsRef.current));
+    if (isReadyRef.current) {
+      kernel.forceSaveAllStates()
     }
-  }, []);
+    if (isReadyRef.current && Object.keys(appPositionsRef.current).length > 0) {
+      setLayout(currentUserIdRef.current, appPositionsRef.current);
+    }
+  }, [setLayout]);
 
   const handleBeforeUnload = (e) => {
     e.preventDefault();

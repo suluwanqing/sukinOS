@@ -67,18 +67,28 @@ mySystemApp/
 
 #### 非系统 APP 结构
 
-非系统 APP 是**纯 `.js` 文件目录**，**没有 `registry.js`**，由开发者工具自动扫描加载：
+非系统 APP 是**纯文件目录**，**没有 `registry.js`**，由开发者工具自动扫描加载。支持**多文件夹组织**与**相对路径导入**：
 
 ```
 myAppName/                # 目录名即为应用名
-├── logic.js              # Reducer（无 export，内核自动识别）
-├── layout.js             # 主布局（export default + export const style）
-├── home.js               # 页面（export default + export const style）
-├── detail.js             # 页面
-└── stats.js              # 页面
+├── logic.jsx             # Reducer（无 export，内核自动识别）
+├── layout.jsx            # 主布局（export default + export const style）
+├── components/           # 共享组件（具名导出）
+│   ├── Sidebar.jsx
+│   └── ui/
+│       ├── Button.jsx
+│       └── Button.module.css   # CSS Modules
+├── pages/                # 路由页面（export default）
+│   ├── home/index.jsx
+│   ├── about/index.jsx
+│   └── contact/index.jsx
+├── styles/
+│   └── global.css        # 全局样式（副作用导入）
+└── utils/
+    └── format.js         # .js 工具模块（具名 + 默认导出）
 ```
 
-> 非系统 APP 使用 `.js` 扩展名（而非 `.jsx`），内核通过约定文件名自动关联：`logic.js` = Reducer、`layout.js` = 主布局、其余 `.js` 文件 = 页面组件。
+> 非系统 APP 的 `.js` 与 `.jsx` **不区分扩展名**，都允许 JSX。内核通过约定文件名自动关联：`logic.jsx` = Reducer、`layout.jsx` = 主布局、`pages/` 下文件 = 路由页面。支持 `./`、`../` 相对路径导入应用内模块与 CSS 文件。
 
 ### 2.2 Registry 核心字段
 
@@ -130,6 +140,10 @@ registry 使用**字符串键名**（如 `"ENV_KEY_RESOURCE_ID"`），由 `prese
 | `saveState` | `boolean` | `false` | `true` 为热启动（保留上次状态），`false` 为冷启动 |
 | `exposeState` | `boolean` | `true` | 是否向 React 暴露状态 |
 | `worker` | `boolean` | `true` | 是否使用 Worker（`false` 使用 NoWorker 模式） |
+| `backgroundSleep` | `boolean` | `false` | 后台静默（暂停订阅） |
+| `adaptiveMount` | `boolean` | `false` | 后台自适应挂载（不保存 APP 内部状态） |
+| `autoSaveStateInterval` | `number` | `0` | 自动保存状态间隔（秒），`0` 表示禁用 |
+| `autoSaveWindowInterval` | `number` | `0` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
 
 ### 2.4 文件命名与导出规范
 
@@ -138,7 +152,7 @@ registry 使用**字符串键名**（如 `"ENV_KEY_RESOURCE_ID"`），由 `prese
 - `layout.jsx` 是应用的主入口文件，**必需存在**
 - `db.js` 用于数据库交互层，必需在 `@/sukinos/utils/_db` 注册
 - `registry.jsx` 作为注册文件，同时处理 dispatch 事件
-- 非系统 APP **禁止使用 `import` / `require`**（任何文件内）
+- 非系统 APP 支持**相对路径导入**（`./`、`../`），可导入应用内模块与 CSS 文件；**禁止导入外部包 / 绝对路径**
 - 子组件放在 `components/` 目录下
 
 ### 2.5 BEM 样式命名
@@ -381,7 +395,7 @@ const adminAppSdk = {
 | 系统组件 | 全部 10 个系统组件 | 不可用 |
 | 文件系统 | `useSystemFileSystem`（无 PID 限制） | `useFileSystem`（需 PID） |
 | localStorage | 直接 `window.localStorage` | 通过 `createStorageProxy` |
-| `import` | 允许 | 禁止 |
+| `import` | 允许导入系统模块 | 仅允许相对路径导入应用内模块与 CSS |
 | 数据库 | 直接操作 `_db.js` | 通过 PID 代理 |
 
 ### 3.6 系统 APP 权限控制
@@ -584,7 +598,7 @@ export const STORES = {
 - 使用 `devAppSdk` — 受限的 SDK 权限
 - 运行在安全沙箱中，有 PID 隔离
 - 通过**商店上传**（`.zip` 包）或者**开发者工具**（本地开发）部署
-- **禁止使用 `import` / `require`**
+- 支持**相对路径导入**（`./`、`../`）应用内模块与 CSS 文件
 
 ### 4.2 devAppSdk 能力清单
 
@@ -689,13 +703,25 @@ export default ({ state, dispatch, fetch }) => (
 | 扩展名 | 使用场景 | 说明 |
 |--------|---------|------|
 | `.jsx` | **系统 APP 推荐**。组件文件 | 系统 APP 使用 `.jsx` 以区分组件类型 |
-| `.js` | 纯逻辑文件 | `logic.js`（非系统 APP）/ `logic.jsx`（系统 APP） |
+| `.js` | 纯逻辑 / 工具模块 | `logic.js`（非系统 APP）/ `logic.jsx`（系统 APP）/ `utils/format.js`（工具模块） |
+
+#### 模块 vs 组件划分
+
+非系统 APP 中，`.js` 与 `.jsx` **不区分扩展名**，两者都允许 JSX。内核通过**导出方式**自动识别模块类型：
+
+| 导出方式 | 识别为 | 说明 |
+|---------|--------|------|
+| `export default` | **组件** | 页面 / 布局 / 可复用组件 |
+| 具名导出（`export const xxx`） | **模块** | 工具函数、共享组件、常量 |
+| 无 `export` | **纯逻辑** | `logic.jsx`（Reducer） |
+
+**入口模块严格校验**：`layout.jsx`（主布局）的 `export default` 必须是 React 组件（函数组件或含 `render` 方法的类组件），否则渲染失败并提示错误。
 
 ### 4.4 绝对禁止项
 
 非系统 APP 必须遵守以下规则：
 
-1. **禁止使用 `import` / `require`** — 任何文件中都不允许
+1. **禁止导入外部包 / 绝对路径** — 仅允许相对路径（`./`、`../`）导入应用内模块与 CSS 文件
 2. **禁止在文件顶层解构 Hook**：
    ```javascript
    // ❌ 错误
@@ -718,6 +744,8 @@ export default ({ state, dispatch, fetch }) => (
 
 ### 4.5 Props 注入系统
 
+> **关于"进程"的说明**：SukinOS 运行在浏览器 JS 环境中，这里的"进程"是**逻辑抽象概念**（模拟操作系统），并非操作系统级进程。每个 APP 的"进程"实际是一个**沙箱实例**，运行在 JS 线程中。根据运行模式不同，底层载体可能是独立 Web Worker 线程（RealWorker）、共享 iframe 沙箱（VirtualWorker）或主线程（NoWorker）。文档中的 `pid`（进程 ID）、`#proc-{pid}`（CSS 作用域前缀）均指这个逻辑进程实例。
+
 非系统 APP 的组件通过 Props 接收运行时环境。`layout.jsx` 和普通页面的 Props 有所区别：
 
 **`layout.jsx` 接收的 Props：**
@@ -739,21 +767,30 @@ export default ({ state, dispatch, fetch }) => (
 
 ### 4.6 用户 APP 最小示例
 
-非系统 APP 以**纯文件目录**形式存在，由开发者工具（sys-developer）或本地开发工具（sys-local-dev）自动扫描加载。**没有 `registry.js` 文件**，内核通过文件名自动识别：
+非系统 APP 以**纯文件目录**形式存在，由开发者工具（sys-developer）或本地开发工具（sys-local-dev）自动扫描加载。**没有 `registry.js` 文件**，内核通过文件名自动识别。支持**多文件夹组织**与**相对路径导入**：
 
 ```
 todolist/                  # 目录名即为应用名
-├── logic.js              # Reducer（纯逻辑，不带 export，内核自动识别）
-├── layout.js             # 主布局（export default + export const style）
-├── home.js               # 页面 — 路由: home（export default + export const style）
-├── about.js              # 页面 — 路由: about
-└── stats.js              # 页面 — 路由: stats
+├── logic.jsx              # Reducer（纯逻辑，不带 export，内核自动识别）
+├── layout.jsx             # 主布局（export default + export const style）
+├── components/            # 共享组件（具名导出）
+│   ├── Counter.jsx
+│   └── ui/
+│       ├── Button.jsx
+│       └── Button.module.css   # CSS Modules
+├── pages/                 # 路由页面（export default）
+│   ├── home/index.jsx     # 路由: home
+│   └── stats/index.jsx    # 路由: stats
+├── styles/
+│   └── global.css         # 全局样式（副作用导入）
+└── utils/
+    └── format.js          # .js 工具模块（具名 + 默认导出）
 ```
 
-**`logic.js`** — Reducer，**不带任何 `export`**，内核自动识别：
+**`logic.jsx`** — Reducer，**不带任何 `export`**，内核自动识别：
 
 ```javascript
-// logic.js — 无 export，纯函数定义
+// logic.jsx — 无 export，纯函数定义
 const initialState = {
   todos: [],
   filter: '全部'
@@ -782,13 +819,15 @@ function reducer(state = initialState, action) {
 }
 ```
 
-**`layout.js`** — 主布局，使用 `export const style` 定义 CSS，`export default` 导出组件。接收 Props：`PageComponent`, `navigate`, `state`, `dispatch`：
+**`layout.jsx`** — 主布局，使用 `export const style` 定义 CSS，`export default` 导出组件。通过**相对路径**导入共享组件与全局样式。接收 Props：`PageComponent`, `navigate`, `state`, `dispatch`：
 
 ```javascript
-// layout.js — 注意是 .js 扩展名，但含 JSX
+// layout.jsx — 相对导入共享组件 + 副作用导入全局 CSS
+import { Sidebar } from './components/Sidebar';
+import './styles/global.css';   // 副作用导入，自动 Scope
+
 export const style = `
   .app-wrapper { display: flex; height: 100vh; background: #ffffff; }
-  .sidebar { width: 280px; border-right: 1px solid #e8e8e8; padding: 40px 32px; }
   .main-content { flex: 1; overflow-y: auto; padding: 40px 60px; }
 `;
 
@@ -797,10 +836,7 @@ export default ({ PageComponent, navigate, state, dispatch }) => {
 
   return (
     <div className="app-wrapper">
-      <div className="sidebar">
-        <button onClick={() => navigate('home')}>工作台</button>
-        <button onClick={() => navigate('stats')}>统计</button>
-      </div>
+      <Sidebar navigate={navigate} />
       <div className="main-content">
         <PageComponent />
       </div>
@@ -809,63 +845,85 @@ export default ({ PageComponent, navigate, state, dispatch }) => {
 };
 ```
 
-**`home.js`** — 页面组件，接收 Props：`state`, `dispatch`。通过 `AppSDK` 获取 hooks 和 System：
+**`components/Counter.jsx`** — 共享组件，使用**具名导出**，可被任意页面通过相对路径导入：
 
 ```javascript
-// home.js
+// components/Counter.jsx — 具名导出组件
+import { Button } from './ui/Button';   // 嵌套相对导入
+
+export const Counter = ({ state, dispatch }) => (
+  <div>
+    <span>计数：{state.count}</span>
+    <Button onClick={() => dispatch({ type: 'INCREMENT' })}>+1</Button>
+    <Button onClick={() => dispatch({ type: 'DECREMENT' })}>-1</Button>
+  </div>
+);
+```
+
+**`components/ui/Button.jsx`** — 使用 **CSS Modules**（`import styles from './Button.module.css'`）：
+
+```javascript
+// components/ui/Button.jsx — CSS Modules 用法
+import styles from './Button.module.css';
+
+export const Button = ({ children, onClick, primary }) => (
+  <button
+    className={primary ? styles.btnPrimary : styles.btn}
+    onClick={onClick}
+  >
+    {children}
+  </button>
+);
+```
+
+```css
+/* components/ui/Button.module.css — CSS Modules 类名映射 */
+.btn { padding: 4px 12px; cursor: pointer; }
+.btnPrimary { background: #2563eb; color: #fff; }
+```
+
+**`utils/format.js`** — `.js` 工具模块，支持**具名导出 + 默认导出**混合：
+
+```javascript
+// utils/format.js — .js 工具模块
+export const formatCount = (n) => `#${n}`;
+export const greeting = (name) => `Hello, ${name}!`;
+export default { formatCount, greeting };
+```
+
+**`pages/home/index.jsx`** — 页面组件，通过相对路径导入共享组件与工具模块：
+
+```javascript
+// pages/home/index.jsx — 多文件夹相对导入
+import { Counter } from '../../components/Counter';
+import { formatCount, greeting } from '../../utils/format';
+import formatUtils from '../../utils/format';   // 默认导入
+
 export const style = `
   .page-title { font-size: 32px; font-weight: 700; }
-  .submit-btn { background: #000000; color: #ffffff; padding: 12px 36px; border: none; }
-  .list-item { padding: 20px; border: 1px solid #eee; display: flex; align-items: center; }
 `;
 
 export default ({ state, dispatch }) => {
   const { useState, useEffect, System } = AppSDK;   // ← 组件内解构
   const [text, setText] = useState('');
 
-  // 从隔离存储恢复数据
-  useEffect(() => {
-    const saved = System.localStorage.getItem('app_todos_data');
-    if (saved) dispatch({ type: 'INIT', payload: JSON.parse(saved) });
-  }, []);
-
-  // 数据变更时自动保存
-  useEffect(() => {
-    System.localStorage.setItem('app_todos_data', JSON.stringify(state.todos));
-  }, [state.todos]);
-
-  const addTodo = () => {
-    dispatch({ type: 'ADD', payload: { id: Date.now().toString(), text: text.trim(), done: false } });
-    setText('');
-  };
-
   return (
     <div>
-      <h1 className="page-title">待办事项</h1>
-      <input value={text} onChange={e => setText(e.target.value)} />
-      <button className="submit-btn" onClick={addTodo}>添加</button>
-      {state.todos.map(item => (
-        <div key={item.id} className="list-item">
-          <span style={{ textDecoration: item.done ? 'line-through' : 'none' }}>{item.text}</span>
-          <button onClick={() => dispatch({ type: 'TOGGLE', id: item.id })}>
-            {item.done ? '✓' : '◻'}
-          </button>
-          <button onClick={() => dispatch({ type: 'DELETE', id: item.id })}>删除</button>
-        </div>
-      ))}
+      <h1 className="page-title">{greeting('Sukin')} 计数：{formatCount(state.count)}</h1>
+      <Counter state={state} dispatch={dispatch} />
     </div>
   );
 };
 ```
 
-**核心区别总结**：非系统 APP 是**纯文件目录**，没有注册表、没有 `ENV_KEY_*`、没有 `metaInfo`。内核通过 `logic.js` / `layout.js` / 页面文件的约定自动扫描识别。所有能力来自 `AppSDK` 全局对象和 Props 注入：
+**核心区别总结**：非系统 APP 是**纯文件目录**，没有注册表、没有 `ENV_KEY_*`、没有 `metaInfo`。内核通过 `logic.jsx` / `layout.jsx` / 页面文件的约定自动识别。所有能力来自 `AppSDK` 全局对象和 Props 注入：
 
 | 内容 | 系统 APP | 非系统 APP |
 |------|----------|------------|
 | 注册表 | `registry.jsx`（ENV_KEY_* 字符串键） | **无**，纯文件目录 |
-| Reducer | `ENV_KEY_LOGIC` 字符串 | 独立的 `logic.js` 文件（无 export） |
-| CSS | CSS Modules + `style.module.css` | `export const style = \`...\`` 字符串 |
-| 组件导入 | 通过 `AppSDK.Components.xxx` | 通过 `AppSDK.Components.xxx` |
+| Reducer | `ENV_KEY_LOGIC` 字符串 | 独立的 `logic.jsx` 文件（无 export） |
+| CSS | CSS Modules + `style.module.css` | 三种写法：`export const style` / 副作用导入 / CSS Modules |
+| 组件导入 | 通过 `AppSDK.Components.xxx` | 相对路径导入（`./`、`../`） |
 | 存储 | `import` 系统模块 | `AppSDK.System.localStorage` / `AppSDK.System.indexedDB` |
 | metaInfo | 在 `ENV_KEY_META_INFO` 中配置 | 由开发工具自动生成 |
 
@@ -910,42 +968,50 @@ export default ({ fetch }) => {
 **CDN 白名单**：外部库需要通过 CDN 加载，域名必须在白名单中。当前白名单包括：
 
 ```
-cdnjs.cloudflare.com, unpkg.com, cdn.jsdelivr.net, fonts.googleapis.com,
-cdn.bootcdn.net, cdn.baomitu.com, code.highcharts.com, cdn.datatables.net,
-code.jquery.com
+unpkg.com, cdn.jsdelivr.net, cdn.bytedance.com, lf3-cdn-tos.bytecdntp.com/cdn/,
+cdn.bootcdn.net, cdn.bootcss.com, cdn.staticfile.org, g.alicdn.com,
+npm.elemecdn.com
 ```
 
 ### 4.9 Bundle 应用 vs 单文件应用
 
 #### 非系统 APP Bundle（纯文件模式）
 
-非系统 APP 的 Bundle 结构是**平铺的 `.js` 文件**，**没有 `pages/` 子目录**。内核自动扫描目录，按文件名识别 role：
+非系统 APP 的 Bundle 结构支持**多文件夹组织**，内核自动扫描目录，按文件名识别 role：
 
 ```
 bundleApp/               # 目录名即为应用名
 ├── logic.jsx             # Reducer（无 export）
 ├── layout.jsx            # 主布局（接收 PageComponent prop）
-├── home.jsx              # 路由: home
-├── editor.jsx            # 路由: editor
-└── settings.jsx          # 路由: settings
+├── components/           # 共享组件（具名导出）
+│   └── Sidebar.jsx
+├── pages/                # 路由页面（export default）
+│   ├── home/index.jsx    # 路由: home
+│   ├── editor/index.jsx  # 路由: editor
+│   └── settings/index.jsx# 路由: settings
+├── styles/
+│   └── global.css        # 副作用导入
+└── utils/
+    └── helper.js         # .js 工具模块
 ```
 
 **内核扫描规则**：
 - `logic.jsx` → 自动识别为 Reducer
 - `layout.jsx` → 自动识别为主布局
-- 其余 `.jsx` 文件 → 自动识别为路由页面，文件名即为路由名
+- `pages/` 下文件 → 自动识别为路由页面，路径即为路由名
 
 | 文件 | 内核识别为 | 路由 |
 |------|-----------|------|
 | `logic.jsx` | Reducer | — |
 | `layout.jsx` | 主布局（接收 `PageComponent`） | — |
-| `home.jsx` | 页面组件 | `home` |
-| `editor.jsx` | 页面组件 | `editor` |
+| `pages/home/index.jsx` | 页面组件 | `home` |
+| `pages/editor/index.jsx` | 页面组件 | `editor` |
 
 **Bundle 路由机制**：
 - 组件通过 `state.router.path` 获取当前路由
 - `layout.jsx` 通过 `PageComponent` prop 渲染当前页面
 - 页面跳转使用 `navigate('home')` 或 `navigate('/home')`
+- 页面通过相对路径导入共享组件与工具模块（`import { Sidebar } from '../../components/Sidebar'`）
 
 #### 系统 APP Bundle（注册表模式）
 
@@ -967,11 +1033,11 @@ systemBundle/
 
 | 维度 | 非系统 APP Bundle | 系统 APP Bundle |
 |------|------------------|----------------|
-| 文件格式 | `.jsx` 平铺 | `registry.jsx` + `.jsx` + `pages/` 目录 |
+| 文件格式 | 多文件夹（`components/`、`pages/`、`styles/`、`utils/`） | `registry.jsx` + `.jsx` + `pages/` 目录 |
 | Reducer | `logic.jsx`（无 export） | `logic.jsx`（export default） |
-| CSS | `export const style = \`...\`` | CSS Modules + `style.module.css` |
-| 路由页面 | 根目录 `.js` 文件 | 任意 `.jsx` 文件 |
-| import | 禁止 | 允许 |
+| CSS | 三种写法：`export const style` / 副作用导入 / CSS Modules | CSS Modules + `style.module.css` |
+| 路由页面 | `pages/` 下任意 `.jsx` 文件 | 任意 `.jsx` 文件 |
+| import | 相对路径导入应用内模块与 CSS | 允许导入系统模块 |
 
 ---
 
@@ -1617,8 +1683,15 @@ stateCache (内存) → app.savedState (进程内存) → IndexedDB (持久化)
 markdown-notes/           # 目录名即为应用名
 ├── logic.jsx              # Reducer（无 export，内核自动识别）
 ├── layout.jsx             # 主布局（export default + export const style）
-├── home.jsx               # 笔记列表页 — 路由: home
-└── editor.jsx             # 笔记编辑器页 — 路由: editor
+├── components/            # 共享组件（具名导出）
+│   └── NoteCard.jsx
+├── pages/                 # 路由页面（export default）
+│   ├── home/index.jsx     # 笔记列表页 — 路由: home
+│   └── editor/index.jsx   # 笔记编辑器页 — 路由: editor
+├── styles/
+│   └── global.css         # 全局样式（副作用导入）
+└── utils/
+    └── format.js          # .js 工具模块
 ```
 
 ### 8.2 编写 Reducer（logic.jsx）
@@ -1666,8 +1739,13 @@ function reducer(state = initialState, action) {
 
 ### 8.3 编写主布局（layout.jsx）
 
+主布局通过**相对路径**导入共享组件与全局样式：
+
 ```javascript
-// layout.jsx
+// layout.jsx — 相对导入共享组件 + 副作用导入全局 CSS
+import { NoteCard } from './components/NoteCard';
+import './styles/global.css';   // 副作用导入，自动 Scope
+
 export const style = `
   * { margin: 0; padding: 0; box-sizing: border-box; }
   .app { display: flex; height: 100vh; font-family: -apple-system, sans-serif; }
@@ -1829,7 +1907,7 @@ export default ({ state, dispatch }) => {
 
 1. 在桌面打开 **开发者中心**（sys-developer）应用
 2. 选择"导入项目" → 选择 `markdown-notes/` 目录
-3. 系统自动扫描目录结构，识别 `logic.js`、`layout.js` 和页面文件
+3. 系统自动扫描目录结构，识别 `logic.jsx`、`layout.jsx`、`pages/` 页面文件及 `components/`、`styles/`、`utils/` 等子目录
 4. 应用自动注册到桌面，显示在应用启动器中
 
 **使用本地开发（SSE 热更新）**：
@@ -2159,7 +2237,29 @@ JSX/ES6+ 源码 → babelLoader.js 编译 → Blob URL → Worker 加载执行
 
 ### 10.3 样式指南
 
-- 使用 CSS Modules + BEM 命名空间
+非系统 APP 支持 **CSS 三种写法**，按需选择：
+
+| 写法 | 语法 | 适用场景 |
+|------|------|---------|
+| **内部写 CSS** | `export const style = \`...\`` | 组件内联样式，兼容旧写法 |
+| **副作用导入** | `import './styles/global.css'` | 全局样式，自动 Scope（`#proc-{pid}` 前缀） |
+| **CSS Modules** | `import styles from './Button.module.css'` | 组件级样式，`styles.btn` 返回类名 |
+
+```javascript
+// 方式一：export const style（组件内联）
+export const style = `.card { padding: 12px; }`;
+
+// 方式二：副作用导入（全局样式，自动 Scope）
+import './styles/global.css';
+
+// 方式三：CSS Modules（类名映射，作用域隔离）
+import styles from './Button.module.css';
+<button className={styles.btnPrimary}>按钮</button>
+```
+
+> **作用域隔离**：所有 CSS 都会通过 `scopeCss` 自动加上 `#proc-{pid}` 前缀，不同 APP 的样式互不干扰。CSS Modules 的类名保持原样（无需哈希），隔离完全依赖前缀。
+
+其他样式规范：
 - 使用 `--su-*` CSS 变量保持主题一致性
 - 避免渐变色和霓虹色，保持简洁现代风格
 - 推荐圆角：小元素 4px，卡片 8px，弹窗 12px

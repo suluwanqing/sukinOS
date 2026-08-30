@@ -5,10 +5,12 @@ import {
   ENV_KEY_IS_BUNDLE,
   ENV_KEY_LOGIC,
   ENV_KEY_CONTENT,
+  ENV_KEY_CONTENT_PRECOMPILED,
   ENV_KEY_META_INFO
 } from '@/sukinos/utils/config'
 import { clearAppSandboxData } from '@/sukinos/utils/process/kernelParts/lifecycle'
 import { generateWorker, parseWorkerCode } from './generateWorker'
+import { compileSource, detectSourceFormat } from './sourceMapper'
 import { alert } from "@/component/alert/layout"
 import { sukinOs as sukinApi } from "@/apis/main"
 import generateShortSeed from '/utils/js/rootSeed'
@@ -164,6 +166,57 @@ export async function extUpdateCloud(kernel, data) {
   }
 }
 
+/**
+ * 预编译资源内容（双份存储策略）
+ * 将原始源码（JSX/JS）编译为 JS 产物，存入 ENV_KEY_CONTENT_PRECOMPILED。
+ * - 单文件：content 为字符串，直接编译
+ * - bundle：content 为 { key: code } 对象，按 key 逐个编译
+ * - 幂等：已存在预编译产物则跳过
+ * - 失败降级：编译失败捕获并告警，不标记，保留原始 JSX 供运行时 Babel 兜底
+ * @param {object} newRes - 待安装的资源对象（会被原地修改）
+ * @param {object} kernel - 内核实例
+ * @returns {Promise<void>}
+ */
+async function precompileResourceContent(newRes, kernel) {
+  const resourceId = newRes?.[ENV_KEY_RESOURCE_ID]
+  const content = newRes?.[ENV_KEY_CONTENT]
+  // 系统 APP 强制走 JSX 编译，不预编译
+  if (kernel?.presetResourceIds?.has(resourceId)) return
+  // 幂等：已有预编译产物则跳过，避免重复编译
+  if (newRes?.[ENV_KEY_CONTENT_PRECOMPILED] != null) return
+  if (content == null) return
+
+  const compileOne = async (code, key) => {
+    try {
+      return await compileSource(code, { filename: key })
+    } catch (e) {
+      console.warn(`[预编译] 资源 ${resourceId} 模块 ${key} 编译失败，降级为运行时 Babel 编译:`, e?.message)
+      return null
+    }
+  }
+
+  if (typeof content === 'string') {
+    const compiled = await compileOne(content, 'main.jsx')
+    if (compiled != null) {
+      newRes[ENV_KEY_CONTENT_PRECOMPILED] = compiled
+    }
+  } else if (content && typeof content === 'object') {
+    const compiledMap = {}
+    let anySuccess = false
+    for (const [key, code] of Object.entries(content)) {
+      if (typeof code !== 'string') continue
+      const compiled = await compileOne(code, key)
+      if (compiled != null) {
+        compiledMap[key] = compiled
+        anySuccess = true
+      }
+    }
+    if (anySuccess) {
+      newRes[ENV_KEY_CONTENT_PRECOMPILED] = compiledMap
+    }
+  }
+}
+
 // 核心安装资源函数 (抽离出的纯净安装核心，避免循环排队导致死锁死循环)
 export async function extInstallResource(kernel, args) {
   const name = args?.[ENV_KEY_NAME] || args?.name;
@@ -193,6 +246,8 @@ export async function extInstallResource(kernel, args) {
       version: version
     }
   };
+  // 安装时自动预编译（双份存储：保留原始 JSX + 新增预编译 JS），失败自动降级
+  await precompileResourceContent(newRes, kernel)
   await kernel.resDb.putData(newRes)//存入到资源indexDb里
   kernel.resourceCache[truthResourceId] = newRes;
 

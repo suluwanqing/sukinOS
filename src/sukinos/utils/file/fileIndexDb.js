@@ -1,4 +1,4 @@
-import { DB_VFILE, preSystemFileData, FileType } from "@/sukinos/utils/config"
+import { DB_VFILE, preSystemFileData, preSystemConfigFiles, FileType } from "@/sukinos/utils/config"
 import { alert } from "@/component/alert/layout"
 
 class fileIndexDb {
@@ -56,6 +56,33 @@ class fileIndexDb {
   }
 
   /**
+   * 自动挂载预设系统配置文件
+   * 检查 preSystemConfigFiles 中的文件，若不存在则直接写入默认内容（避免被误删后系统功能失效）
+   */
+  async #initSystemConfigFiles() {
+    for (const file of preSystemConfigFiles) {
+      try {
+        const exists = await this.readInode(file.id);
+        if (exists) continue;
+        const inode = {
+          id: file.id,
+          parentId: 'root',
+          name: file.name,
+          type: FileType.FILE,
+          size: file.content ? file.content.length : 0,
+          content: file.content,
+          ctime: Date.now(),
+          mtime: Date.now()
+        };
+        await this.writeInode(inode);
+        console.log(`[VFS] 已创建预设配置文件: ${file.name}`);
+      } catch (err) {
+        console.error(`[VFS] 创建预设配置文件失败 (${file.name}):`, err);
+      }
+    }
+  }
+
+  /**
    * 挂载虚拟磁盘
    * 会根据 DB_VFILE 自动校验并创建 ObjectStore 和索引
    */
@@ -99,6 +126,8 @@ class fileIndexDb {
 
         // ---在挂载成功后，初始化系统预设文件 ---
         await this.#initSystemResources();
+        // ---初始化系统预设配置文件 ---
+        await this.#initSystemConfigFiles();
 
         resolve(true)
       }

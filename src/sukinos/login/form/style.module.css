@@ -1,43 +1,59 @@
 .su-sukinos-form {
+  --su-fresh-bg-input: rgba(247, 250, 248, 0.45);
+  --su-fresh-bg-focus: rgba(255, 255, 255, 0.85);
+  --su-fresh-primary: #3eb08f;
+  --su-fresh-primary-hover: #339c7d;
+  --su-fresh-primary-light: #e6f6f1;
+  --su-fresh-text-dark: #1e2d27;
+  --su-fresh-text-muted: #60736b;
+  --su-fresh-border: rgba(62, 176, 143, 0.15);
+  --su-fresh-error: #cb5a5a;
+  --su-fresh-error-bg: rgba(253, 245, 245, 0.7);
+  --su-fresh-error-border: rgba(242, 206, 206, 0.8);
+
   width: 100%;
 }
 
 .su-sukinos-form__form-item {
-  margin-bottom: 28px;
+  margin-bottom: 10px;
 }
 
 .su-sukinos-form__input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  border: 2px solid var(--su-black-900);
-  border-radius: 8px;
-  background-color: var(--su-white-50);
-  transition: border-color 0.2s;
-  padding: 0 16px;
-  height: 56px;
+  border: 1px solid var(--su-fresh-border);
+  border-radius: 9px;
+  background-color: var(--su-fresh-bg-input);
+  transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 0 12px;
+  height: 40px;
 }
 
 .su-sukinos-form__input-wrapper:focus-within {
-  border-color: var(--su-orange-500);
+  border-color: var(--su-fresh-primary);
+  background-color: var(--su-fresh-bg-focus);
+  box-shadow: 0 4px 12px rgba(62, 176, 143, 0.05);
+  transform: translateY(-0.5px);
 }
 
 .su-sukinos-form__input-wrapper--error {
-  border-color: var(--su-red-600);
-  background-color: var(--su-red-50);
+  border-color: var(--su-fresh-error-border);
+  background-color: var(--su-fresh-error-bg);
 }
 
 .su-sukinos-form__input-wrapper--error:focus-within {
-  border-color: var(--su-red-600);
+  border-color: var(--su-fresh-error);
+  box-shadow: 0 4px 12px rgba(203, 90, 90, 0.05);
 }
 
 .su-sukinos-form__prefix-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--su-black-900);
-  margin-right: 16px;
-  font-size: 24px;
+  color: var(--su-fresh-text-muted);
+  margin-right: 8px;
+  opacity: 0.8;
 }
 
 .su-sukinos-form__input {
@@ -46,22 +62,22 @@
   border: none;
   outline: none;
   background: transparent;
-  color: var(--su-black-900);
-  font-size: 16px;
-  font-weight: bold;
+  color: var(--su-fresh-text-dark);
+  font-size: 13px;
+  font-weight: 500;
   padding: 0;
   font-family: inherit;
 }
 
 .su-sukinos-form__input::placeholder {
-  color: var(--su-black-400);
-  font-weight: 600;
+  color: #a2b5ac;
+  font-weight: 400;
 }
 
 .su-sukinos-form__suffix {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 6px;
   height: 100%;
 }
 
@@ -69,51 +85,53 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--su-black-900);
+  color: var(--su-fresh-text-muted);
   cursor: pointer;
-  transition: transform 0.2s;
-  font-size: 20px;
+  transition: all 0.2s;
 }
 
 .su-sukinos-form__action-icon:hover {
-  transform: scale(1.2);
-  color: var(--su-orange-500);
+  transform: scale(1.05);
+  color: var(--su-fresh-primary);
 }
 
+/* 发送验证码按钮优化 */
 .su-sukinos-form__code-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 36px;
-  font-size: 13px;
-  font-weight: 900;
-  color: var(--su-white-500);
-  background-color: var(--su-black-900);
+  height: 24px;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--su-fresh-primary);
+  background-color: var(--su-fresh-primary-light);
   cursor: pointer;
   white-space: nowrap;
-  padding: 0 12px;
-  border-radius: 4px;
-  transition: background-color 0.2s;
+  padding: 0 8px;
+  border-radius: 5px;
+  transition: all 0.2s;
   user-select: none;
-  letter-spacing: 0.05em;
+  border: 1px solid rgba(62, 176, 143, 0.15);
 }
 
 .su-sukinos-form__code-btn:hover {
-  background-color: var(--su-orange-500);
-  color: var(--su-black-900);
+  background-color: var(--su-fresh-primary);
+  border-color: var(--su-fresh-primary);
+  color: #ffffff;
 }
 
 .su-sukinos-form__code-btn[data-disabled='true'] {
-  color: var(--su-black-500);
-  background-color: var(--su-black-200);
+  color: #9cb3a8;
+  background-color: rgba(240, 245, 242, 0.6);
+  border-color: rgba(226, 236, 231, 0.6);
   cursor: not-allowed;
   pointer-events: none;
 }
 
 .su-sukinos-form__error-msg {
-  font-size: 13px;
-  font-weight: bold;
-  color: var(--su-red-600);
-  margin-top: 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--su-fresh-error);
+  margin-top: 3px;
   padding-left: 4px;
 }

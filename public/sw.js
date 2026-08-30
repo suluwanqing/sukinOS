@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'sukin-cache'
-const CACHE_VERSION = 'v1.0.8'
+const CACHE_VERSION = 'v1.0.22'
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`
 const OFFLINE_PAGE = '/index.html'
 const ORIGIN = 'sukin.top'
@@ -99,7 +99,11 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // 静态资源[包括字体、视频等]
+  // 匹配特定需要进行 Stale-While-Revalidate（缓存优先，后台静默更新）的 API 请求（完整匹配带或不带 /api 前缀的路径）
+  const isStaleWhileRevalidateApi =
+    url.pathname === '/system/update/log/latest' || url.pathname === '/api/system/update/log/latest'
+
+  // 静态资源[包括字体、视频等] 以及 需要被 SW 代理缓存的目标 API
   const isStatic =
     request.destination === 'style' ||
     request.destination === 'script' ||
@@ -107,7 +111,10 @@ self.addEventListener('fetch', event => {
     request.destination === 'video' ||
     request.destination === 'audio' ||
     request.destination === 'font' || // 字体文件
-    /\.(mp4|webm|ogg|mov|avi|mkv|flv|wmv|mp3|wav|aac|flac|otf|ttf|woff|woff2)$/i.test(url.pathname)
+    /\.(mp4|webm|ogg|mov|avi|mkv|flv|wmv|mp3|wav|aac|flac|otf|ttf|woff|woff2)$/i.test(
+      url.pathname
+    ) ||
+    isStaleWhileRevalidateApi
 
   event.respondWith(
     (async () => {
@@ -123,7 +130,9 @@ self.addEventListener('fetch', event => {
           request.destination === 'font' ||
           /\.(mp4|webm|ogg|mp3|wav|otf|ttf|woff2?)$/i.test(url.pathname)
             ? 5000
-            : 2000
+            : isStaleWhileRevalidateApi
+              ? 1000 // 特定的缓存 API 使用较短延迟，提高数据刷新时效
+              : 2000
 
         // 后台静默更新[可选，对于字体文件可以不更新]
         const shouldBackgroundUpdate = request.destination !== 'font' // 字体文件不强制后台更新
@@ -148,7 +157,7 @@ self.addEventListener('fetch', event => {
       // 无缓存，走网络
       return fetch(request)
         .then(networkResponse => {
-          // 只缓存可缓存的响应（自动过滤 206）
+          // 只缓存可缓存的响应（自动过滤 206）并且属于需要代理缓存的静态资源或特定的 API 请求
           if (isCacheableResponse(networkResponse, request) && isStatic) {
             // 检查文件大小，避免缓存过大文件
             const contentLength = networkResponse.headers.get('content-length')
@@ -170,7 +179,7 @@ self.addEventListener('fetch', event => {
               // 字体文件：不缓存[避免 206 问题]，直接返回
               // 或者可以强制重新请求完整字体
             } else {
-              // 普通静态资源正常缓存
+              // 普通静态资源及特定需要缓存的 API 正常缓存
               cache.put(request, networkResponse.clone())
             }
           }

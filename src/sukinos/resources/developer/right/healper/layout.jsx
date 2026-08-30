@@ -600,6 +600,7 @@ const BundleSection = () => (
       <li><code>logic.jsx</code>（可选）：定义全局 state 和 reducer。<strong>严禁使用 export</strong></li>
       <li><code>home.jsx</code>（推荐）：默认首页，路由为 <code>'home'</code></li>
       <li><code>*.jsx</code>：其他页面，文件名即路由路径（如 <code>about.jsx</code> 对应 <code>navigate('about')</code>）</li>
+      <li><code>*.css</code> / <code>*.module.css</code>：样式文件，通过 <code>import './style.css'</code> 或 <code>import styles from './style.module.css'</code> 导入，系统自动 Scope</li>
     </ul>
 
     <h4 className={style[bem.e('subtitle')]}>layout.jsx 模板</h4>
@@ -997,6 +998,32 @@ const el = AppSDK.React.createElement('div', { className: 'box' }, 'Hello');`}
       已经是进程级别的定制实例（含进程 ID、隔离存储、安全 fetch 等）。
     </p>
 
+    <h4 className={style[bem.e('subtitle')]}>模块化编译</h4>
+    <p className={style[bem.e('text')]}>
+      系统通过 <code>require</code> + <code>_interopRequireDefault</code> + <code>__esModule</code>
+      实现模块加载。Babel 的 <code>env</code> preset 将 ES Module 转为 CommonJS，
+      <code>import X from './a'</code> 编译为 <code>_interopRequireDefault(require('./a')).default</code>。
+    </p>
+    <pre className={style[bem.e('code')]}>
+{`// 源码
+import Button from './Button.jsx';
+import { format } from './utils.js';
+import './style.css';
+import styles from './style.module.css';
+
+// 编译后（env preset 转 CommonJS）
+var _Button = _interopRequireDefault(require('./Button.jsx'));
+var _utils = require('./utils.js');
+require('./style.css'); // 副作用导入，自动 Scope
+var _styleModule = _interopRequireDefault(require('./style.module.css'));`}
+    </pre>
+    <p className={style[bem.e('text')]}>
+      <strong>模块 vs 组件划分：</strong><code>.js</code> 与 <code>.jsx</code> 不区分扩展名，
+      都允许 JSX。靠导出机制自动识别——<code>export default</code> 为组件，具名导出为模块。
+      入口模块（<code>main.jsx</code> / <code>layout.jsx</code>）的 <code>export default</code>
+      必须是 React 组件，否则编译阶段报错。
+    </p>
+
     <h4 className={style[bem.e('subtitle')]}>State 安全传递</h4>
     <p className={style[bem.e('text')]}>
       在非寄生模式下，<code>state</code> 经过 <code>deepCloneAndFreeze</code> 深度克隆并冻结后传入子应用。
@@ -1098,25 +1125,32 @@ export default ({ state, dispatch }) => {
 export const App = () => <div />;`}
     </pre>
 
-    <h4 className={style[bem.e('subtitle')]}>样式规范</h4>
+    <h4 className={style[bem.e('subtitle')]}>样式规范（三种写法）</h4>
+    <p className={style[bem.e('text')]}>
+      系统支持三种样式写法，均会自动 Scope 隔离，不会污染全局。推荐使用 CSS Modules。
+    </p>
     <pre className={style[bem.e('code')]}>
-{`// 正确：export const style 导出 CSS 字符串，系统自动 Scope 处理
+{`// 写法一：export const style（内部写 CSS 字符串，系统自动 Scope，兼容旧写法）
 export const style = \`
-  .container {
-    padding: 20px;
-    background: #f0f0f0;
-  }
-  .title {
-    font-size: 18px;
-    color: #333;
-  }
+  .container { padding: 20px; background: #f0f0f0; }
+  .title { font-size: 18px; color: #333; }
 \`;
+// 使用：className 直接写类名
+<div className="container"><h2 className="title">标题</h2></div>
 
-//错误：直接向 document.head 注入样式（沙箱内可能污染全局）
-const style = document.createElement('style');
-style.innerHTML = '.box { color: red; }';
-document.head.appendChild(style);`}
+// 写法二：import './style.css'（副作用导入，系统自动 Scope，类名直接使用）
+import './style.css';
+<div className="container">...</div>
+
+// 写法三：import styles from './style.module.css'（CSS Modules，styles.btn 返回类名）
+import styles from './style.module.css';
+<div className={styles.container}>
+  <h2 className={styles.title}>标题</h2>
+</div>`}
     </pre>
+    <p className={style[bem.e('text')]}>
+      <strong>注意：</strong>直接向 <code>document.head</code> 注入样式在沙箱内可能污染全局，<strong>严禁</strong>使用。
+    </p>
 
     <h4 className={style[bem.e('subtitle')]}>命名规范</h4>
     <ul className={style[bem.e('list')]}>
@@ -1284,12 +1318,12 @@ const AIPromptSection = () => {
   const [copied, setCopied] = useState(false);
 
   const promptText =`你现在是 SukinOS (基于 React 19 的沙箱操作系统) 的高级应用开发助手。
-请严格按照以下规范生成代码，文件中不允许出现任何 import 语句。
+请严格按照以下规范生成代码。仅允许 CSS 导入（import './style.css' 或 import styles from './style.module.css'），禁止任何 JS/JSX 模块导入。
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【一、绝对禁止项】
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  1. 禁止使用 import / require（在任何文件中均禁止）
+  1. 禁止 import / require 任何 JS/JSX 模块（仅允许 CSS 导入：import './style.css' 或 import styles from './style.module.css'）
   2. 禁止在文件顶层声明以下变量：
        const { React, useState, useEffect, useMemo, useCallback,
                useRef, useContext, useReducer } = AppSDK;
@@ -1305,6 +1339,10 @@ const AIPromptSection = () => {
   9. 非 logic 页面至少要有一个 export default ({}) => {} 作为当前组件视图入口，单文件可以声明其他子组件
   10. 必需要有 layout.jsx 作为整个程序的入口
   11. 架构建议：一般建议无论如何都处理为多页面架构
+  12. 模块 vs 组件划分（.js 与 .jsx 不区分扩展名，都允许 JSX）：
+      - export default 函数组件 → 组件（可被 import 复用）
+      - 具名导出（export const xxx / export function xxx）→ 模块（工具函数、常量等）
+      - 入口模块（main.jsx / layout.jsx）的 export default 必须是 React 组件，否则报错
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【二、SDK Kernel 结构】
@@ -1383,6 +1421,10 @@ const AIPromptSection = () => {
   const { Button, Input } = AppSDK.Components
   const { System } = AppSDK
 
+  // 样式三种写法（均自动 Scope，推荐 CSS Modules）：
+  // 写法一：export const style = `/* 组件作用域 CSS，系统自动 Scope */`
+  // 写法二：import './style.css'（副作用导入，类名直接使用）
+  // 写法三：import styles from './style.module.css'（styles.btn 返回类名）
   export const style = \`/* 组件作用域 CSS，系统自动 Scope */\`;
 
   export default ({

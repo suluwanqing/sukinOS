@@ -86,6 +86,7 @@ export const useKernel = () => {
       }
       case 'APP_REGISTRY':
       default:
+        setIsReady(checkIsKernelReady())
         refresh()
     }
   }, [refresh, refreshAppStatus, updateAppsByPid])
@@ -118,6 +119,14 @@ export const useKernel = () => {
     return () => { unsub() }
   }, [refresh, applyDelta]) // 添加 applyDelta 到依赖数组
 
+  const reinit = useCallback(async (userId) => {
+    setLoading(true)
+    await kernel.reinit(userId)
+    setIsReady(true)
+    await refresh()
+    setLoading(false)
+  }, [refresh])
+
   return {
     kernel,
     apps,
@@ -127,6 +136,7 @@ export const useKernel = () => {
       isPrivate: fileSystemConfig?.isPrivate || true,
       useVirtualWorker: generateAppConfig?.useVirtualWorker || false
     }),
+    reinit,
     running: [...runningApps, ...hibernatedApps],
     runningApps,
     hibernatedApps,

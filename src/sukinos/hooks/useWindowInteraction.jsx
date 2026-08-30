@@ -3,7 +3,7 @@ import { useRef, useCallback, useEffect } from 'react'
 const MIN_WIDTH = 300
 const MIN_HEIGHT = 200
 
-export const useWindowInteraction = ({ winSize: initialState, allowResize = true, SAFE_DRAG_AREA = 40, isIframeMode = false }) => {
+export const useWindowInteraction = ({ winSize: initialState, allowResize = true, SAFE_DRAG_AREA = 40, isIframeMode = false, onDragEnd }) => {
   // SAFE_DRAG_AREA:安全阈值,避免dom拖出屏幕[包括dom宽/高] ,initialState{x,y,w,h}初始相对坐标和宽高需要和dom对应,优先级高于css
   const windowElRef = useRef(null)
 
@@ -271,13 +271,16 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
         w: finalRect.width,
         h: finalRect.height,
       }
+
+      // 通知上层组件拖拽/缩放已结束，传递最新的窗口位置
+      onDragEnd?.(rectRef.current)
     }
 
     isDraggingRef.current = false
     actionType.current = null
     document.removeEventListener('mousemove', handleMouseMove)
     document.removeEventListener('mouseup', handleMouseUp)
-  }, [handleMouseMove, isIframeMode, finishInteraction])
+  }, [handleMouseMove, isIframeMode, finishInteraction, onDragEnd])
 
   // 每次 handleMouseMove / handleMouseUp 更新时，同步最新引用到 ref
   // 卸载清理 effect 通过读取这两个 ref 保证移除的是最新注册的函数

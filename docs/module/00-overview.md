@@ -202,7 +202,7 @@ graph LR
 | 3 | **Resources 应用层** | SDK 工厂（devAppSdk/adminAppSdk 双权限模型）+ 10 个内置应用注册详情 + InteractiveAwakening/VfsImage 中间件 + 开发者扩展指南。 | [03-resources.md](./03-resources.md) |
 | 4 | **进程内核** | Kernel 单例 + 10 个 kernelParts 子模块 + CommHub 通信枢纽 + 3 种 Worker 运行模式 + 完整生命周期（安装→启动→休眠→恢复→终止）。 | [04-process-kernel.md](./04-process-kernel.md) |
 | 5 | **文件系统与安全** | VFS 内核-驱动两层架构 + Inode 数据模型 + 安全沙箱 8 类策略（PID 命名空间/CDN 白名单/API 禁用/Blob 递归沙箱化/设备屏蔽/SDK 冻结等）+ 系统数据库 + 通用工具。 | [05-file-system-tools.md](./05-file-system-tools.md) |
-| 6 | **中间件与认证** | Redux Store 完整状态树 + 8 个 Reducer + 7 个 Selector + 登录模块 3 种业务模式 + useAuth Hook + 三层权限控制 + AuthGuard 鉴权守卫。 | [06-middleware-login.md](./06-middleware-login.md) |
+| 6 | **中间件与认证** | Redux Store 完整状态树 + 10 个 Reducer + 9 个 Selector + 登录模块 3 种业务模式 + useAuth Hook + 三层权限控制 + AuthGuard 鉴权守卫。 | [06-middleware-login.md](./06-middleware-login.md) |
 | 7 | **开发指南** | 系统APP/非系统APP开发完整指南、14个Hooks核心详解与应用交互、跨应用通信、应用生命周期、从零构建完整教程。 | [08-development.md](./08-development.md) |
 
 > **路由与消息处理** — 双层路由体系（浏览器级 + App级）、三种运行模式消息处理差异（RealWorker/VirtualWorker/NoWorker）、Dispatch 双路径、跨应用唤起与会话恢复、Pub/Sub 主题体系。详见 [07-app-routing.md](./07-app-routing.md)
@@ -393,6 +393,7 @@ graph TD
 | `ENV_KEY_IS_BUNDLE` | `'isBundle'` | 是否支持路由捆绑包 |
 | `ENV_KEY_LOGIC` | `'logic'` | 业务逻辑纯净代码 |
 | `ENV_KEY_CONTENT` | `'content'` | 界面视图源码 |
+| `ENV_KEY_CONTENT_PRECOMPILED` | `'precompiledContent'` | 预编译后的界面视图源码（Babel 预编译 JS 产物，运行时优先使用） |
 | `ENV_KEY_META_INFO` | `'metaInfo'` | 操作系统元数据 |
 
 ### 应用个性化配置
@@ -405,6 +406,10 @@ graph TD
 | `autoStart` | `false` | 开机自动运行 |
 | `allowResize` | `true` | 允许调整窗口大小 |
 | `showInLauncher` | `false` | 在启动器中显示 |
+| `backgroundSleep` | `false` | 后台静默（暂停订阅） |
+| `adaptiveMount` | `false` | 后台自适应挂载（不保存 APP 内部状态） |
+| `autoSaveStateInterval` | `0` | 自动保存状态间隔（秒），`0` 表示禁用 |
+| `autoSaveWindowInterval` | `0` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
 
 ---
 

@@ -345,6 +345,10 @@ const appCustomMapper = {
   autoStart: '开机自动运行',
   allowResize: '允许调整窗口大小',
   showInLauncher: '在启动器中显示',
+  backgroundSleep: '后台静默(暂停订阅)',
+  adaptiveMount: '后台自适应挂载(不保存APP内部状态)',
+  autoSaveStateInterval: '自动保存状态间隔(秒)',
+  autoSaveWindowInterval: '自动保存窗口位置间隔(秒)',
 }
 
 const appCustom = {
@@ -354,6 +358,10 @@ const appCustom = {
   autoStart: false,
   allowResize: true,
   showInLauncher: false,
+  backgroundSleep: false,
+  adaptiveMount: false,
+  autoSaveStateInterval: 0,
+  autoSaveWindowInterval: 0,
 }
 ```
 

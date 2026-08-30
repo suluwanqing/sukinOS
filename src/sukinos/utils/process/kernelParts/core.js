@@ -74,6 +74,8 @@ export class Core {
       // [暂且保留，虽然有点没必要但是为了减少其他额外操作。]
       // 恢复上一次的会话状态
       await this.#kernel.restoreSession()
+      // 订阅个性化配置变更，实现全局 auto-save 间隔的响应式更新
+      this.#kernel.subscribePersonalization()
       alert.success('[内核] 初始化成功。')
 
       try {

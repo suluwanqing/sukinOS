@@ -19,8 +19,9 @@ import { alert } from '@/component/Alert/layout';
 import { DEFAULT_USER_AVATOR_URL } from "@/sukinos/utils/config";
 import generateShortSeed from "/utils/js/rootSeed";
 
-
 import { useAuth } from '@/sukinos/hooks/main';
+// 引入公共游客状态判定服务
+import { checkIsGuest } from '/utils/js/guest';
 
 const bem = createNamespace('setting-user');
 
@@ -28,11 +29,14 @@ const UserSettings = () => {
   const dispatch = useDispatch();
   const userInfo = useSelector(selectorUserInfo);
 
-  // 实例化 useAuth hook 以使用登出功能
+  // 判定当前是否为游客状态
+  const isGuest = checkIsGuest();
+
+  // 实例化 useAuth hook 以使用登出（退出游客/返回登录）功能
   const { logout } = useAuth();
 
-  // 仅保留密码修改的验证状态
-  const passwordCodeData = useSelector(selectVerificationData('updatePassword'));
+  // 增加 || {} 空值兜底保护，防止在未发送过验证码时解构 seed 报错导致组件挂载直接崩溃
+  const passwordCodeData = useSelector(selectVerificationData('updatePassword')) || {};
   const { seed } = passwordCodeData;
   const [isEditing, setIsEditing] = useState(false);
   const [passwordStep, setPasswordStep] = useState(0);
@@ -52,7 +56,8 @@ const UserSettings = () => {
   const fileInputRef = useRef(null);
 
   useEffect(() => {
-    if (userInfo) {
+    // 仅在非游客状态下初始化表单数据
+    if (userInfo && !isGuest) {
       setFormData({
         username: userInfo.username || '',
         email: userInfo.email || '',
@@ -64,18 +69,18 @@ const UserSettings = () => {
       });
       setAvatarPreview(userInfo.avatar || userInfo.avatar_url || DEFAULT_USER_AVATOR_URL);
     }
-  }, [userInfo]);
+  }, [userInfo, isGuest]);
 
   // 新增逻辑：如果检测到修改密码有倒计时（说明验证码发送中或者未过期），自动展开修改密码页面
   useEffect(() => {
-    if (passwordCodeData.isRunning && passwordStep === 0) {
+    if (!isGuest && passwordCodeData?.isRunning && passwordStep === 0) {
       setPasswordStep(1);
     }
-  }, [passwordCodeData.isRunning, passwordStep]);
+  }, [passwordCodeData?.isRunning, passwordStep, isGuest]);
 
   useEffect(() => {
     let timer;
-    if (passwordCodeData.isRunning) {
+    if (!isGuest && passwordCodeData?.isRunning) {
       const updateTimer = () => {
         const remaining = Math.ceil((passwordCodeData.endTime - Date.now()) / 1000);
         if (remaining > 0) {
@@ -91,8 +96,8 @@ const UserSettings = () => {
     } else {
       setPasswordCountdown(0);
     }
-    return () => clearInterval(timer);
-  }, [passwordCodeData, dispatch]);
+    return () => { if (timer) clearInterval(timer) };
+  }, [passwordCodeData, dispatch, isGuest]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -175,41 +180,42 @@ const UserSettings = () => {
       alert.failure("验证码请求失败");
     }
   };
-const handleSaveProfile = async () => {
-  setIsLoading(true);
-  try {
-    const submitData = new FormData();
-    Object.keys(formData).forEach(key => {
-      const value = formData[key];
 
-      // 关键：只有当值不是空字符串、不是 null、不是 undefined 时才发送
-      if (value !== '' && value !== null && value !== undefined) {
-        submitData.append(key, value);
+  const handleSaveProfile = async () => {
+    setIsLoading(true);
+    try {
+      const submitData = new FormData();
+      Object.keys(formData).forEach(key => {
+        const value = formData[key];
+
+        // 关键：只有当值不是空字符串、不是 null、不是 undefined 时才发送
+        if (value !== '' && value !== null && value !== undefined) {
+          submitData.append(key, value);
+        }
+      });
+      if (avatarFile) {
+        submitData.append('avatar_file', avatarFile);
       }
-    });
-    if (avatarFile) {
-      submitData.append('avatar_file', avatarFile);
-    }
-    // 调用 API
-    const response = await userApi.updateUserInfo({ submitData, seed });
-    if (response.code === 200) {
-      const updatedUser = response.data?.data;
-      if (updatedUser) {
-        dispatch(sukinOsActions.setUserInfo(updatedUser));
-        alert.success('个人资料更新成功！');
+      // 调用 API
+      const response = await userApi.updateUserInfo({ submitData, seed });
+      if (response.code === 200) {
+        const updatedUser = response.data?.data;
+        if (updatedUser) {
+          dispatch(sukinOsActions.setUserInfo(updatedUser));
+          alert.success('个人资料更新成功！');
+        }
+        setIsEditing(false);
+        setAvatarFile(null);
+      } else {
+        alert.failure(response.msg || '更新失败');
       }
-      setIsEditing(false);
-      setAvatarFile(null);
-    } else {
-      alert.failure(response.msg || '更新失败');
+    } catch (error) {
+      console.error('更新个人资料失败:', error);
+      alert.failure('资料更新异常');
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('更新个人资料失败:', error);
-    alert.failure('资料更新异常');
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
   const handleSavePassword = async () => {
     if (!passwordData.new_password || !passwordData.confirm_password || !verifyCode) {
@@ -260,6 +266,35 @@ const handleSaveProfile = async () => {
     return <div className={style[bem.e('avatar-img')]} style={{backgroundColor: avatarBgColor}}>{firstChar}</div>;
   };
 
+  // 如果是游客进入该设置项，直接渲染极简的“只读安全提示卡片”，不初始化任何敏感表单组件
+  if (isGuest) {
+    return (
+      <div className={style[bem.b()]}>
+        <div className={style[bem.e('section')]}>
+          <div className={style[bem.e('section-title')]}><PersonOutlineIcon style={{ fontSize: 18, marginRight: 8 }} /> 临时访客</div>
+          <div className={style[bem.e('card')]} style={{ textAlign: 'center', padding: '48px 24px' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', backgroundColor: '#eafaf5', color: '#3eb08f', marginBottom: 16 }}>
+              <SecurityIcon style={{ fontSize: 32 }} />
+            </div>
+            <strong style={{ display: 'block', fontSize: 18, fontWeight: '800', color: '#1e2d27', marginBottom: 8 }}>访客模式受限</strong>
+            <p style={{ maxWidth: 360, margin: '0 auto 24px', fontSize: 13, color: '#60736b', lineHeight: 1.6 }}>
+              您当前是以临时访客身份登录。为保障系统安全，个人资料、密码修改等安全设置功能仅对注册用户开放。
+            </p>
+            <button
+              className={style[bem.e('btn')]}
+              onClick={logout}
+              style={{ margin: '0 auto', color: '#3eb08f', borderColor: '#3eb08f' }}
+            >
+              <ExitToAppIcon style={{ fontSize: 16, marginRight: 6 }} />
+              <span>登录 / 注册新账号</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 正常登录用户渲染原版完整的设置面板
   return (
     <div className={style[bem.b()]}>
 
@@ -295,7 +330,9 @@ const handleSaveProfile = async () => {
                   <strong className={style[bem.e('name')]}>{userInfo.username || '未设置用户名'}</strong>
                   <p className={style[bem.e('description')]}>{userInfo.email || '未绑定邮箱'}</p>
                   <div className={style[bem.e('tags')]}>
-                    <span className={style[bem.e('tag')]}>{userInfo.permission?.role === 'root' ? '系统管理员' : '普通用户'}</span>
+                    <span className={style[bem.e('tag')]}>
+                      {userInfo.permission?.role === 'root' ? '系统管理员' : '普通用户'}
+                    </span>
                   </div>
                 </>
               ) : (
@@ -313,7 +350,10 @@ const handleSaveProfile = async () => {
             </div>
 
             {!isEditing && (
-              <button className={style[bem.e('btn')]} onClick={() => setIsEditing(true)}>
+              <button
+                className={style[bem.e('btn')]}
+                onClick={() => setIsEditing(true)}
+              >
                 <EditIcon style={{ fontSize: 16 }} />
                 <span>编辑资料</span>
               </button>

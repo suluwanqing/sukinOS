@@ -1,4 +1,5 @@
 import {BabelLoader} from './babelLoader'
+import { resolveModulePath } from './sourceMapper'
 import {
   getSharedSandboxUtilities,
   createStorageProxy,
@@ -8,6 +9,52 @@ import {
 
 export const scopeCss = (css, pid) =>
   css ? css.replace(/([^\r\n,{}]+)(,(?=[^}]*{)|\s*{)/g, `#proc-${pid} $1$2`) : ''
+
+/**
+ * 从 CSS 源码中提取所有类名（用于 CSS Modules 的类名映射）。
+ * 匹配 `.className` 形式，类名以字母/下划线/连字符开头，可含数字/连字符。
+ * 类名保持原样，作用域隔离完全依赖 scopeCss 的 #proc-${pid} 前缀，无需哈希。
+ * @param {string} css - CSS 源码
+ * @returns {string[]} 去重后的类名数组
+ */
+const extractClassNames = (css) => {
+  const names = new Set()
+  const re = /\.(-?[_a-zA-Z]+[_a-zA-Z0-9-]*)/g
+  let m
+  while ((m = re.exec(css)) !== null) {
+    names.add(m[1])
+  }
+  return Array.from(names)
+}
+
+/**
+ * 生成 CSS 模块 factory（CSS 不走 Babel，直接生成 CommonJS 模块）。
+ * - 普通 .css：exports.default = css 字符串，exports.style = css，module.exports = css
+ *   → 支持副作用导入 `import './style.css'` 与默认导入 `import styles from './style.css'`
+ * - .module.css：exports.default = 类名映射对象 { btn: 'btn' }，exports.style = css
+ *   → 支持 CSS Modules `import styles from './style.module.css'`，styles.btn 返回 'btn'
+ * factory 签名与 compileSourceAsync 保持一致：
+ * (module, exports, AppSDK, __moduleRegistry, __currentModuleKey, __moduleKeys)
+ * @param {string} css - CSS 源码
+ * @param {string} moduleKey - 模块 key（如 'style.css' / 'style.module.css'）
+ * @returns {{ factory: Function }}
+ */
+export const createCssModule = (css, moduleKey) => {
+  const isModule = /\.module\.css$/.test(moduleKey)
+  const cssStr = JSON.stringify(css)
+  const classMap = isModule
+    ? JSON.stringify(Object.fromEntries(extractClassNames(css).map(n => [n, n])))
+    : null
+  const factory = new Function('module', 'exports', `
+    const css = ${cssStr};
+    exports.style = css;
+    exports.__esModule = true;
+    ${isModule
+      ? `exports.default = ${classMap};`
+      : `exports.default = css; module.exports = css;`}
+  `)
+  return { factory }
+}
 
 const compileCache = new Map()
 const hashCache = new Map()
@@ -66,7 +113,7 @@ const normalizeError = (err, phase, key = '') => {
  *   不传则默认使用宿主 Function（向后兼容 LocalDev / 幽灵沙箱模式）。
  */
 export const compileSourceAsync = async (
-  {sourceCode, pid, targetFunctionConstructor, module = 'component'},
+  {sourceCode, pid, targetFunctionConstructor, module = 'component', precompiled = false, moduleRegistry, currentModuleKey},
   options = {}
 ) => {
   if (typeof sourceCode !== 'string') {
@@ -82,17 +129,21 @@ export const compileSourceAsync = async (
   if (!shouldSkipCache && compileCache.has(cacheKey)) return compileCache.get(cacheKey)
 
   try {
-    await BabelLoader.load()
-
     let cjsCode
-    try {
-      cjsCode = BabelLoader.transform(sourceCode, {module})
-    } catch (babelErr) {
-      // Babel 转译阶段失败：不写缓存，返回结构化错误
-      const errorDetail = normalizeError(babelErr, 'babel')
-      return {
-        error: `Babel 转译失败：${errorDetail.message}${errorDetail.loc ? `（${errorDetail.loc}）` : ''}`,
-        errorDetail,
+    if (precompiled) {
+      // 预编译短路：sourceCode 已是编译后的 JS，跳过 Babel 直接使用
+      cjsCode = sourceCode
+    } else {
+      await BabelLoader.load()
+      try {
+        cjsCode = BabelLoader.transform(sourceCode, {module})
+      } catch (babelErr) {
+        // Babel 转译阶段失败：不写缓存，返回结构化错误
+        const errorDetail = normalizeError(babelErr, 'babel')
+        return {
+          error: `Babel 转译失败：${errorDetail.message}${errorDetail.loc ? `（${errorDetail.loc}）` : ''}`,
+          errorDetail,
+        }
       }
     }
 
@@ -169,10 +220,23 @@ export const compileSourceAsync = async (
 
       _safeGlobalProxy = new Proxy(globalThis, _safeProxyHandler);
 
+      // 模块路径解析器（内联注入，供 require 解析相对路径导入）
+      const __resolveModulePath = ${resolveModulePath.toString()};
+
       const require = (name) => {
-        if (name === 'react') return React;
-        throw new Error("Sandbox Require Error: Module " + name + " is restricted.");
-      };
+          if (name === 'react' || name === 'react/jsx-runtime') return React;
+          // 模块解析器：基于当前模块 key 解析相对路径导入，从共享注册表取模块
+          const resolvedKey = __resolveModulePath(__currentModuleKey, name, __moduleKeys);
+          const mod = __moduleRegistry[resolvedKey];
+          if (!mod) throw new Error("Sandbox Require Error: Module " + name + " is restricted.");
+          if (mod.exports) return mod.exports;
+          const exports = {};
+          // 传入完整模块上下文，使被依赖模块的 factory 也能解析嵌套 require
+          // 第 4 个参数为 AppSDK（与顶层 factory.call 的 instanceSDK 位置一致），供依赖模块解构 React 等 API
+          mod.factory.call(_safeGlobalProxy, { exports }, exports, AppSDK, __moduleRegistry, resolvedKey, __moduleKeys);
+          mod.exports = exports;
+          return exports;
+        };
 
       /* --- 进入沙箱块级作用域 --- */
       {
@@ -201,7 +265,12 @@ export const compileSourceAsync = async (
     try {
       // 使用目标环境的 Function 构造器创建 factory，决定 factory 内部的 globalThis
       const FactoryCtor = targetFunctionConstructor || Function
-      factory = new FactoryCtor('module', 'exports', 'AppSDK', finalCode)
+      // 注入模块解析上下文：__moduleRegistry（模块注册表）、__currentModuleKey（当前模块）、__moduleKeys（可用模块 key 列表）
+      factory = new FactoryCtor(
+        'module', 'exports', 'AppSDK',
+        '__moduleRegistry', '__currentModuleKey', '__moduleKeys',
+        finalCode
+      )
     } catch (factoryErr) {
       // new Function 构造阶段失败（语法错误等），不写缓存，返回结构化错误
       const errorDetail = normalizeError(factoryErr, 'compile')

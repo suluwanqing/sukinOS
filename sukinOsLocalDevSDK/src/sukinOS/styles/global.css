@@ -1,0 +1,18 @@
+/* 全局样式：通过副作用导入 `import './styles/global.css'` 生效 */
+.global-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e0e7ff;
+  color: #4338ca;
+  font-size: 12px;
+  margin-left: 8px;
+}
+
+.global-footer {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px dashed #cbd5e1;
+  color: #94a3b8;
+  font-size: 12px;
+}

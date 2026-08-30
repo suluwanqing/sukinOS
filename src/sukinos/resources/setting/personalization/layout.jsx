@@ -529,6 +529,38 @@ const Personalization = () => {
               <div className={style[bem.e('switch-knob')]}></div>
             </div>
           </div>
+          <div className={style[bem.e('divider')]}></div>
+          <div className={style[bem.e('double-row')]}>
+            <div className={style[bem.e('half-col')]}>
+              <div className={style[bem.e('label-container')]}>
+                <span className={style[bem.e('label')]}>自动保存状态</span>
+                <span className={style[bem.e('label-hint')]}>仅对 saveState=true 的应用生效</span>
+              </div>
+              <div className={style[bem.e('input-group')]}>
+                <input type="number" min={0} max={300} step={5}
+                  className={style[bem.e('number-input')]}
+                  value={config.autoSaveStateInterval || 0}
+                  onChange={(e) => updateConfig('autoSaveStateInterval', Number(e.target.value))}
+                />
+                <span className={style[bem.e('unit')]}>秒</span>
+              </div>
+            </div>
+            <div className={style[bem.e('col-divider')]}></div>
+            <div className={style[bem.e('half-col')]}>
+              <div className={style[bem.e('label-container')]}>
+                <span className={style[bem.e('label')]}>自动保存窗口位置</span>
+                <span className={style[bem.e('label-hint')]}>0=禁用自动记录窗口位置</span>
+              </div>
+              <div className={style[bem.e('input-group')]}>
+                <input type="number" min={0} max={120} step={5}
+                  className={style[bem.e('number-input')]}
+                  value={config.autoSaveWindowInterval || 0}
+                  onChange={(e) => updateConfig('autoSaveWindowInterval', Number(e.target.value))}
+                />
+                <span className={style[bem.e('unit')]}>秒</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -10,6 +10,10 @@ import generateShortSeed from "/utils/js/rootSeed"
 import loginDateWs from '/utils/js/socket/loginDate/main'
 // 引入全局的登录锁和定时器控制方法
 import { authLock, startAutoRefresh, stopAutoRefresh } from '/utils/js/authLock';
+import kernel from '@/sukinos/utils/process/kernel'
+import { DEFAULT_USER_ID } from '@/sukinos/utils/config'
+// 引入公共游客状态管理服务
+import { GUEST_INFO, checkIsGuest, setGuestFlag, clearGuestFlag } from '/utils/js/guest';
 
 // 'login' | 'recoverPassword'
 export const useAuth = (bizType = 'login') => {
@@ -61,6 +65,13 @@ export const useAuth = (bizType = 'login') => {
 
   // 当用户认证状态变化时，管理自动刷新 token 的生命周期
   useEffect(() => {
+    // 如果是游客，不启动自动刷新，并清理现有状态
+    if (checkIsGuest()) {
+      stopAutoRefresh();
+      autoRefreshStartedRef.current = false;
+      return;
+    }
+
     if (isAuthenticated && !autoRefreshStartedRef.current) {
       // 用户已登录且尚未启动自动刷新，启动它
       autoRefreshStartedRef.current = true;
@@ -140,7 +151,10 @@ export const useAuth = (bizType = 'login') => {
         const userData = res.user || res.data;
         alert.success(res.msg || res.message || "操作成功");
         if (mode !== 'recoverPassword') {
+          // 正常登录成功后清除可能存在的游客标记
+          clearGuestFlag();
           dispatch(sukinOsActions.setUserInfo(userData));
+          kernel.reinit(userData?.id)
           loginDateWs.createWsDate(userData?.id)
           // 登录成功后获取路由权限配置
           permissionManageAPI.getRoutePermissions().then(permRes => {
@@ -181,6 +195,13 @@ export const useAuth = (bizType = 'login') => {
       return false;
     }
 
+    // 如果是游客模式刷新，直接恢复游客状态，无需调后端接口
+    if (checkIsGuest()) {
+      dispatch(sukinOsActions.setUserInfo(GUEST_INFO));
+      await kernel.reinit(DEFAULT_USER_ID);
+      return true;
+    }
+
     setIsCheckingAuth(true);
     try {
       const res = await userApi.checkToken();
@@ -190,8 +211,12 @@ export const useAuth = (bizType = 'login') => {
         return false;
       }
       if (res.code === 200) {
-        dispatch(sukinOsActions.setUserInfo(res.user || res.data));
-        loginDateWs.createWsDate(res?.user?.id)
+        const userData = res.user || res.data
+        dispatch(sukinOsActions.setUserInfo(userData));
+        if (kernel.currentUser?.id !== userData?.id) {
+          kernel.reinit(userData?.id)
+        }
+        loginDateWs.createWsDate(userData?.id)
         // 校验成功后获取路由权限配置
         permissionManageAPI.getRoutePermissions().then(permRes => {
           if (permRes.code === 200 && permRes.data) {
@@ -202,14 +227,25 @@ export const useAuth = (bizType = 'login') => {
         return true;
       }
       dispatch(sukinOsActions.setUserInfo({}));
+      kernel.reinit(DEFAULT_USER_ID)
       return false;
     } catch (err) {
       dispatch(sukinOsActions.setUserInfo({}));
+      kernel.reinit(DEFAULT_USER_ID)
       return false;
     } finally {
       setIsCheckingAuth(false);
     }
   }, [dispatch]);
+
+  // 游客登录
+  const guestLogin = useCallback(async () => {
+    //先修改本地存储中的游客标记，再派发 Redux 状态
+    setGuestFlag();
+    dispatch(sukinOsActions.setUserInfo(GUEST_INFO));
+    await kernel.reinit(DEFAULT_USER_ID);
+    navigate('/sukinos/deskbook', { replace: true });
+  }, [dispatch, navigate]);
 
   // 退出登录
   const logout = useCallback(async () => {
@@ -219,9 +255,13 @@ export const useAuth = (bizType = 'login') => {
     try {
       // 先清空 Redux 状态
       dispatch(sukinOsActions.setUserInfo({}));
-       loginDateWs.destroyWSInstance()
-      // 向后端请求登出
-      const res = await userApi.logout();
+      kernel.reinit(DEFAULT_USER_ID)
+      loginDateWs.destroyWSInstance()
+
+      // 登出时安全清除游客标记
+      clearGuestFlag();
+
+      await userApi.logout();
 
       alert.success("已安全退出");
       navigate('/sukinos', { replace: true });
@@ -248,6 +288,7 @@ export const useAuth = (bizType = 'login') => {
     sendVerificationCode,
     executeAuth,
     checkSession,
+    guestLogin,
     logout
   };
 };

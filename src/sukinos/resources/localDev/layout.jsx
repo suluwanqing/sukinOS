@@ -864,6 +864,22 @@ const LocalDev = () => {
     return () => { if (healthCheckRef.current) clearInterval(healthCheckRef.current); };
   }, [config.syncMode, config.enableHealthCheck, config.autoSync, config.healthCheckInterval, performHealthCheck, syncPaused]);
 
+  // 递归遍历目录，收集所有 .jsx/.js/.css 文件，key 用相对路径（含扩展名，供预览/上传使用）
+  const collectFilesRecursively = useCallback(async (dirHandle, prefix = '') => {
+    const collected = {};
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === 'directory') {
+        const sub = await collectFilesRecursively(entry, prefix ? `${prefix}/${entry.name}` : entry.name);
+        Object.assign(collected, sub);
+      } else if (entry.kind === 'file' && /\.(jsx|js|css)$/.test(entry.name)) {
+        const f = await entry.getFile(); const text = await f.text();
+        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        collected[relPath] = text;
+      }
+    }
+    return collected;
+  }, []);
+
   const performSync = useCallback(async (cfg, versionCheck = false) => {
     if (isResumingRef.current && versionCheck) return;
     if (cfg.syncMode === 'folder' || cfg.syncMode === 'sse_folder') {
@@ -871,11 +887,9 @@ const LocalDev = () => {
       try {
         if (!versionCheck) setFetchStatus('syncing');
         const files = {}; let logic = '';
-        for await (const entry of folderHandleRef.current.values()) {
-          if (entry.kind === 'file' && entry.name.match(/\.(jsx|js)$/)) {
-            const f = await entry.getFile(); const text = await f.text();
-            if (entry.name.toLowerCase().startsWith('logic.')) logic = text; else files[entry.name] = text;
-          }
+        const allFiles = await collectFilesRecursively(folderHandleRef.current);
+        for (const [relPath, text] of Object.entries(allFiles)) {
+          if (relPath.toLowerCase().startsWith('logic.')) logic = text; else files[relPath] = text;
         }
         const currentV = Object.values(files).reduce((acc, curr) => acc + curr.length, 0) + logic.length;
         if (versionCheck && currentV === lastVRef.current) return;

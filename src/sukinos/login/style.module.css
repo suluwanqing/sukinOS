@@ -1,180 +1,271 @@
 .su-sukinos-login-layout {
+  --su-fresh-bg-light: #ffffff;
+  --su-fresh-primary: #3eb08f;
+  --su-fresh-primary-hover: #339c7d;
+  --su-fresh-text-dark: #1e2d27;
+  --su-fresh-text-muted: #60736b;
+  --su-fresh-border: rgba(62, 176, 143, 0.12);
+
   display: flex;
   justify-content: center;
   align-items: center;
-  font-family: 'JetBrains Mono', system-ui, sans-serif;
+  font-family: inherit;
   user-select: none;
+  width: 100%;
+  height: 100%;
+  background-color: transparent;
 }
 
 .su-sukinos-login-layout__container {
-  width: 440px;
-  padding: 48px;
-  background-color: var(--su-white-50);
-  border: 2px solid var(--su-black-900);
-  border-radius: 12px;
-  box-shadow: 8px 8px 0px var(--su-black-900);
+  width: 100%;
+  max-width: 400px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 35px 35px 25px;
+  background-color: transparent;
   box-sizing: border-box;
 }
 
 .su-sukinos-login-layout__header {
-  margin-bottom: 36px;
-  border-bottom: 2px solid var(--su-black-900);
-  padding-bottom: 16px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--su-fresh-border);
+  padding-bottom: 10px;
 }
 
 .su-sukinos-login-layout__title {
-  font-size: 32px;
+  font-size: 20px;
   font-weight: 900;
-  color: var(--su-black-900);
-  letter-spacing: -0.05em;
-  line-height: 1;
+  color: var(--su-fresh-text-dark);
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 
 .su-sukinos-login-layout__subtitle {
-  font-size: 14px;
-  color: var(--su-black-600);
-  font-weight: bold;
+  font-size: 10.5px;
+  color: var(--su-fresh-text-muted);
+  font-weight: 600;
+  margin-top: 3px;
+  letter-spacing: 0.05em;
+}
+
+.su-sukinos-login-layout__form-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.su-sukinos-login-layout__fields-wrapper {
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .su-sukinos-login-layout__actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 28px;
+  height: 24px;
+  margin-bottom: 12px;
+  transition:
+    opacity 0.2s ease,
+    visibility 0.2s ease;
+}
+
+.su-sukinos-login-layout__actions.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .su-sukinos-login-layout__checkbox {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: bold;
-  color: var(--su-black-900);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--su-fresh-text-muted);
+  transition: color 0.2s;
+}
+
+.su-sukinos-login-layout__checkbox:hover {
+  color: var(--su-fresh-text-dark);
 }
 
 .su-sukinos-login-layout__checkbox-box {
-  width: 20px;
-  height: 20px;
-  border: 2px solid var(--su-black-900);
-  border-radius: 4px;
-  padding: 2px;
-  box-sizing: border-box;
-  background-color: var(--su-white-50);
+  width: 16px !important;
+  height: 16px !important;
+  min-width: 16px !important;
+  min-height: 16px !important;
+  max-width: 16px !important;
+  max-height: 16px !important;
+  flex-shrink: 0 !important;
+  border: 1.5px solid #d0dfd8 !important;
+  border-radius: 4px !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  background-color: var(--su-fresh-bg-light) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s;
+}
+
+.su-sukinos-login-layout__checkbox:hover .su-sukinos-login-layout__checkbox-box {
+  border-color: var(--su-fresh-primary) !important;
 }
 
 .is-remember {
-  background-color: var(--su-orange-500);
-  width: 100%;
-  height: 100%;
-  border-radius: 2px;
+  width: 8px !important;
+  height: 8px !important;
+  min-width: 8px !important;
+  min-height: 8px !important;
+  max-width: 8px !important;
+  max-height: 8px !important;
+  background-color: var(--su-fresh-primary) !important;
+  border-radius: 2px !important;
+  flex-shrink: 0 !important;
 }
 
 .su-sukinos-login-layout__mode-switch {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--su-orange-500);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--su-fresh-primary);
   cursor: pointer;
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 4px;
   transition: all 0.2s;
 }
 
 .su-sukinos-login-layout__mode-switch:hover {
-  color: var(--su-black-900);
+  color: var(--su-fresh-primary-hover);
+  transform: translateY(-0.5px);
 }
 
 .su-sukinos-login-layout__submit {
   width: 100%;
-  padding: 16px;
-  background: var(--su-orange-500);
-  color: var(--su-black-900);
-  border: 2px solid var(--su-black-900);
+  padding: 11px;
+  background: var(--su-fresh-primary);
+  color: #ffffff;
+  border: none;
   border-radius: 8px;
-  font-size: 18px;
-  font-weight: 900;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.1s;
-  letter-spacing: 2px;
-  box-shadow: 4px 4px 0px var(--su-black-900);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 3px;
+  box-shadow: 0 4px 12px rgba(62, 176, 143, 0.12);
+}
+
+.su-sukinos-login-layout__submit:hover {
+  background: var(--su-fresh-primary-hover);
+  box-shadow: 0 5px 15px rgba(62, 176, 143, 0.2);
+  transform: translateY(-0.5px);
 }
 
 .su-sukinos-login-layout__submit:active {
-  transform: translate(2px, 2px);
-  box-shadow: 2px 2px 0px var(--su-black-900);
+  transform: translateY(0) scale(0.985);
 }
 
 .su-sukinos-login-layout__submit:disabled {
-  background: var(--su-black-200);
-  color: var(--su-black-500);
+  background: rgba(230, 237, 234, 0.5);
+  color: #a0b5ab;
   cursor: not-allowed;
   transform: none;
-  box-shadow: 4px 4px 0px var(--su-black-900);
+  box-shadow: none;
 }
 
 .su-sukinos-login-layout__footer-links {
   display: flex;
   justify-content: flex-end;
-  margin-top: 24px;
+  margin-top: 10px;
 }
 
 .su-sukinos-login-layout__link {
-  font-size: 14px;
-  font-weight: 800;
-  color: var(--su-black-900);
+  font-size: 11.5px;
+  font-weight: bold;
+  color: var(--su-fresh-text-muted);
   cursor: pointer;
   transition: color 0.2s;
-  border-bottom: 2px solid transparent;
 }
 
 .su-sukinos-login-layout__link:hover {
-  color: var(--su-orange-500);
-  border-bottom-color: var(--su-orange-500);
+  color: var(--su-fresh-primary);
 }
 
 .su-sukinos-login-layout__divider {
   display: flex;
   align-items: center;
-  margin: 32px 0 24px;
-  color: var(--su-black-900);
-  font-weight: bold;
-  font-size: 12px;
+  margin: 12px 0 8px;
+  color: #a0b5ab;
+  font-weight: 600;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
 }
 
 .su-sukinos-login-layout__divider::before,
 .su-sukinos-login-layout__divider::after {
   content: '';
   flex: 1;
-  height: 2px;
-  background-color: var(--su-black-900);
+  height: 1px;
+  background-color: var(--su-fresh-border);
 }
 
 .su-sukinos-login-layout__divider span {
-  padding: 0 16px;
+  padding: 0 8px;
 }
 
 .su-sukinos-login-layout__socials {
   display: flex;
   justify-content: center;
-  gap: 20px;
+  gap: 10px;
 }
 
 .su-sukinos-login-layout__social-btn {
-  width: 48px;
-  height: 48px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
-  background-color: var(--su-white-50);
-  border: 2px solid var(--su-black-900);
+  background-color: var(--su-fresh-bg-light);
+  border: 1px solid var(--su-fresh-border);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.1s;
-  color: var(--su-black-900);
+  transition: all 0.2s;
+  color: var(--su-fresh-text-muted);
 }
 
 .su-sukinos-login-layout__social-btn:hover {
-  background-color: var(--su-orange-500);
+  background-color: var(--su-fresh-primary-light);
+  border-color: rgba(62, 176, 143, 0.3);
+  color: var(--su-fresh-primary);
+  transform: translateY(-1px);
+}
+
+.su-sukinos-login-layout__guest-section {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--su-fresh-border);
+}
+
+.su-sukinos-login-layout__guest-btn {
+  width: 100%;
+  padding: 7px;
+  background: transparent;
+  color: var(--su-fresh-text-muted);
+  border: 1px dashed var(--su-fresh-border);
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 1px;
+}
+
+.su-sukinos-login-layout__guest-btn:hover {
+  color: var(--su-fresh-primary);
+  border-color: var(--su-fresh-primary);
+  background: var(--su-fresh-primary-light);
 }

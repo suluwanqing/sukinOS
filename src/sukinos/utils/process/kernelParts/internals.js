@@ -18,6 +18,8 @@ export class Internals {
   }
 
   kill(pid) {
+    this.#kernel.stopAutoSaveState(pid)
+    this.#kernel.stopAutoSaveWindow(pid)
     const p = this.#kernel.processes.get(pid)
     if (p) {
       p.worker.terminate()

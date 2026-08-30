@@ -1,17 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   MailOutline, LockOutlined,
-  VerifiedUserOutlined
+  VerifiedUserOutlined, GitHub, Google
 } from '@mui/icons-material';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 import Form from './form/layout';
 import { useAuth } from '@/sukinos/hooks/useAuth';
+import gsap from 'gsap';
 
 const bem = createNamespace('sukinos-login-layout');
 const TITLE_META = {
-  login: { title: 'SYS.LOGIN', sub: '' },
-  recoverPassword: { title: 'RESET.SEQ', sub: '' }
+  login: { title: 'LOGIN',  },
+  recoverPassword: { title: 'SEQ', sub: '' }
 }
 
 const LOGIN_CONFIG = {
@@ -39,10 +40,9 @@ const LOGIN_CONFIG = {
       { name: 'password', type: 'password', placeholder: '请输入新密码', icon: <LockOutlined fontSize="small" />, isPassword: true, rules: { required: true, minLength: 6, message: '密码长度不能少于6位' } }
     ]
   },
-   thirdParty: [
+  thirdParty: [
     // { key: 'github', icon: <GitHub fontSize="small" /> },
-    // { key: 'google', icon: <Google fontSize="small" /> },
-    // { key: 'twitter', icon: <Twitter fontSize="small" /> },
+    // { key: 'google', icon: <Google fontSize="small" /> }
   ]
 };
 
@@ -54,9 +54,9 @@ const globalCachedState = {
 };
 
 const Actions = ({ activeMode, remember, onSwitchMode, onToggleRemember }) => {
-  if (activeMode === 'recoverPassword') return null;
+  const isHidden = activeMode === 'recoverPassword';
   return (
-    <div className={style[bem.e('actions')]}>
+    <div className={`${style[bem.e('actions')]} ${isHidden ? style['is-hidden'] : ''}`}>
       <div className={style[bem.e('checkbox')]} onClick={onToggleRemember}>
         <div className={style[bem.e('checkbox-box')]}>
           <div className={remember ? style['is-remember'] : ''}></div>
@@ -80,11 +80,14 @@ const FooterLinks = ({ activeMode, onSwitchMode }) => (
 
 const Divider = () => <div className={style[bem.e('divider')]}><span>其他方式登录</span></div>;
 
-const SocialButtons = () => (
-  <div className={style[bem.e('socials')]}>
-    {LOGIN_CONFIG.thirdParty.map(item => <div key={item.key} className={style[bem.e('social-btn')]}>{item.icon}</div>)}
-  </div>
-);
+const SocialButtons = () => {
+  if (LOGIN_CONFIG.thirdParty.length === 0) return null;
+  return (
+    <div className={style[bem.e('socials')]}>
+      {LOGIN_CONFIG.thirdParty.map(item => <div key={item.key} className={style[bem.e('social-btn')]}>{item.icon}</div>)}
+    </div>
+  );
+};
 
 function LoginLayout() {
   const [activeMode, setActiveMode] = useState(globalCachedState.activeMode);
@@ -93,7 +96,19 @@ function LoginLayout() {
   const [remember, setRemember] = useState(globalCachedState.remember);
 
   const bizType = activeMode === 'recoverPassword' ? 'recoverPassword' : 'login';
-  const { timeLeft, isSending, sendVerificationCode, executeAuth } = useAuth(bizType);
+  const { timeLeft, isSending, sendVerificationCode, executeAuth, guestLogin } = useAuth(bizType);
+
+  const fieldsWrapperRef = useRef(null);
+
+
+  useEffect(() => {
+    if (fieldsWrapperRef.current) {
+      gsap.fromTo(fieldsWrapperRef.current,
+        { opacity: 0, y: 10 },
+        { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }
+      );
+    }
+  }, [activeMode]);
 
   //更新数据状态，并同步到全局缓存
   const handleInputChange = (name, value) => {
@@ -107,9 +122,21 @@ function LoginLayout() {
 
   //登录方式改变,重置错误状态但保留数据，并同步缓存
   const handleModeSwitch = (newMode) => {
-    setActiveMode(newMode);
-    globalCachedState.activeMode = newMode;
-    setErrors({});
+    handleModeSwitchAnim();
+    setTimeout(() => {
+      handleModeSwitchAnimRev();
+      setActiveMode(newMode);
+      globalCachedState.activeMode = newMode;
+      setErrors({});
+    }, 120);
+  };
+
+  // 表单切换动画
+  const handleModeSwitchAnim = () => {
+    gsap.to(fieldsWrapperRef.current, { opacity: 0, duration: 0.1 });
+  };
+  const handleModeSwitchAnimRev = () => {
+    gsap.to(fieldsWrapperRef.current, { opacity: 1, duration: 0.1 });
   };
 
   //切换记住我状态，并同步缓存
@@ -174,22 +201,28 @@ function LoginLayout() {
           <div className={style[bem.e('title')]}>
             {activeMode !== 'recoverPassword' ? TITLE_META.login.title : TITLE_META.recoverPassword.title}
           </div>
+          <div className={style[bem.e('subtitle')]}>
+            {activeMode !== 'recoverPassword' ? TITLE_META.login.sub : TITLE_META.recoverPassword.sub}
+          </div>
         </div>
-        <form onSubmit={onSubmit}>
-          <Form
-            fields={LOGIN_CONFIG.fields[activeMode]}
-            formData={formData}
-            errors={errors}
-            onInputChange={handleInputChange}
-            onClear={(n) => setFormData(p => {
-              const newData = { ...p, [n]: '' };
-              globalCachedState.formData = newData;
-              return newData;
-            })}
-            sendCode={onSendCode}
-            countdown={timeLeft}
-            isSending={isSending}
-          />
+        <form onSubmit={onSubmit} className={style[bem.e('form-body')]}>
+          <div ref={fieldsWrapperRef} className={style[bem.e('fields-wrapper')]}>
+            <Form
+              fields={LOGIN_CONFIG.fields[activeMode]}
+              formData={formData}
+              errors={errors}
+              onInputChange={handleInputChange}
+              onClear={(n) => setFormData(p => {
+                const newData = { ...p, [n]: '' };
+                globalCachedState.formData = newData;
+                return newData;
+              })}
+              sendCode={onSendCode}
+              countdown={timeLeft}
+              isSending={isSending}
+            />
+          </div>
+
           <Actions
             activeMode={activeMode}
             remember={remember}
@@ -201,7 +234,14 @@ function LoginLayout() {
           </button>
         </form>
         <FooterLinks activeMode={activeMode} onSwitchMode={handleModeSwitch} />
+        <Divider />
         <SocialButtons />
+
+        <div className={style[bem.e('guest-section')]}>
+          <button type="button" className={style[bem.e('guest-btn')]} onClick={guestLogin}>
+            游客免登录进入
+          </button>
+        </div>
       </div>
     </div>
   );

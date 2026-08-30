@@ -514,6 +514,9 @@ export class Lifecycle {
         await this.#kernel.sysDb.updateData(app?.[ENV_KEY_NAME], {status: targetStatus})
       }
       this.#kernel.emitChange({type: 'APP_STATUS', pid: truthPid, status: targetStatus})
+      // 启动自动保存定时器（仅在 saveState=true 且 interval>0 时生效）
+      this.#kernel.startAutoSaveState(truthPid)
+      this.#kernel.startAutoSaveWindow(truthPid)
       return {isStart: true}
     } catch (e) {
       // console.log(e)
@@ -551,9 +554,12 @@ export class Lifecycle {
       const p = this.#kernel.processes.get(pid)
       if (p && p.worker) {
         // 向每个 worker 发送保存状态的指令。
-        // 这是一个“即发即忘”的操作，因为 beforeunload 事件的执行时间有限，我们 不等待回复。
+        // 这是一个”即发即忘”的操作，因为 beforeunload 事件的执行时间有限，我们不等待回复。
         p.worker.postMessage({type: 'SAVE_STATE'})
       }
+      // 同时从 stateCache 直接保存，确保 beforeunload 可靠性
+      this.#kernel.autoSaveState(pid)
+      this.#kernel.autoSaveWindow(pid)
     }
     // alert.success('[内核] 已向所有活动进程发送保存状态指令。')
   }
@@ -637,6 +643,9 @@ export class Lifecycle {
    * @param {string|number} pid - 应用进程ID
    */
   async forceKillProcess(pid) {
+    // 停止自动保存定时器
+    this.#kernel.stopAutoSaveState(pid)
+    this.#kernel.stopAutoSaveWindow(pid)
     // 终止进程
     this.#kernel.kill(pid)
     // 清理缓存

@@ -35,20 +35,29 @@ initialState
 │   └── verificationCodes: {}     // 验证码状态（支持多业务并发，按 type 索引）
 ├── setting: { isDisplay: true }  // 系统整体设置
 ├── appStore
-│   ├── storePath: {}             // 商店 API 路径（7 个 URL）
+│   ├── storePath: {}             // 商店 API 路径（9 个 URL）
 │   │   ├── baseUrl
 │   │   ├── listUrl
 │   │   ├── uploadUrl
 │   │   ├── checkUpdatesUrl
 │   │   ├── searchUrl
 │   │   ├── myUploadUrl
-│   │   └── deleteUrl
+│   │   ├── deleteUrl
+│   │   ├── withPermissionUrl
+│   │   └── authorizedUrl
 │   └── generateApp: {}           // 应用生成配置
 │       ├── singleIframe: false
 │       ├── truthAllApp: false
-│       └── useVirtualWorker: false
-└── fileSystemConfig
-    └── isPrivate: true           // 文件系统是否私有模式
+│       ├── useVirtualWorker: false
+│       ├── maxWindows: 10        // 最大可见窗口数（超出时自动 LRU 休眠）
+│       ├── maxWorkers: 5         // 最大并发 Worker 数
+│       └── workerLRU: true       // 是否启用 LRU 自动休眠
+├── fileSystemConfig
+│   └── isPrivate: true           // 文件系统是否私有模式
+└── routePermissions
+    ├── config: null              // 路由权限配置（登录后由后端数据填充）
+    ├── loaded: false             // 是否已加载
+    └── lastUpdated: null         // 最近更新时间戳
 ```
 
 ### 1.3 Reducers
@@ -62,6 +71,8 @@ initialState
 | `setStorePath` | `{ key, value }` | 设置商店 API 路径（空字符串会被忽略） |
 | `resetStorePath` | `key?` (string) | 重置商店路径：传 key 重置单个，不传则重置全部 |
 | `setFileSystemConfig` | `{ key, value }` | 设置文件系统配置 |
+| `setRoutePermissions` | `payload` (object) | 设置路由权限配置，并标记 `loaded=true`、更新 `lastUpdated` |
+| `clearRoutePermissions` | — | 清空路由权限配置，重置 `loaded=false`、`lastUpdated=null` |
 | `setGenerateApp` | `{ key, value }` | 设置应用生成配置 |
 
 **验证码并发模型**：`assistant.verificationCodes` 是一个以业务类型（如 `'login'`、`'recoverPassword'`）为键的对象，支持多个业务同时拥有独立的验证码倒计时，互不干扰。
@@ -76,6 +87,8 @@ initialState
 | `selectorStoreSettingStorePath` | `storePath` 对象 | 商店 API 路径配置 |
 | `selectGenerateApp` | `generateApp` 对象 | 应用生成配置 |
 | `selectFileSystemConfig` | `fileSystemConfig` 对象 | 文件系统配置 |
+| `selectorRoutePermissions` | `routePermissions.config` 对象 | 路由权限配置（未加载时为 `null`） |
+| `selectorRoutePermissionsLoaded` | `boolean` | 路由权限是否已加载 |
 | `selectVerificationData(type)` | `{ codeId, seed, account, endTime, isRunning }` | 按 type 获取特定业务的验证码数据 |
 
 ### 1.5 导出
@@ -208,6 +221,7 @@ export const useAuth = (bizType = 'login') => { ... }
 | `sendVerificationCode` | `(account, message?) => Promise<boolean>` | 发送验证码 |
 | `executeAuth` | `(mode, formData, onSuccess?) => Promise<boolean>` | 执行认证 |
 | `checkSession` | `() => Promise<boolean>` | 校验 Session（双 Token） |
+| `guestLogin` | `() => Promise<void>` | 游客登录（设置游客标记 + 恢复游客状态 + 跳转桌面） |
 | `logout` | `() => Promise<void>` | 退出登录 |
 
 ### 3.3 验证码倒计时
@@ -234,23 +248,24 @@ export const useAuth = (bizType = 'login') => { ... }
 1. 验证码模式必须已有 codeId，否则拒绝
 2. 构建 params: { type, account, password, code, codeId, remember, seed }
 3. 调用 loginApi(params)
-4. 登录成功 → dispatch setUserInfo → 建立 WebSocket → 重置验证码 → 跳转桌面
+4. 登录成功 → 清除游客标记 → dispatch setUserInfo → kernel.reinit → 建立 WebSocket → 加载路由权限（setRoutePermissions + updateRoutePermissionCache）→ 重置验证码 → 跳转桌面
 5. 重置密码成功 → 仅重置验证码，不跳转
 ```
 
 ### 3.6 会话校验 (`checkSession`)
 
 - 检查全局登出锁 `authLock.isLoggingOut`，登出中直接返回 `false`
+- 游客模式刷新 → 直接恢复游客状态（`setUserInfo(GUEST_INFO)` + `kernel.reinit`），无需调后端接口
 - 向后端发起 Token 校验（双 Token 机制：accToken 过期时自动 refresh）
-- 校验成功 → 更新 `userInfo`，建立 WebSocket
+- 校验成功 → 更新 `userInfo`，建立 WebSocket，并通过 `permissionManageAPI.getRoutePermissions()` 加载路由权限（`setUserInfo` + `setRoutePermissions` + 更新 `updateRoutePermissionCache`）
 - 校验失败 → 清空 `userInfo`
 
 ### 3.7 退出登录 (`logout`)
 
 ```
 1. 置全局登出锁 authLock.isLoggingOut = true
-2. 清空 Redux userInfo
-3. 销毁 WebSocket 连接
+2. 清空 Redux userInfo + kernel.reinit + 销毁 WebSocket 连接
+3. 清除游客标记 clearGuestFlag
 4. 请求后端登出接口
 5. 跳转至 /sukinos（replace）
 6. 延迟 2 秒释放登出锁（等待路由跳转完成）

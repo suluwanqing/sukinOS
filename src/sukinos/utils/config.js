@@ -47,6 +47,15 @@ export const ENV_KEY_LOGIC = 'logic';
 export const ENV_KEY_CONTENT = 'content';
 
 /**
+ * 预编译后的界面视图源码 (Object / String)
+ * @role 与 ENV_KEY_CONTENT 结构一致（单文件字符串或多文件对象），承载安装时由 Babel 预编译的 JS 产物。
+ * @usage 双份存储策略：ENV_KEY_CONTENT 保留原始 JSX（供调试/反编译/提取），本字段存预编译 JS。
+ *   运行时优先使用本字段跳过 Babel 编译；缺失或执行失败时降级用原始 JSX 重新编译兜底。
+ *   系统 APP 不生成此字段，始终走 JSX 编译链路。
+ */
+export const ENV_KEY_CONTENT_PRECOMPILED = 'precompiledContent';
+
+/**
  * 操作系统元数据 (Object)
  * @role 决定了应用在 SukinOS 桌面上的外部表象和系统级权限。
  * @usage 包含属性如：authorId, icon, description, initialSize (窗口初始尺寸), version, exposeState, saveState 等。
@@ -71,8 +80,18 @@ export const SUKINOS_STORE_REMOTE_DELETE=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/a
 export const SUKINOS_STORE_REMOTE_WITH_PERMISSION=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/withPermission`
 export const SUKINOS_STORE_REMOTE_AUTHORIZED=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/authorized`
 
+// ===== 默认/游客用户配置 =====
+export const DEFAULT_USER_ID = 'default';
+// 统一的游客用户信息配置
+export const GUEST_INFO = {
+  id: DEFAULT_USER_ID,
+  role: 'guest',
+  name: '游客',
+  nickname: '游客用户',
+};
+
 export const createResDbConfig = (userId) => ({
-  DB_NAME: `SukinOS_Res_${userId || 'default'}`,
+  DB_NAME: `SukinOS_Res_${userId || DEFAULT_USER_ID}`,
   STORE_NAME: 'ui_bundles',
   KEY_PATH: ENV_KEY_RESOURCE_ID,
   VERSION: 1,
@@ -83,7 +102,7 @@ export const createResDbConfig = (userId) => ({
 });
 
 export const createSysDbConfig = (userId) => ({
-  DB_NAME: `SukinOS_Sys_${userId || 'default'}`,
+  DB_NAME: `SukinOS_Sys_${userId || DEFAULT_USER_ID}`,
   STORE_NAME: 'registry',
   KEY_PATH: ENV_KEY_NAME,
   VERSION: 1,
@@ -106,7 +125,7 @@ export const DB_VFILE = {
 };
 
 export const createInstanceDbConfig = (userId) => ({//存储有状态的instance。如文件句柄
-  DB_NAME: `SUKIN_STATE_INSTANCE_${userId || 'default'}`,
+  DB_NAME: `SUKIN_STATE_INSTANCE_${userId || DEFAULT_USER_ID}`,
   STORE_NAME: 'instance',
   VERSION: 2,
   KEY_PATH: 'id',
@@ -120,7 +139,9 @@ export const FileType = {
   DIRECTORY: 2
 };
 
-export const SYSTEM_FS_NAME=['SUKIN_OS_VFS','SukinOS_Sys','SukinOS_Res','SUKIN_STATE_INSTANCE']
+// （SukinOS_Sys_{userId} 等），不再有固定的全局数据库名。
+// 保留此常量仅为向后兼容，仅 VFS 仍为全局共享。
+export const SYSTEM_FS_NAME=['SUKIN_OS_VFS']
 export const DefaultWindow = { x: 100, y: 100, w: 500, h: 400 };
 
 export const WindowSize = (() => {
@@ -292,7 +313,9 @@ export const appCustomMapper = {
   allowResize: '允许调整窗口大小',
   showInLauncher: '在启动器中显示',
   backgroundSleep: '后台静默(暂停订阅)',
-  adaptiveMount: '后台自适应挂载(不保存APP内部状态)'
+  adaptiveMount: '后台自适应挂载(不保存APP内部状态)',
+  autoSaveStateInterval: '自动保存状态间隔(秒)',
+  autoSaveWindowInterval: '自动保存窗口位置间隔(秒)'
 }
 //app用户个人习惯可选
 export const appCustom = {
@@ -304,6 +327,8 @@ export const appCustom = {
     showInLauncher: false,
     backgroundSleep: false,
     adaptiveMount: false,
+    autoSaveStateInterval: 0,
+    autoSaveWindowInterval: 0,
 }
 //应用类似
 export const appTypes = [
@@ -357,6 +382,19 @@ export const preSystemFileData = [
   {
     id: 'system_2mp4',
     path:'/video/2.mp4'
+  }
+]
+
+// ===== 系统预置配置文件 =====
+// 与 preSystemFileData不同，这些是系统运行所需的 JSON 配置文件，
+// 挂载时若不存在则直接写入默认内容，避免被用户误删后系统功能失效。
+// 布局文件按用户隔离：结构为 { [userId]: { [pid]: "row-col" } }
+export const DESK_LAYOUT_FILENAME = 'deskbook-layout.json';
+export const preSystemConfigFiles = [
+  {
+    id: 'system_desk_layout',
+    name: DESK_LAYOUT_FILENAME,
+    content: '{}' // 默认空布局，运行时按用户写入
   }
 ]
 

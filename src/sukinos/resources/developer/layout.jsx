@@ -73,6 +73,33 @@ function Developer({ app }) {
   const [canRegister, setCanRegister] = useState(false);
   const saveTimeoutRef = useRef({});
 
+  // 侧边栏宽度
+  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const sidebarResizingRef = useRef(false);
+
+  const startSidebarResize = useCallback((e) => {
+    e.preventDefault();
+    sidebarResizingRef.current = true;
+    const startX = e.clientX;
+    const startWidth = sidebarWidth;
+    const onMove = (ev) => {
+      if (!sidebarResizingRef.current) return;
+      const next = Math.min(Math.max(startWidth + (ev.clientX - startX), 180), 480);
+      setSidebarWidth(next);
+    };
+    const onUp = () => {
+      sidebarResizingRef.current = false;
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }, [sidebarWidth]);
+
   useEffect(() => {
     if (!userInfo?.id) return;
     permissionManageAPI.checkCanRegister().then(res => {
@@ -87,8 +114,9 @@ function Developer({ app }) {
   // 使用 Refs 缓存内存中的实时编辑状态
   const filesRef = useRef(files);
   const physicalFilesRef = useRef(physicalFiles);
-  // 使用 Ref 锁定不稳定的 Hook 状态引用，实现 loadWorkspaceFiles 零依赖化
+  // 使用 Ref 锁定模块不稳定的 Hook 状态引用，实现 loadWorkspaceFiles 零依赖化
   const vfsRef = useRef(vfs);
+  const fsModeRef = useRef(fsMode);
 
   useEffect(() => {
     isMappedRef.current = isMapped;
@@ -104,10 +132,16 @@ function Developer({ app }) {
     vfsRef.current = vfs;
   }, [vfs]);
 
+  useEffect(() => {
+    fsModeRef.current = fsMode;
+  }, [fsMode]);
+
   // 根据 items 物理介质列表解析内存。严格限制仅同步 JS/JSX。
+  // 递归解析工作区目录树，key 用相对路径（如 pages/about/index.jsx），支持嵌套文件夹。
   // 通过 vfsRef 的代理锁定，使其彻底变为 [] 零依赖项，引用永远保持稳定
   const loadWorkspaceFiles = useCallback(async (currentItems) => {
     const currentVfs = vfsRef.current;
+    const currentFsMode = fsModeRef.current;
     // 只有映射开启，且当前浏览的目录 ID 确实是工作区确认的 ID 时，才执行解析
     if (!isMappedRef.current || currentVfs.state.currentId !== workspaceDirIdRef.current) return;
 
@@ -115,32 +149,59 @@ function Developer({ app }) {
       const currentFiles = filesRef.current;
       const currentPhysicalFiles = physicalFilesRef.current;
 
-      // 提取物理侧属于 JS/JSX 的普通视图文件（过滤 logic 保留文件）
-      const incomingFileNames = currentItems
-        .filter(item => {
-           if (item.type !== FileType.FILE) return false;
-           const lowerName = item.name.toLowerCase();
-           return (lowerName.endsWith('.js') || lowerName.endsWith('.jsx')) &&
-                  lowerName !== 'logic.jsx' && lowerName !== 'logic.js';
-        })
-        .map(i => i.name);
+      // 递归遍历工作区目录，收集所有 .jsx/.js 文件（含子文件夹），返回 { relPath, item, isLogic }
+      const collectRecursive = async (dirId, prefix) => {
+        const result = [];
+        let list = [];
+        if (currentFsMode === 'virtual') {
+          list = fs.readdir(dirId);
+        } else {
+          // local 模式：通过句柄注册表拿到目录句柄，遍历子项
+          const dirHandle = currentVfs.state.handleRegistry.get(dirId)?.handle;
+          if (dirHandle) {
+            for await (const entry of dirHandle.values()) {
+              list.push({
+                id: entry.name,
+                name: entry.name,
+                type: entry.kind === 'directory' ? FileType.DIRECTORY : FileType.FILE,
+                handle: entry
+              });
+            }
+          }
+        }
+        for (const item of list) {
+          if (item.type === FileType.DIRECTORY) {
+            const sub = await collectRecursive(item.id, prefix ? `${prefix}/${item.name}` : item.name);
+            result.push(...sub);
+          } else {
+            const lowerName = item.name.toLowerCase();
+            const isLogic = lowerName === 'logic.jsx' || lowerName === 'logic.js';
+            const isView = lowerName.endsWith('.js') || lowerName.endsWith('.jsx');
+            if (isLogic || isView) {
+              const relPath = prefix ? `${prefix}/${item.name}` : item.name;
+              result.push({ relPath, item, isLogic });
+            }
+          }
+        }
+        return result;
+      };
 
+      const allFiles = await collectRecursive(workspaceDirIdRef.current, '');
+      const incomingKeys = allFiles.filter(f => !f.isLogic).map(f => f.relPath);
       const currentFilesKeys = Object.keys(currentFiles);
 
-      //判断物理盘的文件树结构是否真的改变了
+      // 判断物理盘的文件树结构是否真的改变了（基于递归收集的相对路径）
       const isStructuralChange =
         currentFilesKeys.length === 0 ||
-        currentFilesKeys.length !== incomingFileNames.length ||
-        !currentFilesKeys.every(k => incomingFileNames.includes(k));
+        currentFilesKeys.length !== incomingKeys.length ||
+        !currentFilesKeys.every(k => incomingKeys.includes(k));
 
       // 如果只是保存、更新内容，文件结构无增减变动，组件层直接拦截
-      //    绝对不重新读取物理磁盘去覆写内存中的 files，彻底根除闪烁与内容回弹
+      //    绝对不重新读取物理磁盘去覆写代码中的 files，防止根除闪烁与内容回弹
       if (!isStructuralChange && currentPhysicalFiles.size > 0) {
         const updatedPhysicalFiles = new Map(currentPhysicalFiles);
-        for (const item of currentItems) {
-          if (item.type === FileType.FILE) {
-             updatedPhysicalFiles.set(item.name.toLowerCase(), item);
-          }
+        for (const { relPath, item } of allFiles) {
+          updatedPhysicalFiles.set(relPath.toLowerCase(), item);
         }
         setPhysicalFiles(updatedPhysicalFiles);
         return;
@@ -152,26 +213,15 @@ function Developer({ app }) {
       let hasViewFile = false;
       let loadedLogic = DEFAULT_LOGIC;
 
-      for (const item of currentItems) {
-        if (item.type === FileType.FILE) {
-          const lowerName = item.name.toLowerCase();
-          // 如果识别到的是保留逻辑文件（Logic.jsx / logic.js），不混入普通视图 files 中
-          const isLogic = lowerName === 'logic.jsx' || lowerName === 'logic.js';
-          const isView = lowerName.endsWith('.js') || lowerName.endsWith('.jsx');
-
-          if (isLogic || isView) {
-            const fileData = await currentVfs.operation.handleOpenFile(item);
-            if (!fileData) continue;
-
-            const content = fileData.content;
-            newPhysicalFiles.set(lowerName, item);
-
-            if (isLogic) loadedLogic = content;
-            else {
-              newFiles[item.name] = content;
-              hasViewFile = true;
-            }
-          }
+      for (const { relPath, item, isLogic } of allFiles) {
+        const fileData = await currentVfs.operation.handleOpenFile(item);
+        if (!fileData) continue;
+        const content = fileData.content;
+        newPhysicalFiles.set(relPath.toLowerCase(), item);
+        if (isLogic) loadedLogic = content;
+        else {
+          newFiles[relPath] = content;
+          hasViewFile = true;
         }
       }
       if (!hasViewFile && Object.keys(newFiles).length === 0) newFiles['layout.jsx'] = DEFAULT_LAYOUT;
@@ -237,6 +287,7 @@ function Developer({ app }) {
   }, [vfs.state.isReady, fsMode, vfs.state.breadcrumbs]);
 
   // 移除旧版 handleCreate 临时过渡阶段，不管是否存在，直接扔给 handleSave
+  // 支持相对路径：当 fileName 含 '/' 时，解析父目录 id（virtual 模式自动创建缺失目录）
   const triggerVfsSave = useCallback((fileName, content, isManual = false) => {
     if (!isMapped) return;
     if (saveTimeoutRef.current[fileName]) clearTimeout(saveTimeoutRef.current[fileName]);
@@ -247,10 +298,29 @@ function Developer({ app }) {
         const lowerName = fileName.toLowerCase();
         let targetItem = physicalFiles.get(lowerName);
         let targetId = targetItem?.id;
+        let parentId = workspaceDirId;
+        let name = fileName;
+
+        // 拆出父目录路径与文件名，解析/创建父目录
+        if (fileName.includes('/')) {
+          const parts = fileName.split('/');
+          name = parts.pop();
+          let currentId = workspaceDirId;
+          for (const part of parts) {
+            const children = fs.readdir(currentId);
+            const found = children.find(c => c.type === FileType.DIRECTORY && c.name === part);
+            if (found) currentId = found.id;
+            else {
+              const created = await fs.mkdir(currentId, part);
+              currentId = created.id;
+            }
+          }
+          parentId = currentId;
+        }
 
         // 直接写入最新编辑的内容，由 Hook 底层自动判断并以“一步写入”形式直接在磁盘生成，规避任何时序空隙
         const res = await vfs.operation.handleSave({
-           id: targetId, content, parentId: workspaceDirId, name: fileName
+           id: targetId, content, parentId, name
         });
 
         if (res) {
@@ -265,7 +335,8 @@ function Developer({ app }) {
   }, [workspaceDirId, isMapped, physicalFiles, vfs.operation]);
 
   const handleContentChange = useCallback((fileName, content) => {
-    if (fileName === 'Logic.jsx') setAppMeta(prev => ({ ...prev, logicCode: content }));
+    // 逻辑文件（logic.jsx / logic.js）单独维护，不混入普通视图 files
+    if (/^logic\.(jsx|js)$/i.test(fileName)) setAppMeta(prev => ({ ...prev, logicCode: content }));
     else setFiles(prev => ({ ...prev, [fileName]: content }));
     setUnsavedFiles(prev => new Set(prev).add(fileName));
     if (isAutoSave) triggerVfsSave(fileName, content, false);
@@ -282,7 +353,8 @@ function Developer({ app }) {
   const cleanFiles = useMemo(() => {
     const result = {};
     for (const [key, value] of Object.entries(files)) {
-      result[key.replace('.jsx', '')] = value;
+      // 去 .jsx/.js 后缀，保留相对路径（如 pages/about/index）
+      result[key.replace(/\.(jsx|js)$/, '')] = value;
     }
     return result;
   }, [files]);
@@ -384,7 +456,8 @@ function Developer({ app }) {
         <Nav navItems={funcItems.filter(i => !i.hidden)} currentSidebar={activeSidebar} currentMain={activeMain} />
       </div>
       {activeSidebar !== 'none' && (
-        <div className={style[bem.e('sidebar-wrapper')]}>
+        <>
+        <div className={style[bem.e('sidebar-wrapper')]} style={{ width: sidebarWidth }}>
           <Suspense fallback={<div style={{ padding: '20px', color: '#999', textAlign: 'center' }}>载入中...</div>}>
             {activeSidebar === 'explorer' && (
                <Explorer
@@ -405,6 +478,8 @@ function Developer({ app }) {
             )}
           </Suspense>
         </div>
+        <div className={style[bem.e('sidebar-resizer')]} onMouseDown={startSidebarResize} />
+      </>
       )}
       <div className={style[bem.e('main-wrapper')]}>
         <Suspense fallback={<div style={{ padding: '40px', color: '#999', textAlign: 'center' }}>工作区加载中...</div>}>

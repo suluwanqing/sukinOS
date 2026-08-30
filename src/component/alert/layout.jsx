@@ -34,16 +34,37 @@ const icons = {
 };
 
 const AlertDiY = ({ type, info, multiLine, offset }) => {
+
+  // console.log(
+  //   `[Alert 调试] 弹窗类型: ${type} | 数据类型: ${typeof info} | 内容:`,
+  //   info
+  // );
+
   const className = [
     style[bem.b()],
     style[bem.m(type)],
     style[bem.is('multiline', multiLine)],
   ].join(' ').trim();
 
+  const renderSafeInfo = () => {
+    if (info === null || info === undefined) {
+      return '';
+    }
+    // 如果 info 是一个对象，且不是合法的 React 元素，将其转换为 JSON 字符串展示
+    if (typeof info === 'object' && !React.isValidElement(info)) {
+      try {
+        return JSON.stringify(info);
+      } catch (err) {
+        return '[无法序列化的对象]';
+      }
+    }
+    return info;
+  };
+
   return (
     <div className={className} style={{ top: `${offset}px` }}>
       <span className={style[bem.e('icon')]}>{icons[type]}</span>
-      <span>{info}</span>
+      <span>{renderSafeInfo()}</span>
     </div>
   );
 };

@@ -65,7 +65,7 @@ function Uploader({ appMeta, uploadType }) {
   const handleUploadFile = async () => {
     if (!window.showOpenFilePicker) throw new Error('您的浏览器不支持文件选择功能');
     const [fileHandle] = await window.showOpenFilePicker({
-      types: [{ description: 'JSX 文件', accept: { 'text/jsx': ['.jsx'] } }],
+      types: [{ description: 'JSX / JS 文件', accept: { 'text/jsx': ['.jsx', '.js'] } }],
       multiple: false
     });
     const file = await fileHandle.getFile();
@@ -73,13 +73,30 @@ function Uploader({ appMeta, uploadType }) {
 
     const resourceId = await kernel.uploadResource({
       sysOptions: finalSysOptions,
-      [ENV_KEY_NAME]: appName || file.name.replace('.jsx', ''),
+      [ENV_KEY_NAME]: appName || file.name.replace(/\.(jsx|js)$/, ''),
       [ENV_KEY_IS_BUNDLE]: false,
       [ENV_KEY_CONTENT]: fileContent,
       [ENV_KEY_LOGIC]: null,
       [ENV_KEY_META_INFO]: baseMetaInfo
     });
     await registerToPermissionPool(resourceId);
+  };
+
+  // 递归遍历目录，收集所有 .jsx/.js/.css 文件，key 用相对路径（带扩展名）
+  const collectFilesRecursively = async (dirHandle, prefix = '') => {
+    const collected = {};
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind === 'directory') {
+        const sub = await collectFilesRecursively(entry, prefix ? `${prefix}/${entry.name}` : entry.name);
+        Object.assign(collected, sub);
+      } else if (entry.kind === 'file' && /\.(jsx|js|css)$/.test(entry.name)) {
+        const file = await entry.getFile();
+        const text = await file.text();
+        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+        collected[relPath] = text;
+      }
+    }
+    return collected;
   };
 
   const handleUploadBundle = async () => {
@@ -90,21 +107,24 @@ function Uploader({ appMeta, uploadType }) {
     let hasLayout = false;
     let hasJsxFiles = false;
 
-    for await (const entry of handle.values()) {
-      if (entry.kind === 'file') {
-        const file = await entry.getFile();
-        const text = await file.text();
-        if (entry.name.endsWith('.jsx')) {
-          hasJsxFiles = true;
-          const moduleName = entry.name.replace('.jsx', '');
-          modules[moduleName] = text;
-          if (moduleName === 'layout') hasLayout = true;
-        }
-        if (entry.name === 'logic.jsx') logic = text;
+    const allFiles = await collectFilesRecursively(handle);
+    for (const [relPath, text] of Object.entries(allFiles)) {
+      // CSS 文件保留 .css 后缀作为 key（供 import './style.css' / import styles from './style.module.css' 解析）
+      if (/\.css$/.test(relPath)) {
+        modules[relPath] = text;
+        continue;
       }
+      // .jsx / .js 文件：key 用相对路径去扩展名（如 pages/about/index、components/Button）
+      if (/\.(jsx|js)$/.test(relPath)) {
+        hasJsxFiles = true;
+        const moduleName = relPath.replace(/\.(jsx|js)$/, '');
+        modules[moduleName] = text;
+        if (moduleName === 'layout') hasLayout = true;
+      }
+      if (relPath === 'logic.jsx' || relPath === 'logic.js') logic = text;
     }
 
-    if (!hasJsxFiles) throw new Error('文件夹中没有找到 .jsx 文件');
+    if (!hasJsxFiles) throw new Error('文件夹中没有找到 .jsx / .js 文件');
     if (!hasLayout) throw new Error('文件夹中必须包含 layout.jsx 文件');
     if (!logic) logic = "const initialState={};\nfunction reducer(s){\n  return s;\n}";
 

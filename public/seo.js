@@ -1,7 +1,7 @@
 ;(function () {
   'use strict'
   const seoConfig = {
-    title: 'Sukin - 云端应用口袋',
+    title: 'S-Web技术展示',
     meta: {
       description:
         'Sukin 是一个基于应用系统。内置 sukinOS 网页操作系统、前端在线开发教育平台，涵盖:文件管理,表格,画板,应用商店等常用APP,提供高效便捷的网页端数字化体验。',

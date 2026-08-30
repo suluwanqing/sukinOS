@@ -78,6 +78,8 @@ SukinOS 的桌面环境是一个运行在浏览器中的**完整桌面操作系�
 
 ## 三、进程内核
 
+> **关于"进程"的说明**：SukinOS 运行在浏览器 JS 环境中，这里的"进程"是**逻辑抽象概念**（模拟操作系统），并非操作系统级进程。每个 APP 的"进程"实际是一个**沙箱实例**，运行在 JS 线程中。根据运行模式不同，底层载体可能是独立 Web Worker 线程（RealWorker）、共享 iframe 沙箱（VirtualWorker）或主线程（NoWorker）。文档中的 `pid`（进程 ID）、`#proc-{pid}`（CSS 作用域前缀）均指这个逻辑进程实例。
+
 进程内核是 SukinOS 的核心调度引擎，采用**微内核 + 沙箱隔离**的设计模式。Kernel 单例内部组合了 10 个子模块（Core/Cache/Flags/Instance/Internals/Lifecycle/Messaging/Registry/ResourceAccess/Settings），通过 CommHub 实现三种通信模式（EventBus/subscribers/topicSubscribers），支持三种运行模式（RealWorker/VirtualWorker/NoWorker）。
 
 > Kernel 完整公共 API、10 个子模块详解、CommHub 消息协议、三种运行模式消息处理差异、5 个核心调用链 Mermaid 图详见 [04-process-kernel.md](./module/04-process-kernel.md)
@@ -159,14 +161,28 @@ sukinOsLocalDevSDK/
 ├── src/
 │   ├── main.jsx          # 入口
 │   ├── App.jsx           # 根组件
-│   ├── sukinOS/          # 模拟桌面环境
-│       ├── about.jsx     # APP 信息
-│       ├── home.jsx      # APP 主页
-│       ├── layout.jsx    # 布局
-│       └── logic.jsx     # 业务逻辑
+│   └── sukinOS/          # 模拟桌面环境（多文件夹结构）
+│       ├── layout.jsx    # 主布局（相对导入 Sidebar + 副作用导入 global.css）
+│       ├── logic.jsx     # 业务逻辑（Reducer，无 export）
+│       ├── components/   # 共享组件（具名导出）
+│       │   ├── Sidebar.jsx
+│       │   ├── Counter.jsx
+│       │   └── ui/
+│       │       ├── Button.jsx
+│       │       └── Button.module.css   # CSS Modules
+│       ├── pages/        # 路由页面（export default）
+│       │   ├── home/index.jsx
+│       │   ├── about/index.jsx
+│       │   └── contact/index.jsx
+│       ├── styles/
+│       │   └── global.css               # 全局样式（副作用导入）
+│       └── utils/
+│           └── format.js                # .js 工具模块（具名 + 默认导出）
 ├── package.json
 └── index.html
 ```
+
+> 该示例演示了非系统 APP 的**多文件夹组织**与**相对路径导入**：`layout.jsx` 通过 `import { Sidebar } from './components/Sidebar'` 导入共享组件，通过 `import './styles/global.css'` 副作用导入全局样式；`pages/home/index.jsx` 通过 `import { Counter } from '../../components/Counter'` 跨文件夹导入组件，通过 `import { formatCount } from '../../utils/format'` 导入 `.js` 工具模块。
 
 ## 八、安全与隔离
 
@@ -194,6 +210,6 @@ SukinOS 路由是双层架构：外层浏览器级路由（React Router + AuthGu
 
 ## 十一、Redux Store 与认证
 
-Redux Store 使用 Redux Toolkit `createSlice`，包含 userInfo/theme/ui/assistant/setting/appStore/fileSystemConfig 7 个域。登录模块支持 3 种业务模式，useAuth Hook 提供完整认证流程，三层权限控制（菜单/路由/APP 注册池）。
+Redux Store 使用 Redux Toolkit `createSlice`，包含 userInfo/theme/ui/assistant/setting/appStore/fileSystemConfig/routePermissions 8 个域。登录模块支持 3 种业务模式，useAuth Hook 提供完整认证流程，三层权限控制（菜单/路由/APP 注册池）。
 
-> Redux Store 完整状态树、8 个 Reducer + 7 个 Selector、登录模块、useAuth 接口、三层权限控制详见 [06-middleware-login.md](./module/06-middleware-login.md)
+> Redux Store 完整状态树、10 个 Reducer + 9 个 Selector、登录模块、useAuth 接口、三层权限控制详见 [06-middleware-login.md](./module/06-middleware-login.md)
