@@ -4,6 +4,10 @@ import store from '@/store/main'
 import {sukinOsActions} from '@/sukinos/store'
 import {confirm} from '@/component/confirm/layout'
 import loginDateWs from '/utils/js/socket/loginDate/main'
+import {BASE_URL} from '/utils/js/getBaseUrl'
+// 引入优化后的 Store 级游客状态校验函数以及基础校验函数
+import {checkIsGuestFromStore, checkIsGuest} from '/utils/js/guest'
+
 // 基础登出锁
 export const authLock = {
   isLoggingOut: false,
@@ -20,7 +24,7 @@ const authChannel = new BroadcastChannel('sukin_auth_channel')
 
 // 创建专门用于刷新 token 的 axios 实例，避免与业务实例产生循环拦截
 const refreshInstance = axios.create({
-  baseURL: 'https://sukin.top/api',
+  baseURL: BASE_URL,
   timeout: 10000,
   headers: {'Content-Type': 'application/json'},
   withCredentials: true,
@@ -43,6 +47,11 @@ const clearCrossTabLock = () => localStorage.removeItem('sukin_refresh_lock_time
  * @returns {Promise} 返回刷新结果的 Promise
  */
 export const executeTokenRefresh = async () => {
+  // 如果是游客，直接返回，避免发送刷新请求
+  if (checkIsGuest() || checkIsGuestFromStore()) {
+    return {code: 200, msg: '游客模式免刷新'}
+  }
+
   //如果当前窗口已经有正在进行的刷新，直接等待该 Promise
   if (pendingRefreshPromise) {
     return pendingRefreshPromise
@@ -63,10 +72,11 @@ export const executeTokenRefresh = async () => {
         } else if (event.data.type === 'AUTH_REFRESH_FAIL') {
           authChannel.removeEventListener('message', listener)
           // 如果其他窗口刷新失败，本窗口也停止定时器
-          stopAutoRefresh()
-
-          // 监听到其他窗口认证失败，销毁当前窗口的 WebSocket 实例
-          loginDateWs.destroyWSInstance()
+          if (!checkIsGuestFromStore() && !checkIsGuest()) {
+            stopAutoRefresh()
+            // 监听到其他窗口认证失败，销毁当前窗口的 WebSocket 实例
+            loginDateWs.destroyWSInstance()
+          }
 
           reject(new Error('其他窗口刷新失败'))
         }
@@ -108,10 +118,20 @@ export const executeTokenRefresh = async () => {
       clearCrossTabLock() // 释放锁
 
       // 失败处理：停止自动刷新定时器
+
+      if (checkIsGuest() || checkIsGuestFromStore()) {
+        throw err
+      }
+
       stopAutoRefresh()
 
       // 当前窗口刷新失败（认证过期/断网），立即销毁 WebSocket 实例
       loginDateWs.destroyWSInstance()
+
+      // 检测当前 Redux 仓库中是否存有有效的用户信息
+      const state = store.getState()
+      const userInfo = state?.sukinOs?.userInfo || state?.sukinOs?.user || state?.user
+      const hasActiveUser = userInfo && Object.keys(userInfo).length > 0
 
       // 失败处理：清空 Redux 中的用户信息
       store.dispatch(sukinOsActions.setUserInfo({}))
@@ -119,18 +139,23 @@ export const executeTokenRefresh = async () => {
       // 失败处理：广播失败消息给其他窗口
       authChannel.postMessage({type: 'AUTH_REFRESH_FAIL'})
 
-      // 失败处理：强制刷新页面
-      setTimeout(() => {
-        confirm.show({
-          title: '认证信息过期/网络有问题!',
-          content: '请检查网络后重新登录!',
-          showCancel: false,
-          onConfirm: () => {
-            window.location.reload()
-            // 执行删除逻辑
-          },
-        })
-      }, 3000)
+      // 只有在仓库原本有用户信息，且当前没有处于登出处理锁定时，才弹出提示
+      if (hasActiveUser && !authLock.isLoggingOut) {
+        authLock.isLoggingOut = true // 激活登出锁，防止多标签页或多次失败请求重复弹窗提示
+
+        // 失败处理：强制刷新页面
+        setTimeout(() => {
+          confirm.show({
+            title: '认证信息过期/网络有问题!',
+            content: '请检查网络后重新登录!',
+            showCancel: false,
+            onConfirm: () => {
+              window.location.reload()
+              // 执行删除逻辑
+            },
+          })
+        }, 3000)
+      }
 
       throw err
     })
@@ -145,6 +170,11 @@ export const executeTokenRefresh = async () => {
  * 调度下一次刷新
  */
 export const scheduleNextRefresh = () => {
+  if (checkIsGuest() || checkIsGuestFromStore()) {
+    stopAutoRefresh()
+    return
+  }
+
   if (refreshTimer) {
     clearTimeout(refreshTimer)
   }
@@ -159,6 +189,11 @@ export const scheduleNextRefresh = () => {
 
   // 使用 setTimeout 设置下一次刷新，waitTime 保证了严格的时间间隔
   refreshTimer = setTimeout(async () => {
+    if (checkIsGuest() || checkIsGuestFromStore()) {
+      stopAutoRefresh()
+      return
+    }
+
     try {
       // 即使定时器触发，也要经过统一的核心刷新逻辑（受跨窗口锁保护）
       await executeTokenRefresh()
@@ -193,6 +228,11 @@ export const startAutoRefresh = () => {
   // 先停止之前的刷新
   stopAutoRefresh()
   // 立即执行一次刷新，更新 lastRefreshTime
+  // 如果判定为游客，不启动任何自动刷新
+  if (checkIsGuest() || checkIsGuestFromStore()) {
+    return
+  }
+
   executeTokenRefresh()
     .then(() => {
       // 刷新成功后开始调度

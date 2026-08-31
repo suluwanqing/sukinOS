@@ -27,6 +27,7 @@ import {Registry} from './kernelParts/registry'
 import {ResourceAccess} from './kernelParts/resourceAccess'
 import {Settings} from './kernelParts/settings'
 import permissionManageAPI from '@/apis/system/permissionManage'
+import {PRESET_RESOURCES} from '@/sukinos/resources/preset_resources'
 
 class Kernel {
   // --- 队列管理属性 ---
@@ -153,6 +154,7 @@ class Kernel {
     this.pidToResourceId.clear()
     this.resourceCache = {}
     this.presetResourceIds.clear()
+    this.allowedSystemResIds = new Set()
 
     // 清空通信枢纽缓存
     this.commHub.clearAll()
@@ -184,11 +186,12 @@ class Kernel {
     // 确保 Babel 编译器已加载（Worker 代码生成依赖）
     await BabelLoader.load()
     // 重新加载核心资源和注册表
+    // 提前同步系统APP访问权限，得到准入集合，供 ensurePresets / initializeSystemApps 做准入制注册
+    await this.syncSystemAccess()
     await this.core.ensurePresets()
     await this.core.loadAllResources()
     await this.loadUserAppsFromDb()
     this.initializeSystemApps()
-    await this.syncSystemAccess()
     await this.core.syncRegistryByRes()
     await this.core.syncRegistry()
     await this.restoreSession()
@@ -679,40 +682,73 @@ class Kernel {
   }
 
   /**
-   * 从后端同步当前用户有权访问的系统 APP 列表，过滤掉无权限的应用
+   * 提前从后端同步当前用户有权访问的系统 APP 列表，得到准入集合 allowedSystemResIds。
+   * 该集合在 ensurePresets / initializeSystemApps 之前就绪，用于"准入制"注册：
+   * 无权访问的系统资源不会写入 resDb、加载进内存、注册为系统 APP，从而减少暴露面。
+   *  - 游客：跳过后端检查，但 ADMIN_APP_IDS(系统管理)因前端硬性规则(禁止非 root 获取)被移除，其余系统资源可见
+   *  - 非游客：仅保留后端明确 allowed=true 的系统资源(root 始终可见)
+   *  - 后端请求失败：清空集合(安全优先，不展示不可控的应用)
    */
   async syncSystemAccess() {
-    if (checkIsGuest) {
+    // 全部系统预置资源 ID
+    const allSystemResIds = new Set(
+      PRESET_RESOURCES.map(p => p?.[ENV_KEY_RESOURCE_ID]).filter(Boolean)
+    )
+    // 游客：跳过后端检查，仅移除 ADMIN_APP_IDS 中的系统管理，其余系统资源可见
+    if (checkIsGuest()) {
+      this.allowedSystemResIds = new Set(
+        [...allSystemResIds].filter(id => !ADMIN_APP_IDS.includes(id))
+      )
+      this.#syncSystemAppsFromAllowed()
       return
     }
     try {
       const res = await permissionManageAPI.getAvailableSystemApps()
       if (res.code !== 200 || !res.data) {
-        // API 返回错误或空数据 → 清空所有系统 APP，不展示不可控的应用
-        this.systemApps.clear()
-        this.pidToResourceId.clear()
-        this.resourceIdToPid.clear()
+        // API 返回错误或空数据 → 清空所有系统资源，不展示不可控的应用
+        this.allowedSystemResIds = new Set()
+        this.#syncSystemAppsFromAllowed()
         return
       }
-
-      const allowedMap = {}
+      const allowedSet = new Set()
       ;(res.data || []).forEach(item => {
-        allowedMap[item.app_id || item.appId] = item.allowed
-      })
-      for (const [pid, app] of this.systemApps) {
-        const resourceId = app[ENV_KEY_RESOURCE_ID]
-        // 白名单：仅在 allowedMap 中明确标记为 true 才保留，其他全部移除
-        if (!resourceId || allowedMap[resourceId] !== true) {
-          this.systemApps.delete(pid)
-          this.pidToResourceId.delete(pid)
-          if (resourceId) this.resourceIdToPid.delete(resourceId)
+        if (item.allowed === true) {
+          allowedSet.add(item.app_id || item.appId)
         }
-      }
+      })
+      this.allowedSystemResIds = allowedSet
+      this.#syncSystemAppsFromAllowed()
     } catch (e) {
-      console.warn('[内核] 系统APP权限同步失败，清空系统APP列表:', e)
-      this.systemApps.clear()
-      this.pidToResourceId.clear()
-      this.resourceIdToPid.clear()
+      console.warn('[内核] 系统APP权限同步失败，清空系统资源列表:', e)
+      this.allowedSystemResIds = new Set()
+      this.#syncSystemAppsFromAllowed()
+    }
+  }
+
+  /**
+   * 根据 allowedSystemResIds 同步已注册的系统 APP：
+   *  - 移除已注册但当前无权限的系统 APP
+   *  - 注册有权限但尚未注册的系统 APP(pid = resourceId)
+   * 用于系统管理界面修改权限后的实时同步；初始化时 systemApps 尚为空，此方法为空操作。
+   */
+  #syncSystemAppsFromAllowed() {
+    const allowed = this.allowedSystemResIds || new Set()
+    // 移除已注册但无权限的系统 APP
+    for (const [pid, app] of this.systemApps) {
+      const resourceId = app[ENV_KEY_RESOURCE_ID]
+      if (!resourceId || !allowed.has(resourceId)) {
+        this.systemApps.delete(pid)
+        this.pidToResourceId.delete(pid)
+        this.presetResourceIds.delete(resourceId)
+        if (resourceId) this.resourceIdToPid.delete(resourceId)
+      }
+    }
+    // 注册有权限但尚未注册的系统 APP
+    for (const preset of PRESET_RESOURCES) {
+      const resourceId = preset?.[ENV_KEY_RESOURCE_ID]
+      if (!resourceId || !allowed.has(resourceId)) continue
+      if (this.systemApps.has(resourceId)) continue
+      this.registry.initializeSystemApp(preset)
     }
   }
 

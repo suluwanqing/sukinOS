@@ -1,19 +1,15 @@
 @import url('./border.css');
 @import url('./color.css');
 @import url('./font.css');
-@import url('./hover.css');
-@import url('./shadow.css');
-@import url('./space.css');
-@import url('./size.css');
-@import url('./padding.css');
 @import url('./animation.css');
 @import url('./material.css');
+@import "tailwindcss";
 :root {
-  --primary: #409eff;
-  --success: #67c23a;
-  --warning: #e6a23c;
-  --danger: #f56c6c;
-  --info: #909399;
+  --su-primary: #409eff;
+  --su-success: #67c23a;
+  --su-warning: #e6a23c;
+  --su-danger: #f56c6c;
+  --su-info: #909399;
 
   --su-color-white: #ffffff;
   --su-color-black: #000000;

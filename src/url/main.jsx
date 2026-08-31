@@ -6,6 +6,8 @@ import { BASE_URL } from '/utils/js/getBaseUrl';
 import { checkRoutePermission, isRoutePermissionLoaded } from '@/middleware/routePermission/cache';
 
 import { alert } from '@/component/alert/layout'
+// 引入公共游客判定服务
+import { checkIsGuestFromStore } from '/utils/js/guest'
 
 let isRefreshing = false
 let failedQueue = []
@@ -126,6 +128,18 @@ const setupResponseInterceptor = (instance) => {
 
       // 处理 401 自动刷新 Token 逻辑 (静默处理，不弹窗)
       if (status === 401 && !originalRequest._retry) {
+
+        // 如果检测到当前为游客模式，直接拦截无意义的刷新申请，避免接口循环刷新崩溃
+        if (checkIsGuestFromStore()) {
+          if (!skipErrorToast) {
+            alert.failure('游客模式下部分服务访问受限，请先登录');
+          }
+          return {
+            message: '游客状态限制访问',
+            code: 401,
+            error: true
+          }
+        }
 
         if (authLock.isLoggingOut) {
           console.warn("[AuthInterceptor] 正在退出登录，拦截静默刷新请求")

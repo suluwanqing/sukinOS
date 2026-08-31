@@ -2,7 +2,6 @@ import {
   ENV_KEY_RESOURCE_ID,
   ENV_KEY_NAME,
   ENV_KEY_META_INFO,
-  ADMIN_APP_IDS,
 } from '@/sukinos/utils/config'
 import {PRESET_RESOURCES} from '@/sukinos/resources/preset_resources'
 
@@ -14,51 +13,61 @@ export class Registry {
   }
 
   initializeSystemApps() {
+    // 仅当前用户有权访问的系统资源 ID（由 syncSystemAccess 提前获取）
+    const allowed = this.#kernel.allowedSystemResIds || new Set()
     for (const preset of PRESET_RESOURCES) {
       const presetResId = preset?.[ENV_KEY_RESOURCE_ID]
-      // 跳过 ADMIN_APP_IDS 中的应用
-      if (ADMIN_APP_IDS.includes(presetResId) && !this.#kernel.currentUser?.root) {
-        continue
-      }
-      // 通过,就注册为系统资源
-      this.#kernel.presetResourceIds.add(presetResId)
-      // 直接拿系统预设
-      const pid = presetResId
-      const appName = preset?.[ENV_KEY_NAME]
-      // 获取从 sysDb 加载的覆盖记录
-      const dbOverride = this.#kernel.userApps.get(pid)
-      // 默认使用预设配置
-      let finalMeta = preset?.[ENV_KEY_META_INFO]
-      // 系统应用刷新后，默认状态永远是 INSTALLED，savedState 永远是 null
-      let status = 'INSTALLED'
-      let savedState = null
-      if (dbOverride) {
-        // 仅合并 metaInfo 中的 custom 部分
-        finalMeta = {
-          ...preset?.[ENV_KEY_META_INFO],
-          custom: {
-            ...(preset?.[ENV_KEY_META_INFO]?.custom || {}),
-            ...(dbOverride?.[ENV_KEY_META_INFO]?.custom || {}),
-          },
-        }
-        // 如果该应用在 custom 里配置了开机自启，
-        // 我们保持它的状态为 INSTALLED，后续 restoreSession 会根据 finalMeta.custom.autoStart 启动它
-        // 从 userApps 临时区清理
-        this.#kernel.userApps.delete(pid)
-      }
-      // 注入内存注册表
-      this.#kernel.systemApps.set(pid, {
-        pid,
-        [ENV_KEY_NAME]: appName,
-        [ENV_KEY_RESOURCE_ID]: presetResId,
-        savedState: savedState,
-        status: status,
-        isSystemApp: true,
-        [ENV_KEY_META_INFO]: finalMeta,
-      })
-      this.#kernel.pidToResourceId.set(pid, presetResId)
-      this.#kernel.resourceIdToPid.set(presetResId, pid)
+      // 仅注册当前用户有权访问的系统资源为系统 APP(pid = resourceId)。
+      // root 始终可见,普通用户被后端放权后同样可见,无权访问的系统资源不注册。
+      if (!allowed.has(presetResId)) continue
+      this.initializeSystemApp(preset)
     }
+  }
+
+  /**
+   * 注册单个系统预置资源为系统 APP(pid = resourceId)。
+   * 供 initializeSystemApps 批量注册，以及 syncSystemAccess 权限变更后的实时同步复用。
+   */
+  initializeSystemApp(preset) {
+    const presetResId = preset?.[ENV_KEY_RESOURCE_ID]
+    if (!presetResId) return
+    this.#kernel.presetResourceIds.add(presetResId)
+    // 直接拿系统预设
+    const pid = presetResId
+    const appName = preset?.[ENV_KEY_NAME]
+    // 获取从 sysDb 加载的覆盖记录
+    const dbOverride = this.#kernel.userApps.get(pid)
+    // 默认使用预设配置
+    let finalMeta = preset?.[ENV_KEY_META_INFO]
+    // 系统应用刷新后，默认状态永远是 INSTALLED，savedState 永远是 null
+    let status = 'INSTALLED'
+    let savedState = null
+    if (dbOverride) {
+      // 仅合并 metaInfo 中的 custom 部分
+      finalMeta = {
+        ...preset?.[ENV_KEY_META_INFO],
+        custom: {
+          ...(preset?.[ENV_KEY_META_INFO]?.custom || {}),
+          ...(dbOverride?.[ENV_KEY_META_INFO]?.custom || {}),
+        },
+      }
+      // 如果该应用在 custom 里配置了开机自启，
+      // 我们保持它的状态为 INSTALLED，后续 restoreSession 会根据 finalMeta.custom.autoStart 启动它
+      // 从 userApps 临时区清理
+      this.#kernel.userApps.delete(pid)
+    }
+    // 注入内存注册表
+    this.#kernel.systemApps.set(pid, {
+      pid,
+      [ENV_KEY_NAME]: appName,
+      [ENV_KEY_RESOURCE_ID]: presetResId,
+      savedState: savedState,
+      status: status,
+      isSystemApp: true,
+      [ENV_KEY_META_INFO]: finalMeta,
+    })
+    this.#kernel.pidToResourceId.set(pid, presetResId)
+    this.#kernel.resourceIdToPid.set(presetResId, pid)
   }
 
   //更新系统的sys信息,注意系统只有内存有注册表

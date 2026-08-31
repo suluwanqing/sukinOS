@@ -1,4 +1,5 @@
 import { SUKIN_EXT ,SUKIN_PRE,TRUTH_ALL_APP} from '@/sukinos/utils/config'
+import {PRESET_RESOURCES} from '@/sukinos/resources/preset_resources'
 import {
   ENV_KEY_RESOURCE_ID,
   ENV_KEY_NAME,
@@ -467,6 +468,8 @@ export async function extSyncRegistryByRes(kernel) {
 
     const appsToRegister = [];
     const validResIds = new Set(); // 记录当前所有有效的资源ID
+    // 系统资源永不注册为用户 APP，避免生成随机 pid 的"幽灵"系统 APP
+    const presetResIds = new Set(PRESET_RESOURCES.map(p => p?.[ENV_KEY_RESOURCE_ID]));
     // 扫描资源库，寻找未注册的资源
     for (const res of Object.values(kernel.resourceCache)) {
       const resId = res?.[ENV_KEY_RESOURCE_ID];
@@ -475,6 +478,21 @@ export async function extSyncRegistryByRes(kernel) {
       validResIds.add(resId);
       // 跳过系统预置资源 (因为系统资源在 #initializeSystemApps 已经处理)
       if (kernel.presetResourceIds.has(resId)) continue;
+      // 系统预置资源即使不在 presetResourceIds 中，也一律跳过，
+      // 并清理历史遗留的随机 pid 用户 APP 记录，确保系统 APP 只有唯一 pid(= resourceId)
+      if (presetResIds.has(resId)) {
+        const ghostPid = kernel.getPidByResourceId(resId);
+        if (ghostPid && kernel.userApps.has(ghostPid)) {
+          const ghostApp = kernel.userApps.get(ghostPid);
+          kernel.kill(ghostPid);
+          kernel.clearCachedState(ghostPid);
+          kernel.userApps.delete(ghostPid);
+          kernel.pidToResourceId.delete(ghostPid);
+          kernel.resourceIdToPid.delete(resId);
+          await kernel.sysDb.deleteData(ghostApp?.[ENV_KEY_NAME] || appName);
+        }
+        continue;
+      }
       // 检查内存中是否已经有这个资源的注册信息
       const existingPid = kernel.getPidByResourceId(resId);
       const isRegistered = existingPid && kernel.userApps.has(existingPid);

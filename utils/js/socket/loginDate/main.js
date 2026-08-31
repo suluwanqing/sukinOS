@@ -1,7 +1,14 @@
 import wsClient from '../main.js'
 import receiveHandlers from './receiveHandlers.js'
 import sendHandlers from './sendHandlers.js'
-const BASE_WS_URL = 'wss://sukin.top/api/ws/date'
+
+const isDev = import.meta.env.DEV
+const urlPrefix = import.meta.env.VITE_ENV_URL_PREFIX || '/api'
+// Dev 直连后端 WS 端口（绕开 Vite 代理对 WebSocket 的转发问题）
+// Prod 走全路径
+const BASE_WS_URL = isDev
+  ? `ws://127.0.0.1:8001/ws/date`
+  : `wss://sukin.top${urlPrefix}/ws/date`
 // --- 私有变量，用于存储全局唯一的单例实例 ---
 let instance = null
 /**

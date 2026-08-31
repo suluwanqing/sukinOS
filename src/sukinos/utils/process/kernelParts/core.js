@@ -1,7 +1,7 @@
 import {BabelLoader} from '../babelLoader'
 import {alert} from '@/component/alert/layout'
 import {PRESET_RESOURCES} from '@/sukinos/resources/preset_resources'
-import {DB_INSTANCE_ID, ENV_KEY_RESOURCE_ID, ADMIN_APP_IDS} from '@/sukinos/utils/config'
+import {DB_INSTANCE_ID, ENV_KEY_RESOURCE_ID} from '@/sukinos/utils/config'
 import {
   extExecuteInstallation,
   extSyncResourcesToFiles,
@@ -42,20 +42,20 @@ export class Core {
     try {
       // 加载核心依赖 and 资源
       await BabelLoader.load()
+      // 提前从后端同步系统APP访问权限，得到准入集合 allowedSystemResIds，
+      // 供 ensurePresets / initializeSystemApps 做"准入制"注册，减少无权系统资源的暴露
+      await this.#kernel.syncSystemAccess()
       await this.ensurePresets()
       await this.loadAllResources()
 
       // --- 构建内存中的应用注册表  ---
 
       // 先从 sys 的 DB 加载用户应用到内存。
-      // 必须先加载已有记录，内核才能知道哪些资源已经分配了 PID，避免 syncRegistryByRes 重复创建/修改PID
+      // 必须先加载已有记录，系统才能知道哪些资源已经分配了 PID，避免 syncRegistryByRes 重复创建/修改PID
       await this.#kernel.loadUserAppsFromDb()
 
       // 初始化系统的注册表。
       this.#kernel.initializeSystemApps()
-
-      // 从后端同步系统APP访问权限，移除当前用户无权访问的系统应用
-      await this.#kernel.syncSystemAccess()
 
       // 通过资源(Res)构建/补全注册表(Sys)。
       // 此时内存中已有 userApps，此函数会安全地为那些“有资源但没注册”的应用生成新记录
@@ -97,12 +97,15 @@ export class Core {
   async ensurePresets() {
     //处理系统资源
     if (!this.#kernel.resDb.isOpen()) await this.#kernel.resDb.openDB()
+    // 仅当前用户有权访问的系统资源 ID（由 syncSystemAccess 提前获取）
+    const allowed = this.#kernel.allowedSystemResIds || new Set()
     for (const preset of PRESET_RESOURCES) {
       const presetResId = preset?.[ENV_KEY_RESOURCE_ID]
-      if (ADMIN_APP_IDS.includes(presetResId) && !this.#kernel.currentUser?.root) {
-        continue
+      if (allowed.has(presetResId)) {
+        await this.#kernel.resDb.putData(preset)
+      } else {
+        await this.#kernel.resDb.deleteData(presetResId)
       }
-      await this.#kernel.resDb.putData(preset)
     }
     //---处理instance
     if (!this.#kernel.instanceDb.isOpen()) {

@@ -14,7 +14,7 @@ const installSw = () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then(registration => {
-        console.log('SW 注册成功')
+        console.log('SW is Ok')
         // 周期性检查更新[每小时]
         setInterval(() => {
           registration.update().catch(() => {})
@@ -26,7 +26,7 @@ const installSw = () => {
           newWorker.addEventListener('statechange', () => {
             // 当新 SW 下载完成并处于 installed 状态，且已有控制者时，通知接管
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              console.log('教育平台: 发现新版本，正在准备静默接管...')
+              console.log('发现新版本，正在准备静默接管...')
               // 发送消息给 sw.js 执行 self.skipWaiting()
               newWorker.postMessage({type: 'SKIP_WAITING'})
             }
@@ -34,7 +34,7 @@ const installSw = () => {
         })
       })
       .catch(err => {
-        console.warn('教育平台: SW 注册失败:', err)
+        console.warn('发现新版本，正在准备静默接管...', err)
       })
   }
   // 如果页面已经加载完成，直接利用空闲注册
