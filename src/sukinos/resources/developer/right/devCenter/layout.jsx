@@ -17,13 +17,13 @@ const editorOptions = {
   jsx: 'react'
 };
 
-function DevCenter({ files, activeFile, logicCode, handleContentChange, triggerVfsSave, isMapped, unsavedFiles }) {
+function DevCenter({ files, activeFile, handleContentChange, triggerVfsSave, isMapped, unsavedFiles }) {
   // 动态存储 Editor 组件和加载状态
   const [EditorComponent, setEditorComponent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // 使用 Ref 追踪最新的保存所需上下文，避免 keydown 监听器因输入变化而频繁重新注册
-  const saveStateRef = useRef({ activeFile, files, logicCode, triggerVfsSave, isMapped, unsavedFiles });
+  const saveStateRef = useRef({ activeFile, files, triggerVfsSave, isMapped, unsavedFiles });
 
   // 动态加载 Monaco Editor
   useEffect(() => {
@@ -64,25 +64,20 @@ function DevCenter({ files, activeFile, logicCode, handleContentChange, triggerV
   }, []); // 只在组件挂载时加载一次
 
   useEffect(() => {
-    saveStateRef.current = { activeFile, files, logicCode, triggerVfsSave, isMapped, unsavedFiles };
-  }, [activeFile, files, logicCode, triggerVfsSave, isMapped, unsavedFiles]);
+    saveStateRef.current = { activeFile, files, triggerVfsSave, isMapped, unsavedFiles };
+  }, [activeFile, files, triggerVfsSave, isMapped, unsavedFiles]);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        const { activeFile, files, logicCode, triggerVfsSave, isMapped, unsavedFiles } = saveStateRef.current;
+        const { activeFile, files, triggerVfsSave, isMapped, unsavedFiles } = saveStateRef.current;
 
         if (!isMapped) return;
         e.preventDefault();
 
-        // 如果视图文件有改动，执行物理保存
+        // 如果当前文件有改动，执行物理保存
         if (activeFile && unsavedFiles.has(activeFile) && files[activeFile] !== undefined) {
           triggerVfsSave(activeFile, files[activeFile], true);
-        }
-
-        // 如果 Logic 有改动，执行物理保存
-        if (unsavedFiles.has('Logic.jsx')) {
-          triggerVfsSave('Logic.jsx', logicCode, true);
         }
       }
     };
@@ -97,37 +92,34 @@ function DevCenter({ files, activeFile, logicCode, handleContentChange, triggerV
     handleContentChange(activeFile, v || '');
   }, [handleContentChange, activeFile]);
 
-  const onLogicEditorChange = useCallback((v) => {
-    handleContentChange('Logic.jsx', v || '');
-  }, [handleContentChange]);
+  // 按扩展名推断 Monaco 语言
+  const getLanguage = (fileName) => {
+    const ext = (fileName || '').split('.').pop().toLowerCase();
+    if (['jsx', 'js'].includes(ext)) return 'javascript';
+    if (['ts', 'tsx'].includes(ext)) return 'typescript';
+    if (ext === 'css') return 'css';
+    if (['html', 'htm'].includes(ext)) return 'html';
+    if (ext === 'json') return 'json';
+    if (['md', 'markdown'].includes(ext)) return 'markdown';
+    return 'plaintext';
+  };
+
+  const editorTabs = (
+    <div className={style[bem.e('editor-tabs')]}>
+      <div className={style[bem.e('editor-tab-active')]}>
+        <DescriptionIcon style={{ fontSize: 14, marginRight: 6, color: 'var(--su-primary-500)' }} />
+        {activeFile || '未选择文件'}
+        {unsavedFiles.has(activeFile) && <span className={style[bem.e('unsaved-dot')]} title="已修改"></span>}
+      </div>
+    </div>
+  );
 
   // 加载中显示占位内容
   if (isLoading) {
     return (
       <div className={style[bem.b()]}>
         <div className={style[bem.e('view-editor')]}>
-          <div className={style[bem.e('editor-tabs')]}>
-            <div className={style[bem.e('editor-tab-active')]}>
-              <DescriptionIcon style={{ fontSize: 14, marginRight: 6, color: 'var(--su-primary-500)' }} />
-              {activeFile || '未选择文件'}
-              {unsavedFiles.has(activeFile) && <span className={style[bem.e('unsaved-dot')]} title="已修改"></span>}
-            </div>
-          </div>
-          <div className={style[bem.e('editor-frame')]}>
-            <div style={{ padding: '12px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              编辑器加载中...
-            </div>
-          </div>
-        </div>
-        <div className={style[bem.e('logic-editor')]}>
-          <div className={style[bem.e('editor-tabs')]}>
-            <div className={style[bem.e('editor-tab-active')]}>
-              <DescriptionIcon style={{ fontSize: 14, marginRight: 6, color: 'var(--su-yellow-500)' }} />
-              Logic.jsx
-              <span className={style[bem.e('file-badge')]}>业务控制</span>
-              {unsavedFiles.has('Logic.jsx') && <span className={style[bem.e('unsaved-dot')]} title="已修改"></span>}
-            </div>
-          </div>
+          {editorTabs}
           <div className={style[bem.e('editor-frame')]}>
             <div style={{ padding: '12px', color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
               编辑器加载中...
@@ -141,20 +133,14 @@ function DevCenter({ files, activeFile, logicCode, handleContentChange, triggerV
   return (
     <div className={style[bem.b()]}>
       <div className={style[bem.e('view-editor')]}>
-        <div className={style[bem.e('editor-tabs')]}>
-          <div className={style[bem.e('editor-tab-active')]}>
-            <DescriptionIcon style={{ fontSize: 14, marginRight: 6, color: 'var(--su-primary-500)' }} />
-            {activeFile || '未选择文件'}
-            {unsavedFiles.has(activeFile) && <span className={style[bem.e('unsaved-dot')]} title="已修改"></span>}
-          </div>
-        </div>
+        {editorTabs}
         <div className={style[bem.e('editor-frame')]}>
           {isMapped && EditorComponent ? (
             // 直接使用官方内置的 loading，删掉了所有的 Suspense 和 Ready 状态
             <EditorComponent
               key={activeFile}
-              language="javascript"
-              value={files[activeFile] || ''}
+              language={getLanguage(activeFile)}
+              value={files[activeFile] ?? ''}
               options={editorOptions}
               theme="light"
               onChange={onEditorChange}
@@ -163,32 +149,6 @@ function DevCenter({ files, activeFile, logicCode, handleContentChange, triggerV
           ) : (
              <div style={{display:'flex', height:'100%', alignItems:'center', justifyContent:'center', color:'#999'}}>
                ← 请先在左侧选择工作区文件夹
-             </div>
-          )}
-        </div>
-      </div>
-      <div className={style[bem.e('logic-editor')]}>
-        <div className={style[bem.e('editor-tabs')]}>
-          <div className={style[bem.e('editor-tab-active')]}>
-            <DescriptionIcon style={{ fontSize: 14, marginRight: 6, color: 'var(--su-yellow-500)' }} />
-            Logic.jsx
-            <span className={style[bem.e('file-badge')]}>业务控制</span>
-            {unsavedFiles.has('Logic.jsx') && <span className={style[bem.e('unsaved-dot')]} title="已修改"></span>}
-          </div>
-        </div>
-        <div className={style[bem.e('editor-frame')]}>
-          {isMapped && EditorComponent ? (
-            <EditorComponent
-              language="javascript"
-              theme="light"
-              value={logicCode}
-              options={editorOptions}
-              onChange={onLogicEditorChange}
-              loading={<div style={{ padding: '12px', color: '#999' }}>编辑器加载中...</div>}
-            />
-          ) : (
-            <div style={{display:'flex', height:'100%', alignItems:'center', justifyContent:'center', color:'#999'}}>
-               请先在左侧选择工作区文件夹
              </div>
           )}
         </div>

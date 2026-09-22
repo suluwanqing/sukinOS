@@ -20,12 +20,14 @@ import MenuBookIcon from '@mui/icons-material/MenuBook';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { selectorUserInfo, selectorStoreSettingStorePath } from "@/sukinos/store"
 import { useDispatch, useSelector } from 'react-redux';
-import { DEFAULT_LAYOUT, DEFAULT_LOGIC ,DEFAULT_LOGO} from "@/sukinos/utils/config"
+import { DEFAULT_LAYOUT, DEFAULT_LOGO} from "@/sukinos/utils/config"
 import kernel from "@/sukinos/utils/process/kernel"
 import { alert } from "@/component/alert/layout"
 import { ENV_KEY_NAME, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO } from '@/sukinos/utils/config';
 import { appCustomMapper, appCustom, appTypes } from '@/sukinos/utils/config';
 import fs from '@/sukinos/utils/file/fileKernel';
+import { loadEntryConfig, saveEntryConfig, buildAppEntries, moduleKeyOf } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, splitLayeringErrors, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import { FileType } from "@/sukinos/utils/config";
 import permissionManageAPI from "@/apis/system/permissionManage";
@@ -57,8 +59,8 @@ function Developer({ app }) {
   const [appMeta, setAppMeta] = useState({
     sysOptions: { shouldUpload: false, uploadInfo: { isPrivate: false } },
     appName: '', appIcon: DEFAULT_LOGO, initialSize: { w: 600, h: 450, x: 0, y: 0 },
-    logicCode: DEFAULT_LOGIC, appType: 'editor', exposeState: false, saveState: false,
-    worker: true,
+    appType: 'editor', exposeState: false, saveState: false,
+    worker: true, hideHeader: false,
     description: '这是一个App', syncLocal: false, custom: { ...appCustom }
   });
 
@@ -71,7 +73,23 @@ function Developer({ app }) {
   const [showImportModal, setShowImportModal] = useState(false);
   const [registerToPool, setRegisterToPool] = useState(false);
   const [canRegister, setCanRegister] = useState(false);
+  // 入口约定配置：按用户隔离存 localStorage，决定哪些文件是逻辑入口 / 视图入口
+  const [entryConfig, setEntryConfig] = useState(() => loadEntryConfig(null));
+  const updateEntryConfig = useCallback((next) => {
+    setEntryConfig(next);
+    saveEntryConfig(userInfo?.id, next);
+  }, [userInfo?.id]);
+  useEffect(() => {
+    if (userInfo?.id) setEntryConfig(loadEntryConfig(userInfo.id));
+  }, [userInfo?.id]);
+  // loadWorkspaceFiles 需要恒定引用（防止物理同步抖动），配置经 ref 转接而非进依赖数组
+  const entryConfigRef = useRef(entryConfig);
+  entryConfigRef.current = entryConfig;
   const saveTimeoutRef = useRef({});
+  // 写锁：记录进行中的物理写入（新建/保存/重命名/删除），写锁期间 loadWorkspaceFiles 跳过，杜绝物理盘回读覆盖内存的竞态
+  const pendingWritesRef = useRef(new Set());
+  // 记忆恢复每个存储模式只做一次，切换模式时由 fsMode 的 Effect 清空
+  const restoredModeRef = useRef('');
 
   // 侧边栏宽度
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -116,7 +134,6 @@ function Developer({ app }) {
   const physicalFilesRef = useRef(physicalFiles);
   // 使用 Ref 锁定模块不稳定的 Hook 状态引用，实现 loadWorkspaceFiles 零依赖化
   const vfsRef = useRef(vfs);
-  const fsModeRef = useRef(fsMode);
 
   useEffect(() => {
     isMappedRef.current = isMapped;
@@ -132,65 +149,44 @@ function Developer({ app }) {
     vfsRef.current = vfs;
   }, [vfs]);
 
-  useEffect(() => {
-    fsModeRef.current = fsMode;
-  }, [fsMode]);
-
-  // 根据 items 物理介质列表解析内存。严格限制仅同步 JS/JSX。
+  // 根据 items 物理介质列表解析内存。全类型读取（不再限制 JS/JSX）。
   // 递归解析工作区目录树，key 用相对路径（如 pages/about/index.jsx），支持嵌套文件夹。
+  // 目录以 null 占位写入 files（与空内容文件 '' 区分）。
   // 通过 vfsRef 的代理锁定，使其彻底变为 [] 零依赖项，引用永远保持稳定
   const loadWorkspaceFiles = useCallback(async (currentItems) => {
     const currentVfs = vfsRef.current;
-    const currentFsMode = fsModeRef.current;
     // 只有映射开启，且当前浏览的目录 ID 确实是工作区确认的 ID 时，才执行解析
     if (!isMappedRef.current || currentVfs.state.currentId !== workspaceDirIdRef.current) return;
+    // 写锁期间跳过：新建的 mkdir/writeFile 会触发 fs.watch→loadDir→items 变化，
+    // 若此时回读物理盘整体覆盖内存，会把刚写入内存的新建项抹掉
+    if (pendingWritesRef.current.size > 0) return;
 
     try {
       const currentFiles = filesRef.current;
       const currentPhysicalFiles = physicalFilesRef.current;
 
-      // 递归遍历工作区目录，收集所有 .jsx/.js 文件（含子文件夹），返回 { relPath, item, isLogic }
+      // 递归遍历工作区目录，收集所有文件与目录（含子文件夹），返回 { relPath, item, isDir }
       const collectRecursive = async (dirId, prefix) => {
         const result = [];
-        let list = [];
-        if (currentFsMode === 'virtual') {
-          list = fs.readdir(dirId);
-        } else {
-          // local 模式：通过句柄注册表拿到目录句柄，遍历子项
-          const dirHandle = currentVfs.state.handleRegistry.get(dirId)?.handle;
-          if (dirHandle) {
-            for await (const entry of dirHandle.values()) {
-              list.push({
-                id: entry.name,
-                name: entry.name,
-                type: entry.kind === 'directory' ? FileType.DIRECTORY : FileType.FILE,
-                handle: entry
-              });
-            }
-          }
-        }
+        const list = await currentVfs.operation.handleReadDir(dirId);
         for (const item of list) {
+          const relPath = prefix ? `${prefix}/${item.name}` : item.name;
           if (item.type === FileType.DIRECTORY) {
-            const sub = await collectRecursive(item.id, prefix ? `${prefix}/${item.name}` : item.name);
+            result.push({ relPath, item, isDir: true });
+            const sub = await collectRecursive(item.id, relPath);
             result.push(...sub);
           } else {
-            const lowerName = item.name.toLowerCase();
-            const isLogic = lowerName === 'logic.jsx' || lowerName === 'logic.js';
-            const isView = lowerName.endsWith('.js') || lowerName.endsWith('.jsx');
-            if (isLogic || isView) {
-              const relPath = prefix ? `${prefix}/${item.name}` : item.name;
-              result.push({ relPath, item, isLogic });
-            }
+            result.push({ relPath, item, isDir: false });
           }
         }
         return result;
       };
 
       const allFiles = await collectRecursive(workspaceDirIdRef.current, '');
-      const incomingKeys = allFiles.filter(f => !f.isLogic).map(f => f.relPath);
+      const incomingKeys = allFiles.map(f => f.relPath);
       const currentFilesKeys = Object.keys(currentFiles);
 
-      // 判断物理盘的文件树结构是否真的改变了（基于递归收集的相对路径）
+      // 判断物理盘的文件树结构是否真的改变了（基于递归收集的相对路径，含目录）
       const isStructuralChange =
         currentFilesKeys.length === 0 ||
         currentFilesKeys.length !== incomingKeys.length ||
@@ -211,28 +207,39 @@ function Developer({ app }) {
       const newFiles = {};
       const newPhysicalFiles = new Map();
       let hasViewFile = false;
-      let loadedLogic = DEFAULT_LOGIC;
 
-      for (const { relPath, item, isLogic } of allFiles) {
+      for (const { relPath, item, isDir } of allFiles) {
+        newPhysicalFiles.set(relPath.toLowerCase(), item);
+        if (isDir) {
+          newFiles[relPath] = null; // 目录占位
+          continue;
+        }
         const fileData = await currentVfs.operation.handleOpenFile(item);
         if (!fileData) continue;
-        const content = fileData.content;
-        newPhysicalFiles.set(relPath.toLowerCase(), item);
-        if (isLogic) loadedLogic = content;
-        else {
-          newFiles[relPath] = content;
-          hasViewFile = true;
-        }
+        newFiles[relPath] = fileData.content ?? '';
+        hasViewFile = true;
       }
-      if (!hasViewFile && Object.keys(newFiles).length === 0) newFiles['layout.jsx'] = DEFAULT_LAYOUT;
+      // 空工作区按入口约定播种视图文件
+      const viewEntryName = entryConfigRef.current?.viewEntry || 'layout.jsx';
+      if (!hasViewFile && Object.keys(newFiles).length === 0) newFiles[viewEntryName] = DEFAULT_LAYOUT;
 
       setPhysicalFiles(newPhysicalFiles);
       setFiles(newFiles);
-      setAppMeta(prev => ({ ...prev, logicCode: loadedLogic }));
-      setActiveFile(prev => (newFiles[prev] ? prev : (Object.keys(newFiles)[0] || 'layout.jsx')));
+      setActiveFile(prev => (newFiles[prev] !== undefined && newFiles[prev] !== null ? prev : (Object.keys(newFiles).find(k => newFiles[k] !== null) || viewEntryName)));
 
     } catch (e) { console.error("[Developer] 物理文件同步内存失败", e); }
   }, []); // 零依赖项，永远保持引用绝对恒定
+
+  // 写锁执行器：物理写入期间挂锁，锁清空后补一次对齐（此时物理与内存一致，走"无结构变化"分支只更新 physicalFiles）
+  const runWithWriteLock = useCallback(async (key, fn) => {
+    pendingWritesRef.current.add(key);
+    try {
+      return await fn();
+    } finally {
+      pendingWritesRef.current.delete(key);
+      if (pendingWritesRef.current.size === 0) loadWorkspaceFiles();
+    }
+  }, [loadWorkspaceFiles]);
 
   // 生成 items 列表的特征签名，规避因 VFS 内部加载状态变化导致的频繁刷新
   const itemsSignature = useMemo(() => {
@@ -256,88 +263,107 @@ function Developer({ app }) {
     setActiveFile('');
     Object.values(saveTimeoutRef.current).forEach(clearTimeout);
     saveTimeoutRef.current = {};
+    pendingWritesRef.current.clear();
 
     // 直接执行根映射 (强制设为 root 并开启映射权限)
     setWorkspaceDirId('root');
     setWorkspacePathStr('/');
     setIsMapped(true);
+    // 每个模式有自己的记忆 key，切换后允许下一段 Effect 重新套用
+    restoredModeRef.current = '';
 
     // 注意：此时 vfs 钩子内部会因为 mode 变化重新 boot 并 loadDir('root')
     // loadWorkspaceFiles 会在下一步的 items 变化 Effect 中自动被触发
   }, [fsMode]);
 
   // 记忆恢复 [可选：如果上次有记忆则覆盖 root]
+  // 每个模式只恢复一次：这段改的是工作区锚点，若跟着 breadcrumbs 重跑会在用户于目录选择弹窗里浏览时把视图拉回记忆目录
   useEffect(() => {
-    if (vfs.state.isReady) {
-      const storageKey = `dev_center_workspace_dir_${fsMode}`;
-      const savedDirId = localStorage.getItem(storageKey);
-      if (savedDirId && savedDirId !== 'root') {
-        try {
-          if (fsMode === 'virtual') fs.readdir(savedDirId);
+    // 本地模式的目录 id 来自 FSA 授权与本次会话的 handleRegistry，刷新后必然失效，
+    // 恢复它等于把 root 换成一个不存在的目录，因此只对虚拟模式生效
+    if (!vfs.state.isReady || fsMode !== 'virtual' || restoredModeRef.current === fsMode) return;
+    restoredModeRef.current = fsMode;
 
-          setWorkspaceDirId(prev => (prev !== savedDirId ? savedDirId : prev));
-          setIsMapped(prev => (prev !== true ? true : prev));
+    let savedDirId = null;
+    try {
+      savedDirId = localStorage.getItem(`dev_center_workspace_dir_${fsMode}`);
+    } catch { return; } // 物理/幽灵 realm 下裸 localStorage 访问即抛，取不到记忆就保持 root 映射
+    if (!savedDirId || savedDirId === 'root') return;
 
-          const pathArr = fsMode === 'virtual' ? fs.getPath(savedDirId) : vfs.state.breadcrumbs;
-          const nextPathStr = pathArr.map(p => p.name === 'root' ? '' : p.name).join('/') || '/';
-          setWorkspacePathStr(prev => (prev !== nextPathStr ? nextPathStr : prev));
-        } catch(e) { /* 保持 root 映射 */ }
-      }
-    }
-  }, [vfs.state.isReady, fsMode, vfs.state.breadcrumbs]);
+    // getPath 对已删除的目录返回空链（readdir 只会返回 []，探不出存在性）
+    const pathArr = fs.getPath(savedDirId);
+    if (pathArr.length === 0) return;
+
+    // 只设 workspaceDirId 不够：loadWorkspaceFiles 要求 vfs.state.currentId 与它相等，
+    // 不导航过去就是路径显示对了而目录树为空，得手动点一次"重选"才会解析出真实内容
+    vfsRef.current.navigation.loadDir(savedDirId);
+    setWorkspaceDirId(savedDirId);
+    setWorkspacePathStr(pathArr.map(p => p.name === 'root' ? '' : p.name).join('/') || '/');
+    setIsMapped(true);
+  }, [vfs.state.isReady, fsMode]);
 
   // 移除旧版 handleCreate 临时过渡阶段，不管是否存在，直接扔给 handleSave
-  // 支持相对路径：当 fileName 含 '/' 时，解析父目录 id（virtual 模式自动创建缺失目录）
+  // 支持相对路径：当 fileName 含 '/' 时，逐级 handleEnsureDir 解析/创建父目录（virtual/local 统一）
+  // content === null 表示仅创建目录（文件夹落盘通路）
+  const cancelPendingSave = useCallback((fileName) => {
+    if (saveTimeoutRef.current[fileName]) {
+      clearTimeout(saveTimeoutRef.current[fileName]);
+      delete saveTimeoutRef.current[fileName];
+    }
+  }, []);
+
   const triggerVfsSave = useCallback((fileName, content, isManual = false) => {
     if (!isMapped) return;
     if (saveTimeoutRef.current[fileName]) clearTimeout(saveTimeoutRef.current[fileName]);
 
     const delay = isManual ? 0 : 2000;
     saveTimeoutRef.current[fileName] = setTimeout(async () => {
-      try {
-        const lowerName = fileName.toLowerCase();
-        let targetItem = physicalFiles.get(lowerName);
-        let targetId = targetItem?.id;
-        let parentId = workspaceDirId;
-        let name = fileName;
+      await runWithWriteLock(fileName, async () => {
+        try {
+          const lowerName = fileName.toLowerCase();
+          let targetItem = physicalFiles.get(lowerName);
+          let targetId = targetItem?.id;
+          let parentId = workspaceDirId;
+          let name = fileName;
 
-        // 拆出父目录路径与文件名，解析/创建父目录
-        if (fileName.includes('/')) {
-          const parts = fileName.split('/');
-          name = parts.pop();
-          let currentId = workspaceDirId;
-          for (const part of parts) {
-            const children = fs.readdir(currentId);
-            const found = children.find(c => c.type === FileType.DIRECTORY && c.name === part);
-            if (found) currentId = found.id;
-            else {
-              const created = await fs.mkdir(currentId, part);
-              currentId = created.id;
+          // 拆出父目录路径与文件名，逐级解析/创建父目录
+          if (fileName.includes('/')) {
+            const parts = fileName.split('/');
+            name = parts.pop();
+            let currentId = workspaceDirId;
+            for (const part of parts) {
+              const ensured = await vfs.operation.handleEnsureDir({ parentId: currentId, name: part });
+              if (!ensured) throw new Error(`目录创建失败: ${part}`);
+              currentId = ensured.id;
             }
+            parentId = currentId;
           }
-          parentId = currentId;
-        }
 
-        // 直接写入最新编辑的内容，由 Hook 底层自动判断并以“一步写入”形式直接在磁盘生成，规避任何时序空隙
-        const res = await vfs.operation.handleSave({
-           id: targetId, content, parentId, name
-        });
+          // 仅创建目录
+          if (content === null) {
+            await vfs.operation.handleEnsureDir({ parentId, name });
+            return;
+          }
 
-        if (res) {
+          // 直接写入最新编辑的内容，由 Hook 底层自动判断并以“一步写入”形式直接在磁盘生成，规避任何时序空隙
+          const res = await vfs.operation.handleSave({
+             id: targetId, content, parentId, name
+          });
+
+          if (res) {
            setUnsavedFiles(prev => { const next = new Set(prev); next.delete(fileName); return next; });
            if (isManual) alert.success(`${fileName} 已同步`);
+          }
+        } catch (err) {
+          console.log(err)
+          if (isManual) alert.failure(`${fileName} 保存失败`);
         }
-      } catch (err) {
-        console.log(err)
-        if (isManual) alert.failure(`${fileName} 保存失败`);
-      }
+      });
     }, delay);
-  }, [workspaceDirId, isMapped, physicalFiles, vfs.operation]);
+  }, [workspaceDirId, isMapped, physicalFiles, vfs.operation, runWithWriteLock]);
 
   const handleContentChange = useCallback((fileName, content) => {
-    // 逻辑文件（logic.jsx / logic.js）单独维护，不混入普通视图 files
-    if (/^logic\.(jsx|js)$/i.test(fileName)) setAppMeta(prev => ({ ...prev, logicCode: content }));
-    else setFiles(prev => ({ ...prev, [fileName]: content }));
+    setFiles(prev => ({ ...prev, [fileName]: content }));
     setUnsavedFiles(prev => new Set(prev).add(fileName));
     if (isAutoSave) triggerVfsSave(fileName, content, false);
   }, [isAutoSave, triggerVfsSave]);
@@ -350,18 +376,55 @@ function Developer({ app }) {
     }
   }, [files]);
 
+  // 入口解析：命中 logicEntries 的第一个文件为主逻辑入口（状态机，单独承载），
+  // 其余为辅逻辑入口（服务模块，留在内容包内由 worker 侧模块运行时 require）
+  const appEntries = useMemo(() => buildAppEntries(files, entryConfig), [files, entryConfig]);
+  const mainLogicCode = appEntries.logicMainFile ? files[appEntries.logicMainFile] : null;
+
   const cleanFiles = useMemo(() => {
     const result = {};
     for (const [key, value] of Object.entries(files)) {
+      if (value === null) continue; // 目录占位不打入内容包
+      if (key === appEntries.logicMainFile) continue; // 主逻辑入口由 ENV_KEY_LOGIC 单独承载
       // 去 .jsx/.js 后缀，保留相对路径（如 pages/about/index）
       result[key.replace(/\.(jsx|js)$/, '')] = value;
     }
     return result;
-  }, [files]);
+  }, [files, appEntries]);
 
   const updateAppMeta = (updates) => {
     setAppMeta(prev => ({ ...prev, ...updates }));
   };
+
+  // 分层校验的对象必须是「这次真正会被发出去的载荷」：单页只装一个视图字符串，
+  // 按整个工作区校验会放行主逻辑块里那些随不了走的 import，装完才在 worker 里 require 必炸。
+  // 解析不到视图文件时回落全量——那种形态本来就发不出去，不该用一串 missing 把真因盖掉。
+  const layeringFiles = useMemo(() => {
+    if (uploadType === 'bundle') return files;
+    const viewFile = appEntries.viewFile || appEntries.mainFile || activeFile;
+    return viewFile && typeof files[viewFile] === 'string' ? { [viewFile]: files[viewFile] } : files;
+  }, [uploadType, files, appEntries, activeFile]);
+
+  // 分层校验只在发布/预览动作时跑一次，不进按键路径：工作区文件多时正则扫描会有可感延迟
+  const layeringErrors = useCallback(
+    () => inspectEntryLayering({ files: layeringFiles, entries: appEntries.entries, logicMainCode: mainLogicCode || '' }),
+    [layeringFiles, appEntries, mainLogicCode]
+  );
+
+  /**
+   * @param strict 发布路径 true：四类问题全部拦下。预览路径 false：只拦 worker 必炸的硬故障，
+   *   page-imports-aux 降级为提示——入口规则写得较宽（如 utils/**）时它不影响求值，硬拦会让应用无法预览
+   */
+  const blockByLayering = useCallback((strict = true) => {
+    const { hard, soft } = splitLayeringErrors(layeringErrors());
+    const blocking = strict ? [...hard, ...soft] : hard;
+    if (blocking.length) {
+      alert.warning(formatLayeringErrors(blocking), { duration: 6000 });
+      return true;
+    }
+    if (soft.length) alert.warning(formatLayeringErrors(soft), { duration: 4000 });
+    return false;
+  }, [layeringErrors]);
 
   const handleDevCenterCreate = () => {
     if (!appMeta.appName) { alert.warning("请输入应用名称"); return; }
@@ -369,8 +432,19 @@ function Developer({ app }) {
     if (installedApps.some(app => app?.[ENV_KEY_NAME] === appMeta.appName)) {
       alert.warning(`名称占用`); return;
     }
-    const { appName, appIcon, logicCode, sysOptions, ...restMetaInfo } = appMeta;
-    const baseMetaInfo = { seed: Date.now().toString(), authorId: userInfo?.id, icon: appIcon, ...restMetaInfo };
+    if (blockByLayering(true)) return;
+    // 多页面应用靠 entries.view 选页，视图入口缺失时运行时会回落到 'layout' 而白屏
+    if (uploadType === 'bundle' && !appEntries.viewFile) {
+      alert.warning(`缺少视图入口 ${entryConfig.viewEntry}，请补齐该文件或到设置里调整入口约定`); return;
+    }
+    // 单页载荷只有一个视图字符串：辅逻辑模块即便命中入口约定也不会随资源走，
+    // 主逻辑块 import 的目标同理（那部分交给按载荷跑的分层校验拦）
+    if (uploadType !== 'bundle' && appEntries.entries.logicAux.length) {
+      alert.warning(`单页应用无法携带辅逻辑模块（${appEntries.entries.logicAux.join('、')}），请改用多页面发布`); return;
+    }
+    const { appName, appIcon, sysOptions, ...restMetaInfo } = appMeta;
+    // 入口约定随资源固化：运行时读的是 metaInfo.entries，不是本机 localStorage 配置
+    const baseMetaInfo = { seed: Date.now().toString(), authorId: userInfo?.id, icon: appIcon, entries: appEntries.entries, ...restMetaInfo };
 
     /*
       为了简化传输配置:
@@ -390,15 +464,17 @@ function Developer({ app }) {
 
     let payload;
     if (uploadType !== 'bundle') {
-      const content = cleanFiles[activeFile] || Object.values(cleanFiles)[0];
+      // 单页内容只装一个视图字符串：口径与预览/上传面板一致（视图入口优先，其次单文件入口，最后当前编辑文件）
+      const entryKey = moduleKeyOf(appEntries.viewFile || appEntries.mainFile || activeFile);
+      const content = cleanFiles[entryKey] || Object.values(cleanFiles)[0];
       payload = {
         sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: false,
-        [ENV_KEY_CONTENT]: content, [ENV_KEY_LOGIC]: logicCode, [ENV_KEY_META_INFO]: baseMetaInfo
+        [ENV_KEY_CONTENT]: content, [ENV_KEY_LOGIC]: mainLogicCode, [ENV_KEY_META_INFO]: baseMetaInfo
       };
     } else {
       payload = {
         sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: true,
-        [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: logicCode, [ENV_KEY_META_INFO]: baseMetaInfo
+        [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: mainLogicCode, [ENV_KEY_META_INFO]: baseMetaInfo
       };
     }
     kernel.uploadResource(payload).then(resourceId => {
@@ -414,13 +490,24 @@ function Developer({ app }) {
   };
 
   const handlePreviewApp = () => {
+    // 预览只拦硬故障：worker 求不到值的场景预览出来也是假象；软约束降级为提示
+    if (blockByLayering(false)) return;
     let viewCodeForPreview = null; let filesForPreview = null;
     const isBundle = uploadType === 'bundle';
-    if (isBundle) filesForPreview = files; else viewCodeForPreview = files[activeFile] || Object.values(files)[0];
+    // 预览文件集只剔除目录占位(null)与主逻辑入口；辅逻辑入口留在集合内交给 worker 侧模块运行时
+    const previewFiles = Object.fromEntries(
+      Object.entries(files).filter(([k, v]) => v !== null && k !== appEntries.logicMainFile)
+    );
+    if (isBundle) filesForPreview = previewFiles;
+    else {
+      const viewFile = appEntries.viewFile || appEntries.mainFile || activeFile;
+      viewCodeForPreview = previewFiles[viewFile] || Object.values(previewFiles)[0];
+    }
     setPreviewApp({
       //这里无需过多处理因为这个不会实际应用到上传,安装这里
       appName: appMeta.appName || '未命名', viewCode: viewCodeForPreview,
-      files: filesForPreview, isBundle: isBundle, logicCode: appMeta.logicCode,
+      files: filesForPreview, isBundle: isBundle, logicCode: mainLogicCode,
+      entries: appEntries.entries,
       initialSize: appMeta.initialSize, appIcon: appMeta.appIcon, appType: appMeta.appType
     });
     setActiveMain('preview');
@@ -470,11 +557,13 @@ function Developer({ app }) {
                   showWorkspaceModal={showWorkspaceModal} setShowWorkspaceModal={setShowWorkspaceModal}
                   showImportModal={showImportModal} setShowImportModal={setShowImportModal}
                   loadWorkspaceFiles={loadWorkspaceFiles} fsMode={fsMode} setFsMode={setFsMode}
-                  setIsMapped={setIsMapped}
+                  setIsMapped={setIsMapped} runWithWriteLock={runWithWriteLock}
+                  setUnsavedFiles={setUnsavedFiles} cancelPendingSave={cancelPendingSave}
+                  entryFiles={appEntries}
                />
             )}
             {activeSidebar === 'setting' && (
-               <Setting appCustomMapper={appCustomMapper} appMeta={appMeta} appTypes={appTypes} onUpdateAppMeta={updateAppMeta} onCreate={handleDevCenterCreate} onPreview={handlePreviewApp} uploadType={uploadType} setUploadType={setUploadType} canRegister={canRegister} registerToPool={registerToPool} onRegisterToggle={setRegisterToPool} />
+               <Setting appCustomMapper={appCustomMapper} appMeta={appMeta} appTypes={appTypes} onUpdateAppMeta={updateAppMeta} onCreate={handleDevCenterCreate} onPreview={handlePreviewApp} uploadType={uploadType} setUploadType={setUploadType} canRegister={canRegister} registerToPool={registerToPool} onRegisterToggle={setRegisterToPool} entryConfig={entryConfig} updateEntryConfig={updateEntryConfig} appEntries={appEntries} onLayeringCheck={layeringErrors} />
             )}
           </Suspense>
         </div>
@@ -484,11 +573,11 @@ function Developer({ app }) {
       <div className={style[bem.e('main-wrapper')]}>
         <Suspense fallback={<div style={{ padding: '40px', color: '#999', textAlign: 'center' }}>工作区加载中...</div>}>
           {activeMain === 'editor' && (
-            <DevCenter files={files} activeFile={activeFile} logicCode={appMeta.logicCode} handleContentChange={handleContentChange} triggerVfsSave={triggerVfsSave} isMapped={isMapped} unsavedFiles={unsavedFiles} />
+            <DevCenter files={files} activeFile={activeFile} handleContentChange={handleContentChange} triggerVfsSave={triggerVfsSave} isMapped={isMapped} unsavedFiles={unsavedFiles} />
           )}
           {activeMain === 'preview' && <AppView app={previewApp} />}
-          {activeMain === 'upload' && <Uploader appMeta={appMeta} uploadType={uploadType} />}
-          {activeMain === 'update' && <UpdatePanel appMeta={appMeta} uploadType={uploadType} />}
+          {activeMain === 'upload' && <Uploader appMeta={appMeta} uploadType={uploadType} entryConfig={entryConfig} />}
+          {activeMain === 'update' && <UpdatePanel appMeta={appMeta} uploadType={uploadType} entryConfig={entryConfig} />}
           {activeMain === 'helper' && <Helper />}
         </Suspense>
       </div>

@@ -17,7 +17,7 @@ SukinOS 是一个运行在浏览器端的**桌面操作系统 Web 应用**，采
 | 内置应用 | 10 个系统级应用（文件管理器、笔记本、画板等） |
 | 用户应用 | 支持通过开发者工具或应用商店安装第三方应用 |
 | 个性化 | 主题、窗口偏好、桌面快捷方式等用户配置 |
-| 数据持久化 | 5 个 IndexedDB 数据库 + MySQL 8 张表 |
+| 数据持久化 | 5 个 IndexedDB 数据库 + MySQL 11 张表 |
 | JWT 认证 | 双 Token 机制（Access 30min + Refresh 7天）+ 静默刷新 |
 | 请求审计 | 全量 API 请求日志 + 敏感信息脱敏 |
 | WebSocket | 多标签页管理 + 心跳检测 + 登录时长追踪 |
@@ -81,10 +81,10 @@ graph TB
     end
 
     subgraph Storage["持久化存储 (IndexedDB)"]
-        DB_SYS["SukinOS_Sys<br/>用户应用注册表"]
-        DB_RES["SukinOS_Res<br/>应用资源存储"]
+        DB_SYS["SukinOS_Sys_用户id<br/>用户应用注册表"]
+        DB_RES["SukinOS_Res_用户id<br/>应用资源存储"]
         DB_VFILE["SUKIN_OS_VFS<br/>虚拟文件系统"]
-        DB_INST["SUKIN_STATE_INSTANCE<br/>系统实例状态"]
+        DB_INST["SUKIN_STATE_INSTANCE_用户id<br/>系统实例状态"]
         DB_APP["sukin_system_app<br/>系统应用数据"]
     end
 
@@ -137,7 +137,11 @@ sukinos/
 
 ---
 
-## 4. 六大核心模块
+## 4. 七大核心模块
+
+下面的表格与 §2 架构图按**文档拆分**列 7 项（编号 1-7 对应 `module/01-08`，其中 `07-app-routing.md`
+是"进程内核 + 桌面"的路由/消息专题，不单列模块框）；按**代码目录**看仍是 6 块：
+Hooks 桥接、DeskBook 桌面、Resources 应用、Utils/Process 内核、Utils/File 文件系统、Middleware+Login。
 
 ```mermaid
 graph LR
@@ -198,7 +202,7 @@ graph LR
 | # | 模块 | 概述 | 详细文档 |
 |---|------|------|---------|
 | 1 | **Hooks 桥接层** | 14 个 Hook 连接 Redux Store、Kernel 与 UI，是系统交互的核心桥梁。涵盖内核桥接、认证、进程通信、文件系统、窗口交互等全部 UI→底层通道。 | [01-hooks.md](./01-hooks.md) |
-| 2 | **DeskBook 桌面环境** | 用户交互主界面，包含窗口管理器（拖拽/缩放/z-index）、桌面快捷方式、底部状态栏、启动页、自定义应用容器。含 12 项 GPU/渲染性能优化措施。 | [02-deskbook.md](./02-deskbook.md) |
+| 2 | **DeskBook 桌面环境** | 用户交互主界面，包含窗口管理器（拖拽/缩放/z-index）、桌面快捷方式、底部状态栏、启动页、自定义应用容器。含 12 项 GPU/渲染性能优化措施（其中 1 项已停用）。 | [02-deskbook.md](./02-deskbook.md) |
 | 3 | **Resources 应用层** | SDK 工厂（devAppSdk/adminAppSdk 双权限模型）+ 10 个内置应用注册详情 + InteractiveAwakening/VfsImage 中间件 + 开发者扩展指南。 | [03-resources.md](./03-resources.md) |
 | 4 | **进程内核** | Kernel 单例 + 10 个 kernelParts 子模块 + CommHub 通信枢纽 + 3 种 Worker 运行模式 + 完整生命周期（安装→启动→休眠→恢复→终止）。 | [04-process-kernel.md](./04-process-kernel.md) |
 | 5 | **文件系统与安全** | VFS 内核-驱动两层架构 + Inode 数据模型 + 安全沙箱 8 类策略（PID 命名空间/CDN 白名单/API 禁用/Blob 递归沙箱化/设备屏蔽/SDK 冻结等）+ 系统数据库 + 通用工具。 | [05-file-system-tools.md](./05-file-system-tools.md) |
@@ -213,13 +217,13 @@ graph LR
 
 SukinOS 使用 5 个 IndexedDB 数据库实现全量本地持久化：
 
-| 数据库 | 配置常量 | Store Name | KeyPath | 主要用途 |
+| 数据库 | 配置来源 | Store Name | KeyPath | 主要用途 |
 |--------|---------|------------|---------|---------|
-| SukinOS_Sys | `DB_SYS` | `registry` | `name` | 用户安装的应用注册信息、PID 状态、savedState |
-| SukinOS_Res | `DB_RES` | `ui_bundles` | `resourceId` | 应用的完整资源（逻辑代码、UI 内容、元数据） |
-| SUKIN_OS_VFS | `DB_VFILE` | `files` | `id` | VFS 虚拟文件系统的所有 Inode 节点 |
-| SUKIN_STATE_INSTANCE | `DB_STATE_INSTANCE` | `instance` | `id` | 系统实例状态（文件句柄等有状态运行时数据） |
-| sukin_system_app | `DB_SYSTEM_APP` | — | — | 系统应用的用户数据（画板作品、表格数据等） |
+| `SukinOS_Sys_${userId}` | `createSysDbConfig(userId)` | `registry` | `name` | 用户安装的应用注册信息、PID 状态、savedState |
+| `SukinOS_Res_${userId}` | `createResDbConfig(userId)` | `ui_bundles` | `resourceId` | 应用的完整资源（逻辑代码、UI 内容、元数据） |
+| `SUKIN_OS_VFS` | `DB_VFILE`（唯一不按用户改名的库） | `files` | `id` | VFS 虚拟文件系统的所有 Inode 节点 |
+| `SUKIN_STATE_INSTANCE_${userId}` | `createInstanceDbConfig(userId)` | `instance` | `id` | 系统实例状态（文件句柄等有状态运行时数据） |
+| `sukin_system_app` | `DB_SYSTEM_APP` | — | — | 系统应用的用户数据（画板作品、表格数据等） |
 
 > 数据库 Inode 数据模型、VFS 驱动层详细接口详见 [05-file-system-tools.md](./05-file-system-tools.md)
 
@@ -266,7 +270,7 @@ SDK 是应用与系统交互的唯一接口，通过工厂函数 `createSdkForIn
 
 ### 7.2 安全沙箱
 
-多层安全沙箱确保每个应用进程在隔离环境中运行：PID 命名空间隔离（Storage/IndexedDB）、Fetch 注入（`x-kernel-process-id` Header）、CDN 白名单、Blob 递归沙箱化、API 禁用（eval/Function/XMLHttpRequest/importScripts）、设备屏蔽（USB/Bluetooth/HID）、SDK 冻结（Proxy 拦截写操作）、清理机制（`clearSandboxStorageByPid`/`clearAppSandboxData`）。
+多层安全沙箱确保每个应用进程在隔离环境中运行：PID 命名空间隔离（Storage/IndexedDB）、Fetch 注入（`x-kernel-process-id` Header）、CDN 白名单、Blob 递归沙箱化、敏感 API 代理（`eval`/`XMLHttpRequest`/`importScripts` 两种环境都禁；`Function` 按 `envType` 分档——worker 放行真实构造器用于包装预编译逻辑模块，UI 侧仍禁，`security.js:406-413`）、受保护属性不可覆写（`set` trap 的 `blockedProps` 清单）、设备屏蔽（USB/Bluetooth/HID）、SDK 冻结（Proxy 拦截写操作）、清理机制（`clearSandboxStorageByPid`/`clearAppSandboxData`）。
 
 > 沙箱策略完整表格、CDN 白名单列表、Worker 沙箱前导代码、VirtualWorker 资源追踪与清理详见 [05-file-system-tools.md](./05-file-system-tools.md)
 
@@ -388,8 +392,8 @@ graph TD
 
 | 常量 | 值 | 说明 |
 |------|----|------|
-| `ENV_KEY_RESOURCE_ID` | `'resourceId'` | 资源唯一标识符（DB_RES 主键） |
-| `ENV_KEY_NAME` | `'name'` | 应用名称（DB_SYS 主键、物理文件名前缀） |
+| `ENV_KEY_RESOURCE_ID` | `'resourceId'` | 资源唯一标识符（资源库 `ui_bundles` 主键） |
+| `ENV_KEY_NAME` | `'name'` | 应用名称（注册表库 `registry` 主键、物理文件名前缀） |
 | `ENV_KEY_IS_BUNDLE` | `'isBundle'` | 是否支持路由捆绑包 |
 | `ENV_KEY_LOGIC` | `'logic'` | 业务逻辑纯净代码 |
 | `ENV_KEY_CONTENT` | `'content'` | 界面视图源码 |
@@ -438,13 +442,12 @@ graph TD
 | `01-system-overview.mmd` | 系统整体架构（前端 + 后端） |
 | `02-kernel-architecture.mmd` | Kernel 进程内核详细架构 |
 | `03-commhub-communication.mmd` | CommHub 通信枢纽架构 |
-| `03-app-routing.mmd` | 应用路由导航机制（含浏览器级路由、三种 Worker 模式、Pub/Sub 体系） |
 | `04-vfs-file-system.mmd` | 虚拟文件系统 (VFS) 架构 |
 | `05-security-sandbox.mmd` | 安全沙箱体系 |
 | `06-app-lifecycle.mmd` | 应用生命周期状态机 |
 | `07-backend-architecture.mmd` | 后端 FastAPI 架构 |
 | `08-auth-flow.mmd` | JWT 双 Token 认证流程 |
-| `09-database-er.mmd` | 数据库 ER 图（8 张表） |
+| `09-database-er.mmd` | 数据库 ER 图（11 张表） |
 | `10-backend-routes.mmd` | 后端 API 路由结构 |
 | `11-websocket-flow.mmd` | WebSocket 多标签页管理流程 |
 | `12-sse-localdev.mmd` | SSE 本地开发热更新流程 |
@@ -454,13 +457,20 @@ graph TD
 | `16-permission-system.mmd` | 权限管理系统 |
 | `17-three-layer-auth.mmd` | 三层认证体系 |
 | `18-auto-lifecycle.mmd` | 自动生命周期 |
+| `19-dev-app-architecture.mmd` | 开发态应用架构（注册层 / SDK 交付层 / 内核层 / 渲染层分层） |
+| `20-app-communication-flow.mmd` | 应用通信全流程（dispatch / KERNEL_CALL / evokeApp / Pub-Sub 四类链路） |
+| `21-three-worker-comparison.mmd` | RealWorker / VirtualWorker / NoWorker 三模式对比 |
+| `22-sdk-tier-comparison.mmd` | devAppSdk 与 adminAppSdk 权限分层对比 |
+| `23-app-routing.mmd` | 应用路由导航机制（含浏览器级路由、三种 Worker 模式、Pub/Sub 体系） |
+
+> 前缀编号在 2026-09 做过一次整理：原 `03-app-routing.mmd` 与 `03-commhub-communication.mmd` 撞了 `03-` 前缀，前者已更名为 `23-app-routing.mmd`（内容不变）。文档里另有大量内联 `mermaid` 代码块与这些 `.mmd` 文件**并存**：实测两组没有逐字重复的孪生图（最大节点重叠 33%，属同一主题的不同视角），因此两份都保留、各服务不同粒度；脚本约束的是**图中标识符必须在源码里真实存在**（Hook/类/方法/文件名改名而未跟图即失败），而不是两份内容相等。详见 `docs/README.md`。
 
 ## 附录B：专题文档索引
 
 | 文档 | 主题 | 说明 |
 |------|------|------|
 | [01-hooks.md](./01-hooks.md) | Hooks 桥接层 | 14 个 Hook 完整接口文档、调用链关系图、依赖关系矩阵 |
-| [02-deskbook.md](./02-deskbook.md) | DeskBook 桌面环境 | 8 个组件详解、12 项性能优化措施、全局快捷键 |
+| [02-deskbook.md](./02-deskbook.md) | DeskBook 桌面环境 | 8 个组件详解、12 项性能优化措施（§9.2 已停用）+ §9.13 监控指南、全局快捷键 |
 | [03-resources.md](./03-resources.md) | Resources 应用层 | SDK 双权限模型、createSdkForInstance 工厂流程、10 个内置应用、中间件 |
 | [04-process-kernel.md](./04-process-kernel.md) | 进程内核系统 | Kernel 全 API、CommHub 消息协议、10 个子模块详解、5 个核心调用链 |
 | [05-file-system-tools.md](./05-file-system-tools.md) | 文件系统与安全 | VFS 内核-驱动两层架构、安全沙箱 8 类策略、系统数据库、通用工具 |
@@ -480,6 +490,11 @@ graph TD
 | 6 | `request_logs` | `D_RequestLog` | 请求审计日志表 |
 | 7 | `system_configs` | `D_SystemConfig` | 系统配置表 |
 | 8 | `system_updates` | `D_SystemUpdate` | 系统更新日志表 |
+| 9 | `app_permission_registry` | `D_AppPermissionRegistry` | 普通 APP 权限注册表（声明式权限清单） |
+| 10 | `system_roles` | `D_Role` | 角色表（`name`/`label`/`is_system`，系统内置角色不可删除） |
+| 11 | `system_builtin_apps` | `D_SystemBuiltinApp` | 系统内置 APP 定义表（除 `sys-systemManage` 外均在此维护） |
+
+> 计数口径：按 `myfastapi_/Model/DbModel/` 下全部 `__tablename__` 统计为 11 张（`user/user.py` 4 张、`sukinos/sukinos.py` 1 张、`system/` 6 张）。早期文档写"8 张表"是漏了 `app_permission_registry`、`system_roles`、`system_builtin_apps`。
 
 ## 附录D：后端 API 路由概览
 

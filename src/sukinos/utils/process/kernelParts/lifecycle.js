@@ -427,12 +427,13 @@ export class Lifecycle {
           if (!app?.isSystemApp) {
             await this.#kernel.sysDb.updateData(app?.[ENV_KEY_NAME], {status: 'RUNNING'})
           }
-          if (interactInfo) {
-            const p = this.#kernel.processes.get(truthPid)
-            this.#kernel.appIntereact({process: p.worker, interactInfo})
-          }
           // alert.success(`[内核] 应用 ${app.name} (pid: ${pid}) 已恢复运行。`)
           this.#kernel.emitChange({type: 'APP_STATUS', pid: truthPid, status: 'RUNNING'})
+        }
+        // 唤醒分支之外还要覆盖"本来就在跑"的情况，否则调用方带进来的 interactInfo 会静默丢失
+        if (interactInfo) {
+          const p = this.#kernel.processes.get(truthPid)
+          this.#kernel.appIntereact({process: p.worker, interactInfo})
         }
         // 无论之前是 HIBERNATED 还是 RUNNING，都通知 UI 并返回窗口状态
         this.#kernel.commHub.notify(truthPid, 'STATE', this.#kernel.getCachedState(truthPid))

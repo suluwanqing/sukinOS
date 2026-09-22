@@ -5,6 +5,7 @@ import {
   ENV_KEY_NAME,
   ENV_KEY_IS_BUNDLE,
   ENV_KEY_LOGIC,
+  ENV_KEY_LOGIC_PRECOMPILED,
   ENV_KEY_CONTENT,
   ENV_KEY_CONTENT_PRECOMPILED,
   ENV_KEY_META_INFO
@@ -172,8 +173,10 @@ export async function extUpdateCloud(kernel, data) {
  * 将原始源码（JSX/JS）编译为 JS 产物，存入 ENV_KEY_CONTENT_PRECOMPILED。
  * - 单文件：content 为字符串，直接编译
  * - bundle：content 为 { key: code } 对象，按 key 逐个编译
+ * - 主逻辑块单独编译进 ENV_KEY_LOGIC_PRECOMPILED（它不在 content 里，见该常量的说明）
  * - 幂等：已存在预编译产物则跳过
- * - 失败降级：编译失败捕获并告警，不标记，保留原始 JSX 供运行时 Babel 兜底
+ * - 失败降级：编译失败捕获并告警，保留原始 JSX 供运行时 Babel 兜底，
+ *   同时把失败模块写进 metaInfo.precompileIssues，供 worker 侧 require 报错时指认真因
  * @param {object} newRes - 待安装的资源对象（会被原地修改）
  * @param {object} kernel - 内核实例
  * @returns {Promise<void>}
@@ -183,39 +186,73 @@ async function precompileResourceContent(newRes, kernel) {
   const content = newRes?.[ENV_KEY_CONTENT]
   // 系统 APP 强制走 JSX 编译，不预编译
   if (kernel?.presetResourceIds?.has(resourceId)) return
-  // 幂等：已有预编译产物则跳过，避免重复编译
-  if (newRes?.[ENV_KEY_CONTENT_PRECOMPILED] != null) return
-  if (content == null) return
 
+  const failedKeys = []
   const compileOne = async (code, key) => {
+    // CSS 无需预编译，运行时由 createCssModule 处理，跳过避免被当作 JSX 编译报错
+    if (/\.css$/.test(key)) return null
     try {
       return await compileSource(code, { filename: key })
     } catch (e) {
+      failedKeys.push(key)
       console.warn(`[预编译] 资源 ${resourceId} 模块 ${key} 编译失败，降级为运行时 Babel 编译:`, e?.message)
       return null
     }
   }
 
-  if (typeof content === 'string') {
-    const compiled = await compileOne(content, 'main.jsx')
-    if (compiled != null) {
-      newRes[ENV_KEY_CONTENT_PRECOMPILED] = compiled
+  const recordIssues = () => {
+    // 每次安装都以此轮结果为准：云端资源可能带着上一版编译失败时盖的戳，
+    // 本轮全部编译成功却不擦除，就会一直传播给后续用户并误导 worker 报错指认
+    const meta = newRes[ENV_KEY_META_INFO]
+    if (!failedKeys.length) {
+      delete meta.precompileIssues
+      return
     }
-  } else if (content && typeof content === 'object') {
-    const compiledMap = {}
-    let anySuccess = false
-    for (const [key, code] of Object.entries(content)) {
-      if (typeof code !== 'string') continue
-      const compiled = await compileOne(code, key)
+    // 失败清单随资源固化：worker 侧 require 拿不到产物时，靠它把错误指到真因而不是路径写错
+    meta.precompileIssues = { reason: 'failed', keys: failedKeys }
+  }
+
+  // 本轮是否真的尝试过编译：一轮都没编译（产物齐全直接跳过）时不改动 precompileIssues，
+  // 免得把别处留下的失败指认无声擦掉
+  let attempted = false
+
+  if (newRes?.[ENV_KEY_CONTENT_PRECOMPILED] == null && content != null) {
+    attempted = true
+    if (typeof content === 'string') {
+      const compiled = await compileOne(content, 'main.jsx')
       if (compiled != null) {
-        compiledMap[key] = compiled
-        anySuccess = true
+        newRes[ENV_KEY_CONTENT_PRECOMPILED] = compiled
+      }
+    } else if (content && typeof content === 'object') {
+      const compiledMap = {}
+      let anySuccess = false
+      for (const [key, code] of Object.entries(content)) {
+        if (typeof code !== 'string') continue
+        const compiled = await compileOne(code, key)
+        if (compiled != null) {
+          compiledMap[key] = compiled
+          anySuccess = true
+        }
+      }
+      if (anySuccess) {
+        newRes[ENV_KEY_CONTENT_PRECOMPILED] = compiledMap
       }
     }
-    if (anySuccess) {
-      newRes[ENV_KEY_CONTENT_PRECOMPILED] = compiledMap
+  }
+
+  // 主逻辑块：编译产物供 worker 执行，原始源码仍留在 ENV_KEY_LOGIC 供编辑器与反解。
+  // 只有编译过的产物才走这条链，未预编译的存量应用与系统应用保持原文注入。
+  const logicCode = newRes?.[ENV_KEY_LOGIC]
+  if (typeof logicCode === 'string' && logicCode && newRes?.[ENV_KEY_LOGIC_PRECOMPILED] == null) {
+    attempted = true
+    const logicMainKey = newRes[ENV_KEY_META_INFO]?.entries?.logicMain || 'logic'
+    const compiledLogic = await compileOne(logicCode, `${logicMainKey}.jsx`)
+    if (compiledLogic != null) {
+      newRes[ENV_KEY_LOGIC_PRECOMPILED] = compiledLogic
     }
   }
+
+  if (attempted) recordIssues()
 }
 
 // 核心安装资源函数 (抽离出的纯净安装核心，避免循环排队导致死锁死循环)

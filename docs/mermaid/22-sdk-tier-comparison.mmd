@@ -5,13 +5,13 @@ graph TB
         D_KERNEL["kernel: evokeApp + getTypeApps"]
         D_HOOKS["hooks: useFileSystem"]
         D_MID["middleware: 完整"]
-        D_API["API: {} (运行时注入)"]
+        D_API["API: {} 运行时注入<br/>fetch + navigate + pid + window"]
     end
 
     subgraph adminSdk["adminAppSdk (系统APP) = devAppSdk + 扩展"]
         A_SYS_COMPS["系统组件完整<br/>Developer/FileSystem/Notebook/..."]
         A_HOOKS["全部 Hooks<br/>useAuth/useKernel/useProcessBridge/..."]
-        A_KERNEL["完整 kernel<br/>全 API + rootSeed"]
+        A_KERNEL["kernel = _kernel 完整对象<br/>（rootSeed 在 API 上，不在这里）"]
         A_FS["useSystemFileSystem<br/>无 PID 限制"]
     end
 

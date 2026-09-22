@@ -43,13 +43,14 @@ graph TB
         subgraph NavProxy["Navigator/Document 代理"]
             NavigatorProxy["navigator 安全代理"]
             DocumentProxy["document 安全代理"]
-            ServiceWorkerBlock["ServiceWorker 注册禁用"]
+            ServiceWorkerBlock["navigator.serviceWorker 代理<br/>getRegistration/getRegistrations/unregister 抛错"]
         end
 
         subgraph SDKProxy["SDK 代理"]
             ReadonlySDK["createReadonlySDKProxy()<br/>只读 SDK 冻结"]
             SDKFreeze["Object.freeze + 深度只读"]
-            SensitiveApi["敏感 API 禁用<br/>eval, Function 等"]
+            SensitiveApi["敏感 API get trap<br/>eval/XHR/importScripts 禁<br/>Function 仅 worker 放行"]
+            BlockedProps["set trap blockedProps<br/>受保护属性不可覆写"]
         end
     end
 

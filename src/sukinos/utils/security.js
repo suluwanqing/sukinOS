@@ -403,7 +403,13 @@ export const getSharedSandboxUtilities = (pid, storageProxySource, indexedDBProx
                   return new OriginalBlob(parts, options);
                 };
 
-              case 'eval': case 'Function': case 'XMLHttpRequest': case 'importScripts':
+              // worker 侧要把逻辑模块的预编译产物包成 factory（见 workerDrive 的 __requireLogic），
+              // 这与渲染侧用 Function 构造页面模块是同一套机制，所以只在 worker 环境放行。
+              // UI 沙箱继续禁：页面代码没有合法的动力态求值场景。
+              case 'Function':
+                return envType === 'worker' ? globalThis.Function : _forbidden(prop);
+
+              case 'eval': case 'XMLHttpRequest': case 'importScripts':
                 return _forbidden(prop);
 
               case 'setInterval':

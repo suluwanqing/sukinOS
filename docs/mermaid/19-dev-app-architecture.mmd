@@ -12,10 +12,10 @@ graph TB
     end
 
     subgraph SDK["SDK 交付层"]
-        Factory["createSdkForInstance<br/>(dispatch, pid, isSystemApp)"]
-        PrivateScope["私有 Scope<br/>secureFetch, navigate, pid"]
+        Factory["createSdkForInstance<br/>(dispatch, pid, isSystemApp, windowControls)"]
+        PrivateScope["私有 Scope<br/>secureFetch, navigate, pid, window"]
         BaseSDK["基础 SDK 模板"]
-        SystemAPIs["系统 API 代理<br/>localStorage/indexedDB"]
+        SystemAPIs["系统 API 代理<br/>localStorage/sessionStorage/indexedDB"]
         Security["安全加固<br/>deepFreeze + readonlyProxy"]
     end
 

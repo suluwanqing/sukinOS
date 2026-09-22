@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 
@@ -9,13 +9,42 @@ import FileUploadIcon from '@mui/icons-material/FileUpload';
 import InfoIcon from '@mui/icons-material/Info';
 import EditIcon from '@mui/icons-material/Edit';
 import ListIcon from '@mui/icons-material/List';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import RestoreIcon from '@mui/icons-material/Restore';
 
 import CheckGroup from "@/component/checkGroup/layout";
 import Select from "@/component/select/drowSelection/layout";
 import Check from "@/component/check/layout";
 import Input from "@/component/input/layout";
+import { DEFAULT_ENTRY_CONFIG } from '@/sukinos/utils/entryConfig';
 
 const bem = createNamespace('setting');
+
+// 分层检查结论的行首标签（错误码见 sourceMapper.inspectEntryLayering）
+const LAYERING_CODE_LABELS = {
+  'key-conflict': '同名冲突',
+  'logic-imports-css': '逻辑引样式',
+  'logic-import-missing': '依赖缺失',
+  'page-imports-aux': '反向依赖',
+};
+
+// 入口匹配结果摘要：让配置改动立刻能看到命中了哪些文件
+const renderMatches = (appEntries) => {
+  if (!appEntries) return <div className={style[bem.e('match-empty')]}>尚未解析</div>;
+  const rows = [
+    { label: '主逻辑', value: appEntries.logicMainFile },
+    { label: '辅逻辑', value: (appEntries.logicAuxFiles || []).join('、') },
+    { label: '视图', value: appEntries.viewFile },
+    { label: '内容', value: appEntries.mainFile },
+  ];
+  return rows.map(({ label, value }) => (
+    <div key={label} className={style[bem.e('match-row')]}>
+      <span className={style[bem.e('match-label')]}>{label}</span>
+      <span className={`${style[bem.e('match-value')]} ${value ? '' : style[bem.e('match-none')]}`}>{value || '未命中'}</span>
+    </div>
+  ));
+};
 
 // === 通用辅助函数：获取深层嵌套路径的值 ===
 const getValue = (obj, path) => path.reduce((acc, key) => (acc && acc[key] !== undefined ? acc[key] : undefined), obj);
@@ -48,6 +77,7 @@ const CONFIG_GROUPS = [
       { label: '暴露状态', path: ['exposeState'] },
       { label: '保存状态', path: ['saveState'] },
       { label: '启用后台线程', path: ['worker'] },
+      { label: '隐藏标题栏', path: ['hideHeader'] },
     ]
   },
   {
@@ -308,7 +338,102 @@ const UploadSettings = ({ uploadType, setUploadType }) => {
   );
 };
 
-function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate, onPreview, uploadType, setUploadType, canRegister, registerToPool, onRegisterToggle }) {
+// 入口约定：决定工作区里哪些文件是逻辑入口 / 视图入口，随用户隔离存储
+const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringCheck }) => {
+  const config = entryConfig || DEFAULT_ENTRY_CONFIG;
+  const patterns = config.logicEntries || [];
+  // null = 尚未检查；文件集或入口配置一变即作废，避免侧边栏切回时展示过期结论
+  const [issues, setIssues] = useState(null);
+
+  useEffect(() => { setIssues(null); }, [appEntries, entryConfig]);
+
+  const patch = (updates) => updateEntryConfig({ ...config, ...updates });
+  const setPattern = (index, value) => {
+    const next = [...patterns];
+    next[index] = value;
+    patch({ logicEntries: next });
+  };
+
+  return (
+    <div className={style[bem.e('settings-card')]}>
+      <div className={style[bem.e('card-header')]}>
+        <AccountTreeIcon fontSize="small" />
+        <h3>入口约定</h3>
+      </div>
+
+      <div className={style[bem.e('setting-group')]}>
+        <div className={style[bem.e('sub-title')]}>逻辑入口</div>
+        <div className={style[bem.e('hint')]}>
+          命中的第一个文件作为状态机主逻辑，其余作为辅逻辑模块（由主逻辑块 import 引入）
+        </div>
+        <div className={style[bem.e('pattern-list')]}>
+          {patterns.map((pattern, index) => (
+            <div key={index} className={style[bem.e('pattern-row')]}>
+              <Input value={pattern} onChange={(e) => setPattern(index, e.target.value)} placeholder="如 logic.jsx / service/*.jsx" size="small" />
+              <button
+                type="button"
+                className={style[bem.e('pattern-remove')]}
+                onClick={() => patch({ logicEntries: patterns.filter((_, i) => i !== index) })}
+              >
+                <DeleteOutlineIcon fontSize="inherit" />
+              </button>
+            </div>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={style[bem.e('pattern-add')]}
+          onClick={() => patch({ logicEntries: [...patterns, ''] })}
+        >
+          <AddCircleOutlineIcon fontSize="inherit" />
+          添加匹配规则
+        </button>
+
+        <div className={style[bem.e('sub-title')]} style={{ marginTop: '12px' }}>视图入口</div>
+        <Input value={config.viewEntry || ''} onChange={(e) => patch({ viewEntry: e.target.value })} placeholder="layout.jsx" size="small" />
+
+        <div className={style[bem.e('sub-title')]} style={{ marginTop: '12px' }}>单文件内容入口</div>
+        <Input value={config.mainEntry || ''} onChange={(e) => patch({ mainEntry: e.target.value })} placeholder="main.jsx" size="small" />
+
+        <div className={style[bem.e('sub-title')]} style={{ marginTop: '12px' }}>当前匹配</div>
+        <div className={style[bem.e('match-list')]}>{renderMatches(appEntries)}</div>
+
+        <div className={style[bem.e('sub-title')]} style={{ marginTop: '12px' }}>分层检查</div>
+        <div className={style[bem.e('hint')]}>
+          按当前入口约定扫描逻辑层与页面的依赖方向，只在手动触发时运行（发布与预览会自动再跑一次）
+        </div>
+        <button
+          type="button"
+          className={style[bem.e('pattern-add')]}
+          style={{ marginBottom: issues === null ? 0 : '8px' }}
+          onClick={() => setIssues(onLayeringCheck ? onLayeringCheck() : [])}
+        >
+          <InfoIcon fontSize="inherit" />
+          运行分层检查
+        </button>
+        {issues !== null && (
+          <div className={style[bem.e('match-list')]}>
+            {issues.length === 0 ? (
+              <div className={style[bem.e('match-empty')]}>未发现分层问题</div>
+            ) : issues.map((issue, index) => (
+              <div key={`${issue.code}-${index}`} className={style[bem.e('match-row')]}>
+                <span className={style[bem.e('match-label')]}>{LAYERING_CODE_LABELS[issue.code] || issue.code}</span>
+                <span className={`${style[bem.e('match-value')]} ${style[bem.e('match-none')]}`}>{issue.message}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button type="button" className={style[bem.e('pattern-add')]} style={{ marginTop: '10px' }} onClick={() => updateEntryConfig({ ...DEFAULT_ENTRY_CONFIG })}>
+          <RestoreIcon fontSize="inherit" />
+          恢复默认
+        </button>
+      </div>
+    </div>
+  );
+};
+
+function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate, onPreview, uploadType, setUploadType, canRegister, registerToPool, onRegisterToggle, entryConfig, updateEntryConfig, appEntries, onLayeringCheck }) {
   const { appName, description } = appMeta;
 
   return (
@@ -354,6 +479,13 @@ function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate
         <UploadSettings
           uploadType={uploadType}
           setUploadType={setUploadType}
+        />
+
+        <EntrySettings
+          entryConfig={entryConfig}
+          updateEntryConfig={updateEntryConfig}
+          appEntries={appEntries}
+          onLayeringCheck={onLayeringCheck}
         />
       </div>
 

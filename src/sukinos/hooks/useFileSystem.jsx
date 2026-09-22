@@ -318,6 +318,33 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
 
   // 整理操作函数，通过 useMemo 保证引用稳定，通过 stateRef 保证数据最新
   const operation = useMemo(() => ({
+    // 只读列目录,不触发广播：[统一 virtual/local 差异，供递归遍历使用]
+    handleReadDir: async (dirId) => {
+      if (mode === 'virtual') return fs.readdir(dirId);
+      const record = globalHandleRegistry.get(dirId);
+      if (!record?.handle) return [];
+      const items = [];
+      for await (const entry of record.handle.values()) {
+        items.push(await transformLocalHandle(entry, dirId));
+      }
+      return items;
+    },
+    // 确保目录存在：存在则返回既有项，不存在则创建[virtual/local 统一]
+    handleEnsureDir: wrapNotify('structure', async ({ parentId, name }) => {
+      try {
+        if (mode === 'virtual') {
+          const found = fs.readdir(parentId).find(c => c.type === FileType.DIRECTORY && c.name === name);
+          return found || await fs.mkdir(parentId, name);
+        }
+        const parentHandle = globalHandleRegistry.get(parentId)?.handle;
+        if (!parentHandle) throw new Error('父目录句柄不存在');
+        const subHandle = await parentHandle.getDirectoryHandle(name, { create: true });
+        return await transformLocalHandle(subHandle, parentId);
+      } catch (err) {
+        console.error("确保目录失败：", err);
+        return null;
+      }
+    }),
     // 直接提取底层 readdir 分配表数据，实现同名自增（无后缀），规避重名碰撞造成的崩溃
     handleCreate: wrapNotify('structure', async ({type}) => {
       try {
@@ -375,6 +402,40 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
       } catch (err) {
          console.error("重命名失败：", err);
          alert.failure("重命名失败");
+         return false;
+      }
+    }),
+    // 跨目录移动[virtual/local 统一]
+    handleMove: wrapNotify('structure', async ({id, name, parentId, targetParentId, type}) => {
+      try {
+        if (!id || !targetParentId) return false;
+        if (parentId === targetParentId) return true;
+        if (mode === 'virtual') {
+          await fs.move(id, targetParentId);
+        } else {
+          const targetRecord = globalHandleRegistry.get(id);
+          const destHandle = globalHandleRegistry.get(targetParentId)?.handle;
+          if (!targetRecord?.handle || !destHandle) throw new Error('句柄缺失');
+          const target = targetRecord.handle;
+          if (target.move) {
+            await target.move(destHandle);
+          } else if (type !== FileType.DIRECTORY) {
+            const fileData = await target.getFile();
+            const newFile = await destHandle.getFileHandle(name, { create: true });
+            const writable = await newFile.createWritable();
+            await writable.write(fileData); await writable.close();
+            await globalHandleRegistry.get(parentId)?.handle?.removeEntry(name);
+          } else {
+            throw new Error('当前浏览器不支持移动文件夹');
+          }
+          // 清理旧映射，新位置由 handleReadDir 幂等重新注册
+          const uniqueKeyToDelete = pid ? `${mode}:${pid}:${parentId}:${name}` : `${mode}:${parentId}:${name}`
+          globalFileIdMap.delete(uniqueKeyToDelete); globalHandleRegistry.delete(id);
+        }
+        return true;
+      } catch (err) {
+         console.error("移动失败：", err);
+         alert.failure(err?.message === '文件已经存在' ? '目标位置已存在同名项目' : '移动失败');
          return false;
       }
     }),

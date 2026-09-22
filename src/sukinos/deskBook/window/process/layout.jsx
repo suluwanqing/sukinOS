@@ -2,9 +2,9 @@ import React, { useState, useEffect, useRef, useMemo, memo, useCallback } from '
 import { createPortal } from 'react-dom'
 import createCache from '@emotion/cache'
 import { CacheProvider } from '@emotion/react'
-import { compileSourceAsync, scopeCss, createCssModule } from '@/sukinos/utils/process/renderWindow'
-import { resolveModuleKey } from '@/sukinos/utils/process/sourceMapper'
-import { ENV_KEY_META_INFO,ENV_KEY_RESOURCE_ID,ENV_KEY_CONTENT_PRECOMPILED } from '@/sukinos/utils/config'
+import { compileSourceAsync, scopeCss, createCssModule, clearCompileCache } from '@/sukinos/utils/process/renderWindow'
+import { resolveModuleKey, resolveAppEntries } from '@/sukinos/utils/process/sourceMapper'
+import { ENV_KEY_META_INFO,ENV_KEY_RESOURCE_ID,ENV_KEY_CONTENT,ENV_KEY_CONTENT_PRECOMPILED } from '@/sukinos/utils/config'
 import { createSdkForInstance } from "@/sukinos/resources/sdk"
 // 引入全局样式同步中心，替换原来每个 iframe 各自的 querySelectorAll + MutationObserver
 import { registerSandboxDoc } from '@/sukinos/utils/process/styleSyncHub'
@@ -170,7 +170,11 @@ class ErrorBoundary extends React.Component {
       retryCount: 0,
       isRetrying: false,
       retryDelay: 1000,
-      showDetail: false
+      showDetail: false,
+      // 查看源码模态框开关
+      showSource: false,
+      // 复制错误信息反馈
+      copied: false
     };
     this.retryTimer = null;
     this.maxRetryCount = 3;
@@ -198,7 +202,8 @@ class ErrorBoundary extends React.Component {
     // 错误节流
     const now = Date.now();
     if (now - this._lastCatchAt < 5000 && this.state.retryCount > 0) {
-      // 5s 内重复崩溃，跳过本次自动重试，等用户手动操作
+      // 5s 内重复崩溃，跳过本次自动重试，直接进入最终错误界面（含操作按钮）
+      this.setState({ isRetrying: false });
       return;
     }
     this._lastCatchAt = now;
@@ -273,6 +278,41 @@ class ErrorBoundary extends React.Component {
     this.setState(prev => ({ showDetail: !prev.showDetail }));
   };
 
+  // 复制结构化错误信息到剪贴板
+  handleCopyError = () => {
+    const { error, componentStack } = this.state;
+    const errorDetail = error?.errorDetail || {
+      phase: 'runtime',
+      message: error?.message || String(error || '未知运行时错误'),
+      stack: error?.stack || '',
+      loc: '',
+    };
+    const text = [
+      `[应用错误] PID: ${this.props.pid}`,
+      `阶段: ${errorDetail.phase || 'runtime'}`,
+      `位置: ${errorDetail.loc || '未知'}`,
+      `消息: ${errorDetail.message}`,
+      '',
+      '--- 调用栈 ---',
+      errorDetail.stack || '无',
+      componentStack ? `\n--- React 组件树 ---\n${componentStack}` : '',
+    ].join('\n');
+    try {
+      navigator.clipboard?.writeText(text).then(() => {
+        this.setState({ copied: true });
+        setTimeout(() => this.setState({ copied: false }), 2000);
+      }).catch(() => {});
+    } catch (e) {}
+  };
+
+  handleViewSource = () => {
+    this.setState({ showSource: true });
+  };
+
+  handleCloseSource = () => {
+    this.setState({ showSource: false });
+  };
+
   componentDidUpdate(prevProps) {
     if (prevProps.pid !== this.props.pid) {
       if (this.retryTimer) clearTimeout(this.retryTimer);
@@ -289,6 +329,8 @@ class ErrorBoundary extends React.Component {
 
   // 渲染重试中的 UI（Loading 状态）
   renderRetryingUI() {
+    const { copied } = this.state;
+    const btnBase = { padding: '10px 18px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', border: 'none' };
     return (
       <div style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', textAlign: 'center' }}>
         <div style={{ padding: '40px', background: 'white', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
@@ -296,7 +338,27 @@ class ErrorBoundary extends React.Component {
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
           <h3 style={{ margin: '0 0 10px', color: '#1f1f1f' }}>正在自动修复应用</h3>
           <p style={{ color: '#666', fontSize: '14px' }}>正在进行第 {this.state.retryCount + 1} 次尝试...</p>
-          <button onClick={this.handleKillProcess} style={{ marginTop: '20px', padding: '8px 20px', cursor: 'pointer', border: '1px solid #d9d9d9', borderRadius: '4px', background: 'white' }}>取消并关闭</button>
+
+          {/* 主操作区 */}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '20px' }}>
+            <button
+              onClick={() => { this.props.onRecompile?.(); }}
+              style={{ ...btnBase, background: '#ff4d4f', color: 'white' }}
+              title="清除编译缓存并重新走 Babel 编译"
+            >
+              重新编译
+            </button>
+            <button onClick={this.handleManualRetry} style={{ ...btnBase, background: '#1890ff', color: 'white' }}>立即重试</button>
+          </div>
+
+          {/* 次操作区 */}
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
+            {/* <button onClick={this.handleViewSource} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>查看源码</button> */}
+            <button onClick={this.handleCopyError} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>
+              {copied ? '✓ 已复制' : '复制错误信息'}
+            </button>
+            <button onClick={this.handleKillProcess} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>关闭应用</button>
+          </div>
         </div>
       </div>
     );
@@ -304,7 +366,7 @@ class ErrorBoundary extends React.Component {
 
   // 渲染最终失败 UI
   renderErrorUI() {
-    const { error, componentStack } = this.state;
+    const { error, componentStack, showSource, copied } = this.state;
     // 尝试将 error 适配为 ErrorDetailPanel 所需的 errorDetail 格式
     const errorDetail = error?.errorDetail || {
       phase: 'runtime',
@@ -313,13 +375,23 @@ class ErrorBoundary extends React.Component {
       loc: '',
     };
 
+    // 提取 APP 原始源码（单文件为字符串，bundle 为 { key: code } 对象）
+    const rawContent = this.props.resource?.[ENV_KEY_CONTENT];
+    const sourceText = typeof rawContent === 'string'
+      ? rawContent
+      : (rawContent && typeof rawContent === 'object')
+        ? Object.entries(rawContent).map(([k, v]) => `// ===== ${k} =====\n${v}`).join('\n\n')
+        : '（无源码可查看）';
+
+    const btnBase = { padding: '10px 18px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', border: 'none' };
+
     return (
       <div style={{ height: '100%', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fafafa', padding: '20px', boxSizing: 'border-box', overflow: 'auto' }}>
-        <div style={{ maxWidth: '560px', width: '100%', background: 'white', padding: '36px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', textAlign: 'center' }}>
+        <div style={{ maxWidth: '600px', width: '100%', background: 'white', padding: '32px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', textAlign: 'center' }}>
           <div style={{ fontSize: '50px', marginBottom: '16px' }}>⚠️</div>
           <h3 style={{ margin: '0 0 8px', color: '#1f1f1f' }}>应用进程已停止响应</h3>
           <p style={{ color: '#666', marginBottom: '20px', fontSize: '13px' }}>
-            PID: <strong>{this.props.pid}</strong>，尝试多次修复失败。请检查源码或联系开发者。
+            PID: <strong>{this.props.pid}</strong>，尝试多次修复失败。可尝试重新编译或检查源码。
           </p>
 
           {/* 结构化错误详情面板 */}
@@ -331,22 +403,60 @@ class ErrorBoundary extends React.Component {
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button onClick={this.handleManualRetry} style={{ padding: '10px 20px', background: '#1890ff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>再次重试</button>
-            <button onClick={this.handleKillProcess} style={{ padding: '10px 20px', background: 'white', border: '1px solid #d9d9d9', borderRadius: '4px', cursor: 'pointer' }}>关闭应用</button>
+          {/* 主操作区 */}
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '12px' }}>
+            <button
+              onClick={() => { this.props.onRecompile?.(); }}
+              style={{ ...btnBase, background: '#ff4d4f', color: 'white' }}
+              title="清除编译缓存并重新走 Babel 编译"
+            >
+              重新编译
+            </button>
+            <button onClick={this.handleManualRetry} style={{ ...btnBase, background: '#1890ff', color: 'white' }}>再次重试</button>
+          </div>
+
+          {/* 次操作区 */}
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            {/* <button onClick={this.handleViewSource} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>查看源码</button> */}
+            <button onClick={this.handleCopyError} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>
+              {copied ? '✓ 已复制' : '复制错误信息'}
+            </button>
+            <button onClick={this.handleKillProcess} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>关闭应用</button>
+            <button onClick={this.handleReloadSystem} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#cf1322' }}>重启系统</button>
           </div>
         </div>
+
+        {/* 查看源码模态框 */}
+        {showSource && (
+          <div
+            onClick={this.handleCloseSource}
+            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '20px' }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: 'white', borderRadius: '12px', width: '80%', maxWidth: '720px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 8px 30px rgba(0,0,0,0.2)' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', borderBottom: '1px solid #f0f0f0' }}>
+                <strong style={{ color: '#1f1f1f' }}>应用源码</strong>
+                <button onClick={this.handleCloseSource} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#666', lineHeight: 1 }}>×</button>
+              </div>
+              <pre style={{ margin: 0, padding: '16px 18px', overflow: 'auto', fontSize: '12px', lineHeight: '1.6', color: '#333', whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                {sourceText}
+              </pre>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
   render() {
-    const { hasError, isRetrying, retryCount } = this.state;
-    // 如果已经报错且重试次数已满
-    if (hasError && retryCount > this.maxRetryCount) {
+    const { hasError, isRetrying } = this.state;
+    // 报错且不在自动重试中 → 显示最终错误 UI（含全部操作按钮）
+    if (hasError && !isRetrying) {
       return this.renderErrorUI();
     }
-    // 如果报错了且正在等待下次重试定时器触发
-    if (hasError || isRetrying) {
+    // 正在自动重试中 → 显示重试中 UI
+    if (isRetrying) {
       return this.renderRetryingUI();
     }
     // 正常情况渲染子组件
@@ -553,8 +663,9 @@ const AppInternalRenderer = memo(({ modules, resource, commonProps, currentPath,
       </div>
     ) : null;
   }
-  const Layout = modules['layout']?.Component;
-  if (!Layout) return <div style={{ padding: '16px', color: '#cf1322', background: '#fff2f0' }}>子应用入口框架 Layout 加载失败</div>;
+  const viewKey = resolveAppEntries(resource[ENV_KEY_META_INFO]).view;
+  const Layout = modules[viewKey]?.Component;
+  if (!Layout) return <div style={{ padding: '16px', color: '#cf1322', background: '#fff2f0' }}>子应用入口框架 {viewKey} 加载失败</div>;
   // 嵌套路由解析,将 currentPath 规范化为模块 key，支持 pages/about、./pages/about/index 等
   const pageKey = resolveModuleKey(currentPath, Object.keys(modules));
   const PageObj = modules[pageKey];
@@ -593,12 +704,14 @@ const deepEqual = (a, b) => {
  */
 const DynamicRenderer =({
   resource, state, dispatch, pid, isSystemApp, onFocus,
-  forceReStartApp, reStartApp, onKill ,generateAppSetting,ref:renderRef, isVisible
+  forceReStartApp, reStartApp, onKill ,generateAppSetting, windowControls, ref:renderRef, isVisible
 }) => {
   const [modules, setModules] = useState(null)
   // 编译/运行阶段的错误列表，每条对应一个模块的结构化错误
   // 格式：Array<{ key: string, errorDetail: object, phase: string }>
   const [compileErrors, setCompileErrors] = useState([])
+  // 编译版本号：递增后强制重新编译（清除缓存重新走 Babel），供错误边界"重新编译"使用
+  const [compileVersion, setCompileVersion] = useState(0)
 
   const [iframeMountNode, setIframeMountNode] = useState(null);
   // 物理沙箱模式下，iframe.contentWindow 作为 JS 执行上下文
@@ -617,6 +730,12 @@ const DynamicRenderer =({
     iframeContentWinRef.current = node.ownerDocument.defaultView;
     // portal 只需在 mount 时设置一次
     setPortalMountNode(node);
+  }, []);
+
+  // 强制重新编译：清除编译缓存并递增版本号，触发编译 useEffect 重新走 Babel 编译
+  const handleRecompile = useCallback(() => {
+    clearCompileCache();
+    setCompileVersion(v => v + 1);
   }, []);
 
   // 使用导入的工厂函数来动态创建为当前进程定制的 SDK
@@ -657,8 +776,8 @@ const DynamicRenderer =({
   const useBridgeMode = (generateAppSetting?.singleIframe || generateAppSetting?.useVirtualWorker || false) && !isParasitism;
 
   const instanceSDK = useMemo(() => {
-    return createSdkForInstance(stableDispatch, pid, isSystemApp);
-  }, [stableDispatch, pid, isSystemApp]);
+    return createSdkForInstance(stableDispatch, pid, isSystemApp, windowControls);
+  }, [stableDispatch, pid, isSystemApp, windowControls]);
 
   // 支持上下文注入
   useEffect(() => {
@@ -752,19 +871,21 @@ const DynamicRenderer =({
             style: ''
           };
         }
-        // 已执行过则直接返回缓存的 exports
-        if (mod.exports) {
-          return { Component: mod.exports.default || mod.exports, style: mod.exports.style || '' };
+        // 已求值过则复用缓存；正在求值中（循环依赖）也直接返回半成品 exports，
+        // 不能再进一次 factory —— 那会沿着 A→B→A 递归到爆栈
+        if (mod.executed || mod.exports) {
+          const cached = mod.exports || {};
+          return { Component: cached.default || cached, style: cached.style || '' };
         }
-        const exports = {}
+        const exports = (mod.exports = {});
         try {
           // 将 factory 绑定到沙箱 window 上执行，并传入完整模块上下文
           // 此时如果 App 尝试使用 this.indexedDB 将直接抛出拦截异常
           // 而 instanceSDK.System.localStorage 等 API 因为是代理，可以安全、隔离地使用
-          mod.factory.call(sandboxWin, { exports }, exports, instanceSDK, moduleRegistry, key, moduleKeys)
-          mod.exports = exports;
-          return { Component: exports.default || exports, style: exports.style || '' }
+          // module 实参用注册表里的 mod 本体，module.exports = xxx 才写得进去（与 worker 侧同语义）
+          mod.factory.call(sandboxWin, mod, exports, instanceSDK, moduleRegistry, key, moduleKeys)
         } catch (evalError) {
+          mod.exports = null; // 求值失败不留半成品，下一次执行重来
           // 收集 factory 执行阶段错误
           const detail = {
             phase: 'runtime',
@@ -785,6 +906,9 @@ const DynamicRenderer =({
             style: ''
           };
         }
+        mod.executed = true;
+        const done = mod.exports || {};
+        return { Component: done.default || done, style: done.style || '' }
       }
 
       // 系统 APP 强制走 JSX 编译，保证可调试/可审计
@@ -810,7 +934,10 @@ const DynamicRenderer =({
         await compileModule(code, key, precompiled);
       }
       // 第二阶段：执行所有模块，构建 resultMap
+      // 辅逻辑入口由 worker 侧模块运行时求值，UI 侧只保留编译产物，避免副作用执行两遍
+      const auxLogicKeys = resolveAppEntries(stableResource[ENV_KEY_META_INFO]).logicAux;
       for (const { key } of pendingModules) {
+        if (auxLogicKeys.includes(key)) continue;
         resultMap[key] = runModule(key);
       }
       if (!cancelled) {
@@ -823,7 +950,7 @@ const DynamicRenderer =({
     };
     loadAll();
     return () => { cancelled = true; };
-  }, [resource, iframeMountNode]);
+  }, [resource, iframeMountNode, compileVersion]);
 
   // CSS 提取器：增加 Boolean 强过滤和默认值，避免 null page 引发的 style 读取异常
   const combinedCss = useMemo(() => {
@@ -886,6 +1013,8 @@ const DynamicRenderer =({
         reStartApp={() => reStartApp({ pid })}
         forceReStartApp={() => forceReStartApp({ pid })}
         onKill={onKill}
+        onRecompile={handleRecompile}
+        resource={stableResource}
       >
         { (isParasitism || useBridgeMode) ? (
           // 寄生模式、桥接模式或虚拟 Worker 沙箱下：UI 直接在宿主侧渲染

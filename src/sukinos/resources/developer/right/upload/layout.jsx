@@ -9,11 +9,13 @@ import kernel from "@/sukinos/utils/process/kernel"
 import { selectorUserInfo, selectorStoreSettingStorePath } from "@/sukinos/store"
 import { useSelector } from 'react-redux';
 import { ENV_KEY_NAME, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO } from '@/sukinos/utils/config';
+import { buildAppEntries } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
 import permissionManageAPI from "@/apis/system/permissionManage";
 
 const bem = createNamespace('upload');
 
-function Uploader({ appMeta, uploadType }) {
+function Uploader({ appMeta, uploadType, entryConfig }) {
   const storePath = useSelector(selectorStoreSettingStorePath)
   const userInfo = useSelector(selectorUserInfo)
   const [message, setMessage] = useState('');
@@ -30,13 +32,15 @@ function Uploader({ appMeta, uploadType }) {
   }, [userInfo?.id]);
 
   // 从 appMeta 中解构出内部运行时的 sysOptions
-  const { appName, appIcon, logicCode, sysOptions, ...restMetaInfo } = appMeta;
-  const baseMetaInfo = {
+  const { appName, appIcon, sysOptions, ...restMetaInfo } = appMeta;
+  // 入口识别结果随资源固化：运行时读的是 metaInfo.entries，不是导入方的本机配置
+  const buildMetaInfo = (entries) => ({
     seed: Date.now().toString(),
     authorId: userInfo?.id,
     icon: appIcon,
+    ...(entries ? { entries } : {}),
     ...restMetaInfo
-  };
+  });
 
   // 合并 Redux 中取出的上下文配置到 sysOptions
   const finalSysOptions = { ...sysOptions, userInfo, storePath };
@@ -53,10 +57,14 @@ function Uploader({ appMeta, uploadType }) {
     }
   };
 
+  // 入口名称仅用于提示文案，实际识别走 entryConfig 的模式匹配
+  const viewName = entryConfig?.viewEntry || 'layout.jsx';
+  const logicName = (entryConfig?.logicEntries || ['logic.jsx'])[0];
+
   const getUploadConfig = () => {
     switch (uploadType) {
-      case 'logic': return { title: '上传单页 [含逻辑]', desc: '选择包含 layout.jsx 和 logic.jsx 的文件夹', method: handleUploadLogic };
-      case 'bundle': return { title: '上传多页面应用', desc: '选择包含多个 .jsx 文件和 layout.jsx 的文件夹', method: handleUploadBundle };
+      case 'logic': return { title: '上传单页 [含逻辑]', desc: `选择包含 ${viewName} 和 ${logicName} 的文件夹`, method: handleUploadLogic };
+      case 'bundle': return { title: '上传多页面应用', desc: `选择包含多个 .jsx 文件和 ${viewName} 的文件夹`, method: handleUploadBundle };
       case 'file':
       default: return { title: '上传单文件应用', desc: '选择一个 .jsx 文件作为应用入口', method: handleUploadFile };
     }
@@ -77,9 +85,15 @@ function Uploader({ appMeta, uploadType }) {
       [ENV_KEY_IS_BUNDLE]: false,
       [ENV_KEY_CONTENT]: fileContent,
       [ENV_KEY_LOGIC]: null,
-      [ENV_KEY_META_INFO]: baseMetaInfo
+      [ENV_KEY_META_INFO]: buildMetaInfo()
     });
     await registerToPermissionPool(resourceId);
+  };
+
+  // 发布前分层校验：违规以抛错形式汇入 handleMainAction 的错误通道，避免半截资源上传
+  const assertLayering = (allFiles, resolved, logicMainCode = '') => {
+    const errors = inspectEntryLayering({ files: allFiles, entries: resolved.entries, logicMainCode });
+    if (errors.length) throw new Error(`分层校验未通过：${formatLayeringErrors(errors)}`);
   };
 
   // 递归遍历目录，收集所有 .jsx/.js/.css 文件，key 用相对路径（带扩展名）
@@ -102,39 +116,29 @@ function Uploader({ appMeta, uploadType }) {
   const handleUploadBundle = async () => {
     if (!window.showDirectoryPicker) throw new Error('您的浏览器不支持文件夹选择功能');
     const handle = await window.showDirectoryPicker();
-    const modules = {};
-    let logic = "";
-    let hasLayout = false;
-    let hasJsxFiles = false;
 
     const allFiles = await collectFilesRecursively(handle);
-    for (const [relPath, text] of Object.entries(allFiles)) {
-      // CSS 文件保留 .css 后缀作为 key（供 import './style.css' / import styles from './style.module.css' 解析）
-      if (/\.css$/.test(relPath)) {
-        modules[relPath] = text;
-        continue;
-      }
-      // .jsx / .js 文件：key 用相对路径去扩展名（如 pages/about/index、components/Button）
-      if (/\.(jsx|js)$/.test(relPath)) {
-        hasJsxFiles = true;
-        const moduleName = relPath.replace(/\.(jsx|js)$/, '');
-        modules[moduleName] = text;
-        if (moduleName === 'layout') hasLayout = true;
-      }
-      if (relPath === 'logic.jsx' || relPath === 'logic.js') logic = text;
-    }
+    const resolved = buildAppEntries(allFiles, entryConfig);
+    if (!Object.keys(allFiles).some(k => /\.(jsx|js)$/.test(k))) throw new Error('文件夹中没有找到 .jsx / .js 文件');
+    if (!resolved.viewFile) throw new Error(`文件夹中必须包含视图入口 ${viewName}`);
+    assertLayering(allFiles, resolved, resolved.logicMainFile ? allFiles[resolved.logicMainFile] : '');
 
-    if (!hasJsxFiles) throw new Error('文件夹中没有找到 .jsx / .js 文件');
-    if (!hasLayout) throw new Error('文件夹中必须包含 layout.jsx 文件');
-    if (!logic) logic = "const initialState={};\nfunction reducer(s){\n  return s;\n}";
+    const modules = {};
+    for (const [relPath, text] of Object.entries(allFiles)) {
+      // 主逻辑入口单独承载给 worker，不进内容包（内容包会被视图侧编译渲染）
+      if (relPath === resolved.logicMainFile) continue;
+      // CSS 文件保留 .css 后缀作为 key（供 import './style.css' / import styles from './style.module.css' 解析）
+      // .jsx / .js 文件 key 用相对路径去扩展名（如 pages/about/index、components/Button）
+      modules[/\.css$/.test(relPath) ? relPath : relPath.replace(/\.(jsx|js)$/, '')] = text;
+    }
 
     const resourceId = await kernel.uploadResource({
       sysOptions: finalSysOptions,
       [ENV_KEY_NAME]: appName || handle.name,
       [ENV_KEY_IS_BUNDLE]: true,
       [ENV_KEY_CONTENT]: modules,
-      [ENV_KEY_LOGIC]: logic,
-      [ENV_KEY_META_INFO]: baseMetaInfo
+      [ENV_KEY_LOGIC]: resolved.logicMainFile ? allFiles[resolved.logicMainFile] : null,
+      [ENV_KEY_META_INFO]: buildMetaInfo(resolved.entries)
     });
     await registerToPermissionPool(resourceId);
   };
@@ -142,36 +146,31 @@ function Uploader({ appMeta, uploadType }) {
   const handleUploadLogic = async () => {
     if (!window.showDirectoryPicker) throw new Error('您的浏览器不支持文件夹选择功能');
     const handle = await window.showDirectoryPicker();
-    let content = "export default () => <div>Hello World</div>";
-    let logic = "";
-    let hasLayout = false;
-    let hasLogic = false;
 
+    const rootFiles = {};
     for await (const entry of handle.values()) {
-      if (entry.kind === 'file') {
-        const fileName = entry.name;
-        if (fileName === 'layout.jsx' || fileName === 'logic.jsx') {
-          const file = await entry.getFile();
-          const text = await file.text();
-          if (fileName === 'layout.jsx') {
-            hasLayout = true;
-            content = text;
-          } else if (fileName === 'logic.jsx') {
-            hasLogic = true;
-            logic = text;
-          }
-        }
-      }
+      if (entry.kind !== 'file' || !/\.(jsx|js)$/.test(entry.name)) continue;
+      const file = await entry.getFile();
+      rootFiles[entry.name] = await file.text();
     }
-    if (!hasLayout || !hasLogic) throw new Error('文件夹中必须包含 layout.jsx 和 logic.jsx 文件');
+    const resolved = buildAppEntries(rootFiles, entryConfig);
+    const viewPath = resolved.viewFile || resolved.mainFile;
+    if (!viewPath) throw new Error(`文件夹中必须包含视图入口 ${viewName}`);
+    if (!resolved.logicMainFile) throw new Error(`文件夹中必须包含逻辑入口 ${logicName}`);
+    // 单页模式只把视图入口打进内容包，辅逻辑模块与主逻辑块 import 的目标都不会随资源走，worker 侧 require 必炸
+    if (resolved.entries.logicAux.length) {
+      throw new Error(`单页应用无法携带辅逻辑模块（${resolved.entries.logicAux.join('、')}），请改用多页面上传`);
+    }
+    // 校验对象换成真实载荷：整个文件夹都在本地，按它校验会放行那些其实发不出去的 import
+    assertLayering({ [viewPath]: rootFiles[viewPath] }, resolved, rootFiles[resolved.logicMainFile] || '');
 
     const resourceId = await kernel.uploadResource({
       sysOptions: finalSysOptions,
       [ENV_KEY_NAME]: appName || handle.name,
       [ENV_KEY_IS_BUNDLE]: false,
-      [ENV_KEY_CONTENT]: content,
-      [ENV_KEY_LOGIC]: logic,
-      [ENV_KEY_META_INFO]: baseMetaInfo
+      [ENV_KEY_CONTENT]: rootFiles[viewPath],
+      [ENV_KEY_LOGIC]: rootFiles[resolved.logicMainFile],
+      [ENV_KEY_META_INFO]: buildMetaInfo(resolved.entries)
     });
     await registerToPermissionPool(resourceId);
   };
@@ -214,8 +213,8 @@ function Uploader({ appMeta, uploadType }) {
             )}
             {(uploadType === 'bundle' || uploadType === 'logic') && (
               <>
-                <li className={style[bem.e('requirements-item')]}><span className={style[bem.e('requirements-bullet')]}>•</span>目录必须包含 layout.jsx</li>
-                <li className={style[bem.e('requirements-item')]}><span className={style[bem.e('requirements-bullet')]}>•</span>{uploadType === 'logic' ? '目录必须包含 logic.jsx' : 'logic.jsx 为可选配置'}</li>
+                <li className={style[bem.e('requirements-item')]}><span className={style[bem.e('requirements-bullet')]}>•</span>目录必须包含 {viewName}</li>
+                <li className={style[bem.e('requirements-item')]}><span className={style[bem.e('requirements-bullet')]}>•</span>{uploadType === 'logic' ? `目录必须包含 ${logicName}` : `${logicName} 为可选配置`}（可在设置-入口约定中调整）</li>
                 <li className={style[bem.e('requirements-item')]}><span className={style[bem.e('requirements-bullet')]}>•</span>默认使用文件夹名称作为应用名</li>
               </>
             )}

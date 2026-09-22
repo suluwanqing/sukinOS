@@ -187,6 +187,18 @@
 .su-setting__preview-btn,
 .su-setting__create-btn {
   flex: 1;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
 
 .su-setting__register-label {
   display: flex;
@@ -242,18 +254,6 @@
   color: var(--su-gray-500);
   line-height: 1.4;
 }
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s;
-}
 
 .su-setting__preview-btn {
   background: var(--su-white);
@@ -279,4 +279,105 @@
   background: var(--su-gray-200);
   color: var(--su-gray-500);
   cursor: not-allowed;
+}
+
+/* 入口约定配置 */
+.su-setting__hint {
+  margin: 4px 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--su-gray-500);
+}
+
+.su-setting__pattern-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.su-setting__pattern-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.su-setting__pattern-remove {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--su-gray-500);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.su-setting__pattern-remove:hover {
+  background: var(--su-gray-200);
+  color: var(--su-danger, #d93025);
+}
+
+.su-setting__pattern-add {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border: 1px dashed var(--su-gray-300);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--su-text-color-regular);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.su-setting__pattern-add:hover {
+  border-color: var(--su-primary);
+  color: var(--su-primary);
+}
+
+.su-setting__match-list {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px;
+  border-radius: 4px;
+  background: var(--su-gray-50);
+  border: 1px solid var(--su-gray-200);
+}
+
+.su-setting__match-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.su-setting__match-label {
+  flex: none;
+  width: 44px;
+  color: var(--su-gray-500);
+}
+
+.su-setting__match-value {
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  color: var(--su-gray-900);
+}
+
+.su-setting__match-none {
+  color: var(--su-gray-400);
+  font-style: italic;
+}
+
+.su-setting__match-empty {
+  font-size: 11px;
+  color: var(--su-gray-400);
 }

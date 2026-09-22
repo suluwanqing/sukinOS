@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, memo, useCallback } from 'react'
+import { useState, useMemo, useEffect, memo, useCallback, useRef } from 'react'
 import { createNamespace } from '/utils/js/classcreate'
 import { useWindowInteraction } from '@/sukinos/hooks/useWindowInteraction'
 import useProcessBridge from '@/sukinos/hooks/useProcessBridge'
@@ -37,8 +37,13 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   const customConfig = useMemo(() => {
     const configFromApp = app?.[ENV_KEY_META_INFO]?.custom?.hideHeaderHover;
     const configFromResource = resource?.[ENV_KEY_META_INFO]?.custom?.hideHeaderHover;
+    // metaInfo 级开发者配置：完全隐藏 header，优先级高于 custom.hideHeaderHover
+    const hideHeader = app?.[ENV_KEY_META_INFO]?.hideHeader
+      ?? resource?.[ENV_KEY_META_INFO]?.hideHeader
+      ?? false;
     return {
-      hideHeaderHover: configFromApp ?? configFromResource ?? false
+      hideHeader,
+      hideHeaderHover: hideHeader ? false : (configFromApp ?? configFromResource ?? false)
     }
   }, [app, resource]);
 
@@ -83,7 +88,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   }, [isFirstLaunch, hasSavedWindow, resource, windowSize, initialRect]);
 
   // 将计算后的安全尺寸传递给窗口交互 Hook
-  const { windowElRef, handleMouseDown, setMaximized, getCurrentRect } = useWindowInteraction({
+  const { windowElRef, handleMouseDown, setMaximized, setRect, getCurrentRect } = useWindowInteraction({
     winSize: calculatedWinSize,
     allowResize: resource?.[ENV_KEY_META_INFO]?.custom?.allowResize || true,
     isIframeMode: isPhysicalSandbox,
@@ -162,6 +167,29 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
     }
   };
 
+  // 注入 APP SDK 的窗口控制 API（AppSDK.API.window）
+  // controlsRef 每轮渲染直接赋值持有最新闭包；外观对象仅创建一次，
+  // 保证 prop 引用恒定，不触发 DynamicRenderer 的 instanceSDK 重建
+  const controlsRef = useRef(null)
+  controlsRef.current = {
+    close: () => handleKillProcess(pid),
+    hibernate: handleClose,
+    toggleMaximize,
+    setRect: (rect) => {
+      // setRect 视为退出最大化并应用新几何，下次 toggleMaximize 以新 rect 为还原基准
+      if (isMaximized) setIsMaximized(false)
+      setRect(rect)
+    },
+    getRect: () => ({ ...getCurrentRect() }),
+  }
+  const windowControls = useMemo(() => ({
+    close: () => controlsRef.current?.close?.(),
+    hibernate: () => controlsRef.current?.hibernate?.(),
+    toggleMaximize: () => controlsRef.current?.toggleMaximize?.(),
+    setRect: (rect) => controlsRef.current?.setRect?.(rect),
+    getRect: () => controlsRef.current?.getRect?.() ?? null,
+  }), [])
+
 
   const headerFuncs = useMemo(() => [
     ...(exposeState ? [{ id: 'state', icon: <CodeIcon fontSize='small' />, onClick: () => setShowState(!showState) }] : []),
@@ -192,7 +220,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
       ref={windowElRef}
       className={[
         style[bem.b()],
-        customConfig.hideHeaderHover ? 'is-hide-header-hover' : '',
+        customConfig.hideHeader ? 'is-hide-header' : (customConfig.hideHeaderHover ? 'is-hide-header-hover' : ''),
         /* BEM 控制活性显隐 */
         style[bem.is('active', showWindowSwitcher ? isSelected : isShow)],
         /* BEM 控制焦点，GPU 合成层分配依据 */
@@ -220,11 +248,12 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
       }}
     >
       {/* 绝对定位在顶部最外侧，不占空间，不影响宽高，必须作为 header 的紧邻前置兄弟节点以供 CSS 的 '+' 选择器捕获 */}
-      {customConfig.hideHeaderHover && (
+      {!customConfig.hideHeader && customConfig.hideHeaderHover && (
         <div className={style[bem.e('hover-trigger')]} />
       )}
 
-      {/* 标题栏 */}
+      {/* 标题栏（metaInfo.hideHeader 为 true 时整体不渲染，由 APP 经 AppSDK.API.window 自行实现窗口操作） */}
+      {!customConfig.hideHeader && (
       <div
         className={style[bem.e('header')]}
         onMouseDown={(e) => handleCompoundMouseDown(e, 'drag')}
@@ -242,6 +271,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
           ))}
         </div>
       </div>
+      )}
 
       <div className={style[bem.e('content')]}>
         {state ? (
@@ -257,6 +287,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
             forceReStartApp={forceReStartApp}
             reStartApp={reStartApp}
             onKill={handleKillProcess}
+            windowControls={windowControls}
             ref={renderRef}
             isVisible={isShow}
           />

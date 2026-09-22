@@ -158,6 +158,34 @@ class fileKernel {
     this.#emitChange(node.parentId)
   }
 
+  // 移动到目标目录 (mv)：inode 换 parentId 即可，子孙按 id 寻址不受影响
+  async move(id, targetParentId) {
+    const node = this.inodeMap.get(id)
+    if (!node) throw new Error('文件未找到')
+    const target = this.inodeMap.get(targetParentId)
+    if (!target || target.type !== FileType.DIRECTORY) throw new Error('目标非文件夹')
+    if (node.parentId === targetParentId) return true
+    // 防环：目标不能是自身或自身的子孙
+    let curr = target
+    while (curr) {
+      if (curr.id === id) throw new Error('不能移动到自身内部')
+      curr = this.inodeMap.get(curr.parentId)
+    }
+    const siblings = this.readdir(targetParentId)
+    if (siblings.some(s => s.name === node.name && s.id !== id)) {
+      throw new Error('文件已经存在')
+    }
+    const oldParentId = node.parentId
+    // 先从旧父索引摘除，再以新 parentId 回写
+    if (oldParentId && this.treeMap.has(oldParentId)) this.treeMap.get(oldParentId).delete(id)
+    const updates = { ...node, parentId: targetParentId, mtime: Date.now() }
+    await this.driver.writeInode(updates)
+    this.#syncMemory(updates)
+    this.#emitChange(oldParentId)
+    this.#emitChange(targetParentId)
+    return true
+  }
+
   // 内部核心：创建文件实体
   async #createEntry(parentId, name, type, content) {
     // 检查父目录

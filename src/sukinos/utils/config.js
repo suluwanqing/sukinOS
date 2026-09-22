@@ -56,6 +56,15 @@ export const ENV_KEY_CONTENT = 'content';
 export const ENV_KEY_CONTENT_PRECOMPILED = 'precompiledContent';
 
 /**
+ * 预编译后的主逻辑块代码 (String)
+ * @role 与 ENV_KEY_LOGIC 配对，承载主逻辑块经 Babel 转成 commonjs 后的产物（import 已变成 require）。
+ * @usage 双份存储：ENV_KEY_LOGIC 保留原始源码（供编辑器、反解、写回本地盘），本字段供 worker 执行。
+ *   generateWorker 按「本字段 → ENV_KEY_LOGIC → 兜底 reducer」取值，所以未预编译的存量应用与系统 APP
+ *   行为不变。主块由内核按名字识别 initialState/reducer/init，因此原始源码不接受 export。
+ */
+export const ENV_KEY_LOGIC_PRECOMPILED = 'precompiledLogic';
+
+/**
  * 操作系统元数据 (Object)
  * @role 决定了应用在 SukinOS 桌面上的外部表象和系统级权限。
  * @usage 包含属性如：authorId, icon, description, initialSize (窗口初始尺寸), version, exposeState, saveState 等。
@@ -398,10 +407,32 @@ export const preSystemConfigFiles = [
   }
 ]
 
+// ===== 内置示例应用（预制文件）=====
+// 与 preSystemFileData 一样只登记清单；正文放 resources/developer/template/sukinOS 下按文件读入。
+// path 是相对示例根目录的路径，父级目录按 path 自动补建，不必在此登记。
+// 挂载后根层直接是 layout.jsx / logic.jsx，开发者中心选这一个目录即可命中默认入口。
+export const SAMPLE_APP_DIR = { id: 'system_sukinos_sample', name: '示例应用' };
+export const preSystemSampleFiles = [
+  { id: 'system_sample_layout', path: 'layout.jsx' },
+  { id: 'system_sample_logic', path: 'logic.jsx' },
+  { id: 'system_sample_page_home', path: 'pages/home/index.jsx' },
+  { id: 'system_sample_page_about', path: 'pages/about/index.jsx' },
+  { id: 'system_sample_page_contact', path: 'pages/contact/index.jsx' },
+  { id: 'system_sample_page_windemo', path: 'pages/windowDemo/index.jsx' },
+  { id: 'system_sample_counter', path: 'components/Counter.jsx' },
+  { id: 'system_sample_sidebar', path: 'components/Sidebar.jsx' },
+  { id: 'system_sample_button', path: 'components/ui/Button.jsx' },
+  { id: 'system_sample_button_css', path: 'components/ui/Button.module.css' },
+  { id: 'system_sample_store_counter', path: 'store/counter.js' },
+  { id: 'system_sample_global_css', path: 'styles/global.css' },
+  { id: 'system_sample_utils_format', path: 'utils/format.js' },
+]
+
 export const LOCAL_DEV_SYMPLE_LINKS={
       standard: 'https://sukin.top/api/resource/sukinos/static/vite.config.js',
       logic: 'https://sukin.top/api/resource/sukinos/static/sukinOsLocalDevSDK.zip'
     };
+
 // 暂时这么处理后续增加选区认证，这是前端处理的硬性要求,禁止被获取到非root用户
 export const ADMIN_APP_IDS = [
   'sys-systemManage'

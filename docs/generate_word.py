@@ -1,11 +1,18 @@
 """
-将 Markdown 格式的《系统实现与测试报告》转换为 Word 文档
+将《系统实现与测试报告》转换为 Word 文档
+
+⚠ 本脚本不解析 markdown，正文内容是**内嵌的另一版文案**，与同目录的 `系统实现与测试报告.md` 已经分叉：
+  - 下面 2.1.x 的 `test_auth.py` / `test_models.py` / `test_date_utils.py` / `test_security.py`（共 108 例）
+    在本仓不存在；真实的测试目录是仓库根的 `tests/`（5 个文件，与 md 的 2.1 表一致）。
+  - 2.4 缺陷统计 / 2.5 测试结论 只有本脚本有，md 里没有对应章节。
+  需要两者同步时，请把本脚本改成读取 md，而不是继续各自维护一份副本。
 """
 from docx import Document
 from docx.shared import Pt, Inches, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.style import WD_STYLE_TYPE
 from docx.oxml.ns import qn
+from pathlib import Path
 import re
 
 doc = Document()
@@ -265,7 +272,7 @@ doc.add_paragraph('• 安全沙箱 (src/sukinos/utils/security.js)：CDN 白名
 doc.add_paragraph('• 10 个内置系统应用：开发者中心、文件管理器、笔记本、设置、开始菜单、应用商店、本地开发、系统管理、画板、表格', style='List Bullet')
 
 doc.add_heading('1.4 数据库表结构', level=2)
-doc.add_paragraph('系统使用 MySQL 8.0，共 8 张核心表：')
+doc.add_paragraph('系统使用 MySQL 8.0，共 11 张核心表：')
 
 add_table(doc,
     ['序号', '表名', '模型类', '用途'],
@@ -278,6 +285,9 @@ add_table(doc,
         ['6', 'system_configs', 'D_SystemConfig', '系统配置键值存储'],
         ['7', 'system_updates', 'D_SystemUpdate', '系统更新日志'],
         ['8', 'request_logs', 'D_RequestLog', '请求审计日志'],
+        ['9', 'system_builtin_apps', 'D_SystemBuiltinApp', '系统内置应用注册（不进用户库）'],
+        ['10', 'system_roles', 'D_Role', '角色定义与权限层级'],
+        ['11', 'app_permission_registry', 'D_AppPermissionRegistry', 'APP 权限注册表（可见性/访问控制）'],
     ]
 )
 
@@ -295,8 +305,10 @@ doc.add_heading('二、系统测试', level=1)
 doc.add_heading('2.1 单元测试用例表及运行结果', level=2)
 
 doc.add_paragraph(
-    '测试框架：pytest 9.1.0。测试文件位置：b:/myfastapi_/tests/。'
+    '测试框架：pytest 9.1.0。测试文件位置：tests/（仓库根目录，与 myfastapi_/ 平级）。'
     '共 5 个测试文件，108 个测试用例。'
+    '【注意：下面 2.1.1-2.1.4 的用例表属于早期后端测试套件（test_auth/test_models/test_date_utils/test_security），'
+    '本仓 tests/ 中并无这些文件；现版清单见同目录 系统实现与测试报告.md 的 2.1 节。】'
 )
 
 add_table(doc,
@@ -455,6 +467,6 @@ doc.add_paragraph(
 )
 
 # ========== 保存 ==========
-output_path = 'b:/sukinOs/docs/系统实现与测试报告.docx'
+output_path = Path(__file__).with_name('系统实现与测试报告.docx')
 doc.save(output_path)
 print(f'Word 文档已保存至: {output_path}')

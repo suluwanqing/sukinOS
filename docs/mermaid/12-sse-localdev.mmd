@@ -1,48 +1,50 @@
 ---
-title: SSE 本地开发热更新流程
+title: 本地开发热更新流程（syncMode: http / folder / sse_folder）
 ---
 sequenceDiagram
-    participant IDE as 本地 IDE (Vite)
-    participant SDK as sukinOsLocalDevSDK
-    participant SSE as SSE 端点 /api/sukinos/localdev
-    participant Auth as Auth 认证
+    participant FS as 本地磁盘
+    participant Vite as Vite 插件 sukin-local-driver
+    participant BE as 后端 /api/sukinos/localdev
+    participant LD as 本地开发 APP<br/>(resources/localDev/layout.jsx)
     participant Kernel as SukinOS Kernel
     participant Worker as Logic Worker
     participant UI as RenderProcess
 
-    Note over IDE,UI: === 初始化阶段 ===
+    Note over FS,UI: === syncMode = sse_folder：连接建立 ===
 
-    IDE->>IDE: Vite 启动开发服务器
-    SDK->>SSE: 建立 SSE 连接 (带 Token)
-    SSE->>Auth: 验证 Token
-    Auth-->>SSE: 认证通过
-    SSE-->>SDK: 连接成功, 保持长连接
-    SDK->>Kernel: 注册本地开发应用
-    Kernel->>Worker: 创建 Logic Worker
-    Kernel->>UI: 渲染应用窗口
+    LD->>BE: POST /sse/token（fetchWithAuth 带登录态）
+    BE-->>LD: 一次性 sse_token
+    LD->>BE: new EventSource(/sse?userId=..&sse_token=..)<br/>authType=cookie 时 withCredentials
+    BE->>BE: 校验 token 与 userId 一致性、用户存在、<br/>全局繁忙与单用户连接数上限
+    BE-->>LD: 建立 event_generator 长连接（每连接有独立 queue）
 
-    Note over IDE,UI: === 代码变更检测 ===
+    Note over FS,Vite: === 变更检测（方向：Vite 主动打后端） ===
 
-    IDE->>IDE: Vite HMR 检测文件变更
-    IDE->>SDK: 文件变更通知
-    SDK->>SSE: POST 变更事件 (Token 认证)
-    SSE-->>SDK: 200 OK
+    FS-->>Vite: server.watcher.on('all') 命中 .jsx/.js/.css
+    Vite->>Vite: 按 dirStates 匹配目录 + debounceMs 防抖<br/>命中则更新 state.v = Date.now()
+    Vite->>BE: POST /trigger {userId, dir, timestamp}<br/>（无需用户认证，:120）
+    BE->>BE: 查 clients[userId]，向每条连接的 queue put<br/>{action:'reload', dir, timestamp}
+    BE-->>Vite: api_response（用户不存在 404 / 繁忙 503）
 
-    Note over IDE,UI: === 热更新推送 ===
+    Note over BE,UI: === 热更新（方向：桌面端拉取，不是服务端推源码） ===
 
-    SSE-->>SDK: SSE 推送: event: update
-    SDK->>Kernel: 通知内核应用已更新
-    Kernel->>Kernel: 重新编译源代码 (Babel)
-    Kernel->>Worker: terminate 旧 Worker
-    Kernel->>Worker: 创建新 Logic Worker
-    Kernel->>UI: 重新渲染 View 组件
-    UI-->>SDK: 渲染完成
+    BE-->>LD: 裸 data 帧：data: {"action":"reload",...}\n\n<br/>（无 event: 名称，走 onmessage）
+    LD->>LD: 空 data 忽略；action==='reload' 才继续<br/>再经 fetchDebounce 防抖
+    LD->>FS: 用已选择的 File System Access 句柄递归 collectFilesRecursively<br/>（sse_folder 与 folder 同源，不经过网络）
+    FS-->>LD: {相对路径: 源码}（跳过 node_modules/隐藏/dist，只收 .jsx/.js/.css）
+    LD->>LD: 全部文件长度之和与 lastVRef 相同则跳过；<br/>buildAppEntries(files, entryCfg) 定入口，命中 logicMainFile 的抽为 logic
+    LD->>Kernel: 更新资源（logic 由桌面侧按入口配置抽出）
+    Kernel->>Worker: terminate 旧 Worker → generateWorker 重建
+    Kernel->>UI: 重新编译 View 并渲染
 
-    Note over IDE,UI: === 断开连接 ===
+    Note over FS,UI: === 另外两种模式 ===
 
-    IDE->>IDE: Vite 停止
-    SDK->>SSE: 断开 SSE 连接
-    SSE-->>SDK: 连接关闭
-    SDK->>Kernel: 卸载本地开发应用
-    Kernel->>Worker: terminate Worker
-    Kernel->>UI: 关闭应用窗口
+    Note over LD,Kernel: http：无 SSE，前端 setInterval(pollInterval) 轮询 GET /__sukin_local_sync?dir=..&watchDebounce=..<br/>（首次访问顺带把目录注册进 chokidar），按服务端返回的 data.v 去重
+    Note over LD,Kernel: folder：完全不碰网络（也没有 reload 通知），setInterval(folderPollInterval) 轮询句柄目录
+    Note over LD,Kernel: Vite 插件的 POST /trigger 只在有 SSE 连接时才有意义；<br/>插件本身不判定入口，protocol=2 时 logic 恒为空串
+
+    Note over FS,UI: === 断开与重连 ===
+
+    LD->>LD: es.onerror → close 后指数退避重连（3000 * 2^(n-1)，最多 5 次）
+    LD->>BE: 组件卸载/切模式 → es.close()
+    BE->>BE: 连接断开即从 clients 移除；无剩余连接时销毁该用户的 sse_token

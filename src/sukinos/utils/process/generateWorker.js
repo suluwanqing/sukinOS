@@ -3,6 +3,7 @@ import {
   ENV_KEY_NAME,
   ENV_KEY_IS_BUNDLE,
   ENV_KEY_LOGIC,
+  ENV_KEY_LOGIC_PRECOMPILED,
   ENV_KEY_CONTENT,
   ENV_KEY_CONTENT_PRECOMPILED,
   ENV_KEY_META_INFO,
@@ -17,6 +18,7 @@ import {
   RUNNER_SANDBOX_PRIVILEGES,
   getRunnerWorkerDispatcher,
   getRunnerMessageRouter,
+  getWorkerLogicModuleRuntime,
 } from './workerDrive'
 
 /**
@@ -42,6 +44,12 @@ const extractByMarkers = (source, key) => {
 }
 
 /**
+ * 用户未提供 logic 时的兜底逻辑（恒等 reducer）。
+ * parseWorkerCode 通过比对 USER_LOGIC 块内容是否等于该常量来判断"无用户逻辑"。
+ */
+const FALLBACK_LOGIC = `const initialState = {}; function reducer(s) { return s; }`
+
+/**
  * 生成 Worker 代码
  */
 export const generateWorker = args => {
@@ -49,11 +57,21 @@ export const generateWorker = args => {
   const name = args?.[ENV_KEY_NAME]
   const isBundle = args?.[ENV_KEY_IS_BUNDLE]
   const userLogicCode = args?.[ENV_KEY_LOGIC]
+  const precompiledLogic = args?.[ENV_KEY_LOGIC_PRECOMPILED]
   const content = args?.[ENV_KEY_CONTENT]
   const precompiledContent = args?.[ENV_KEY_CONTENT_PRECOMPILED]
   const metaInfo = args?.[ENV_KEY_META_INFO]
 
-  const safeLogic = userLogicCode || `const initialState = {}; function reducer(s) { return s; }`
+  // 执行态优先取预编译产物（import 已转成注入的 require）；未预编译的存量应用与系统 APP 落回原文。
+  // 两种写法的 initialState / reducer / init 都是本块作用域的顶层绑定，内核按名字取用不受影响。
+  const safeLogic = precompiledLogic || userLogicCode || FALLBACK_LOGIC
+  // 原文单独存一份供反解（更新面板编辑器、写回本地盘）。以 JSON 字符串落地而不是裸代码：
+  // 主块里的 import 在 classic worker 里本身就是语法错误，裸写会把整份 worker 带崩。
+  const logicSource = userLogicCode && userLogicCode !== safeLogic ? userLogicCode : null
+
+  // 逻辑模块运行时始终挂载：不调用 require 时它是惰性的，
+  // 而按需注入会让"忘了把模块写进入口约定"变成 worker 静默死机
+  const logicModuleRuntime = getWorkerLogicModuleRuntime(metaInfo?.entries?.logicMain || 'logic')
 
   // 将 SDK 中的代理逻辑函数源码提取出来 (包含 fetch)
   const storageProxySource = createStorageProxy.toString()
@@ -66,6 +84,7 @@ export const generateWorker = args => {
   const mComp = getMarkers('ORIGIN_COMPONENT')
   const mPrecompiled = getMarkers('PRECOMPILED_COMPONENT')
   const mLogic = getMarkers('USER_LOGIC')
+  const mLogicSource = getMarkers('LOGIC_SOURCE')
 
   const sysConfigObj = {
     [ENV_KEY_RESOURCE_ID]: resId,
@@ -108,10 +127,14 @@ ${getRunnerMessageRouter(ENV_KEY_IS_BUNDLE)}
   Object.freeze(PRECOMPILED_COMPONENT);
   Object.freeze(dispatch);
 
+${logicModuleRuntime}
   /* 用户逻辑逻辑块 */
   ${mLogic.start}
   ${safeLogic}
   ${mLogic.end}
+${logicSource ? `
+  // 主逻辑块原始源码（不执行，仅供 parseWorkerCode 反解回编辑器/本地盘）
+  const __LOGIC_SOURCE = ${mLogicSource.start}${JSON.stringify(logicSource)}${mLogicSource.end};` : ''}
 }
 `
 }
@@ -125,6 +148,7 @@ export const parseWorkerCode = workerCode => {
     [ENV_KEY_NAME]: null,
     [ENV_KEY_IS_BUNDLE]: false,
     [ENV_KEY_LOGIC]: null,
+    [ENV_KEY_LOGIC_PRECOMPILED]: null,
     initialState: null,
     [ENV_KEY_CONTENT]: null,
     [ENV_KEY_CONTENT_PRECOMPILED]: null,
@@ -167,13 +191,20 @@ export const parseWorkerCode = workerCode => {
       }
     }
 
-    /* 提取用户逻辑代码 */
-    const userLogicCode = extractByMarkers(workerCode, 'USER_LOGIC')
+    /* 提取用户逻辑代码（内容等于兜底串则视为无用户逻辑） */
+    // USER_LOGIC 是执行块（可能是预编译产物），LOGIC_SOURCE 是原始源码块（可能不存在）。
+    // initialState / hasReducer / hasInitFunction 一律从执行块判定，因为它才是 worker 真正跑的那份；
+    // ENV_KEY_LOGIC 优先回填原文，保证「worker.js → 资源 → 再生成 worker」不丢源码也不二次编译。
+    const executedLogic = extractByMarkers(workerCode, 'USER_LOGIC')
+    const rawLogicSource = extractByMarkers(workerCode, 'LOGIC_SOURCE')
+    const logicSource = rawLogicSource ? JSON.parse(rawLogicSource) : null
+    const userLogicCode = executedLogic && executedLogic !== FALLBACK_LOGIC ? executedLogic : null
     if (userLogicCode) {
-      result[ENV_KEY_LOGIC] = userLogicCode
+      result[ENV_KEY_LOGIC] = logicSource || userLogicCode
+      if (logicSource) result[ENV_KEY_LOGIC_PRECOMPILED] = userLogicCode
 
-      // 提取内部的 initialState 对象
-      const initialStateMatch = userLogicCode.match(/const\s+initialState\s*=\s*([^;]+)(;?)/s)
+      // 提取内部的 initialState 对象（预编译产物里 const 会被转成 var）
+      const initialStateMatch = userLogicCode.match(/(?:const|var|let)\s+initialState\s*=\s*([^;]+)(;?)/s)
       if (initialStateMatch) {
         try {
           // 尝试使用 Function 还原对象

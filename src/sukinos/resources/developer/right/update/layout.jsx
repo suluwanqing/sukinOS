@@ -22,6 +22,8 @@ import {
   ENV_KEY_CONTENT,
   ENV_KEY_META_INFO
 } from '@/sukinos/utils/config';
+import { buildAppEntries } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
 
 const bem = createNamespace('dev-update');
 
@@ -31,6 +33,7 @@ const buildPreviewFromSource = (source) => {
     return {
       localFiles: source.content,
       logicCode: source.logic || '',
+      entries: source.entries,
       isBundle: true
     };
   }
@@ -38,6 +41,7 @@ const buildPreviewFromSource = (source) => {
   return {
     localFiles: { 'main.jsx': viewCode },
     logicCode: source.logic || '',
+    entries: source.entries,
     isBundle: false
   };
 };
@@ -48,6 +52,7 @@ const buildPreviewFromWorker = (workerCode) => {
   const isBundle = Boolean(parsed?.[ENV_KEY_IS_BUNDLE]);
   const content = parsed?.[ENV_KEY_CONTENT];
   const logicCode = parsed?.[ENV_KEY_LOGIC] || '';
+  const entries = parsed?.[ENV_KEY_META_INFO]?.entries;
 
   if (isBundle && content && typeof content === 'object') {
     const restoredFiles = {};
@@ -56,10 +61,33 @@ const buildPreviewFromWorker = (workerCode) => {
       const keyWithExt = k.endsWith('.jsx') || k.endsWith('.js') || k.endsWith('.css') ? k : `${k}.jsx`;
       restoredFiles[keyWithExt] = v;
     }
-    return { localFiles: restoredFiles, logicCode, isBundle: true };
+    return { localFiles: restoredFiles, logicCode, entries, isBundle: true };
   }
   const viewCode = typeof content === 'string' ? content : '';
-  return { localFiles: { 'main.jsx': viewCode }, logicCode, isBundle: false };
+  return { localFiles: { 'main.jsx': viewCode }, logicCode, entries, isBundle: false };
+};
+
+// 递归遍历目录，收集 .jsx/.js/.css，key 用相对路径（带扩展名）。
+// 平铺收集会让带子目录的应用被分层校验误判成一堆 missing，因此与上传面板保持同一套递归口径
+const collectFilesRecursively = async (dirHandle, prefix = '') => {
+  const collected = {};
+  for await (const entry of dirHandle.values()) {
+    if (entry.kind === 'directory') {
+      const sub = await collectFilesRecursively(entry, prefix ? `${prefix}/${entry.name}` : entry.name);
+      Object.assign(collected, sub);
+    } else if (entry.kind === 'file' && /\.(jsx|js|css)$/.test(entry.name)) {
+      const file = await entry.getFile();
+      const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
+      collected[relPath] = await file.text();
+    }
+  }
+  return collected;
+};
+
+// 分层校验未通过时以抛错形式交给选择文件的错误通道，避免把违规内容包推上云端
+const assertLayering = (files, resolved, logicMainCode = '') => {
+  const errors = inspectEntryLayering({ files, entries: resolved.entries, logicMainCode });
+  if (errors.length) throw new Error(`分层校验未通过：${formatLayeringErrors(errors)}`);
 };
 
 function UpdatePreviewModal({ open, app, source, onClose, onConfirmPreview }) {
@@ -154,6 +182,7 @@ function UpdatePreviewModal({ open, app, source, onClose, onConfirmPreview }) {
                   key={`new-${previewSeed}`}
                   localFiles={newPreview?.localFiles || {}}
                   localLogicCode={newPreview?.logicCode || ''}
+                  localEntries={newPreview?.entries}
                   previewId={`new-${previewSeed}`}
                   onStateChange={setPreviewState}
                   onLogAction={() => {}}
@@ -170,6 +199,7 @@ function UpdatePreviewModal({ open, app, source, onClose, onConfirmPreview }) {
                   key={`old-${previewSeed}`}
                   localFiles={oldPreview?.localFiles || {}}
                   localLogicCode={oldPreview?.logicCode || ''}
+                  localEntries={oldPreview?.entries}
                   previewId={`old-${previewSeed}`}
                   onStateChange={setPreviewState}
                   onLogAction={() => {}}
@@ -200,7 +230,7 @@ function UpdatePreviewModal({ open, app, source, onClose, onConfirmPreview }) {
   );
 }
 
-function UpdatePanel({ appMeta, uploadType }) {
+function UpdatePanel({ appMeta, uploadType, entryConfig }) {
   const storePath = useSelector(selectorStoreSettingStorePath);
   const userInfo = useSelector(selectorUserInfo);
   const [myUploads, setMyUploads] = useState([]);
@@ -221,6 +251,9 @@ function UpdatePanel({ appMeta, uploadType }) {
     ...restMetaInfo
   };
   const finalSysOptions = { ...sysOptions, userInfo, storePath };
+  // 入口名称仅用于提示文案，实际识别走 entryConfig 的模式匹配
+  const viewName = entryConfig?.viewEntry || 'layout.jsx';
+  const logicName = (entryConfig?.logicEntries || ['logic.jsx'])[0];
 
   const refreshUploads = useCallback(async () => {
     if (!userInfo?.id) return;
@@ -262,62 +295,50 @@ function UpdatePanel({ appMeta, uploadType }) {
     const handle = await window.showDirectoryPicker();
 
     if (uploadType === 'bundle') {
+      const collected = await collectFilesRecursively(handle);
+      const resolved = buildAppEntries(collected, entryConfig);
+      if (!Object.keys(collected).some(k => /\.(jsx|js)$/.test(k))) throw new Error('文件夹中没有找到视图文件');
+      if (!resolved.viewFile) throw new Error(`多页面应用必须包含视图入口 ${viewName}`);
+      assertLayering(collected, resolved, resolved.logicMainFile ? collected[resolved.logicMainFile] : '');
+
       const modules = {};
-      let logic = "";
-      let hasLayout = false;
-      let hasJsxFiles = false;
-
-      for await (const entry of handle.values()) {
-        if (entry.kind === 'file') {
-          const file = await entry.getFile();
-          const text = await file.text();
-          // CSS 文件保留 .css 后缀作为 key（供 import './style.css' / import styles from './style.module.css' 解析）
-          if (entry.name.endsWith('.css')) {
-            modules[entry.name] = text;
-            continue;
-          }
-          if (entry.name.endsWith('.jsx') || entry.name.endsWith('.js')) {
-            hasJsxFiles = true;
-            modules[entry.name] = text;
-            if (entry.name.replace(/\.(jsx|js)$/, '') === 'layout') hasLayout = true;
-          }
-          if (entry.name.toLowerCase() === 'logic.jsx' || entry.name.toLowerCase() === 'logic.js') {
-            logic = text;
-          }
-        }
+      for (const [name, text] of Object.entries(collected)) {
+        // 主逻辑入口单独交给 worker，不进内容包
+        if (name === resolved.logicMainFile) continue;
+        modules[name] = text;
       }
 
-      if (!hasJsxFiles) throw new Error('文件夹中没有找到视图文件');
-      if (!hasLayout) throw new Error('多页面应用必须包含 layout.jsx 入口');
-      if (!logic) logic = "const initialState={};\nfunction reducer(s){\n  return s;\n}";
-
-      return { isBundle: true, content: modules, logic };
+      return {
+        isBundle: true,
+        content: modules,
+        logic: resolved.logicMainFile ? collected[resolved.logicMainFile] : null,
+        entries: resolved.entries
+      };
     }
 
-    let content = "export default () => <div>Hello World</div>";
-    let logic = "";
-    let hasLayout = false;
-    let hasLogic = false;
-
+    const collected = {};
     for await (const entry of handle.values()) {
-      if (entry.kind === 'file') {
-        const fileName = entry.name.toLowerCase();
-        if (fileName === 'layout.jsx' || fileName === 'logic.jsx') {
-          const file = await entry.getFile();
-          const text = await file.text();
-          if (fileName === 'layout.jsx') {
-            hasLayout = true;
-            content = text;
-          } else if (fileName === 'logic.jsx') {
-            hasLogic = true;
-            logic = text;
-          }
-        }
-      }
+      if (entry.kind !== 'file' || !/\.(jsx|js)$/.test(entry.name)) continue;
+      const file = await entry.getFile();
+      collected[entry.name] = await file.text();
     }
-    if (!hasLayout || !hasLogic) throw new Error('文件夹中必须包含 layout.jsx 和 logic.jsx 文件');
+    const resolved = buildAppEntries(collected, entryConfig);
+    const viewPath = resolved.viewFile || resolved.mainFile;
+    if (!viewPath) throw new Error(`文件夹中必须包含视图入口 ${viewName}`);
+    if (!resolved.logicMainFile) throw new Error(`文件夹中必须包含逻辑入口 ${logicName}`);
+    // 同上传面板：单页载荷只有一个视图字符串，辅逻辑模块与主逻辑块 import 的目标都不会随资源走
+    if (resolved.entries.logicAux.length) {
+      throw new Error(`单页应用无法携带辅逻辑模块（${resolved.entries.logicAux.join('、')}），请改用多页面更新`);
+    }
+    // 校验对象换成真实载荷：按整个文件夹校验会放行那些其实发不出去的 import
+    assertLayering({ [viewPath]: collected[viewPath] }, resolved, collected[resolved.logicMainFile] || '');
 
-    return { isBundle: false, content, logic };
+    return {
+      isBundle: false,
+      content: collected[viewPath],
+      logic: collected[resolved.logicMainFile],
+      entries: resolved.entries
+    };
   };
 
   const selectApp = (resourceId) => {
@@ -367,6 +388,16 @@ function UpdatePanel({ appMeta, uploadType }) {
       const app = myUploads.find(item => item.resourceId === selectedId);
       if (!app) throw new Error('目标应用不存在');
       const source = updateSources[app.resourceId];
+      if (!source) throw new Error('尚未选择本地更新文件');
+      // 确认框是异步的，这期间可能重载过文件或改过入口配置，推云端前复检一次
+      if (source.isBundle && typeof source.content === 'object') {
+        assertLayering(source.content, { entries: source.entries || {} }, source.logic || '');
+      } else {
+        // 单页复检按真实载荷（口径同 buildPreviewFromSource）：只有一个视图字符串，
+        // 主逻辑块 import 的目标不在里面就是必炸，而不是"我本地有这个文件"
+        const viewCode = typeof source.content === 'string' ? source.content : '';
+        assertLayering({ 'main.jsx': viewCode }, { entries: source.entries || {} }, source.logic || '');
+      }
 
       let cleanContent = source.content;
       if (source.isBundle && typeof source.content === 'object') {
@@ -376,14 +407,15 @@ function UpdatePanel({ appMeta, uploadType }) {
         }
       }
 
-      const mergedMeta = { ...(app.metaInfo || {}), ...baseMetaInfo };
+      // 入口识别结果随本次更新固化，避免沿用云端旧 resources 上已过期的 entries
+      const mergedMeta = { ...(app.metaInfo || {}), ...baseMetaInfo, ...(source.entries ? { entries: source.entries } : {}) };
       await extUpdateCloud(kernel, {
         resource: {
           [ENV_KEY_NAME]: app.appName || appName,
           [ENV_KEY_RESOURCE_ID]: app.resourceId,
           [ENV_KEY_IS_BUNDLE]: source.isBundle,
           [ENV_KEY_CONTENT]: cleanContent,
-          [ENV_KEY_LOGIC]: source.logic,
+          [ENV_KEY_LOGIC]: source.logic || null,
           [ENV_KEY_META_INFO]: mergedMeta
         },
         sysOptions: finalSysOptions

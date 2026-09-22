@@ -10,7 +10,8 @@
 - [2. 登录模块 (`login/`)](#2-登录模块)
 - [3. 认证 Hook (`useAuth`)](#3-认证-hook-useauth)
 - [4. 中间件层 (`middleware/`)](#4-中间件层)
-- [5. 架构调用链](#5-架构调用链)
+- [5. 后端三层权限控制机制](#5-后端三层权限控制机制)
+- [6. 架构调用链](#6-架构调用链)
 
 ---
 
@@ -458,9 +459,9 @@ HTTP 请求
 
 即使面板配置被误改，代码中的 `@RequireRoot()` 和 `Depends(verify_auth())` 依然能拦截非授权用户。三层互不依赖，互相 backup。
 
-## 5. 架构调用链
+## 6. 架构调用链
 
-### 5.1 登录认证流程
+### 6.1 登录认证流程
 
 ```mermaid
 sequenceDiagram
@@ -502,7 +503,7 @@ sequenceDiagram
     UA->>LL: navigate('/sukinos/deskbook', { replace: true })
 ```
 
-### 5.2 会话校验与 Token 刷新
+### 6.2 会话校验与 Token 刷新
 
 ```mermaid
 sequenceDiagram
@@ -535,7 +536,7 @@ sequenceDiagram
     Note over UA: 登录后启动 autoRefresh<br/>登出后停止 autoRefresh
 ```
 
-### 5.3 退出登录流程
+### 6.3 退出登录流程
 
 ```mermaid
 sequenceDiagram
@@ -556,7 +557,7 @@ sequenceDiagram
     UA->>AL: 2s 后 isLoggingOut = false
 ```
 
-### 5.4 中间件调用链
+### 6.4 中间件调用链
 
 #### InteractiveAwakening 交互唤醒
 
@@ -610,7 +611,7 @@ flowchart TD
     Q -->|否| S[正常显示图标]
 ```
 
-### 5.5 整体架构关系
+### 6.5 整体架构关系
 
 ```mermaid
 graph TB

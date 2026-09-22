@@ -225,7 +225,52 @@
 }
 
 .su-explorer__node-dragging {
-  opacity: 0.5;
+  opacity: 0.35;
+}
+
+.su-explorer__node-row {
+  position: relative;
+}
+
+/* 拖拽目标：文件夹整行高亮表示"移入" */
+.su-explorer__node-drop-into {
+  background: var(--su-gray-200);
+  color: var(--su-gray-900);
+  box-shadow: inset 0 0 0 1.5px var(--su-primary);
+  border-radius: 4px;
+}
+
+/* 插入位置指示线（绝对定位，不改变列表高度，避免测量抖动） */
+.su-explorer__drop-line {
+  position: absolute;
+  right: 8px;
+  height: 2px;
+  background: var(--su-primary);
+  border-radius: 1px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 跟随指针的拖拽预览 */
+.su-explorer__drag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--su-white);
+  border: 1px solid var(--su-gray-300);
+  border-radius: 6px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+  font-size: 13px;
+  color: var(--su-gray-800);
+  cursor: grabbing;
+  white-space: nowrap;
+}
+
+.su-explorer__drag-chip-text {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .su-explorer__input-wrapper {
@@ -539,4 +584,16 @@
 
 .su-explorer__btn-confirm:hover {
   background: var(--su-gray-900);
+}
+
+/* 入口文件标记 */
+.su-explorer__entry-flag {
+  flex: none;
+  padding: 0 4px;
+  margin-left: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  border-radius: 3px;
+  color: var(--su-primary);
+  background: var(--su-gray-200);
 }

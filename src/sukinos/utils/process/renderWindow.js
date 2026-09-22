@@ -29,10 +29,12 @@ const extractClassNames = (css) => {
 
 /**
  * 生成 CSS 模块 factory（CSS 不走 Babel，直接生成 CommonJS 模块）。
- * - 普通 .css：exports.default = css 字符串，exports.style = css，module.exports = css
+ * - 普通 .css：exports.default = css 字符串，exports.style = css
  *   → 支持副作用导入 `import './style.css'` 与默认导入 `import styles from './style.css'`
  * - .module.css：exports.default = 类名映射对象 { btn: 'btn' }，exports.style = css
  *   → 支持 CSS Modules `import styles from './style.module.css'`，styles.btn 返回 'btn'
+ * 只求值 exports 不覆写 module.exports：模块求值后会读回 module.exports，
+ * 若在这里写成字符串，exports.style 就随对象一起被丢掉，样式静默失效。
  * factory 签名与 compileSourceAsync 保持一致：
  * (module, exports, AppSDK, __moduleRegistry, __currentModuleKey, __moduleKeys)
  * @param {string} css - CSS 源码
@@ -49,15 +51,22 @@ export const createCssModule = (css, moduleKey) => {
     const css = ${cssStr};
     exports.style = css;
     exports.__esModule = true;
-    ${isModule
-      ? `exports.default = ${classMap};`
-      : `exports.default = css; module.exports = css;`}
+    ${isModule ? `exports.default = ${classMap};` : `exports.default = css;`}
   `)
   return { factory }
 }
 
 const compileCache = new Map()
 const hashCache = new Map()
+
+/**
+ * 清空编译缓存与哈希缓存。
+ * 供错误边界"重新编译"使用：清除后下次编译不再命中缓存，重新走 Babel 编译。
+ */
+export const clearCompileCache = () => {
+  compileCache.clear()
+  hashCache.clear()
+}
 
 const hashString = async str => {
   if (hashCache.has(str)) return hashCache.get(str)
@@ -229,13 +238,22 @@ export const compileSourceAsync = async (
           const resolvedKey = __resolveModulePath(__currentModuleKey, name, __moduleKeys);
           const mod = __moduleRegistry[resolvedKey];
           if (!mod) throw new Error("Sandbox Require Error: Module " + name + " is restricted.");
-          if (mod.exports) return mod.exports;
-          const exports = {};
-          // 传入完整模块上下文，使被依赖模块的 factory 也能解析嵌套 require
-          // 第 4 个参数为 AppSDK（与顶层 factory.call 的 instanceSDK 位置一致），供依赖模块解构 React 等 API
-          mod.factory.call(_safeGlobalProxy, { exports }, exports, AppSDK, __moduleRegistry, resolvedKey, __moduleKeys);
-          mod.exports = exports;
-          return exports;
+          // 与 worker 侧 __requireLogic 对齐的 CJS 语义：exports 先登记进注册表再求值，
+          // 循环依赖中的后到者拿到半成品 exports 而不是递归爆栈；executed 才是「求值完成」的标记，
+          // 因为 module.exports 允许被写成 0 / '' 这类假值
+          if (mod.executed || mod.exports) return mod.exports || {};
+          const exports = (mod.exports = {});
+          try {
+            // 第 2 个参数传注册表里的 mod 本体，module.exports = xxx 才写得进去；
+            // 第 4 个参数为 AppSDK（与顶层 factory.call 的 instanceSDK 位置一致），供依赖模块解构 React 等 API
+            mod.factory.call(_safeGlobalProxy, mod, exports, AppSDK, __moduleRegistry, resolvedKey, __moduleKeys);
+          } catch (err) {
+            mod.exports = null; // 求值失败不留半成品，下一次 require 重新执行
+            throw err;
+          }
+          mod.executed = true;
+          // 与缓存分支同一口径：module.exports 允许是 0 / '' 这类假值，兜成 {} 免得首调与复调形状不同
+          return mod.exports || {};
         };
 
       /* --- 进入沙箱块级作用域 --- */

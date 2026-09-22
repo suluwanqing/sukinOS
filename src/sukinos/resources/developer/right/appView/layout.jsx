@@ -48,6 +48,9 @@ const AppView = ({ app }) => {
     return app?.logicCode || '';
   }, [app]);
 
+  // 入口约定随预览对象一起下发（引用稳定，避免 RenderProcess 反复重建 worker）
+  const localEntries = app?.entries || null;
+
   // 拦截应用未挂载或数据缺失的情况
   if (!app) return <div>加载预览中...</div>;
 
@@ -64,6 +67,7 @@ const AppView = ({ app }) => {
           key={previewId}
           localFiles={localFiles}
           localLogicCode={localLogicCode}
+          localEntries={localEntries}
           previewId={previewId}
         />
       </div>

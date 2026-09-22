@@ -10,8 +10,10 @@ import { extUpdateCloud } from '@/sukinos/utils/process/generateApp';
 import permissionManageAPI from '@/apis/system/permissionManage';
 import {
   ENV_KEY_NAME, ENV_KEY_RESOURCE_ID, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO,
-  appCustom, appCustomMapper, appTypes, DEFAULT_LOGIC, LOCAL_DEV_SYMPLE_LINKS,DEFAULT_LOGO
+  appCustom, appCustomMapper, appTypes, LOCAL_DEV_SYMPLE_LINKS,DEFAULT_LOGO
 } from '@/sukinos/utils/config';
+import { loadEntryConfig, moduleKeyOf, buildAppEntries } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
 
 import RenderProcess from '@/sukinos/utils/process/renderProcess';
 import Select from "@/component/select/drowSelection/layout";
@@ -65,7 +67,7 @@ const DEFAULT_APP_META = {
   initialSize: { w: 600, h: 450, x: 0, y: 0 },
   appType: appTypes?.[0]?.value || 'editor',
   exposeState: false, saveState: false,
-  worker: true,
+  worker: true, hideHeader: false,
   description: '这是一个App', syncLocal: false,
   custom: { ...appCustom },
 };
@@ -360,6 +362,7 @@ const AppPanel = ({
       <Toggle label="暴露状态" checked={!!appMeta.exposeState} onChange={e => updateAppMeta({ exposeState: e.target.checked })} />
       <Toggle label="状态持久化" checked={!!appMeta.saveState} onChange={e => updateAppMeta({ saveState: e.target.checked })} />
       <Toggle label="Worker 运行" checked={!!appMeta.worker} onChange={e => updateAppMeta({ worker: e.target.checked })} />
+      <Toggle label="隐藏标题栏" checked={!!appMeta.hideHeader} onChange={e => updateAppMeta({ hideHeader: e.target.checked })} />
       <Toggle label="云端上传" checked={!!appMeta.sysOptions?.shouldUpload} onChange={e => {
             updateAppMeta({ sysOptions: { ...appMeta.sysOptions, shouldUpload: e.target.checked } });
             if (!e.target.checked && registerToPool) onRegisterToggle(false);
@@ -427,7 +430,7 @@ const AppPanel = ({
   </div>
 );
 
-const FilesPanel = ({ fetchStatus, lastSync, errorMsg, missingRequired, compileErr, fileList, hasLogic, compiling, handleManualSync, handleCreate, appMeta, syncPaused, onTogglePause }) => {
+const FilesPanel = ({ fetchStatus, lastSync, errorMsg, missingRequired, compileErr, fileList, hasLogic, localEntries, compiling, handleManualSync, handleCreate, appMeta, syncPaused, onTogglePause }) => {
   const { mod } = STATUS_CFG[fetchStatus];
   const canPublish = missingRequired.length === 0 && !!appMeta.appName && fetchStatus === 'ok';
   return (
@@ -457,17 +460,20 @@ const FilesPanel = ({ fetchStatus, lastSync, errorMsg, missingRequired, compileE
           <Divider />
           <Cap>文件列表</Cap>
           <div className={style[bem.e('file-tree')]}>
-            {fileList.map(f => (
+            {fileList.map(f => {
+              const isAuxLogic = (localEntries?.logicAux || []).includes(moduleKeyOf(f));
+              return (
               <div key={f} className={style[bem.e('file-row')]}>
                 <span className={style[bem.e('file-ext')]}>{f.split('.').pop()}</span>
                 <span className={style[bem.e('file-name')]}>{f}</span>
-                <span className={style[bem.e('file-type')]}>VIEW</span>
+                <span className={style[bem.e('file-type')]}>{isAuxLogic ? 'LOGIC' : 'VIEW'}</span>
               </div>
-            ))}
+              );
+            })}
             {hasLogic && (
               <div className={[style[bem.e('file-row')], style[bem.e('file-row--logic')]].join(' ')}>
                 <span className={style[bem.e('file-ext')]}>js</span>
-                <span className={style[bem.e('file-name')]}>Logic.jsx</span>
+                <span className={style[bem.e('file-name')]}>{localEntries?.logicMain || 'logic'}</span>
                 <span className={style[bem.e('file-type')]}>LOGIC</span>
               </div>
             )}
@@ -517,7 +523,7 @@ const DebugPanel = ({ previewState, dispatchLogs }) => (
   </div>
 );
 
-const GuidePanel = () => {
+const GuidePanel = ({ entryConfig }) => {
   const download = async (type) => {
     const url = LOCAL_DEV_SYMPLE_LINKS[type];
     if (!url) {
@@ -576,8 +582,9 @@ const GuidePanel = () => {
       title: '准备核心文件',
       description: '确保你的源码目录（如 src/）包含以下核心文件：',
       files: [
-        { name: 'layout.jsx', description: '应用的视图入口组件' },
-        { name: 'Logic.jsx', description: '处理 Reducer 与状态逻辑的入口' }
+        { name: entryConfig?.viewEntry || 'layout.jsx', description: '应用的视图入口组件' },
+        { name: (entryConfig?.logicEntries || ['logic.jsx']).join('、'), description: '处理 Reducer 与状态逻辑（可选，无则应用无状态机）' },
+        { name: "import { x } from './xxx'", description: '逻辑入口列表里除第一个外的规则都作为辅逻辑模块，主逻辑块用 import 取用（安装期预编译成内核注入的 require）；主逻辑块自身不得 export，辅逻辑模块可正常 import/export' }
       ]
     },
     {
@@ -621,7 +628,8 @@ const GuidePanel = () => {
         '将面板显示的[User ID]填入本地项目的插件配置中。',
         '将指定的sse消息trgger 填入 本地项目的插件配置中',
         '在此面板完成与本地插件对应的目录[选择对应本地目录]。',
-        '开启监听，当你点击 IDE 的"保存"时，应用视窗将立即重绘。'
+        '开启监听，当你点击 IDE 的"保存"时，应用视窗将立即重绘。',
+        '插件配置项 autoRegister 为 true 时起服务即监听 defaultDir；关掉则等你点[同步]后才注册。'
       ],
       tip: '增加体验'
     }
@@ -753,7 +761,11 @@ const LocalDev = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [missingRequired, setMissingRequired] = useState([]);
   const [localFiles, setLocalFiles] = useState({});
-  const [localLogicCode, setLocalLogicCode] = useState(DEFAULT_LOGIC);
+  const [localLogicCode, setLocalLogicCode] = useState(null);
+  // 同步时解析出的入口固化结果，发布时随 metaInfo.entries 写入资源
+  const [localEntries, setLocalEntries] = useState(null);
+  // 入口约定与开发者中心共用同一份按用户隔离的本地配置，本地开发只读不写
+  const [entryConfig, setEntryConfig] = useState(() => loadEntryConfig(null));
   const [appMeta, setAppMeta] = useState(DEFAULT_APP_META);
   const [previewState, setPreviewState] = useState({});
   const [compiling, setCompiling] = useState(false);
@@ -770,6 +782,7 @@ const LocalDev = () => {
   const [updateMsgType, setUpdateMsgType] = useState('');
 
   const configRef = useRef(config);
+  const entryConfigRef = useRef(entryConfig);
   const lastVRef = useRef(null);
   const pollRef = useRef(null);
   const fetchDbRef = useRef(null);
@@ -786,6 +799,12 @@ const LocalDev = () => {
   }, [folderName, config.syncMode, config.host, config.port, config.dir]);
 
   useEffect(() => { configRef.current = config; }, [config]);
+
+  useEffect(() => {
+    const cfg = loadEntryConfig(userInfo?.id);
+    entryConfigRef.current = cfg;
+    setEntryConfig(cfg);
+  }, [userInfo?.id]);
 
   const updateAppMeta = useCallback((updates) => setAppMeta(prev => ({ ...prev, ...updates })), []);
 
@@ -882,22 +901,25 @@ const LocalDev = () => {
 
   const performSync = useCallback(async (cfg, versionCheck = false) => {
     if (isResumingRef.current && versionCheck) return;
+    const entryCfg = entryConfigRef.current;
     if (cfg.syncMode === 'folder' || cfg.syncMode === 'sse_folder') {
       if (!folderHandleRef.current) { if (!versionCheck) { setErrorMsg('未选择文件夹'); setFetchStatus('error'); } return; }
       try {
         if (!versionCheck) setFetchStatus('syncing');
         const files = {}; let logic = '';
         const allFiles = await collectFilesRecursively(folderHandleRef.current);
+        // 命中的入口文件由配置决定；主逻辑单独抽出，辅逻辑模块仍留在内容包内
+        const resolved = buildAppEntries(allFiles, entryCfg);
         for (const [relPath, text] of Object.entries(allFiles)) {
-          if (relPath.toLowerCase().startsWith('logic.')) logic = text; else files[relPath] = text;
+          if (relPath === resolved.logicMainFile) logic = text; else files[relPath] = text;
         }
         const currentV = Object.values(files).reduce((acc, curr) => acc + curr.length, 0) + logic.length;
         if (versionCheck && currentV === lastVRef.current) return;
         lastVRef.current = currentV;
         const keys = Object.keys(files); const missing = [];
-        if (!keys.some(k => /^layout\.(jsx|js)$/i.test(k))) missing.push('layout.jsx');
-        if (!logic) missing.push('logic.jsx');
-        setMissingRequired(missing); setLocalFiles(files); setLocalLogicCode(logic || DEFAULT_LOGIC);
+        if (!resolved.viewFile) missing.push(entryCfg.viewEntry);
+        setMissingRequired(missing); setLocalFiles(files); setLocalLogicCode(logic || null);
+        setLocalEntries(resolved.entries);
         setFileList(keys); setHasLogic(!!logic); setLastSync(new Date()); setFetchStatus('ok'); setErrorMsg('');
       } catch (e) { setErrorMsg(e.message); setFetchStatus('error'); }
     } else {
@@ -912,11 +934,27 @@ const LocalDev = () => {
         if (data.status !== 'ok') throw new Error(data.message || '服务端异常');
         if (versionCheck && data.v === lastVRef.current) return;
         lastVRef.current = data.v;
-        const viewFiles = data.files || {}; const logicCode = data.logic || '';
+        const rawFiles = data.files || {};
+        const resolved = buildAppEntries(rawFiles, entryCfg);
+        // 服务端可能把主逻辑单独放在 data.logic（不带文件名）：此时 files 里命中的逻辑文件都是辅逻辑
+        const hasServerLogic = !!data.logic;
+        const mainLogicFile = hasServerLogic ? null : resolved.logicMainFile;
+        const viewFiles = {};
+        for (const [relPath, text] of Object.entries(rawFiles)) {
+          if (relPath !== mainLogicFile) viewFiles[relPath] = text;
+        }
+        const logicCode = data.logic || (mainLogicFile ? rawFiles[mainLogicFile] : '') || '';
+        // 通配模式推不出主逻辑的模块 key，留空由 worker 回落到默认 'logic'
+        const firstPattern = entryCfg.logicEntries[0] || '';
+        const guessedMainKey = /[*?]/.test(firstPattern) ? null : moduleKeyOf(firstPattern);
         const keys = Object.keys(viewFiles); const missing = [];
-        if (!keys.some(k => /^layout\.(jsx|js)$/i.test(k))) missing.push('layout.jsx');
-        if (!logicCode) missing.push('logic.jsx');
-        setMissingRequired(missing); setLocalFiles(viewFiles); setLocalLogicCode(logicCode || DEFAULT_LOGIC);
+        if (!resolved.viewFile) missing.push(entryCfg.viewEntry);
+        setMissingRequired(missing); setLocalFiles(viewFiles); setLocalLogicCode(logicCode || null);
+        setLocalEntries({
+          view: resolved.entries.view,
+          logicMain: logicCode ? (mainLogicFile ? moduleKeyOf(mainLogicFile) : guessedMainKey) : null,
+          logicAux: hasServerLogic ? resolved.logicFiles.map(moduleKeyOf) : resolved.entries.logicAux,
+        });
         setFileList(keys); setHasLogic(!!logicCode); setLastSync(new Date()); setFetchStatus('ok'); setErrorMsg('');
       } catch (e) { setErrorMsg(e.message); setFetchStatus('error'); }
     }
@@ -968,13 +1006,25 @@ const LocalDev = () => {
     fetchDbRef.current = setTimeout(() => performSync(configRef.current, false), configRef.current.fetchDebounce);
   };
 
+  // 工作区由外部编辑器写入，分层违规只有推到发布这一步才拦得住；
+  // 返回提示文案而非抛错，让注册（alert）与更新（消息条）两条通道各取所需
+  const layeringProblems = useCallback(() => {
+    const errors = inspectEntryLayering({
+      files: localFiles, entries: localEntries || {}, logicMainCode: localLogicCode || ''
+    });
+    return errors.length ? formatLayeringErrors(errors) : '';
+  }, [localFiles, localEntries, localLogicCode]);
+
   const handleCreate = async () => {
     if (!appMeta.appName) { alert.warning('请输入应用名称'); return; }
     if (missingRequired.length > 0) { alert.warning(`缺少必要文件：${missingRequired.join('、')}`); return; }
+    const layering = layeringProblems();
+    if (layering) { alert.warning(layering, { duration: 6000 }); return; }
     const installedApps = kernel.getInstalledApps();
     if (installedApps.some(a => a?.[ENV_KEY_NAME] === appMeta.appName)) { alert.warning('名称已被占用'); return; }
     const { appName, appIcon, sysOptions, ...restMetaInfo } = appMeta;
     const baseMetaInfo = { seed: Date.now().toString(), authorId: userInfo?.id, icon: appIcon, ...restMetaInfo };
+    if (localEntries) baseMetaInfo.entries = localEntries;
     if (registerToPool) baseMetaInfo.registryEnabled = true;
     const finalSysOptions = { ...sysOptions, userInfo, storePath };
     if (registerToPool) {
@@ -982,7 +1032,7 @@ const LocalDev = () => {
     }
     const cleanFiles = {};
     for (const [k, v] of Object.entries(localFiles)) { cleanFiles[k.replace(/\.(jsx|js)$/, '')] = v; }
-    const resourceId = await kernel.uploadResource({ sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: true, [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: localLogicCode, [ENV_KEY_META_INFO]: baseMetaInfo });
+    const resourceId = await kernel.uploadResource({ sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: true, [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: localLogicCode || null, [ENV_KEY_META_INFO]: baseMetaInfo });
     if (registerToPool && resourceId) {
       try {
         const regRes = await permissionManageAPI.registerApp({
@@ -999,7 +1049,7 @@ const LocalDev = () => {
     alert.success('应用指令已发送');
   };
 
-  const canUpdate = fetchStatus === 'ok' && hasLogic && missingRequired.length === 0;
+  const canUpdate = fetchStatus === 'ok' && missingRequired.length === 0;
 
   const toggleUploadSelect = (resourceId) => {
     setSelectedUploadIds(prev => {
@@ -1031,6 +1081,12 @@ const LocalDev = () => {
       setUpdateMsgType('error');
       return;
     }
+    const layering = layeringProblems();
+    if (layering) {
+      setUpdateMsg(layering);
+      setUpdateMsgType('error');
+      return;
+    }
 
     confirm.show({
       title: '确认更新',
@@ -1041,6 +1097,8 @@ const LocalDev = () => {
         try {
           const { appName, appIcon, sysOptions, ...restMetaInfo } = appMeta;
           const baseMetaInfo = { seed: Date.now().toString(), authorId: userInfo?.id, icon: appIcon, ...restMetaInfo };
+          // 入口识别结果随本次更新固化，避免沿用云端旧 metaInfo 上已过期的 entries
+          if (localEntries) baseMetaInfo.entries = localEntries;
           const finalSysOptions = { ...sysOptions, userInfo, storePath };
           const cleanFiles = {};
           for (const [k, v] of Object.entries(localFiles)) { cleanFiles[k.replace(/\.(jsx|js)$/, '')] = v; }
@@ -1053,7 +1111,7 @@ const LocalDev = () => {
                 [ENV_KEY_RESOURCE_ID]: app.resourceId,
                 [ENV_KEY_IS_BUNDLE]: true,
                 [ENV_KEY_CONTENT]: cleanFiles,
-                [ENV_KEY_LOGIC]: localLogicCode,
+                [ENV_KEY_LOGIC]: localLogicCode || null,
                 [ENV_KEY_META_INFO]: mergedMeta
               },
               sysOptions: finalSysOptions
@@ -1122,9 +1180,9 @@ const LocalDev = () => {
               onRegisterToggle={setRegisterToPool}
             />
           )}
-          {activeNav === 'status' && <FilesPanel fetchStatus={displayStatus} lastSync={lastSync} errorMsg={errorMsg} missingRequired={missingRequired} compileErr={compileErr} fileList={fileList} hasLogic={hasLogic} compiling={compiling} handleManualSync={handleManualSync} handleCreate={handleCreate} appMeta={appMeta} syncPaused={syncPaused} onTogglePause={handleTogglePause} />}
+          {activeNav === 'status' && <FilesPanel fetchStatus={displayStatus} lastSync={lastSync} errorMsg={errorMsg} missingRequired={missingRequired} compileErr={compileErr} fileList={fileList} hasLogic={hasLogic} localEntries={localEntries} compiling={compiling} handleManualSync={handleManualSync} handleCreate={handleCreate} appMeta={appMeta} syncPaused={syncPaused} onTogglePause={handleTogglePause} />}
           {activeNav === 'debug' && <DebugPanel previewState={previewState} dispatchLogs={dispatchLogs} />}
-          {activeNav === 'guide' && <GuidePanel />}
+          {activeNav === 'guide' && <GuidePanel entryConfig={entryConfig} />}
         </div>
         {activeNav === 'connect' && Object.keys(DEFAULT_CONFIG).some(k=>draft[k]!==config[k]) && (
           <div className={style[bem.e('drawer-footer')]}>
@@ -1163,6 +1221,7 @@ const LocalDev = () => {
             key={previewId}
             localFiles={localFiles}
             localLogicCode={localLogicCode}
+            localEntries={localEntries}
             previewId={previewId}
             onStateChange={setPreviewState}
             onLogAction={(action) => setDispatchLogs(prev => [...prev.slice(-99), { t: new Date().toLocaleTimeString(), a: action }])}

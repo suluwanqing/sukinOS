@@ -149,7 +149,7 @@ graph TB
             direction TB
             WL1["Worker dispatch → save()"]
             WL2["postMessage(SAVE_STATE)"]
-            WL3["commHub.saveState"]
+            WL3["commHub.handleMsg → onSaveState 回调<br/>（kernel.js:79-88 注入，CommHub 无 saveState 方法）"]
             WL4["app.savedState.app = payload"]
             WL5{"isSystemApp?"}
             WL6["✅ 仅内存"]
@@ -174,15 +174,15 @@ graph TB
             SC6 -.-> SC4
         end
 
-        subgraph STATE_SPLIT["clearAppSavedState：分裂式清理"]
+        subgraph STATE_SPLIT["clearAppSavedState：全量清除"]
             direction TB
-            SS1["prevSavedState = {app, window}"]
-            SS2["app.savedState = {app: null,<br/>window: 保留}"]
+            SS1["app.savedState = null"]
+            SS2["sysDb.updateData({savedState: null})"]
             SS3["router.path 等业务状态清除 ❌"]
-            SS4["窗口位置大小保留 ✅"]
+            SS4["窗口位置大小同样清除 ❌"]
             SS1 --> SS2
-            SS2 --> SS3
-            SS2 --> SS4
+            SS1 --> SS3
+            SS1 --> SS4
         end
 
         subgraph FORCE_SAVE["forceSaveAllStates 无条件保存"]
@@ -476,11 +476,11 @@ graph TB
             NWA4 -->|"否"| NWA6 --> NWA7 --> NWA8
         end
 
-        subgraph NW_SAVE["SAVE_STATE 兼容处理"]
+        subgraph NW_SAVE["SAVE_STATE 兼容处理（死代码）"]
             direction TB
             NWS0["NoWorker.postMessage(SAVE_STATE)"]
             NWS1["getCachedState(pid)"]
-            NWS2["commHub.saveState(pid, currentState)"]
+            NWS2["commHub.saveState(...) ← 该方法不存在<br/>命中即抛 TypeError，当前无调用方"]
             NWS0 --> NWS1 --> NWS2
         end
     end
@@ -563,16 +563,15 @@ graph TB
             PC4 --> PC5 --> PC6 --> PC7
         end
 
-        subgraph PUBSUB_GAP["⚠️ TOPIC_MESSAGE 缺口"]
+        subgraph PUBSUB_INBOUND["TOPIC_MESSAGE 收方向"]
             direction TB
             PG0["CommHub → sendToWorker → TOPIC_MESSAGE"]
             PG1["Worker onmessage 路由器"]
-            PG2["当前只处理: INIT / RESTORE<br/>UI_ACTION / APP_INTERACT"]
-            PG3["TOPIC_MESSAGE → default: break"]
-            PG4["❌ 被静默丢弃!"]
-            PG5["需在 Worker 路由器中<br/>新增 TOPIC_MESSAGE case"]
+            PG2["处理: INIT / RESTORE<br/>UI_ACTION / APP_INTERACT<br/>TOPIC_MESSAGE"]
+            PG3["dispatch({type:'TOPIC_MESSAGE',<br/>topic, data})"]
+            PG4["✅ 进 reducer，按 action.topic 分流"]
 
-            PG0 --> PG1 --> PG2 --> PG3 --> PG4 --> PG5
+            PG0 --> PG1 --> PG2 --> PG3 --> PG4
         end
 
         subgraph PUBSUB_CLEANUP["进程注销时订阅清理"]

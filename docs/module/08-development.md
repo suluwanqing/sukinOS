@@ -14,6 +14,7 @@
 - [8. 从零构建完整教程](#8-从零构建完整教程)
 - [9. 调试与测试](#9-调试与测试)
 - [10. 最佳实践](#10-最佳实践)
+- [11. 本地部署指南](#11-本地部署指南)
 
 ---
 
@@ -113,7 +114,7 @@ registry 使用**字符串键名**（如 `"ENV_KEY_RESOURCE_ID"`），由 `prese
 {
   version: '1.0.0',
   icon: 'logo-url',
-  appType: 'system',        // 'system' | 'user'
+  appType: 'system',        // 自由字符串：'system' 触发内核的系统应用分支；用户应用取 editor/game/tool 或自定义值
   worker: true,              // false 使用 NoWorker
   exposeState: true,         // 是否暴露状态
   saveState: false,          // 是否持久化状态
@@ -134,22 +135,34 @@ registry 使用**字符串键名**（如 `"ENV_KEY_RESOURCE_ID"`），由 `prese
 | `blockEd` | `boolean` | `false` | 是否固定到底部状态栏 |
 | `isFullScreen` | `boolean` | `false` | 是否默认全屏打开 |
 | `autoStart` | `boolean` | `false` | 是否随系统启动自动运行 |
-| `allowResize` | `boolean` | `true` | 是否允许用户缩放窗口 |
 | `showInLauncher` | `boolean` | `true` | 是否在应用启动器中显示 |
 | `isParasitism` | `boolean` | `false` | 是否寄生模式（共用宿主窗口） |
-| `saveState` | `boolean` | `false` | `true` 为热启动（保留上次状态），`false` 为冷启动 |
+| `saveState` | `boolean` | `false` | `true` 为热启动（保留上次状态），`false` 为冷启动。同时是自动保存定时器的开关（见 [04-process-kernel.md](04-process-kernel.md) 的自动保存一节：`autoSaveState` 在 `saveState` 为假时直接返回，但窗口位置定时器**不看这个开关**） |
 | `exposeState` | `boolean` | `true` | 是否向 React 暴露状态 |
-| `worker` | `boolean` | `true` | 是否使用 Worker（`false` 使用 NoWorker 模式） |
-| `backgroundSleep` | `boolean` | `false` | 后台静默（暂停订阅） |
-| `adaptiveMount` | `boolean` | `false` | 后台自适应挂载（不保存 APP 内部状态） |
-| `autoSaveStateInterval` | `number` | `0` | 自动保存状态间隔（秒），`0` 表示禁用 |
-| `autoSaveWindowInterval` | `number` | `0` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
+| `worker` | `boolean` | `true` | 是否使用 Worker（`false` 使用 NoWorker 模式）。设置面板对 `undefined` 特判为"开启"（`setting/layout.jsx:102-104`） |
+| `hideHeader` | `boolean` | `false` | 标题栏整块不渲染（连 DOM 都没有），窗口操作交给应用经 `AppSDK.API.window` 完成。与 `custom.hideHeaderHover` 互斥：它为真时 hover 被强制关闭（`window/layout.jsx:36-47`）。渲染细节见 [02-deskbook.md](02-deskbook.md) §9.4 |
+| `syncLocal` | `boolean` | `false` | 是否把应用包同步到本地目录。**三处读取点口径不一致**，见 [04-process-kernel.md](04-process-kernel.md) 的 "syncLocal：三处读取点" |
+| `entries` | `object` | — | 发布时由 `buildAppEntries` 固化的入口判定结果 `{ view, logicMain, logicAux }`（模块 key 形式），运行时唯一真源；不要手工编辑 |
+| `appType` | `string` | `'editor'` | 见 §2.2；只有 `'system'` 有内核语义 |
+| `custom.*` | — | 见下 | 用户个性化配置，由 `appCustomMapper`（`config.js:317-328`）提供中文标签、`appCustom`（`:330-341`）提供种子值 |
+
+`custom` 里的键与生效方式：
+
+| 键 | 种子值 | 生效说明 |
+|----|--------|----------|
+| `hasShortcut` / `blockEd` / `isFullScreen` / `autoStart` / `showInLauncher` | `true` / `false` / `true` / `false` / `false` | 注意 `appCustom` 种子值与上表的"资源默认"并不一致（`isFullScreen`、`showInLauncher` 两处），新建应用取种子值 |
+| `allowResize` | `true` | **当前无效**：`window/layout.jsx:93` 写的是 `custom?.allowResize || true`，任何值（含 `false`）都会短路成 `true`，因此窗口始终可缩放 |
+| `backgroundSleep` | `false` | `true` 且窗口不可见时，`useProcessBridge` 停止状态订阅（`useProcessBridge.jsx:24`） |
+| `adaptiveMount` | `false`（种子） | 判定是 `custom.adaptiveMount !== false`（`deskBook/layout.jsx:737`）⇒ **缺键等于开启**：后台非焦点窗口只渲染 `AdaptivePlaceholder` 轻量占位。要真正关掉必须显式写 `false` |
+| `autoSaveStateInterval` / `autoSaveWindowInterval` | `0` | 秒；`0` 不启动定时器。应用级优先于全局个人化配置 |
+| `hideHeaderHover` | `false` | 标题栏保留 DOM、靠 CSS 上移隐藏，悬停 `.su-window__hover-trigger` 唤回；`hideHeader` 为真时被强制失效 |
+
 
 ### 2.4 文件命名与导出规范
 
 - 必须以**文件夹模式**进行组件封装
 - 组件必须先使用 `function` 声明，再通过 `export default` 导出
-- `layout.jsx` 是应用的主入口文件，**必需存在**
+- 视图框架入口（默认 `layout.jsx`，实际文件名由「设置 → 入口约定」决定）**必需存在**
 - `db.js` 用于数据库交互层，必需在 `@/sukinos/utils/_db` 注册
 - `registry.jsx` 作为注册文件，同时处理 dispatch 事件
 - 非系统 APP 支持**相对路径导入**（`./`、`../`），可导入应用内模块与 CSS 文件；**禁止导入外部包 / 绝对路径**
@@ -390,7 +403,8 @@ const adminAppSdk = {
 | 能力 | 系统 APP | 非系统 APP |
 |------|----------|------------|
 | SDK 模板 | `adminAppSdk` | `devAppSdk` |
-| Kernel 访问 | 完整 `AppSDK.kernel`（含 rootSeed） | 仅 `evokeApp` + `getTypeApps` |
+| Kernel 访问 | 完整 `AppSDK.kernel`（`_kernel` 本体） | 仅 `evokeApp` + `getTypeApps`（已 `bind(_kernel)`，脱离对象字面量也不会 `this` 丢失） |
+| 高权限种子 | `AppSDK.API.rootSeed`（挂在 `API`，不在 `kernel` 上） | 不可用 |
 | Hooks | 全部 14 个 Hook | 仅 `useFileSystem` |
 | 系统组件 | 全部 10 个系统组件 | 不可用 |
 | 文件系统 | `useSystemFileSystem`（无 PID 限制） | `useFileSystem`（需 PID） |
@@ -611,7 +625,7 @@ export const STORES = {
 | `kernel` | `evokeApp`, `getTypeApps` | 仅允许唤起应用和按类型查询 |
 | `hooks` | `useFileSystem` | 仅文件系统 Hook |
 | `middleware` | `InteractiveAwakening`, `VfsImage` | 全部中间件 |
-| `API` | 空对象，运行时注入 `fetch` | 网络请求 |
+| `API` | 静态是空对象，运行时由工厂注入 `fetch` / `navigate` / `pid` / `window` 四个成员 | 见 §4.3 的"运行时注入的 API" |
 
 ### 4.3 AppSDK 完整结构详解
 
@@ -636,6 +650,27 @@ export default ({ state, dispatch }) => {
 const { Button, Input } = AppSDK.Components
 const { System } = AppSDK
 ```
+
+#### 运行时注入的 API（`AppSDK.API`）
+
+`createSdkForInstance(dispatch, pid, isSystemApp, windowControls)`（`resources/sdk.jsx:96`）把 `privateScope` 摊进 `API`，
+所以应用侧看到的 `AppSDK.API` = 静态模板的 `API` + 下面四个成员：
+
+| 成员 | 来源 | 说明 |
+|------|------|------|
+| `fetch` | `createSecureFetch(window.fetch, pid)` 后再 `Object.freeze` | 自动带 PID 的网络入口，不可被覆写 |
+| `navigate` | `(path) => dispatch({ type: 'NAVIGATE', payload: path })` | Bundle 路由跳转，走的是本实例的 dispatch |
+| `pid` | 工厂入参 | 当前进程 ID |
+| `window` | 第 4 个入参 `windowControls`，缺省时回落到 `noopWindowControls`（`:80-86`） | 窗口控制：`close` / `hibernate` / `toggleMaximize` / `setRect` / `getRect` |
+
+`window` 是给 `hideHeader` 场景准备的：标题栏整块不渲染后，应用要自己画操作区并靠它关窗/休眠/改位。
+宿主侧的注入链是 `ProcessWindow` 的 `controlsRef` → `windowControls` → `DynamicRenderer` → 工厂第 4 参
+（见 [02-deskbook.md](02-deskbook.md) §4.5 与 §9.4）。**预览与无窗口外壳环境拿不到真实控制**，
+此时调用只打 `console.warn` 且 `getRect()` 返回 `null`——所以使用前先判 `AppSDK.API.window.getRect()` 是否有值，
+不要让按钮在预览里静默失效。`setRect` 允许只传部分字段（`{x}` 或 `{width,height}`），越界会被 clamp。
+
+系统 APP 还额外在静态模板上挂 `API.rootSeed`（`adminAppSdk`，`:58`，指向 `generateShortSeed`）——
+注意它的位置是 `AppSDK.API.rootSeed`，不是 `AppSDK.kernel.rootSeed`。
 
 #### 可用 Components 列表
 
@@ -713,7 +748,7 @@ export default ({ state, dispatch, fetch }) => (
 |---------|--------|------|
 | `export default` | **组件** | 页面 / 布局 / 可复用组件 |
 | 具名导出（`export const xxx`） | **模块** | 工具函数、共享组件、常量 |
-| 无 `export` | **纯逻辑** | `logic.jsx`（Reducer） |
+| 无 `export` | **纯逻辑** | `logic.jsx`（Reducer）— 只禁 `export`，`import` 与页面同构可用 |
 
 **入口模块严格校验**：`layout.jsx`（主布局）的 `export default` 必须是 React 组件（函数组件或含 `render` 方法的类组件），否则渲染失败并提示错误。
 
@@ -733,14 +768,20 @@ export default ({ state, dispatch, fetch }) => (
      const [count, setCount] = useState(0)
    }
    ```
-3. **禁止在 `logic.jsx` 中使用 `export` 关键字**
+3. **禁止在主逻辑入口（默认 `logic.jsx`）中使用 `export` 关键字** — 内核按名字识别 `initialState`/`reducer`/`init`；`import` 可用（安装期与页面同构预编译，编译后落到内核注入的 `require`）
 4. **禁止直接使用原生存储 API** — 不能使用 `window.localStorage`、`window.sessionStorage`、`window.indexedDB`
 5. **禁止直接使用原生网络 API** — 不能使用 `window.fetch`、`XMLHttpRequest`、`self.fetch`
 6. **禁止直接修改 `state` 对象** — 必须通过 `dispatch` 提交 action
 7. **路由跳转** — 通过 `navigate(路径字符串)` 实现，文件名即为路由名
 8. **状态分发** — `dispatch` 的 action 必须对应 reducer 的处理
 9. **组件导出** — 至少要有一个 `export default ({}) => {}` 作为视图入口
-10. **程序入口** — 必须要有 `layout.jsx`
+10. **程序入口** — 必须要有视图框架入口（默认 `layout.jsx`），多页面应用缺它会在发布时被拦下
+11. **分层约束** — 页面不得 import 辅逻辑模块（它只在 worker 侧求值，页面引入会让副作用双跑，
+    且 worker 注入的 `api` 在 UI 侧取不到）；逻辑层不得 import `.css`；主逻辑块不得 `export`。
+    发布时 `inspectEntryLayering` 会拦下同名 key 冲突、逻辑引样式、逻辑依赖缺失、主逻辑块 export
+    与页面反向 import 辅逻辑，预览只拦前四类硬故障。
+    校验对象是**这次真正会被发出去的载荷**：单页发布的载荷只有一个视图字符串 + 主逻辑块，所以主逻辑块
+    里的相对 `import` 在单页形态下必然缺失（文件在本地工作区不代表它随资源走），要带依赖请用多页面发布
 
 ### 4.5 Props 注入系统
 
@@ -995,17 +1036,26 @@ bundleApp/               # 目录名即为应用名
     └── helper.js         # .js 工具模块
 ```
 
-**内核扫描规则**：
-- `logic.jsx` → 自动识别为 Reducer
-- `layout.jsx` → 自动识别为主布局
-- `pages/` 下文件 → 自动识别为路由页面，路径即为路由名
+**入口识别规则**（`src/sukinos/utils/entryConfig.js`）：入口文件名不是硬编码约定，而是「设置 → 入口约定」里的模式列表，默认 `logicEntries: ['logic.jsx']`、`viewEntry: 'layout.jsx'`、`mainEntry: 'main.jsx'`，支持精确路径与 `*` / `**` / `?` 通配。
 
-| 文件 | 内核识别为 | 路由 |
+- 命中 `logicEntries` 的**第一个**文件是主逻辑入口（状态机），它单独走 `ENV_KEY_LOGIC` / `ENV_KEY_LOGIC_PRECOMPILED`（原文 + Babel 产物），不进内容包
+- 其余命中的文件是辅逻辑入口，留在内容包内，由主逻辑 `import` 取用（只在 worker 侧求值）
+- 命中 `viewEntry` 的文件是视图框架入口，运行时按 `state.router.path` 嵌套路由选页
+
+| 文件 | 识别为 | 路由 |
 |------|-----------|------|
-| `logic.jsx` | Reducer | — |
-| `layout.jsx` | 主布局（接收 `PageComponent`） | — |
+| `logic.jsx` | 主逻辑入口（Reducer） | — |
+| `store/api.js`（命中入口规则时） | 辅逻辑模块 | — |
+| `layout.jsx` | 视图框架（接收 `PageComponent`） | — |
 | `pages/home/index.jsx` | 页面组件 | `home` |
 | `pages/editor/index.jsx` | 页面组件 | `editor` |
+
+**入口只识别一次**：发布时 `buildAppEntries` 把识别结果固化成 `metaInfo.entries = { view, logicMain, logicAux }`
+（模块 key 形式），运行时读的是资源里的 entries，而不是本机的入口约定配置——换设备、换账号安装的应用行为不随
+开发者的本机配置漂移。缺 `entries` 的旧资源回落到 `view: 'layout'`、无逻辑入口。
+
+**内容包 key 口径**：`.jsx/.js` 去后缀保留相对路径（`pages/home/index`），`.css` 保留后缀（`styles/global.css`）；
+全链（发布、预览、worker、路由解析）使用同一口径。
 
 **Bundle 路由机制**：
 - 组件通过 `state.router.path` 获取当前路由
@@ -1361,7 +1411,7 @@ SukinOS 提供三种跨应用通信机制：**State 更新**、**APP 唤起**、
 ├──────────────┼──────────────────┼───────────────────┤
 │ Worker 广播  │ 内核协调启动     │ CommHub 路由      │
 │ RAF 节流     │ 或发送交互消息    │ 进程隔离          │
-│ 状态同步      │ from 溯源        │ TOPIC_MESSAGE 缺口│
+│ 状态同步      │ from 溯源        │ Worker 进 reducer │
 └──────────────┴──────────────────┴───────────────────┘
 ```
 
@@ -1499,8 +1549,7 @@ postMessage({ type: 'UNSUBSCRIBE_TOPIC', topic: 'file:updated' })
 | `SUBSCRIBE_TOPIC` | Worker | CommHub | Worker 注册主题订阅，CommHub 转发到 Worker |
 | `UNSUBSCRIBE_TOPIC` | Worker | CommHub | 取消订阅 |
 
-**已知问题 — TOPIC_MESSAGE 缺口**：
-Worker 的 `onmessage` 路由器目前只处理 `INIT`、`RESTORE`、`UI_ACTION`、`APP_INTERACT` 四种消息类型。`TOPIC_MESSAGE` 类型未在 Worker 端处理，导致 CommHub 转发到 Worker 的主题消息被静默丢弃。这意味着 Worker 端暂无法接收 Pub/Sub 消息，只有 React 端订阅者能正常接收。
+**Worker 侧接收**：CommHub 回推的 `TOPIC_MESSAGE` 由 Worker 消息路由器转成 action `{type: 'TOPIC_MESSAGE', topic, data}` 交给 `dispatch`，因此接收方在 reducer 里判 `action.type === 'TOPIC_MESSAGE'`、按 `action.topic` 分流即可。注意这是广播：同主题的所有订阅者都会收到，发布者自己也在内。
 
 **进程终止时自动清理**：`clearProcessSubscriptions(pid)` 在进程终止时自动移除该进程的所有主题订阅。
 
@@ -1647,9 +1696,9 @@ stateCache (内存) → app.savedState (进程内存) → IndexedDB (持久化)
 4. `saveState: true` = 热启动（保留上次状态）
 5. `saveState: false` = 冷启动（初始状态）
 
-**`clearAppSavedState(pid)`** — 分裂式清理：
-- 重置 `app.savedState.app`（应用状态）
-- 保留 `app.savedState.window`（窗口几何信息）
+**`clearAppSavedState(pid)`** — 全量清除：
+- `app.savedState = null`，业务状态（`app`）与窗口几何信息（`window`）一起清掉
+- 曾经实现过"只清 app 保留 window"的分裂式清理，后续提交已回退
 
 **`forceSaveAllStates()`** — `beforeunload` 时强制保存所有运行中的应用状态。
 
@@ -1935,16 +1984,11 @@ kernel.evokeApp({
     content: file.content || ''
   }
 });
------------------
-    reducer:
-     return { ...state,   router: { path: action. payload } }
-    default:
-      return state
-
-
 ```
 
-### 8.4 编写 Registry
+### 8.8 编写 Registry
+
+> §8.1–§8.7 走的是**用户 APP**（`markdown-notes`）路线；从本节起是同一套教程在**系统 APP** 形态下的差异部分（入口文件、注册方式、部署路径）。
 
 **系统 APP 版本：**
 
@@ -2009,7 +2053,7 @@ export default {
   'metaInfo': {
     version: '1.0.0',
     icon: '/icons/notes.png',
-    appType: 'user',
+    appType: 'tool',        // 从 appTypes（editor/game/tool）里选，也可填自定义值；不要写 'user'，内核无此分支
     worker: true,
     hasShortcut: true,
     blockEd: true,
@@ -2019,7 +2063,7 @@ export default {
 }
 ```
 
-### 8.5 编写 UI 组件
+### 8.9 编写 UI 组件
 
 **layout.jsx — 主布局（带导航侧边栏）：**
 
@@ -2107,7 +2151,7 @@ export default ({ state, dispatch }) => {
 }
 ```
 
-### 8.6 注册与部署
+### 8.10 注册与部署
 
 **系统 APP：**
 
@@ -2121,7 +2165,7 @@ export default ({ state, dispatch }) => {
 2. 通过开发者工具（sys-developer）上传，或通过应用商店发布
 3. 安装后即可在启动器中看到
 
-### 8.7 跨应用交互
+### 8.11 跨应用交互（系统 APP 版）
 
 **接收文件系统打开请求：**
 
@@ -2170,19 +2214,63 @@ useEffect(() => {
 - 应用状态查看
 - 本地开发同步
 
-### 9.2 LocalDev SSE 热更新
+四个右侧面板各是一条独立的发布入口，它们的**校验口径必须一致**，否则同一份代码在某个面板能发、在另一个面板炸：
 
-通过 `sys-localDev` 应用，支持服务端推送热更新：
+| 面板 | 文件 | 发布前分层校验 | 载荷构造 |
+|------|------|----------------|----------|
+| 上传 | `resources/developer/right/upload/layout.jsx` | `assertLayering`（`:94-97`），在 `handleUploadBundle`（`:124`）与单页发布（`:165`）两处调用 | 目录递归收集 `.jsx/.js/.css` → `buildAppEntries(allFiles, entryConfig)` → 主逻辑文件从内容包剔除（`:129`） |
+| 更新 | `resources/developer/right/update/layout.jsx` | `assertLayering`（`:88-91`），文件夹选择（`:302`）、单页（`:334`）、预览确认（`:394`、`:399`）三处调用 | 同上；预览分支直接把 `source.content` / 单页视图字符串喂给校验器 |
+| 开发者中心主面板 | `resources/developer/layout.jsx` | `inspectEntryLayering`（按工作区文件集） | VFS 工作区目录 → 内容包 |
+| 本地开发 | `resources/localDev/layout.jsx` | 同上（SSE/HTTP 同步来的文件集） | 同步载荷 + 入口配置 |
+
+`assertLayering` 只是这两个面板里的**本地小函数**（不是共享工具），职责是把 `inspectEntryLayering` 返回的错误数组转成一次 `throw`：
+
+```javascript
+// upload/layout.jsx:94-97
+const assertLayering = (allFiles, resolved, logicMainCode = '') => {
+  const errors = inspectEntryLayering({ files: allFiles, entries: resolved.entries, logicMainCode });
+  if (errors.length) throw new Error(`分层校验未通过：${formatLayeringErrors(errors)}`);
+};
+```
+
+设计意图：违规一律以抛错形式汇入各面板已有的错误通道（`handleMainAction` 的 catch / 选择文件的错误提示），
+从而**避免半截资源上传**——校验发生在 `kernel.uploadResource(...)` 之前，任何一条错误命中就完全不写 resDb。
+第三个参数 `logicMainCode` 是主逻辑块源码，单独传是因为它不进内容包（校验"主逻辑块不得 export"需要它）。
+
+> 新增发布入口时容易漏这一步：`inspectEntryLayering` 本身只返回数组不抛错，调用方必须自己决定怎么呈现。
+> 两处 `assertLayering` 是复制粘贴的同款实现，改动校验器签名时要同步四处调用点。
+
+### 9.2 LocalDev 热更新链路
+
+方向容易记反：**本地 Vite 插件是生产者**，它监听文件后 POST 通知后端；桌面侧的 `sys-local-dev` 只做消费——
+SSE 帧里不带源码，只带"该刷新了"，源码由桌面端自己取（`folder`/`sse_folder` 走 File System Access 句柄直读，`http` 走 GET 本地中间件）。
 
 ```mermaid
 sequenceDiagram
-    participant Dev as 本地开发环境
-    participant API as SSE 端点
-    participant App as sys-localDev
-    Dev->>API: 上传更新
-    API->>App: SSE 推送 heat_update
-    App->>Kernel: 触发热更新
+    participant Vite as 本地 vite.config.js 插件
+    participant API as FastAPI /api/sukinos/localdev
+    participant App as sys-local-dev（桌面）
+    App->>API: POST /sse/token 换取一次性 sse_token（带登录态）
+    App->>API: new EventSource(/sse?userId&sse_token) 长连接
+    Vite->>API: POST /trigger {userId, dir, timestamp}（文件变更，无需认证）
+    API->>App: SSE 裸 data 帧 {action:'reload', dir, timestamp}
+    App->>App: reload → fetchDebounce → performSync(cfg, versionCheck=true)
+    App->>App: 句柄递归读目录 → buildAppEntries(files, entryCfg) 定入口 → 更新资源
+    Note over App: 热更新：terminate 旧 Worker → generateWorker 重建 → 重编译 View
+    Note over Vite: 插件 protocol=2 时 logic 恒为空串，入口判定全在桌面侧
 ```
+
+细节（`vite.config.js:9,120,259`、`myfastapi_/Api/SukinOS/localDev.py:317-352`、`localDev/layout.jsx:902-961,975-995`）：
+
+- 中间件 `/__sukin_local_sync` 返回 `{status, protocol, files, logic, v, dir}`；`PROTOCOL_VERSION = 2`，`logic` 恒为 `''`（入口判定完全交给桌面侧的 `entryConfig`）。
+- `POST /trigger` 不做用户认证（本地插件调用），但校验 `userId` 存在、系统繁忙时返回 503；SSE 侧发的是裸 `data:` 帧，没有事件名。
+- 桌面侧 `syncMode` 三选一，取文件的方式**不同**（`performSync` 在 `:905` 分叉）：
+  - `http`：轮询 `GET /__sukin_local_sync`，按 `config.pollInterval` 定时；
+  - `folder`：用 File System Access 句柄直读本地目录（`collectFilesRecursively`），按 `folderPollInterval` 轮询；
+  - `sse_folder`：仍是句柄直读，但由 SSE 的 `reload` 事件驱动同步（外加可选健康检查），不靠定时器。
+- 去重（`versionCheck` 为真时）：`folder`/`sse_folder` 比对"全部文件长度之和"，`http` 比对服务端给的 `data.v`；相同则本轮直接 return。
+- 主逻辑来源：folder 模式在桌面侧按 `resolved.logicMainFile` 从文件集里抽出；http 模式若服务端带了 `logic`（`hasServerLogic`）则不再抽文件，辅逻辑整体留在内容包，`entries.logicMain` 在通配模式下留空由 worker 回落到默认 `'logic'`。
+- SSE 断开按 `3000 · 2^(n-1)` 退避重连，最多 5 次。
 
 ### 9.3 Babel 编译管线
 
@@ -2371,5 +2459,3 @@ SUKINOS_STORE_REMOTE_TOTAL = '/sukinos/app/appList'
 > - [03-resources.md](./03-resources.md) — SDK 双权限模型
 > - [04-process-kernel.md](./04-process-kernel.md) — 进程内核详解
 > - [07-app-routing.md](./07-app-routing.md) — 路由与消息处理
-> - [系统APP开发(不含接口)](../../myskill/relf/sukinos系统APP开发(不含接口).md) — 原始开发笔记
-> - [公共APP开发(不含接口)](../../myskill/relf/sukinos公共APP开发(不含接口).md) — 原始开发笔记

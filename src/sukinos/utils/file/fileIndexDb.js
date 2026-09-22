@@ -1,4 +1,5 @@
-import { DB_VFILE, preSystemFileData, preSystemConfigFiles, FileType } from "@/sukinos/utils/config"
+import { DB_VFILE, preSystemFileData, preSystemConfigFiles, FileType, SAMPLE_APP_DIR } from "@/sukinos/utils/config"
+import { SAMPLE_APP_FILES } from "@/sukinos/resources/developer/template"
 import { alert } from "@/component/alert/layout"
 
 class fileIndexDb {
@@ -83,6 +84,67 @@ class fileIndexDb {
   }
 
   /**
+   * 自动挂载内置示例应用
+   * 在根目录下建一个文件夹，根层直接是 layout.jsx / logic.jsx，开发者中心选它一次就能解析入口。
+   * 目录与文件都用固定 id，因此只补建缺失项，用户改过的示例文件不会被覆盖。
+   */
+  async #initSampleAppFiles() {
+    try {
+      if (!(await this.readInode(SAMPLE_APP_DIR.id))) {
+        await this.#createDirInode(SAMPLE_APP_DIR.id, 'root', SAMPLE_APP_DIR.name)
+        console.log(`[VFS] 已创建示例应用目录: ${SAMPLE_APP_DIR.name}`)
+      }
+    } catch (err) {
+      console.error(`[VFS] 创建示例应用目录失败 (${SAMPLE_APP_DIR.name}):`, err)
+      return
+    }
+
+    for (const file of SAMPLE_APP_FILES) {
+      try {
+        // 逐级补建子目录，id 前缀带上示例根，避免与其他同名目录串味
+        let parentId = SAMPLE_APP_DIR.id
+        for (const segment of file.dirs) {
+          const dirId = `${parentId}/${segment}`
+          if (!(await this.readInode(dirId))) await this.#createDirInode(dirId, parentId, segment)
+          parentId = dirId
+        }
+
+        if (await this.readInode(file.id)) continue
+        await this.writeInode({
+          id: file.id,
+          parentId,
+          name: file.name,
+          type: FileType.FILE,
+          size: file.content.length,
+          content: file.content,
+          ctime: Date.now(),
+          mtime: Date.now()
+        })
+      } catch (err) {
+        // 单条失败（例如与用户自建条目撞 (parentId,name) 唯一索引）只影响自己
+        console.error(`[VFS] 挂载示例文件失败 (${file.id}):`, err)
+      }
+    }
+    console.log(`[VFS] 内置示例应用已挂载: ${SAMPLE_APP_FILES.length} 个文件`)
+  }
+
+  /**
+   * 辅助：写一个目录 inode
+   */
+  async #createDirInode(id, parentId, name) {
+    await this.writeInode({
+      id,
+      parentId,
+      name,
+      type: FileType.DIRECTORY,
+      size: 0,
+      content: null,
+      ctime: Date.now(),
+      mtime: Date.now()
+    })
+  }
+
+  /**
    * 挂载虚拟磁盘
    * 会根据 DB_VFILE 自动校验并创建 ObjectStore 和索引
    */
@@ -128,6 +190,8 @@ class fileIndexDb {
         await this.#initSystemResources();
         // ---初始化系统预设配置文件 ---
         await this.#initSystemConfigFiles();
+        // ---挂载内置示例应用 ---
+        await this.#initSampleAppFiles();
 
         resolve(true)
       }

@@ -1,41 +1,46 @@
 sequenceDiagram
     participant AppA as APP A (Worker)
     participant AppB as APP B (Worker)
+    participant Kernel as 内核 (Lifecycle / Messaging)
     participant CommHub as CommHub
     participant KernelUI as UI (React)
     participant OtherApp as Other APP
 
     %% STATE_UPDATE: Worker -> UI
-    AppA->>CommHub: STATE_UPDATE {state}
+    Note over AppA,CommHub: 仅 NoWorker/虚拟沙箱路径下 STATE_UPDATE 先经 requestAnimationFrame 帧对齐节流<br/>（lifecycle.js:58-71 的 sandboxSelf.postMessage）；真实 Worker 直接 onmessage
+    AppA->>CommHub: handleMsg(pid, {type:'STATE_UPDATE', payload:state})
     CommHub->>CommHub: stateCache.set(pid, state)
     CommHub->>KernelUI: notify(subscribers, {type:'STATE', payload:state})
-    Note over AppA,KernelUI: RAF 节流: 每帧合并多次更新
 
     %% UI_ACTION: UI -> Worker
-    KernelUI->>CommHub: dispatch(pid, action)
-    CommHub->>CommHub: action.type === 'KERNEL_CALL'?
+    KernelUI->>Kernel: dispatch(pid, action)
+    Kernel->>Kernel: action.type === 'KERNEL_CALL' && payload?
     alt KERNEL_CALL
-        CommHub->>CommHub: systemSwitch / notSystemSwitch
+        Kernel->>Kernel: 系统应用 → systemSwitch / 非系统 → notSystemSwitch
     else UI_ACTION
-        CommHub->>AppA: postMessage({type:'UI_ACTION', payload:action})
+        Kernel->>AppA: postMessage({type:'UI_ACTION', payload:action})
     end
 
     %% evokeApp: 跨应用唤起
-    AppB->>CommHub: kernel.evokeApp({pid, from, interactInfo})
-    alt APP 已运行
-        CommHub->>AppA: APP_INTERACT {from, interactInfo}
-    else APP 未运行
-        CommHub->>CommHub: startProcess({pid, interactInfo})
-        CommHub->>AppA: INIT / RESTORE {interactInfo}
+    AppB->>Kernel: kernel.evokeApp({pid, from, interactInfo})
+    Kernel->>Kernel: newInteractInfo = {...interactInfo, from}
+    alt APP 已运行（含 RUNNING / HIBERNATED 唤醒）
+        Kernel->>AppA: postMessage({type:'APP_INTERACT', payload:newInteractInfo})
+    else APP 未运行（冷启动）
+        Kernel->>Kernel: startProcess({pid, interactInfo:newInteractInfo})
+        Kernel->>AppA: postMessage({type:'RESTORE'|'INIT', payload:保存的 state})
+        Note over Kernel,AppA: interactInfo 不搭 INIT/RESTORE 的车：<br/>建好进程后另发一条 APP_INTERACT（lifecycle.js:504-506）
+        Kernel->>AppA: postMessage({type:'APP_INTERACT', payload:newInteractInfo})
     end
 
     %% Pub/Sub 主题消息
-    AppB->>CommHub: PUBLISH_TOPIC {topic, payload}
-    CommHub->>CommHub: topicSubscribers.get(topic)
-    CommHub->>OtherApp: notify(callback, payload)
-    CommHub->>AppA: sendToWorker(TOPIC_MESSAGE) [GAP: Worker 未处理]
+    AppB->>CommHub: postMessage({type:'PUBLISH_TOPIC', payload:{topic, data}})
+    CommHub->>CommHub: publish(topic, data) → topicSubscribers.get(topic)
+    CommHub->>OtherApp: 主机端订阅回调（UI 侧 callback(data)）
+    CommHub->>AppA: sendToWorker({type:'TOPIC_MESSAGE', payload:{topic, data}})
+    AppA->>AppA: dispatch({type:'TOPIC_MESSAGE', topic, data})
 
     %% InteractiveAwakening 中间件
     AppB->>KernelUI: InteractiveAwakening {visible, type, interactInfo}
     KernelUI->>KernelUI: 用户选择目标 APP
-    KernelUI->>CommHub: evokeApp({pid: 选择结果, from, interactInfo})
+    KernelUI->>Kernel: evokeApp({pid: 选择结果, from, interactInfo})

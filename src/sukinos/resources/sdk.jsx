@@ -41,8 +41,9 @@ export const devAppSdk = {
     ...AllComponent
   },
   kernel: {
-    evokeApp: _kernel.evokeApp,
-    getTypeApps:_kernel.getTypeApps,
+    // 这两个方法内部要用 this 取 lifecycle/registry，从对象字面量抄引用会脱绑，调用即 TypeError
+    evokeApp: _kernel.evokeApp.bind(_kernel),
+    getTypeApps: _kernel.getTypeApps.bind(_kernel),
   },
   hooks: {
       useFileSystem:hooks.useFileSystem
@@ -74,14 +75,25 @@ export const adminAppSdk = {
 };
 
 // --- SDK 工厂函数 ---
+
+// 预览/无窗口外壳环境的窗口控制兜底：同步调用绝不抛错，给可诊断日志
+const noopWindowControls = {
+  close: () => console.warn('[AppSDK] window.close() 不可用：当前环境无窗口外壳'),
+  hibernate: () => console.warn('[AppSDK] window.hibernate() 不可用：当前环境无窗口外壳'),
+  toggleMaximize: () => console.warn('[AppSDK] window.toggleMaximize() 不可用：当前环境无窗口外壳'),
+  setRect: () => console.warn('[AppSDK] window.setRect() 不可用：当前环境无窗口外壳'),
+  getRect: () => null,
+};
+
 /**
  * 动态创建并返回一个为特定进程实例定制的、完全隔离和安全的 SDK。
  * @param {function} dispatch - 用于与主应用状态通信的 dispatch 函数
  * @param {string} pid - 当前应用的进程 ID
  * @param {boolean} isSystemApp - 标记是否为高权限的系统应用
+ * @param {object} [windowControls] - 宿主窗口外壳注入的窗口控制 API（close/hibernate/toggleMaximize/setRect/getRect），无窗口外壳时使用 no-op 兜底
  * @returns {object} 一个完全配置好并深度冻结的 SDK 对象
  */
-export const createSdkForInstance = (dispatch, pid, isSystemApp) => {
+export const createSdkForInstance = (dispatch, pid, isSystemApp, windowControls) => {
   const privateScope = (() => {
     // 调用安全模块的高阶拦截器，保证此处 fetch 也能注入 pid
     const secureFetch = createSecureFetch(window.fetch, pid);
@@ -91,7 +103,9 @@ export const createSdkForInstance = (dispatch, pid, isSystemApp) => {
       fetch: secureFetch,
       // 纯粹的路由分发逻辑
       navigate: (path) => dispatch({ type: 'NAVIGATE', payload: path }),
-      pid
+      pid,
+      // 窗口控制 API：hideHeader 等场景下由 APP 自行实现窗口操作
+      window: windowControls || noopWindowControls,
     };
   })();
 

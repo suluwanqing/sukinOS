@@ -308,14 +308,20 @@ const { state, navigation, operation } = useFileSystem('virtual', { pid: 'app-xx
 
 | 方法 | 说明 |
 |------|------|
-| `handleCreate({type})` | 创建文件或文件夹 → `fs.mkdir` / `fs.writeFile` |
+| `handleReadDir(dirId)` | 只读列目录、不触发广播；virtual 走 `fs.readdir`，local 遍历句柄 `values()` 并逐个 `transformLocalHandle`。供递归遍历使用（`useFileSystem.jsx:322-331`） |
+| `handleEnsureDir({parentId, name})` | 确保目录存在：virtual 先查同名目录项、没有才 `fs.mkdir`；local 用 `getDirectoryHandle(name, {create:true})`。失败返回 `null`（`:333-347`） |
+| `handleCreate({type})` | 创建文件或文件夹 → `fs.mkdir` / `fs.writeFile`；同名时读底层 readdir 分配表做"无后缀自增"（`新建文件.jsx` → `新建文件1.jsx`），规避重名崩溃 |
 | `handleRename({id, name, newName, parentId, type})` | 重命名，local 模式优先使用 `move` API，不支持时降级为读-写-删 |
+| `handleMove({id, name, parentId, targetParentId, type})` | 跨层级移动：virtual 直接 `fs.move(id, targetParentId)`；local 优先 `handle.move(destHandle)`，不支持时文件走复制+删、目录抛"当前浏览器不支持移动文件夹"，并清理 `globalFileIdMap`/`globalHandleRegistry` 旧映射。同父目录直接返回 `true`（`:409-440`） |
 | `handleDelete({id, name, parentId})` | 删除文件/文件夹 |
 | `handleOpenFile(item)` | 读取文件内容 |
-| `handleSave({id, content, parentId, name})` | 保存文件内容 |
+| `handleExportFile(item)` | 导出单个文件（读内容后触发下载）；目录直接 `alert.warning("不支持导出文件夹")` 并返回 `false`（`:465+`） |
+| `handleSave({id, content, parentId, name})` | 保存文件内容（广播类别 `save`） |
 | `handleUploadFiles(files)` | 上传文件（仅 virtual 模式），通过 `dataToBase64Mapper` 转换 |
 | `handleClearFiles(suffix)` | 递归删除匹配后缀的文件（受 pid 隔离） |
 | `handleSearchBySuffix(suffix)` | 递归搜索匹配后缀的文件（受 pid 隔离） |
+
+> 除 `handleReadDir`、`handleOpenFile`、`handleExportFile`、`handleSearchBySuffix` 外，写操作都经 `wrapNotify('structure' | 'save', …)` 包装，成功后向 `listeners` 广播，供多个文件视图实例互相刷新。
 
 **iframe 兼容**:
 - 提供 `extractSafeBuffer()` 解决 iframe/沙箱环境下 `file instanceof File` 为 false 的问题
@@ -326,9 +332,13 @@ const { state, navigation, operation } = useFileSystem('virtual', { pid: 'app-xx
 {
   state: { currentId, items, history, breadcrumbs, isReady, handleRegistry },
   navigation: { loadDir, handleBack, handleRefresh },
-  operation: { handleCreate, handleRename, handleDelete, handleOpenFile, handleSave, handleUploadFiles, handleClearFiles, handleSearchBySuffix }
+  operation   // 直接复用内部 useMemo 出来的对象，共 12 个方法
 }
 ```
+
+`operation` 的键按源码顺序：`handleReadDir`、`handleEnsureDir`、`handleCreate`、`handleRename`、`handleMove`、`handleDelete`、`handleOpenFile`、`handleExportFile`、`handleSave`、`handleUploadFiles`、`handleClearFiles`、`handleSearchBySuffix`。
+
+同文件还导出 `useSystemFileSystem(mode)`：系统级入口，不做 pid 前缀隔离、不校验 pid；`useFileSystem(mode, options)` 则强制要求 `options.pid`，缺失直接 `throw`（`useFileSystem.jsx:702-713`）。
 
 ---
 
@@ -626,15 +636,17 @@ const store = {
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `winSize` | `{x,y,w,h}` | — | 窗口初始位置和尺寸 |
+| `winSize` | `{x,y,w,h}` | — | 窗口初始位置和尺寸（内部改名 `initialState`） |
 | `allowResize` | `boolean` | `true` | 是否允许缩放 |
 | `SAFE_DRAG_AREA` | `number` | `40` | 安全拖拽区域阈值，防止窗口拖出屏幕 |
-| `isIframeMode` | `boolean` | `false` | 物理沙箱（iframe）模式 |
+| `isIframeMode` | `boolean` | `false` | 物理沙箱（iframe）模式；同时决定 `THROTTLE_MS`（`true`→8ms 约 125fps，`false`→0 不节流，`:23`） |
+| `onDragEnd` | `function` | `undefined` | 一次拖拽/缩放/编程式改位结束后的落盘回调，参数为最终矩形 `{x,y,w,h}`；ProcessWindow 用它写 `kernel.updateWindowRect` |
 
 **性能优化 — 全 Ref 架构**:
-- 完全弃用 `useState`，所有状态存储在 `useRef` 中
+- 完全弃用 `useState`，所有状态存储在 `useRef` 中（`rectRef`/`actionType`/`startPos`/`startRect`/`beforeMaximizeRect`）
 - DOM 更新直接操作 `element.style`，不触发 React 重渲染
 - 避免高频拖拽/缩放时的性能瓶颈
+- `handleMouseMove` / `handleMouseUp` 各自存一份 ref，卸载清理 effect 不依赖它们的身份，避免依赖数组变化导致重复注册（`:25-28`）
 
 **iframe 模式优化**:
 - `requestAnimationFrame` 节流（8ms，约 125fps）
@@ -648,14 +660,19 @@ const store = {
 |------|------|
 | `handleMouseDown(e, type)` | 处理鼠标按下事件，type 可选值: `drag`/`e`/`w`/`s`/`n`/`se`/`sw`/`ne`/`nw` |
 | `setMaximized(isMaximizing)` | 最大化/还原切换，保存恢复前的矩形 |
-| `getCurrentRect()` | 获取当前窗口矩形 `{x, y, w, h}` |
+| `setRect(partialRect = {})` | 编程式改位（供 `AppSDK.API.window.setRect` 使用，`:358-389`）：允许只传部分字段，非法值回退当前矩形；`MIN_WIDTH/MIN_HEIGHT` 与 `SAFE_DRAG_AREA` 同样 clamp；先清掉拖拽残留的 `transform` 增量与 `data-real-left/top`，再直写 `left/top/width/height`；最后复用 `onDragEnd?.(next)` 落盘 |
+| `getCurrentRect()` | 获取当前窗口矩形 `{x, y, w, h}`（返回浅拷贝） |
 | `getIsDragging()` | 查询是否正在拖拽中 |
 
-**返回值**:
+**返回值**（`:394-401`，共 6 个成员）:
 
 ```js
-{ windowElRef, handleMouseDown, setMaximized, getCurrentRect, getIsDragging }
+{ windowElRef, handleMouseDown, setMaximized, setRect, getCurrentRect, getIsDragging }
 ```
+
+> ProcessWindow 只解构了 `windowElRef, handleMouseDown, setMaximized, setRect, getCurrentRect` 五个（`deskBook/window/layout.jsx:91`），`getIsDragging` 目前无人使用。
+>
+> 另外该调用点写的是 `allowResize: resource?.[ENV_KEY_META_INFO]?.custom?.allowResize || true`（`:93`）——`|| true` 让任何 falsy 值都回落到 `true`，所以"禁止缩放"的 custom 配置在这条链路上**当前不生效**；若要启用需改成 `?? true`。
 
 ---
 
@@ -779,7 +796,7 @@ graph TB
         useWindowInteraction["useWindowInteraction ⭐<br/>窗口交互"]
         useDebounce["useDebounce<br/>防抖"]
         useThrottle["useThrottle<br/>节流"]
-        useWheelToHorizontal["useWheelToHorizontal<br/>滚轮转水平"]
+        useWheelToHorizontalScroll["useWheelToHorizontal<br/>Scroll 滚轮转水平"]
         userWindowForKernel["userWindowForKernel<br/>预留"]
     end
 
@@ -831,7 +848,7 @@ graph LR
     useWindowInteraction -->|无依赖| Browser
     useDebounce -->|无依赖| React
     useThrottle -->|无依赖| React
-    useWheelToHorizontal -->|无依赖| React
+    useWheelToHorizontalScroll -->|无依赖| React
     userWindowForKernel -->|依赖| Kernel
 ```
 

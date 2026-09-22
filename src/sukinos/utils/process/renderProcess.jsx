@@ -1,6 +1,8 @@
 import React, { useState, useEffect, memo, useRef, useCallback, useMemo, useLayoutEffect } from 'react';
 import { compileSourceAsync, scopeCss, createCssModule } from '@/sukinos/utils/process/renderWindow';
-import { resolveModuleKey } from '@/sukinos/utils/process/sourceMapper';
+import {
+  resolveModuleKey, compileSource, toModuleSources, buildLogicModuleGraph
+} from '@/sukinos/utils/process/sourceMapper';
 import { createSdkForInstance } from '@/sukinos/resources/sdk';
 
 import { generateWorker } from './generateWorker';
@@ -9,7 +11,9 @@ import {
   ENV_KEY_NAME,
   ENV_KEY_IS_BUNDLE,
   ENV_KEY_LOGIC,
+  ENV_KEY_LOGIC_PRECOMPILED,
   ENV_KEY_CONTENT,
+  ENV_KEY_CONTENT_PRECOMPILED,
   ENV_KEY_META_INFO
 } from '@/sukinos/utils/config';
 import { clearSandboxStorageByPid } from '@/sukinos/utils/security'
@@ -237,6 +241,8 @@ const isComponent = (v) =>
  * @returns {{ component: any, error: string|null }}
  */
 const resolveComponent = (exports) => {
+  // module.exports = 组件本体（手写 CommonJS 入口）同样是合法导出
+  if (isComponent(exports)) return { component: exports, error: null };
   if (exports.default !== undefined) {
     if (isComponent(exports.default)) return { component: exports.default, error: null };
     return { component: null, error: '入口模块的 default 导出必须是 React 组件' };
@@ -258,7 +264,9 @@ class PreviewErrorBoundary extends React.Component {
       hasError: false,
       error: null,
       // 保存 React 组件树调用栈，便于在 UI 中展示
-      componentStack: null
+      componentStack: null,
+      // 复制错误信息反馈
+      copied: false
     };
   }
 
@@ -272,6 +280,33 @@ class PreviewErrorBoundary extends React.Component {
     this.setState({ componentStack: info?.componentStack || null });
     console.error('[PreviewErrorBoundary]', error, info);
   }
+
+  // 复制结构化错误信息到剪贴板
+  handleCopyError = () => {
+    const { error, componentStack } = this.state;
+    const errorDetail = error?.errorDetail || {
+      phase: 'runtime',
+      message: error?.message || String(error || '未知运行时错误'),
+      stack: error?.stack || '',
+      loc: '',
+    };
+    const text = [
+      `[预览应用错误]`,
+      `阶段: ${errorDetail.phase || 'runtime'}`,
+      `位置: ${errorDetail.loc || '未知'}`,
+      `消息: ${errorDetail.message}`,
+      '',
+      '--- 调用栈 ---',
+      errorDetail.stack || '无',
+      componentStack ? `\n--- React 组件树 ---\n${componentStack}` : '',
+    ].join('\n');
+    try {
+      navigator.clipboard?.writeText(text).then(() => {
+        this.setState({ copied: true });
+        setTimeout(() => this.setState({ copied: false }), 2000);
+      }).catch(() => {});
+    } catch (e) {}
+  };
 
   render() {
     if (this.state.hasError) {
@@ -298,12 +333,20 @@ class PreviewErrorBoundary extends React.Component {
             title="运行时崩溃"
           />
 
-          <button
-            style={{ marginTop: '8px', padding: '4px 12px', cursor: 'pointer', backgroundColor: '#fff', border: '1px solid #d9d9d9', borderRadius: '2px' }}
-            onClick={() => this.setState({ hasError: false, error: null, componentStack: null })}
-          >
-            RECOVER
-          </button>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+            <button
+              style={{ padding: '4px 12px', cursor: 'pointer', backgroundColor: '#fff', border: '1px solid #d9d9d9', borderRadius: '2px' }}
+              onClick={() => this.setState({ hasError: false, error: null, componentStack: null })}
+            >
+              RECOVER
+            </button>
+            <button
+              style={{ padding: '4px 12px', cursor: 'pointer', backgroundColor: '#fff', border: '1px solid #d9d9d9', borderRadius: '2px' }}
+              onClick={this.handleCopyError}
+            >
+              {this.state.copied ? '✓ 已复制' : '复制错误信息'}
+            </button>
+          </div>
         </div>
       );
     }
@@ -323,6 +366,7 @@ class PreviewErrorBoundary extends React.Component {
 const RenderProcess = ({
   localFiles,
   localLogicCode,
+  localEntries,
   previewId,
   onStateChange,
   onLogAction,
@@ -386,44 +430,110 @@ const RenderProcess = ({
     instanceSDK.API.navigate(path);
   }, [instanceSDK]);
 
+  // 视图入口由资源固化的 entries 决定，缺省回落到历史 layout 约定
+  const viewEntryKey = localEntries?.view || 'layout';
+  const auxLogicKeys = useMemo(
+    () => (Array.isArray(localEntries?.logicAux) ? localEntries.logicAux : []),
+    [localEntries]
+  );
+  const logicMainKey = localEntries?.logicMain || null;
+
   // 提取 isBundle 的判定，避免完整的 localFiles 对象触发 Worker 异常销毁
   const isBundle = useMemo(() => {
-    return !!(localFiles && (localFiles['layout.jsx'] || localFiles['layout.js']));
-  }, [localFiles]);
+    if (!localFiles) return false;
+    return Object.keys(localFiles).some(k =>
+      k === `${viewEntryKey}.jsx` || k === `${viewEntryKey}.js` || k === viewEntryKey
+    );
+  }, [localFiles, viewEntryKey]);
+
+  // 交给 worker 的逻辑模块图：与生产同源（主逻辑 require 的目标同样入图），
+  // 只在逻辑相关文件变化时重建，编辑页面不打断预览状态
+  const logicModules = useMemo(
+    () => buildLogicModuleGraph(
+      toModuleSources(localFiles),
+      { logicMain: logicMainKey, logicAux: auxLogicKeys },
+      localLogicCode || ''
+    ),
+    [localFiles, logicMainKey, auxLogicKeys, localLogicCode]
+  );
+  const logicModulesRef = useRef(logicModules);
+  logicModulesRef.current = logicModules;
+  const logicModulesKey = useMemo(
+    () => JSON.stringify([viewEntryKey, logicMainKey, auxLogicKeys, logicModules]),
+    [viewEntryKey, logicMainKey, auxLogicKeys, logicModules]
+  );
 
   // --- 驱动 Logic 运行 (Worker 状态机) ---
   useEffect(() => {
-    if (!localLogicCode) return;
-    if (workerRef.current) workerRef.current.terminate();
+    let cancelled = false;
+    let worker = null;
+    let url = null;
 
-    // 兼容 generateWorker 的参数结构，保证预览环境 Worker 逻辑与生产 100% 对齐
-    const workerArgs = {
-      [ENV_KEY_RESOURCE_ID]: finalPid,
-      [ENV_KEY_NAME]: 'Preview-App',
-      [ENV_KEY_IS_BUNDLE]: isBundle,
-      [ENV_KEY_LOGIC]: localLogicCode,
-      [ENV_KEY_CONTENT]: {}, // 预览无需原始资源
-      [ENV_KEY_META_INFO]: { isPreview: true }
-    };
-
-    const code = generateWorker(workerArgs);
-    const blob = new Blob([code], { type: 'application/javascript' });
-    const url = URL.createObjectURL(blob);
-    const w = new Worker(url, { name: `Preview-${finalPid}` });
-
-    w.onmessage = (e) => {
-      // 这里的 STATE_UPDATE 是 generateWorker 内部 broadcast 函数发送的
-      if (e.data.type === 'STATE_UPDATE') {
-        setPreviewState(e.data.payload);
-        // 直接调用稳定且安全的代理函数
-        handleStateChange(e.data.payload);
+    const boot = async () => {
+      // 与生产对齐：辅逻辑模块先编译成 CJS 产物，worker 侧模块运行时按 require 取用
+      const logicContent = {};
+      const logicPrecompiled = {};
+      for (const [key, code] of Object.entries(logicModulesRef.current)) {
+        logicContent[key] = code;
+        try {
+          logicPrecompiled[key] = await compileSource(code, { filename: `${key}.jsx` });
+        } catch (e) {
+          console.warn(`[预览] 逻辑模块 ${key} 编译失败，worker 侧 require 将不可用:`, e?.message);
+        }
       }
-    };
-    w.postMessage({ type: 'INIT' });
-    workerRef.current = w;
+      // 主逻辑块同样预编译（安装期由 precompileResourceContent 做同样的事），
+      // 这样 `import { x } from './store/y'` 在预览里就能用；失败只降级成原文注入
+      let logicPrecompiledMain = null;
+      if (localLogicCode) {
+        try {
+          logicPrecompiledMain = await compileSource(localLogicCode, { filename: `${logicMainKey || 'logic'}.jsx` });
+        } catch (e) {
+          console.warn('[预览] 主逻辑块编译失败，回退为原文注入:', e?.message);
+        }
+      }
+      if (cancelled) return;
 
-    return () => { w.terminate(); URL.revokeObjectURL(url); };
-  }, [localLogicCode, finalPid, isBundle, handleStateChange]);
+      if (workerRef.current) workerRef.current.terminate();
+
+      // 兼容 generateWorker 的参数结构，保证预览环境 Worker 逻辑与生产 100% 对齐
+      const workerArgs = {
+        [ENV_KEY_RESOURCE_ID]: finalPid,
+        [ENV_KEY_NAME]: 'Preview-App',
+        [ENV_KEY_IS_BUNDLE]: isBundle,
+        [ENV_KEY_LOGIC]: localLogicCode || null, // 无 logic 时由 generateWorker 内部兜底
+        [ENV_KEY_LOGIC_PRECOMPILED]: logicPrecompiledMain,
+        [ENV_KEY_CONTENT]: logicContent, // 只给逻辑模块，页面资源预览无需
+        [ENV_KEY_CONTENT_PRECOMPILED]: logicPrecompiled,
+        [ENV_KEY_META_INFO]: {
+          isPreview: true,
+          entries: { view: viewEntryKey, logicMain: logicMainKey, logicAux: auxLogicKeys }
+        }
+      };
+
+      const code = generateWorker(workerArgs);
+      const blob = new Blob([code], { type: 'application/javascript' });
+      url = URL.createObjectURL(blob);
+      worker = new Worker(url, { name: `Preview-${finalPid}` });
+
+      worker.onmessage = (e) => {
+        // 这里的 STATE_UPDATE 是 generateWorker 内部 broadcast 函数发送的
+        if (e.data.type === 'STATE_UPDATE') {
+          setPreviewState(e.data.payload);
+          // 直接调用稳定且安全的代理函数
+          handleStateChange(e.data.payload);
+        }
+      };
+      worker.postMessage({ type: 'INIT' });
+      workerRef.current = worker;
+    };
+    boot();
+
+    return () => {
+      cancelled = true;
+      worker?.terminate();
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [localLogicCode, finalPid, isBundle, logicModulesKey, viewEntryKey, logicMainKey, handleStateChange]);
 
   // --- 执行 View 编译 (源代码 -> React组件) ---
   useEffect(() => {
@@ -475,62 +585,70 @@ const RenderProcess = ({
 
         // 第二阶段：执行所有模块，构建 resultMap
         for (const moduleKey of moduleKeys) {
+          // 辅逻辑模块由 worker 侧模块运行时求值，UI 侧只编译不执行，避免副作用跑两遍
+          if (auxLogicKeys.includes(moduleKey)) continue;
           const mod = moduleRegistry[moduleKey];
-          const exports = {};
-          try {
-            // 使用幽灵沙箱环境执行工厂函数，注入 SDK 与完整模块上下文
-            mod.factory.call(sandboxWin, { exports }, exports, instanceSDK, moduleRegistry, moduleKey, moduleKeys);
-            mod.exports = exports;
-
-            // 入口模块（main/layout）严格校验导出为 React 组件，避免非组件被静默渲染导致 React 报错
-            const isEntry = moduleKey === 'main' || moduleKey === 'layout';
-            if (isEntry) {
-              const { component, error } = resolveComponent(exports);
-              if (error) {
-                const detail = {
-                  phase: 'validate',
-                  message: error,
-                  stack: error,
-                  loc: ''
-                };
-                errorList.push({ key: moduleKey, errorDetail: detail });
-                handleCompileError(`[${moduleKey}] ${error}`);
-                resultMap[moduleKey] = {
-                  Component: () => (
-                    <ErrorDetailPanel
-                      errorDetail={detail}
-                      title={`入口模块导出校验失败 [${moduleKey}]`}
-                      moduleKey={moduleKey}
-                    />
-                  ),
-                  style: exports.style || ''
-                };
-              } else {
-                resultMap[moduleKey] = { Component: component, style: exports.style || '' };
-              }
-            } else {
-              resultMap[moduleKey] = { Component: exports.default || exports, style: exports.style || '' };
+          // 嵌套 require 可能已经把这个模块求值完了（循环依赖里它是别人的一环），复用缓存而不是再跑一次副作用
+          if (!mod.executed) {
+            const exports = (mod.exports = {});
+            try {
+              // 使用幽灵沙箱环境执行工厂函数，注入 SDK 与完整模块上下文
+              // module 实参用注册表里的 mod 本体，module.exports = xxx 才写得进去（与 worker 侧同语义）
+              mod.factory.call(sandboxWin, mod, exports, instanceSDK, moduleRegistry, moduleKey, moduleKeys);
+              mod.executed = true;
+            } catch (evalError) {
+              mod.exports = null; // 求值失败不留半成品，下一次执行重来
+              // factory 执行阶段（初始化运行时）异常
+              const detail = {
+                phase: 'runtime',
+                message: evalError.message,
+                stack: evalError.stack || evalError.message,
+                loc: ''
+              };
+              errorList.push({ key: moduleKey, errorDetail: detail });
+              handleCompileError(`[${moduleKey}] 运行时异常：${detail.message}`);
+              resultMap[moduleKey] = {
+                Component: () => (
+                  <ErrorDetailPanel
+                    errorDetail={detail}
+                    title={`初始化运行时异常 [${moduleKey}]`}
+                    moduleKey={moduleKey}
+                  />
+                ),
+                style: ''
+              };
+              continue;
             }
-          } catch (evalError) {
-            // factory 执行阶段（初始化运行时）异常
-            const detail = {
-              phase: 'runtime',
-              message: evalError.message,
-              stack: evalError.stack || evalError.message,
-              loc: ''
-            };
-            errorList.push({ key: moduleKey, errorDetail: detail });
-            handleCompileError(`[${moduleKey}] 运行时异常：${detail.message}`);
-            resultMap[moduleKey] = {
-              Component: () => (
-                <ErrorDetailPanel
-                  errorDetail={detail}
-                  title={`初始化运行时异常 [${moduleKey}]`}
-                  moduleKey={moduleKey}
-                />
-              ),
-              style: ''
-            };
+          }
+          const exports = mod.exports || {};
+          // 入口模块（内容入口 / 视图入口）严格校验导出为 React 组件，避免非组件被静默渲染导致 React 报错
+          const isEntry = moduleKey === 'main' || moduleKey === viewEntryKey;
+          if (isEntry) {
+            const { component, error } = resolveComponent(exports);
+            if (error) {
+              const detail = {
+                phase: 'validate',
+                message: error,
+                stack: error,
+                loc: ''
+              };
+              errorList.push({ key: moduleKey, errorDetail: detail });
+              handleCompileError(`[${moduleKey}] ${error}`);
+              resultMap[moduleKey] = {
+                Component: () => (
+                  <ErrorDetailPanel
+                    errorDetail={detail}
+                    title={`入口模块导出校验失败 [${moduleKey}]`}
+                    moduleKey={moduleKey}
+                  />
+                ),
+                style: exports.style || ''
+              };
+            } else {
+              resultMap[moduleKey] = { Component: component, style: exports.style || '' };
+            }
+          } else {
+            resultMap[moduleKey] = { Component: exports.default || exports, style: exports.style || '' };
           }
         }
 
@@ -548,7 +666,7 @@ const RenderProcess = ({
     return () => {
       if (compileDbRef.current) clearTimeout(compileDbRef.current);
     };
-  }, [localFiles, instanceSDK, finalPid, handleCompileStart, handleCompileEnd, handleCompileError]);
+  }, [localFiles, instanceSDK, finalPid, auxLogicKeys, viewEntryKey, handleCompileStart, handleCompileEnd, handleCompileError]);
 
   // 声明式生成 CSS 字符串。
   // 放弃原生 document.getElementById()，直接在下方用 <style> 标签渲染，
@@ -565,8 +683,8 @@ const RenderProcess = ({
   const { RootComponent, ChildComponent } = useMemo(() => {
     if (!modules) return { RootComponent: null, ChildComponent: null };
 
-    // 对齐 DynamicRenderer 行为，依据是否存在 layout 区分单文件/多文件模式
-    const hasLayout = !!modules['layout'];
+    // 对齐 DynamicRenderer 行为，依据是否存在视图入口区分单文件/多文件模式
+    const hasLayout = !!modules[viewEntryKey];
 
     if (!hasLayout) {
       // 单文件模式处理逻辑
@@ -574,7 +692,7 @@ const RenderProcess = ({
       if (!Main) return {
         RootComponent: () => (
           <div style={{ padding: '20px', color: '#faad14', textAlign: 'center', fontSize: '14px' }}>
-             layout.jsx 组件丢失!
+             {viewEntryKey} 组件丢失!
           </div>
         ),
         ChildComponent: null,
@@ -582,9 +700,9 @@ const RenderProcess = ({
       // 避免单文件模式下 PageComponent 去渲染引发 404
       return { RootComponent: Main, ChildComponent: () => <div /> };
     } else {
-      // 多文件(Bundle)模式：存在 layout，按布局+路由模式处理
+      // 多文件(Bundle)模式：存在视图入口，按布局+路由模式处理
       // 寻找布局组件
-      const Layout = modules['layout'].Component;
+      const Layout = modules[viewEntryKey].Component;
 
       // 寻找当前路由对应的页面（嵌套路由解析，与 deskBook 对齐）
       const pageKey = resolveModuleKey(currentPath, Object.keys(modules));
@@ -596,7 +714,7 @@ const RenderProcess = ({
 
       return { RootComponent: Layout, ChildComponent: Page };
     }
-  }, [modules, currentPath]);
+  }, [modules, currentPath, viewEntryKey]);
 
   // 准备传递给组件的 CommonProps
   const commonProps = useMemo(() => ({
@@ -639,5 +757,6 @@ const RenderProcess = ({
 export default memo(RenderProcess, (prevProps, nextProps) => {
   return prevProps.previewId === nextProps.previewId &&
          prevProps.localLogicCode === nextProps.localLogicCode &&
-         prevProps.localFiles === nextProps.localFiles;
+         prevProps.localFiles === nextProps.localFiles &&
+         prevProps.localEntries === nextProps.localEntries;
 });

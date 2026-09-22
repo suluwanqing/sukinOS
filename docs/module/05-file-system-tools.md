@@ -49,23 +49,24 @@ VFS 采用 **内核-驱动** 两层架构：`fileKernel` 作为内存中的内�
 
 | 方法 | 签名 | 说明 |
 |------|------|------|
-| `boot()` | `() => Promise<boolean>` | 挂载驱动 → 加载全量节点 → 构建内存索引 → 格式化磁盘(若为空) |
-| `readdir()` | `(id: string) => Inode[]` | 列出目录内容，文件夹优先、按名称字母序排序 |
+| `boot()` | `() => Promise<boolean>` | `driver.mount()` → `loadAllInodes()` → 清空并重建 `inodeMap`/`treeMap`；节点为空或缺 root 时 `#formatDisk()`；失败只 `console.error` 并返回 `false`（`ready` 保持 false） |
+| `readdir()` | `(id: string) => Inode[]` | **同步**返回，文件夹优先、再按 `name.localeCompare`；无该目录返回 `[]` |
 | `mkdir()` | `(parentId, name) => Promise<Inode>` | 在指定目录下创建子目录 |
 | `writeFile()` | `(parentId, name, content) => Promise<Inode>` | 创建新文件并写入内容 |
-| `readFile()` | `(id) => Promise<string>` | 读取文件内容（目录类型抛错） |
-| `unlink()` | `(id) => Promise<void>` | 递归删除节点及所有子孙节点 |
-| `rename()` | `(id, newName) => Promise<void>` | 重命名节点（同目录重名校验） |
-| `updateContent()` | `(id, content) => Promise<boolean>` | 更新已有文件的内容和修改时间 |
-| `getPath()` | `(id) => Inode[]` | 获取从根到目标节点的完整路径（面包屑） |
-| `watch()` | `(callback) => () => void` | 注册文件系统变更监听器，返回取消监听函数 |
+| `readFile()` | `(id) => Promise<string \| null>` | 读取内容；节点不存在返回 `null`，目录类型抛错 |
+| `unlink()` | `(id) => Promise<void>` | `rm -rf` 语义：先递归收集整棵子树，再"先删内存、后删磁盘"逐个移除，只对原父目录 `#emitChange` 一次。`id === 'root'` 抛"操作非法"；节点不存在直接返回 |
+| `rename()` | `(id, newName) => Promise<void>` | 同目录重名校验，冲突抛 `File exists`；无返回值的 `Promise` |
+| `move()` | `(id, targetParentId) => Promise<boolean>` | 换 `parentId`（子孙按 id 寻址，无需重写）。目标非目录抛"目标非文件夹"；**防环**：目标是自身或自身子孙时抛"不能移动到自身内部"；目标同名抛"文件已经存在"；同父目录直接返回 `true` 不做任何写入；成功时旧、新父目录各 `#emitChange` 一次 |
+| `updateContent()` | `(id, content) => Promise<boolean>` | 更新内容与 `mtime`、重算 `size`；目录抛"非文件"。**不触发 `#emitChange`**（源码里那行被注释），靠订阅的视图需自行刷新 |
+| `getPath()` | `(id) => Inode[]` | 获取从根到目标节点的完整路径（面包屑）；遇到 `root` 即停 |
+| `watch()` | `(callback) => () => void` | 注册 `'change'` 监听，回调收 `e.detail`（`{dirId}`），返回取消监听函数 |
 
 #### Inode 数据结构
 
 ```typescript
 interface Inode {
-  id: string         // UUID 标识
-  parentId: string   // 父节点 ID（根节点为 null）
+  id: string         // 常规条目为 UUID；预置条目用固定 id（'root'、'system_1jpg'、'system_desk_layout'…）
+  parentId: string   // 父节点 ID；根节点自身 id 固定为 'root'，它的 parentId 为 null
   name: string       // 文件/目录名
   type: FileType     // 1=文件, 2=目录
   size: number       // 内容长度
@@ -99,19 +100,24 @@ interface Inode {
 
 | 方法 | 签名 | 说明 |
 |------|------|------|
-| `mount()` | `() => Promise<boolean>` | 打开/创建数据库，按 `DB_VFILE` 配置自动创建 ObjectStore 和索引，完成后初始化预设系统资源 |
+| `mount()` | `() => Promise<boolean>` | 打开/创建数据库，按 `DB_VFILE` 配置自动创建 ObjectStore 和索引；`onsuccess` 后依次执行三个预挂载步骤（资源 → 配置文件 → 内置示例应用，见下）。已有未关闭连接时直接返回 `true`，并注册 `onclose` / `onversionchange` 把 `db` 置空 |
 | `loadAllInodes()` | `() => Promise<Inode[]>` | 读取全部节点，供内核构建内存文件树 |
 | `writeInode()` | `(inode) => Promise<id>` | 写入或更新节点，返回节点 ID |
 | `readInode()` | `(id) => Promise<Inode>` | 根据 ID 读取单个节点 |
 | `unlinkInode()` | `(id) => Promise<boolean>` | 根据 ID 删除节点 |
 | `count()` | `() => Promise<number>` | 获取当前存储的文件总数 |
-| `exists()` | `(parentId, name) => Promise<boolean>` | 利用 `parent_name_idx` 复合索引快速判断同级目录下是否已有同名文件 |
+| `exists()` | `(parentId, name) => Promise<boolean>` | 利用 `parent_name_idx` 复合索引快速判断同级目录下是否已有同名文件（参数顺序是父在前） |
 
 #### 内部机制
 
-- **`#tx(mode)`** — 事务辅助函数，创建指定模式（`readonly` / `readwrite`）的 ObjectStore 事务
+- **`#tx(mode)`** — 事务辅助函数，创建指定模式（`readonly` / `readwrite`）的 ObjectStore 事务；未挂载时抛"未挂载!"
 - **`#blobToDataURL(blob)`** — 将 Blob 转为 Base64 DataURL，保持与 CustomApp 存储格式一致
-- **`#initSystemResources()`** — 挂载成功后自动检查 `preSystemFileData` 中的预设资源，不存在则从 `public` 目录 fetch 并以 Base64 写入根目录
+- **`#initSystemResources()`**（`fileIndexDb.js:27-57`）— 遍历 `preSystemFileData`，按 **`file.id`** 逐个 `readInode` 判存（不是按名字判存），缺失才从 `public` 目录 fetch 并转 Base64 写入根目录；单条失败只打日志，不中断挂载
+- **`#initSystemConfigFiles()`**（`:63-84`）— 遍历 `preSystemConfigFiles`，缺失时**直接写入内联默认 `content`**（不走网络），用于 `deskbook-layout.json` 这类"删了系统就坏"的配置；同样按 id 判存，用户改过的内容不会被覆盖
+- **`#initSampleAppFiles()`**（`:91-129`）— 挂载内置示例应用：先建 `SAMPLE_APP_DIR`（id `system_sukinos_sample`，名"示例应用"）根目录，再按 `SAMPLE_APP_FILES`（清单在 `config.js:415-429`，正文由 `resources/developer/template/index.js` 从 `template/sukinOS/` 读入并按 `path` 拆出 `dirs`）逐级补建子目录后写文件。目录与文件都用固定 id ⇒ 只补建缺失项，用户改过的示例文件不会被覆盖；子目录 id 形如 `${父id}/${段名}`，避免与其他同名目录串味。根层直接是 `layout.jsx` / `logic.jsx`，开发者中心选这一个目录即可命中默认入口
+- **`#createDirInode(id, parentId, name)`**（`:134-145`）— 写一个 `type: DIRECTORY`、`content: null` 的目录节点，供上面的示例目录补建复用
+
+> 三步预挂载都是"按固定 id 判存"，因此**只补建、不覆盖**；用户在文件系统里删掉预置条目后，下次挂载会按 id 判定为缺失并重新写回默认内容（配置文件与示例文件），而 `preSystemFileData` 那批图片/视频也一样会重新 fetch 补回。
 
 ### 1.4 VFS 启动调用链
 
@@ -127,8 +133,10 @@ sequenceDiagram
     Driver->>IDB: open(DB_VFILE)
     IDB-->>Driver: onupgradeneeded → 创建 Store + 索引
     IDB-->>Driver: onsuccess
-    Driver->>Driver: #initSystemResources()
-    Driver->>IDB: fetch 预设资源 → writeInode()
+    Driver->>Driver: #initSystemResources() → fetch 预设资源
+    Driver->>Driver: #initSystemConfigFiles() → 写入内联默认内容
+    Driver->>Driver: #initSampleAppFiles() → 建目录并挂载内置示例应用
+    Driver->>IDB: writeInode()（仅补建缺失的固定 id 条目）
     Driver-->>Kernel: mounted
 
     Kernel->>Driver: loadAllInodes()
@@ -196,7 +204,7 @@ flowchart TB
 
     E --> G[PID 命名空间隔离]
     E --> H[CDN 白名单准入]
-    E --> I[API 禁用<br/>eval / Function / XMLHttpRequest / importScripts]
+    E --> I[敏感 API 代理<br/>eval/XHR/importScripts 一律禁<br/>Function 仅 worker 放行]
     E --> J[Blob 递归沙箱化]
     E --> K[Document 安全代理<br/>script/link/iframe URL 拦截]
     E --> L[Navigator 安全代理<br/>USB/蓝牙/串口/HID 隐藏]
@@ -221,15 +229,22 @@ localStorage.getItem('user')
 // 实际读取键名: pid-def456_user → 返回 null
 ```
 
-#### 禁用 API
+#### 敏感 API 处理（按 envType 分档，不是一律禁）
 
-| API | 处理方式 |
-|-----|---------|
-| `eval` / `Function` | 调用时抛出 Security Error |
-| `XMLHttpRequest` | 调用时抛出 Security Error |
-| `importScripts` | 调用时抛出 Security Error |
-| `navigator.serviceWorker.getRegistration` 等 | 调用时抛出 Security Error |
-| `navigator.usb / bluetooth / serial / hid` | 返回 `undefined` |
+沙箱 `get` trap 的真实分支（`security.js:406-413`）：
+
+| API | worker 沙箱 | UI 沙箱 | 说明 |
+|-----|------------|---------|------|
+| `eval` | 禁（取到即抛） | 禁 | 两种环境都走 `_forbidden(prop)` |
+| `XMLHttpRequest` | 禁 | 禁 | 同上；另外 `RUNNER_SANDBOX_PRIVILEGES` 里直接 `const XMLHttpRequest = undefined`（`workerDrive.js:48`） |
+| `importScripts` | 禁 | 禁 | 同上；`const importScripts = undefined` |
+| `Function` | **放行真实构造器** `globalThis.Function` | 禁（`_forbidden('Function')`） | `envType === 'worker' ? globalThis.Function : _forbidden(prop)`（`:410`）。放行原因：worker 要把逻辑模块的预编译产物包成 factory（`__requireLogic`），与渲染侧用 `Function` 构造页面模块是同一套机制 |
+| `navigator.serviceWorker` 的 `getRegistration` / `getRegistrations` / `unregister` | 抛 Security Error | 同左 | Navigator 代理再套一层 SW 代理，只拦这三个方法名（`security.js:297-304`）；`register` 未在名单内，不要按"ServiceWorker 完全不可用"理解 |
+| `navigator.usb / bluetooth / serial / hid` | `undefined` | `undefined` | Navigator 安全代理直接隐藏 |
+
+Worker 内可见的这九个标识符（`eval`/`Function`/`setTimeout`/`setInterval`/`fetch`/`indexedDB`/`navigator`/`URL`/`Blob`）是被 `const` 遮蔽到 `_safeGlobalProxy` 上的，不是删除全局对象；详见 [04-process-kernel.md](./04-process-kernel.md) 的"块内可见的自由标识符"。
+
+**覆写防护**：`set` trap 维护 `blockedProps = ['fetch','eval','Function','XMLHttpRequest','importScripts','window','document','self','globalThis','navigator']`（`security.js:431-436`），应用试图 `self.fetch = ...` 之类重新赋值时直接抛 `Cannot override protected property`。注意这是 `set` 侧的另一份清单，和上表的 `get` 分支分别维护，改动时两处都要看。
 
 ---
 
@@ -254,19 +269,25 @@ localStorage.getItem('user')
 
 ### 3.2 数据库配置
 
-| 配置项 | 数据库名 | Store 名 | 主键 | 用途 |
-|--------|----------|----------|------|------|
-| `DB_RES` | `SukinOS_Res` | `ui_bundles` | `resourceId` | 应用资源存储 |
-| `DB_SYS` | `SukinOS_Sys` | `registry` | `name` | 用户应用注册表 |
-| `DB_VFILE` | `SUKIN_OS_VFS` | `files` | `id` | 虚拟文件系统 |
-| `DB_STATE_INSTANCE` | `SUKIN_STATE_INSTANCE` | `instance` | `id` | 有状态实例存储（如文件句柄） |
+| 配置工厂 | 数据库名 | Store 名 | 主键 | 用途 |
+|----------|----------|----------|------|------|
+| `createResDbConfig(userId)` | `SukinOS_Res_${userId}` | `ui_bundles` | `resourceId` | 应用资源存储；索引 `name` |
+| `createSysDbConfig(userId)` | `SukinOS_Sys_${userId}` | `registry` | `name` | 用户应用注册表；索引 `pid`(unique)、`status` |
+| `DB_VFILE`（唯一的全局静态配置） | `SUKIN_OS_VFS` | `files` | `id` | 虚拟文件系统 |
+| `createInstanceDbConfig(userId)` | `SUKIN_STATE_INSTANCE_${userId}` | `instance` | `id` | 有状态实例存储（如文件句柄） |
+
+登录态变化时 Kernel 会整体换库（`kernel.js:115` 附近注释）；未登录/游客用 `DEFAULT_USER_ID` 兜底。旧文档里的 `DB_RES` / `DB_SYS` / `DB_STATE_INSTANCE` 三个常量已不存在，只有 `DB_VFILE` 和 `DB_SYSTEM_APP`（`_db.js:1,166` 用的系统库名）仍是导出常量。
 
 #### DB_VFILE 索引详情
 
-| 索引名 | keyPath | unique | 用途 |
-|--------|---------|--------|------|
+| 索引名 | keyPath | 配置里的 unique | 用途 |
+|--------|---------|----------------|------|
 | `parentId` | `parentId` | false | 按父目录查询 |
-| `parent_name_idx` | `['parentId', 'name'] | true | 同级目录唯一性校验 |
+| `parent_name_idx` | `['parentId', 'name']` | true（**实际未生效，见下**） | 同级重名查询 |
+
+> **已知缺陷（只记录，未修改）**：`fileIndexDb.js:177` 建索引时传的是 `idxConfig.options`，而 `DB_VFILE.INDEXES`（`config.js:125-134`）每项只有 `{ name, keyPath, unique }`、没有 `options` 字段 ⇒ `createIndex(name, keyPath, undefined)` 按默认 `{unique:false}` 建。因此 `parent_name_idx` **不是唯一索引**，`unique: true` 只是配置里的意图。
+> 同一条 `INDEXES` 形状喂给 `indexDb.js` 时是正常的：那里用 `const options = { unique: !!idx.unique }`（`indexDb.js:50`）；`_db.js:131` 和 `fileIndexDb.js:177` 一样读 `idx.options`，同样失效。
+> 结果：同级唯一性实际只由内存态校验保证——`fileKernel.#createEntry` 先 `readdir(parentId)` 查重名再落库（`fileKernel.js:197-200`）。跨标签页并发写同一 `(parentId, name)` 时数据库不会拦。
 
 ### 3.3 枚举与常量
 
@@ -282,8 +303,11 @@ const FileType = {
 #### 系统数据库名集合
 
 ```javascript
-const SYSTEM_FS_NAME = ['SUKIN_OS_VFS', 'SukinOS_Sys', 'SukinOS_Res', 'SUKIN_STATE_INSTANCE']
+// config.js:153
+export const SYSTEM_FS_NAME = ['SUKIN_OS_VFS']
 ```
+
+历史上它还包括 `SukinOS_Sys`、`SukinOS_Res`、`SUKIN_STATE_INSTANCE`；这三个库现在按用户改名（`…_${userId}`），全局固定名不再存在，所以列表里只剩 VFS 一项。注意这个常量目前**没有任何消费方**（全仓仅此一处定义），`config.js:150-152` 的注释写明它只是向后兼容保留位——不要按"系统库保护名单"来理解它。
 
 #### 窗口尺寸
 
@@ -321,7 +345,11 @@ const TRUSTED_CDN_WHITELIST = [
 ]
 ```
 
-### 3.6 预置系统文件
+### 3.6 预置文件系统内容
+
+VFS 挂载时按清单自动补建三类内容（判定方式与容错见 §1.3 的 `#init*` 三条）：
+
+#### 1) 预置静态资源 `preSystemFileData`（`config.js:373-395`）
 
 ```javascript
 const preSystemFileData = [
@@ -333,7 +361,32 @@ const preSystemFileData = [
 ]
 ```
 
-首次挂载 VFS 时，`fileIndexDb` 会自动从 `public` 目录 fetch 这些资源并以 Base64 写入根目录。
+`path` 是 `public` 目录下的相对路径，挂载时 fetch → Blob → Base64 DataURL，写入根目录（`parentId: 'root'`），`name` 取 `path` 的最后一段。桌面壁纸等资源由此进入文件系统。
+
+#### 2) 预置配置文件 `preSystemConfigFiles`（`config.js:397-408`）
+
+```javascript
+export const DESK_LAYOUT_FILENAME = 'deskbook-layout.json'
+const preSystemConfigFiles = [
+  { id: 'system_desk_layout', name: DESK_LAYOUT_FILENAME, content: '{}' },
+]
+```
+
+与上一类的区别：这类是系统运行所需的 JSON 配置，**默认内容直接内联在代码里、不走网络**，写的是 `{}` 占位；真实布局按用户隔离存成 `{ [userId]: { [pid]: "row-col" } }`，由 `useDeskLayout` 读写（见 [02-deskbook.md](02-deskbook.md) 的"数据持久化"一节）。存在意义是"被误删后系统功能失效"时能自愈。
+
+#### 3) 内置示例应用 `SAMPLE_APP_DIR` + `preSystemSampleFiles`（`config.js:410-429`）
+
+```javascript
+export const SAMPLE_APP_DIR = { id: 'system_sukinos_sample', name: '示例应用' }
+export const preSystemSampleFiles = [
+  { id: 'system_sample_layout', path: 'layout.jsx' },
+  { id: 'system_sample_logic',  path: 'logic.jsx' },
+  // pages/…、components/…、store/…、styles/…、utils/… 共 13 条
+]
+```
+
+清单只登记 `id + path`，正文放在 `src/sukinos/resources/developer/template/sukinOS/` 下由 `template/index.js` 读入，并暴露带 `dirs`（由 `path` 拆出）的 `SAMPLE_APP_FILES`。挂载后根层直接是 `layout.jsx` / `logic.jsx`，开发者中心选"示例应用"这一个目录即可命中默认入口。注意：SDK 模板不随项目分发到用户侧，远端模板在 sukin.top（`LOCAL_DEV_SYMPLE_LINKS`，`config.js:431-434`），这里的内置示例是一份手工快照。
+
 
 ### 3.7 应用自定义配置
 

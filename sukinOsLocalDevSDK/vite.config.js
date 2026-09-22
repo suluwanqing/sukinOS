@@ -3,20 +3,38 @@ import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
 
+// 同步协议版本：
+// 1 = 旧行为，插件按文件名把 logic* 抽成独立的 logic 字段，且不回传 CSS
+// 2 = 插件只当哑文件管道，回传全部 .jsx/.js/.css，入口判定完全交给 SukinOS 的「入口约定」配置
+const PROTOCOL_VERSION = 2
+
 function sukinLocalDriverPlugin(options = {}) {
   const dirStates = new Map()
-  const {userId = '', triggerUrl = '', defaultDir = 'src/sukinOS', defaultDebounce = 500} = options
+  const {
+    userId = '',
+    triggerUrl = '',
+    defaultDir = 'src/sukinOS',
+    defaultDebounce = 500,
+    // 启动时是否自动把 defaultDir 注册进监听列表。
+    // true （默认）：起服务即注册，改文件就走 SSE 触发，无需前端先连上来
+    // false ：只等 SukinOS 前端请求 /__sukin_local_sync 时按需注册（在前端里选好目录才开始同步）
+    autoRegister = true,
+  } = options
 
-  console.log('[sukin-local-driver] 插件初始化', {userId, triggerUrl, defaultDir, defaultDebounce})
+  console.log('[sukin-local-driver] 插件初始化', {userId, triggerUrl, defaultDir, defaultDebounce, autoRegister})
 
   return {
     name: 'sukin-local-driver',
     configureServer(server) {
       console.log('[sukin-local-driver] configureServer 开始执行')
 
-      // ── 自动注册：如果配置了 userId 和 triggerUrl，自动注册默认目录 ──────────
-      if (userId && triggerUrl) {
-        console.log('[sukin-local-driver] 检测到 userId 和 triggerUrl，自动注册默认目录')
+      // ── 启动期注册：由 autoRegister 开关决定是否自动注册 defaultDir ────────
+      if (!autoRegister) {
+        console.log(
+          '[sukin-local-driver] autoRegister=false，跳过启动期注册，等待前端请求 /__sukin_local_sync 时按需注册'
+        )
+      } else if (userId && triggerUrl) {
+        console.log('[sukin-local-driver] autoRegister=true 且已配置 userId/triggerUrl，注册默认目录')
         const absPath = path.resolve(process.cwd(), defaultDir)
 
         if (fs.existsSync(absPath)) {
@@ -36,7 +54,7 @@ function sukinLocalDriverPlugin(options = {}) {
         }
       } else {
         console.log(
-          '[sukin-local-driver] 未配置 userId 或 triggerUrl，跳过自动注册，等待前端请求注册'
+          '[sukin-local-driver] 未配置 userId 或 triggerUrl，无法触发 SSE，跳过自动注册，等待前端请求注册'
         )
       }
 
@@ -44,12 +62,12 @@ function sukinLocalDriverPlugin(options = {}) {
       server.watcher.on('all', (event, filePath) => {
         console.log(`[sukin-local-driver] 文件事件: ${event} - ${filePath}`)
 
-        if (!/\.(jsx|js)$/.test(filePath)) {
+        if (!/\.(jsx|js|css)$/.test(filePath)) {
           console.log(`[sukin-local-driver] 文件扩展名不匹配，跳过: ${filePath}`)
           return
         }
 
-        console.log(`[sukin-local-driver] 匹配到 JS/JSX 文件: ${filePath}`)
+        console.log(`[sukin-local-driver] 匹配到模块文件: ${filePath}`)
         console.log(`[sukin-local-driver] 当前 dirStates 大小: ${dirStates.size}`)
 
         for (const [dir, state] of dirStates) {
@@ -163,8 +181,9 @@ function sukinLocalDriverPlugin(options = {}) {
           return
         }
 
-        // 从请求里拿前端的配置（dir + 服务端防抖时长）
-        const dir = (url.searchParams.get('dir') || 'src').replace(/^\/+|\/+$/g, '')
+        // 从请求里拿前端的配置（dir + 服务端防抖时长）；前端没给目录时回落到 defaultDir，
+        // 保证「默认目录」这个概念只有 defaultDir 一个来源
+        const dir = (url.searchParams.get('dir') || defaultDir).replace(/^\/+|\/+$/g, '')
         const watchDebounce = Math.max(0, Number(url.searchParams.get('watchDebounce') || 500))
         const absPath = path.resolve(process.cwd(), dir)
 
@@ -191,7 +210,8 @@ function sukinLocalDriverPlugin(options = {}) {
 
         const state = dirStates.get(dir)
         const files = {}
-        let logic = ''
+        // 协议 2 不再单独回传逻辑文件，恒为空串；字段保留是为了兼容只认 logic 字段的旧前端
+        const logic = ''
 
         console.log(`[sukin-local-driver] 开始读取目录文件: ${absPath}`)
 
@@ -201,16 +221,21 @@ function sukinLocalDriverPlugin(options = {}) {
             return res.end(JSON.stringify({status: 'error', message: `dir not exist: ${dir}`}))
           }
 
-          // 递归遍历目录，收集所有 .jsx/.js 文件，key 用相对路径（含子文件夹）
+          // 协议 2：只做「哑文件管道」。所有模块文件（含 CSS）原样回传，
+          // 哪个是逻辑入口 / 视图入口由 SukinOS 侧的「入口约定」配置判定，插件不再按文件名猜。
+          // 递归遍历目录，key 用相对路径（含子文件夹）
           const collectFiles = (dirPath, prefix = '') => {
             const result = []
             const entries = fs.readdirSync(dirPath, { withFileTypes: true })
             for (const entry of entries) {
+              // dir 由前端传入，可能指向整个项目根目录，依赖目录必须跳过
+              if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue
               const fullPath = path.join(dirPath, entry.name)
               const relPath = prefix ? `${prefix}/${entry.name}` : entry.name
               if (entry.isDirectory()) {
+                if (entry.name === 'dist') continue
                 result.push(...collectFiles(fullPath, relPath))
-              } else if (entry.isFile() && /\.(jsx|js)$/.test(entry.name)) {
+              } else if (entry.isFile() && /\.(jsx|js|css)$/.test(entry.name)) {
                 result.push(relPath)
               }
             }
@@ -220,28 +245,18 @@ function sukinLocalDriverPlugin(options = {}) {
           const allFiles = collectFiles(absPath)
           console.log(`[sukin-local-driver] 目录中的文件:`, allFiles)
 
-          let jsFileCount = 0
           for (const relPath of allFiles) {
-            jsFileCount++
-            console.log(`[sukin-local-driver] 读取 JS/JSX 文件: ${relPath}`)
             const content = fs.readFileSync(path.join(absPath, relPath), 'utf-8')
-            // logic 文件按文件名（不含路径）判断，兼容子文件夹中的 logic
-            const baseName = relPath.split('/').pop()
-            if (baseName.toLowerCase().startsWith('logic')) {
-              logic = content
-              console.log(`[sukin-local-driver] 找到 logic 文件，长度: ${content.length}`)
-            } else {
-              files[relPath] = content
-              console.log(`[sukin-local-driver] 添加文件到 files: ${relPath}, 长度: ${content.length}`)
-            }
+            files[relPath] = content
+            console.log(`[sukin-local-driver] 添加文件到 files: ${relPath}, 长度: ${content.length}`)
           }
 
-          console.log(`[sukin-local-driver] 总共读取了 ${jsFileCount} 个 JS/JSX 文件`)
           console.log(
-            `[sukin-local-driver] 返回数据: v=${state.v}, dir=${dir}, files=${Object.keys(files).length}, logic=${logic ? '有' : '无'}`
+            `[sukin-local-driver] 返回数据: v=${state.v}, dir=${dir}, files=${Object.keys(files).length}`
           )
 
-          res.end(JSON.stringify({status: 'ok', files, logic, v: state.v, dir}))
+          // logic 恒为空：协议 1 的服务端会单独抽出 logic 文件，前端按 protocol 区分两种形状
+          res.end(JSON.stringify({status: 'ok', protocol: PROTOCOL_VERSION, files, logic, v: state.v, dir}))
           console.log(`[sukin-local-driver] 响应已发送`)
         } catch (e) {
           console.error(`[sukin-local-driver] 读取目录出错:`, e)
@@ -263,6 +278,7 @@ export default defineConfig({
       // triggerUrl: 'https://sukin.top/api/sukinos/localdev/trigger', // 触发接口URL
       // defaultDir: 'src/sukinOS', // 默认监听的目录（支持递归读取子文件夹）
       // defaultDebounce: 500, // 默认防抖时间(ms)
+      // autoRegister: true, // 起服务时就把 defaultDir 注册进监听（false 则等前端请求 /__sukin_local_sync 时才注册）
     }),
   ],
   server: {port: 5173, cors: true},

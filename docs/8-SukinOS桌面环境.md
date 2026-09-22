@@ -34,7 +34,7 @@ SukinOS 的桌面环境是一个运行在浏览器中的**完整桌面操作系�
 
 ## 二、桌面 UI 组件
 
-> 桌面 UI 组件的完整 Props/State/方法接口文档、函数调用链、12 项性能优化措施详见 [02-deskbook.md](./module/02-deskbook.md)
+> 桌面 UI 组件的完整 Props/State/方法接口文档、函数调用链、性能优化措施（`02-deskbook.md` §9 共 12 项，其中 §9.2 的 resize handle 聚焦门控已停用）详见 [02-deskbook.md](./module/02-deskbook.md)
 
 ### 2.1 布局 (`sukinos/layout.jsx`)
 
@@ -186,7 +186,7 @@ sukinOsLocalDevSDK/
 
 ## 八、安全与隔离
 
-SukinOS 实现了多层安全沙箱：PID 命名空间隔离（Storage/IndexedDB）、Fetch 注入、CDN 白名单、Blob 递归沙箱化、API 禁用（eval/Function/XHR/importScripts）、设备屏蔽、SDK 冻结、清理机制。VirtualWorker 还实现了资源追踪注册表，terminate 时强制清理所有 timer/interval/RAF/EventListener 防止 CPU 空转。
+SukinOS 实现了多层安全沙箱：PID 命名空间隔离（Storage/IndexedDB）、Fetch 注入、CDN 白名单、Blob 递归沙箱化、敏感 API 代理（`eval`/`XMLHttpRequest`/`importScripts` 一律禁；`Function` 只在 worker 沙箱放行真实构造器，UI 沙箱仍禁）、受保护属性不可覆写（`set` trap 的 `blockedProps`）、设备屏蔽、SDK 冻结、清理机制。VirtualWorker 还实现了资源追踪注册表，terminate 时强制清理所有 timer/interval/RAF/EventListener 防止 CPU 空转。
 
 > 安全沙箱 8 类策略详解、CDN 白名单列表、Worker 沙箱前导代码、VirtualWorker 资源追踪与清理详见 [05-file-system-tools.md](./module/05-file-system-tools.md)
 
@@ -194,11 +194,13 @@ SukinOS 实现了多层安全沙箱：PID 命名空间隔离（Storage/IndexedDB
 
 ## 九、数据持久化
 
-SukinOS 使用 5 个 IndexedDB 数据库实现全量本地持久化：SukinOS_Sys（应用注册表）、SukinOS_Res（资源库）、SUKIN_OS_VFS（虚拟文件系统）、SUKIN_STATE_INSTANCE（实例状态）、sukin_system_app（系统应用数据）。
+SukinOS 用 5 类 IndexedDB 数据库实现全量本地持久化。其中三类**按用户加后缀**（未登录/游客回落到 `DEFAULT_USER_ID`，登录态变化时 Kernel 整体换库）：`SukinOS_Sys_${userId}`（用户应用注册表）、`SukinOS_Res_${userId}`（应用资源库）、`SUKIN_STATE_INSTANCE_${userId}`（有状态实例，如文件句柄）；另外两类是固定名：`SUKIN_OS_VFS`（虚拟文件系统，全局唯一，不带用户后缀）和 `sukin_system_app`（系统应用自己的业务数据，如 boards/mindmaps/sheet，见 `utils/_db.js`）。
 
-> 数据库架构详解、VFS Inode 数据模型、三数据库 Mermaid 图详见 [05-file-system-tools.md](./module/05-file-system-tools.md)
+旧文档里写作 `SukinOS_Sys` / `SukinOS_Res` / `SUKIN_STATE_INSTANCE` 的裸名已不存在——它们只是工厂函数 `createSysDbConfig(userId)` / `createResDbConfig(userId)` / `createInstanceDbConfig(userId)` 产出名字时的前缀（`config.js:102-137`）。
 
-> saveState 持久化链（三层存储、写入链路、恢复链路、分裂式清理）详见 [07-app-routing.md](./module/07-app-routing.md) §5
+> 数据库配置表（§3.2）、VFS Inode 数据模型（§1.2）、模块关系总览图（§6）详见 [05-file-system-tools.md](./module/05-file-system-tools.md)
+
+> saveState 持久化链（三层存储、写入链路、恢复链路）详见 [07-app-routing.md](./module/07-app-routing.md) §5。注意清理是**整体置 null**：曾实现过"只清 `app` 保留 `window`"的分裂式清理，提交 `cb49e72` 已回退，窗口几何靠 `saveWindowState` 的 `{...prevSavedState, window}` 增量维护。
 
 ## 十、路由与消息处理
 

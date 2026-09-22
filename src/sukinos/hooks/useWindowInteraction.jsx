@@ -355,6 +355,39 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
     }
   }, [initialState])
 
+  const setRect = useCallback((partialRect = {}) => {
+    const el = windowElRef.current
+    if (!el) return
+
+    const current = rectRef.current || initialState
+    // 允许只传部分字段（如 {w,h}），非法输入回退当前值
+    const next = {
+      x: Number.isFinite(partialRect.x) ? partialRect.x : current.x,
+      y: Number.isFinite(partialRect.y) ? partialRect.y : current.y,
+      w: Number.isFinite(partialRect.w) ? partialRect.w : current.w,
+      h: Number.isFinite(partialRect.h) ? partialRect.h : current.h,
+    }
+    // clamp：尺寸下限 + 与拖拽一致的安全区，防止窗口被推出视口
+    next.w = Math.max(MIN_WIDTH, next.w)
+    next.h = Math.max(MIN_HEIGHT, next.h)
+    next.y = Math.max(0, Math.min(next.y, window.innerHeight - SAFE_DRAG_AREA))
+    next.x = Math.max(-(next.w - SAFE_DRAG_AREA), Math.min(next.x, window.innerWidth - SAFE_DRAG_AREA))
+
+    // 物理沙箱模式：清除拖拽残留的 transform 增量，避免与 left/top 叠加偏移
+    el.style.transform = ''
+    delete el.dataset.realLeft
+    delete el.dataset.realTop
+
+    el.style.left = `${next.x}px`
+    el.style.top = `${next.y}px`
+    el.style.width = `${next.w}px`
+    el.style.height = `${next.h}px`
+    rectRef.current = next
+
+    // 复用拖拽结束的持久化链路（→ kernel.updateWindowRect）
+    onDragEnd?.(next)
+  }, [initialState, onDragEnd, SAFE_DRAG_AREA])
+
   const getCurrentRect = useCallback(() => rectRef.current, [])
   const getIsDragging = useCallback(() => isDraggingRef.current, [])
 
@@ -362,6 +395,7 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
     windowElRef,
     handleMouseDown,
     setMaximized,
+    setRect,
     getCurrentRect,
     getIsDragging
   }

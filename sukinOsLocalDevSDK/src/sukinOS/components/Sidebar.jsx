@@ -14,6 +14,7 @@ export const Sidebar = ({ state, navigate }) => {
     { key: 'pages/home', label: '🏠 首页' },
     { key: 'pages/about', label: 'ℹ️ 关于' },
     { key: 'pages/contact', label: '📮 联系' },
+    { key: 'pages/windowDemo', label: '🪟 窗口控制' },
   ];
   return (
     <div className="sidebar">
