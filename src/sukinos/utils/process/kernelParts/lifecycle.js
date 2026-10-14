@@ -34,19 +34,15 @@ export function delegatedWorkerMessageHandler(event) {
   }
 }
 
-/**
- * 虚拟轻量化沙箱
- * 采用 with(sandbox) + Proxy + Shared Iframe
- */
+// 虚拟轻量化沙箱：with(sandbox) + Proxy + 共享隐藏 Iframe
 class VirtualWorker {
   constructor(code, pid, iframeWin) {
     this.pid = pid
     this.onmessage = null
     this.terminated = false
     this.appOnMessage = null
-    this.pendingStateFrame = null // 用于缓存当前帧待分发的 STATE_UPDATE 状态
+    this.pendingStateFrame = null
 
-    // ======= 资源追踪注册表 =======
     this.activeTimeouts = new Set()
     this.activeIntervals = new Set()
     this.activeRAFFrames = new Set()
@@ -57,8 +53,7 @@ class VirtualWorker {
     const sandboxSelf = {
       postMessage: msg => {
         if (this.onmessage) {
-          // 高频状态更新与普通系统事件分流
-          // 状态消息通过 requestAnimationFrame 帧对齐进行节流，确保交互渲染顺畅
+          // 高频状态更新与普通事件分流：状态消息用 requestAnimationFrame 帧对齐节流，保证交互渲染顺畅
           if (msg && msg.type === 'STATE_UPDATE') {
             if (this.pendingStateFrame) {
               cancelAnimationFrame(this.pendingStateFrame)
@@ -209,7 +204,6 @@ class VirtualWorker {
   }
   execute(code) {
     try {
-      // 编译成 with 包含的作用域环境
       const runner = new Function('self', `with(self) { ${code} }`)
       setTimeout(() => {
         if (!this.terminated) {
@@ -240,23 +234,18 @@ class VirtualWorker {
     if (this.pendingStateFrame) {
       cancelAnimationFrame(this.pendingStateFrame)
     }
-    // ======= 资源清理  =======
-    // 清理所有残留的 setTimeout
     for (const id of this.activeTimeouts) {
       clearTimeout(id)
     }
     this.activeTimeouts.clear()
-    // 清理所有残留的 setInterval
     for (const id of this.activeIntervals) {
       clearInterval(id)
     }
     this.activeIntervals.clear()
-    // 清理所有残留的 requestAnimationFrame
     for (const id of this.activeRAFFrames) {
       cancelAnimationFrame(id)
     }
     this.activeRAFFrames.clear()
-    // 注销所有应用生命周期中挂载 to 共享 Window 上的全局监听器
     for (const item of this.attachedEventListeners) {
       try {
         item.target.removeEventListener(item.type, item.listener, item.options)
@@ -268,10 +257,7 @@ class VirtualWorker {
   }
 }
 
-/**
- * NoWorker
- * 针对 worker: false 应用，在宿主线程模拟 Worker 的通信协议
- */
+// NoWorker：针对 worker: false 的应用，在宿主线程模拟 Worker 的通信协议
 class NoWorker {
   #kernel
 
@@ -293,7 +279,6 @@ class NoWorker {
       [ENV_KEY_IS_BUNDLE]: isBundle,
     }
 
-    // 使用统一的公共状态初始化校准器
     const calibratedState = initializeState(initialState, isBundle)
     this.state = calibratedState
 
@@ -316,11 +301,9 @@ class NoWorker {
   postMessage(data) {
     if (this.terminated) return
 
-    // 拦截来自 UI 的 action
     if (data && data.type === 'UI_ACTION') {
       const action = data.payload
 
-      // 如果是直接更新状态的 action，则通过反射链更新内核状态机
       if (action.type === 'STATE_UPDATE' || action.type === 'UPDATE_STATE') {
         const newState = action.payload
 
@@ -330,7 +313,7 @@ class NoWorker {
         this.#kernel.commHub.handleMsg(this.pid, {
           type: 'STATE_UPDATE',
           payload: {
-            ...this.state, // 广播合并后的最新状态
+            ...this.state,
             config: this.sysConfig,
           },
         })
@@ -338,7 +321,6 @@ class NoWorker {
       // 如果是其他业务 action，或者需要通过通用路由逻辑更新 (例如 NAVIGATE)
       else {
         const prevState = this.state || {}
-        // 调用统一的共享业务动作转换处理器
         const nextState = processStateAction(prevState, action, this.isBundle)
 
         if (nextState !== prevState) {
@@ -384,19 +366,7 @@ export class Lifecycle {
     this.#kernel = kernel
   }
 
-  /**
-   * 启动一个应用进程
-   * 这是一个核心的调度方法，它能处理冷启动和从休眠状态恢复两种情况。
-   * interactInfo 应该是一个对象对应用户的 reducer 开发处理
-   function reducer(state[自动注入], action[App 交互传输的 interactInfo]) {
-      switch(action.type) {
-        case 'INCREMENT':
-          return { ...state, count: state.count + 1 };
-        default:
-          return state;
-      }
-    }`;
-  **/
+  // 启动一个应用进程：冷启动与从休眠恢复都走这里；interactInfo 按 reducer 语义传入（state 自动注入 + action 即交互载荷）
   async startProcess({pid, resourceId, interactInfo}) {
     let truthPid = pid
     let truthResourceId = resourceId
@@ -411,23 +381,19 @@ export class Lifecycle {
     if (!app) {
       alert.warning(`[内核] 尝试启动一个不存在的应用，pid: ${truthPid}`)
     }
-    // 无论何种情况，都先准备好将要返回的窗口几何信息。
-    // 这保证了 API 的调用者总能获得预期的返回值。
+    // 先取到 resource：后续系统资源/本地同步/资源缓存三条取码分支都依赖它，避免分支里再出现缺失
     const resource = this.#kernel.getResource(truthResourceId)
 
     // 记录进程启动前的初始状态，以此判断它是真正的全新启动，还是会话恢复阶段的冷拉起
     const originalStatus = app?.status
 
-    // 进程已在运行 (Worker 实例已存在)
     if (this.#kernel.processes.has(truthPid)) {
       try {
-        // 如果应用处于休眠状态，则唤醒它
         if (app.status === 'HIBERNATED') {
           app.status = 'RUNNING'
           if (!app?.isSystemApp) {
             await this.#kernel.sysDb.updateData(app?.[ENV_KEY_NAME], {status: 'RUNNING'})
           }
-          // alert.success(`[内核] 应用 ${app.name} (pid: ${pid}) 已恢复运行。`)
           this.#kernel.emitChange({type: 'APP_STATUS', pid: truthPid, status: 'RUNNING'})
         }
         // 唤醒分支之外还要覆盖"本来就在跑"的情况，否则调用方带进来的 interactInfo 会静默丢失
@@ -443,7 +409,6 @@ export class Lifecycle {
       }
     }
 
-    // 进程未运行 (冷启动)
     try {
       const hasWorker = app?.[ENV_KEY_META_INFO]?.worker !== false
       let worker
@@ -456,9 +421,7 @@ export class Lifecycle {
           if (!resource) throw new Error(`系统资源 '${app?.[ENV_KEY_NAME]}' 未找到!`)
           workerCode = generateWorker(resource)
         } else {
-          // 原有的架构是非系统都将进入到本地中。新引入了: 本地同步可选机制。
-          // 兼容处理, 处理没有进行本地同步APP, 这个时候认为是进入到了资源缓存中
-          // 先检查 app 和 app.handle 是否存在
+          // 本地同步是可选机制：非系统应用若没做过本地同步就没有 handle，此时按资源缓存取码
           if (app && app.handle) {
             if ((await app.handle.queryPermission({mode: 'read'})) !== 'granted') {
               await app.handle.requestPermission({mode: 'read'})
@@ -472,7 +435,6 @@ export class Lifecycle {
           }
         }
 
-        // 如果系统配置了虚拟沙箱运行机制，则建立 VirtualWorker 执行 JS 代码
         if (this.#kernel.useVirtualWorker) {
           const iframe = getSharedSandboxIframe()
           worker = new VirtualWorker(workerCode, truthPid, iframe.contentWindow)
@@ -495,7 +457,6 @@ export class Lifecycle {
       })
       worker.onmessage = delegatedWorkerMessageHandler
 
-      // 如果是 Worker 模式，发送初始化或恢复状态的消息
       if (hasWorker) {
         const stateToRestore = app.savedState?.app
         worker.postMessage({type: stateToRestore ? 'RESTORE' : 'INIT', payload: stateToRestore})
@@ -520,14 +481,12 @@ export class Lifecycle {
       this.#kernel.startAutoSaveWindow(truthPid)
       return {isStart: true}
     } catch (e) {
-      // console.log(e)
       alert.warning(`[内核] 启动应用 ${app?.[ENV_KEY_NAME]} (pid: ${truthPid})  失败:`, e)
       this.#kernel.kill(truthPid)
       return {isStart: false}
     }
   }
 
-  // 存储这个关于,窗口状态,后续可以考虑多模式处理,是冷启动还是热。主要方案1.适用display全部热启动。方案二:外壳全部display,内层冷启动
   async saveWindowState(pid, windowRect) {
     const app = this.#kernel.getApp(pid)
     if (!app) return
@@ -544,41 +503,27 @@ export class Lifecycle {
     }
   }
 
-  /**
-   * 强制所有正在运行的应用保存其内部状态。
-   * 这个接口主要用于页面关闭前（例如在 beforeunload 事件中调用），
-   * 以确保所有应用的最新状态都被持久化，从而实现完美的会话恢复。
-   */
+  // 强制所有运行中的应用保存内部状态：供 beforeunload 这类页面关闭前的时机调用，以保证会话可恢复
   forceSaveAllStates() {
-    // alert.success('[内核] 正在强制保存所有应用状态...')
     for (const pid of this.#kernel.processes.keys()) {
       const p = this.#kernel.processes.get(pid)
       if (p && p.worker) {
-        // 向每个 worker 发送保存状态的指令。
-        // 这是一个”即发即忘”的操作，因为 beforeunload 事件的执行时间有限，我们不等待回复。
+        // 即发即忘：beforeunload 可用时间片有限，不等 worker 回复
         p.worker.postMessage({type: 'SAVE_STATE'})
       }
       // 同时从 stateCache 直接保存，确保 beforeunload 可靠性
       this.#kernel.autoSaveState(pid)
       this.#kernel.autoSaveWindow(pid)
     }
-    // alert.success('[内核] 已向所有活动进程发送保存状态指令。')
   }
 
-  /**
-   * 休眠一个应用。
-   * 此操作只改变应用的状态标记为 'HIBERNATED'，不会终止Worker进程。
-   * Worker会继续在后台运行，保持其内部状态是“热”的。
-   */
+  // 休眠一个应用：仅把状态标记改为 HIBERNATED，不终止 Worker —— 进程继续在后台运行，内部状态保持“热”
   async hibernate(pid) {
     const app = this.#kernel.getApp(pid)
     if (app && app.status === 'RUNNING') {
-      // 更新内存状态
       app.status = 'HIBERNATED'
-      // 如果是用户应用，立即同步到数据库
       if (!app.isSystemApp) {
-        // 写入 status 的同时，写入 savedState
-        // 这里的 app.savedState 应该是最新的，因为 #handleMsg 里的 STATE_UPDATE 一真在实时更新它
+        // 连同 savedState 一起写：它被 #handleMsg 的 STATE_UPDATE 实时更新，此刻已是最新值
         await this.#kernel.sysDb.updateData(app?.[ENV_KEY_NAME], {
           status: 'HIBERNATED',
           savedState: app.savedState,
@@ -594,38 +539,26 @@ export class Lifecycle {
     }
   }
 
-  /**
-   * 强制清除应用的持久化运行状态
-   */
+  // 强制清除应用的持久化运行状态
   async clearAppSavedState(pid) {
     const app = this.#kernel.getApp(pid)
     if (app) {
-      app.savedState = null // 强制清除内存中的状态
+      app.savedState = null
       const appName = app[ENV_KEY_NAME] || '未知应用'
-      // 数据库更新（非系统应用）
       if (!app.isSystemApp) {
         await this.#kernel.sysDb.updateData(appName, {savedState: null})
       }
-      // console.log(`[内核] 应用 ${appName} (pid: ${pid}) 的持久化状态已被清空。`)
       this.#kernel.emitChange({type: 'APP_STATE_CLEARED', pid})
     }
   }
 
-  /**
-   * 强制完全重置一个应用，无视配置直接清空状态并杀死进程
-   * 用于用户主动发起的重置操作
-   */
+  // 强制完全重置一个应用：无视配置直接清空状态并杀死进程，用于用户主动发起的重置
   async forceResetApp(pid) {
-    // 终止进程
     this.#kernel.kill(pid)
-    // 清理缓存
     this.#kernel.clearCachedState(pid)
-    // 获取应用信息
-
     const app = this.#kernel.getApp(pid)
     if (app) {
       const appName = app[ENV_KEY_NAME] || '未知应用'
-      // 更新应用状态为已安装
       app.status = 'INSTALLED'
       if (!app.isSystemApp) {
         await this.#kernel.sysDb.updateData(appName, {status: 'INSTALLED'})
@@ -634,32 +567,22 @@ export class Lifecycle {
       await this.clearAppSavedState(pid)
       console.log(`[内核] 应用 ${appName} (pid: ${pid}) 已被彻底重置并强制清空了所有状态。`)
     }
-    // 通知状态变更
     this.#kernel.emitChange({type: 'APP_RESET', pid})
   }
 
-  /**
-   * 强制关闭一个应用 (与hibernate不同)。
-   * 此操作会彻底终止Worker进程，根据配置决定是否清除已保存状态。
-   * @param {string|number} pid - 应用进程ID
-   */
+  // 强制关闭应用（与 hibernate 不同）：彻底终止 Worker，并按 saveState 配置决定是否清除已保存状态
   async forceKillProcess(pid) {
-    // 停止自动保存定时器
     this.#kernel.stopAutoSaveState(pid)
     this.#kernel.stopAutoSaveWindow(pid)
-    // 终止进程
     this.#kernel.kill(pid)
-    // 清理缓存
     this.#kernel.clearCachedState(pid)
     const app = this.#kernel.getApp(pid)
     if (app) {
       const appName = app[ENV_KEY_NAME] || '未知应用'
-      // 更新应用状态
       app.status = 'INSTALLED'
       if (!app.isSystemApp) {
         await this.#kernel.sysDb.updateData(appName, {status: 'INSTALLED'})
       }
-      // 检查是否需要自动清除保存的状态
       const shouldClearState = !app?.[ENV_KEY_META_INFO]?.saveState
       if (shouldClearState) {
         await this.clearAppSavedState(pid)
@@ -669,16 +592,13 @@ export class Lifecycle {
     this.#kernel.emitChange({type: 'APP_STATUS', pid, status: 'INSTALLED'})
   }
   async reStartApp({pid}) {
-    // 终止进程
     this.#kernel.kill(pid)
     const result = this.startProcess({pid})
     this.#kernel.emitChange({type: 'APP_RESTART', pid})
     return result
   }
   async forceReStartApp({pid}) {
-    // 终止进程
     this.#kernel.kill(pid)
-    // 清理缓存
     this.#kernel.clearCachedState(pid)
     const app = this.#kernel.getApp(pid)
     if (app) {
@@ -696,7 +616,6 @@ export class Lifecycle {
     return result
   }
 
-  // --- 系统恢复与进程管理 ---
   async restoreSession() {
     try {
       const allApps = [...this.#kernel.systemApps.values(), ...this.#kernel.userApps.values()]
@@ -708,8 +627,6 @@ export class Lifecycle {
       )
       // 由于这个system也介入了自动启动这里不再单独处理
       for (const app of appsToRestore) {
-        //加入开机自启的选项
-        // new Promise.all([])
         // 异步启动，不阻塞主流程
         this.startProcess({pid: app.pid})
       }
@@ -718,7 +635,6 @@ export class Lifecycle {
     }
   }
 
-  //拉起/唤起App
   async evokeApp({pid, from, interactInfo}) {
     const targetApp = this.#kernel.getApp(pid)
     if (!targetApp) {
@@ -734,14 +650,12 @@ export class Lifecycle {
   }
 }
 
-// 通用沙箱数据清理函数
 export const clearAppSandboxData = async app => {
   const pid = app.pid
   const metaInfo = app?.[ENV_KEY_META_INFO]
   const resourceId = app?.[ENV_KEY_RESOURCE_ID]
   const appType = metaInfo?.appType
   const prefix = `pid-${pid}_` // 这里是对应沙箱前缀处理, 见 security.js 里对沙箱的命名规范, 所有存储相关的 key 都应该以这个前缀开头, 以便于清理
-  // 清理 localStorage
   for (let i = 0; i < window.localStorage.length; i++) {
     const key = window.localStorage.key(i)
     if (key && key.startsWith(prefix)) {
@@ -749,7 +663,6 @@ export const clearAppSandboxData = async app => {
       i--
     }
   }
-  // 清理 sessionStorage
   for (let i = 0; i < window.sessionStorage.length; i++) {
     const key = window.sessionStorage.key(i)
     if (key && key.startsWith(prefix)) {
@@ -790,12 +703,7 @@ export const clearAppSandboxData = async app => {
       console.warn('[DB] 匹配系统应用数据表失败:', e)
     }
   }
-
-  // 后续: 针对特定系统应用的独立宿主存储清理
-  // 后续: 若应用在虚拟文件系统中建立了专属目录/节点 [通常以 resourceId 命名]，尝试将其一并清空
 }
-
-// ─── 代理导出函数──────────────────────
 
 export async function startProcess(kernel, params) {
   return kernel.lifecycle.startProcess(params)

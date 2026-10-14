@@ -5,7 +5,6 @@ export const  useOPFS=(target)=>{
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState(null);
 
-  // 初始化句柄
   useEffect(() => {
     let isMounted = true;
     const init = async () => {
@@ -33,13 +32,10 @@ export const  useOPFS=(target)=>{
     return () => { isMounted = false; };
   }, [target]);
 
-  // 内部校验器
   const checkHandle = useCallback(() => {
     if (!handle) throw new Error('文件句柄未就绪或已被删除');
     return handle;
   }, [handle]);
-
-  // ================= 查 =================
 
   const readText = useCallback(async () => {
     const h = checkHandle();
@@ -53,9 +49,6 @@ export const  useOPFS=(target)=>{
     return { name: file.name, size: file.size, lastModified: new Date(file.lastModified) };
   }, [checkHandle]);
 
-  // ================= 增 / 改 =================
-
-  // 普通覆盖写入
   const write = useCallback(async (data) => {
     const h = checkHandle();
     const writable = await h.createWritable();
@@ -78,7 +71,6 @@ export const  useOPFS=(target)=>{
       await writable.write(data);
       await writable.close();
 
-      // 尝试替换原文件
       if (typeof tempHandle.move === 'function') {
         await rootDir.removeEntry(originalName);
         await tempHandle.move(originalName);
@@ -92,12 +84,11 @@ export const  useOPFS=(target)=>{
       }
       return true;
     } catch (err) {
-      await rootDir.removeEntry(tempName).catch(() => {}); // 失败则清理临时文件
+      await rootDir.removeEntry(tempName).catch(() => {});
       throw err;
     }
   }, [checkHandle]);
 
-  // 3追加写入
   const append = useCallback(async (data) => {
     const h = checkHandle();
     const writable = await h.createWritable({ keepExistingData: true });
@@ -107,7 +98,6 @@ export const  useOPFS=(target)=>{
     return true;
   }, [checkHandle]);
 
-  // ================= 重命名 =================
   const rename = useCallback(async (newName) => {
     const h = checkHandle();
     const rootDir = await navigator.storage.getDirectory();
@@ -115,7 +105,6 @@ export const  useOPFS=(target)=>{
 
     if (newName === oldName) return true;
 
-    // 防重名检测
     try {
       await rootDir.getFileHandle(newName);
       throw new Error(`重命名失败：文件 "${newName}" 已存在！`);
@@ -124,7 +113,6 @@ export const  useOPFS=(target)=>{
     }
 
     if (typeof h.move === 'function') {
-      // 原生 API 重命名
       await h.move(newName);
       setHandle(await rootDir.getFileHandle(newName));
     } else {
@@ -141,14 +129,13 @@ export const  useOPFS=(target)=>{
         await rootDir.removeEntry(oldName);
         setHandle(newHandle);
       } catch (fallbackErr) {
-        await rootDir.removeEntry(newName).catch(() => {}); // 失败则清理残缺新文件
+        await rootDir.removeEntry(newName).catch(() => {});
         throw new Error(`重命名失败: ${fallbackErr.message}`);
       }
     }
     return true;
   }, [checkHandle]);
 
-  // ================= 删 =================
   const remove = useCallback(async () => {
     const h = checkHandle();
     await h.remove();

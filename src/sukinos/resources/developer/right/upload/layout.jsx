@@ -9,8 +9,9 @@ import kernel from "@/sukinos/utils/process/kernel"
 import { selectorUserInfo, selectorStoreSettingStorePath } from "@/sukinos/store"
 import { useSelector } from 'react-redux';
 import { ENV_KEY_NAME, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO } from '@/sukinos/utils/config';
-import { buildAppEntries } from '@/sukinos/utils/entryConfig';
-import { inspectEntryLayering, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
+import { buildAppEntries, contentKeyOf, formatMissingViewHint, formatDocEntryUnsupported } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, formatLayeringErrors, isHtmlKey } from '@/sukinos/utils/process/sourceMapper';
+import { collectPayloadFiles, formatPayloadSize, formatSkipped } from '@/sukinos/utils/process/payloadCollect';
 import permissionManageAPI from "@/apis/system/permissionManage";
 
 const bem = createNamespace('upload');
@@ -64,28 +65,36 @@ function Uploader({ appMeta, uploadType, entryConfig }) {
   const getUploadConfig = () => {
     switch (uploadType) {
       case 'logic': return { title: '上传单页 [含逻辑]', desc: `选择包含 ${viewName} 和 ${logicName} 的文件夹`, method: handleUploadLogic };
-      case 'bundle': return { title: '上传多页面应用', desc: `选择包含多个 .jsx 文件和 ${viewName} 的文件夹`, method: handleUploadBundle };
+      case 'bundle': return { title: '上传多页面应用', desc: `选择包含多个 .jsx / .js / .html 文件和 ${viewName} 的文件夹`, method: handleUploadBundle };
       case 'file':
-      default: return { title: '上传单文件应用', desc: '选择一个 .jsx 文件作为应用入口', method: handleUploadFile };
+      default: return { title: '上传单文件应用', desc: '选择一个 .jsx / .js / .html 文件作为应用入口', method: handleUploadFile };
     }
   };
 
   const handleUploadFile = async () => {
     if (!window.showOpenFilePicker) throw new Error('您的浏览器不支持文件选择功能');
     const [fileHandle] = await window.showOpenFilePicker({
-      types: [{ description: 'JSX / JS 文件', accept: { 'text/jsx': ['.jsx', '.js'] } }],
+      types: [{ description: 'JSX / JS / HTML 文件', accept: { 'text/jsx': ['.jsx', '.js'], 'text/html': ['.html', '.htm'] } }],
       multiple: false
     });
     const file = await fileHandle.getFile();
     const fileContent = await file.text();
+    // 单个自包含 html 走文档包形态：content 必须是 map（下游按 map/字符串两种形态分流），
+    // 视图入口固化成这个文件本身，运行侧才认得出它是文档档
+    const asDocument = isHtmlKey(file.name);
+    const payloadFiles = asDocument ? { [file.name]: fileContent } : {};
+    if (asDocument) {
+      // 只装一个文件，所以它引用了别的文件就是真丢——报出来，别让子文档静默缺样式
+      assertLayering(payloadFiles, { entries: { view: file.name } });
+    }
 
     const resourceId = await kernel.uploadResource({
       sysOptions: finalSysOptions,
-      [ENV_KEY_NAME]: appName || file.name.replace(/\.(jsx|js)$/, ''),
-      [ENV_KEY_IS_BUNDLE]: false,
-      [ENV_KEY_CONTENT]: fileContent,
+      [ENV_KEY_NAME]: appName || file.name.replace(/\.(jsx|js|html?)$/i, ''),
+      [ENV_KEY_IS_BUNDLE]: asDocument,
+      [ENV_KEY_CONTENT]: asDocument ? payloadFiles : fileContent,
       [ENV_KEY_LOGIC]: null,
-      [ENV_KEY_META_INFO]: buildMetaInfo()
+      [ENV_KEY_META_INFO]: asDocument ? buildMetaInfo({ view: file.name, logicMain: null, logicAux: [] }) : buildMetaInfo()
     });
     await registerToPermissionPool(resourceId);
   };
@@ -96,40 +105,31 @@ function Uploader({ appMeta, uploadType, entryConfig }) {
     if (errors.length) throw new Error(`分层校验未通过：${formatLayeringErrors(errors)}`);
   };
 
-  // 递归遍历目录，收集所有 .jsx/.js/.css 文件，key 用相对路径（带扩展名）
-  const collectFilesRecursively = async (dirHandle, prefix = '') => {
-    const collected = {};
-    for await (const entry of dirHandle.values()) {
-      if (entry.kind === 'directory') {
-        const sub = await collectFilesRecursively(entry, prefix ? `${prefix}/${entry.name}` : entry.name);
-        Object.assign(collected, sub);
-      } else if (entry.kind === 'file' && /\.(jsx|js|css)$/.test(entry.name)) {
-        const file = await entry.getFile();
-        const text = await file.text();
-        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-        collected[relPath] = text;
-      }
-    }
-    return collected;
+  // 递归遍历目录，默认全收（读法由 payloadCollect 决定：文本 / data URL），
+  // key 用相对路径（带扩展名）；分档口径见 sourceMapper 的分档注释块。
+  // 采集侧不设体积闸：合计与「未采集」一起报，是选错目录时唯一的本地信号（上限在后端按角色配）
+  const collectAll = async (handle) => {
+    const { files, skipped } = await collectPayloadFiles(handle);
+    setMessage([formatSkipped(skipped), formatPayloadSize(files)].filter(Boolean).join('，'));
+    return files;
   };
 
   const handleUploadBundle = async () => {
     if (!window.showDirectoryPicker) throw new Error('您的浏览器不支持文件夹选择功能');
     const handle = await window.showDirectoryPicker();
 
-    const allFiles = await collectFilesRecursively(handle);
+    const allFiles = await collectAll(handle);
     const resolved = buildAppEntries(allFiles, entryConfig);
-    if (!Object.keys(allFiles).some(k => /\.(jsx|js)$/.test(k))) throw new Error('文件夹中没有找到 .jsx / .js 文件');
-    if (!resolved.viewFile) throw new Error(`文件夹中必须包含视图入口 ${viewName}`);
+    if (!Object.keys(allFiles).some(k => /\.(jsx|js|html?)$/.test(k))) throw new Error('文件夹中没有找到 .jsx / .js / .html 文件');
+    if (!resolved.viewFile) throw new Error(formatMissingViewHint(viewName));
     assertLayering(allFiles, resolved, resolved.logicMainFile ? allFiles[resolved.logicMainFile] : '');
 
     const modules = {};
+    const asDocument = isHtmlKey(resolved.viewFile || '');
     for (const [relPath, text] of Object.entries(allFiles)) {
       // 主逻辑入口单独承载给 worker，不进内容包（内容包会被视图侧编译渲染）
       if (relPath === resolved.logicMainFile) continue;
-      // CSS 文件保留 .css 后缀作为 key（供 import './style.css' / import styles from './style.module.css' 解析）
-      // .jsx / .js 文件 key 用相对路径去扩展名（如 pages/about/index、components/Button）
-      modules[/\.css$/.test(relPath) ? relPath : relPath.replace(/\.(jsx|js)$/, '')] = text;
+      modules[contentKeyOf(relPath, asDocument)] = text;
     }
 
     const resourceId = await kernel.uploadResource({
@@ -144,6 +144,8 @@ function Uploader({ appMeta, uploadType, entryConfig }) {
   };
 
   const handleUploadLogic = async () => {
+    // 视图入口是文档档时这一档装不下：只带一个视图字符串，样式与资源整批静默丢失
+    if (isHtmlKey(entryConfig?.viewEntry || '')) throw new Error(formatDocEntryUnsupported('单页 [含逻辑]'));
     if (!window.showDirectoryPicker) throw new Error('您的浏览器不支持文件夹选择功能');
     const handle = await window.showDirectoryPicker();
 
@@ -209,7 +211,7 @@ function Uploader({ appMeta, uploadType, entryConfig }) {
           <h4 className={style[bem.e('requirements-title')]}>格式要求：</h4>
           <ul className={style[bem.e('requirements-list')]}>
             {uploadType === 'file' && (
-               <li className={style[bem.e('requirements-item')]}><span className={style[bem.e('requirements-bullet')]}>•</span>仅需选择单个 .jsx 文件</li>
+               <li className={style[bem.e('requirements-item')]}><span className={style[bem.e('requirements-bullet')]}>•</span>仅需选择单个 .jsx / .js / .html 文件；.html 需自包含，带样式与资源的构建产物请走多页面</li>
             )}
             {(uploadType === 'bundle' || uploadType === 'logic') && (
               <>

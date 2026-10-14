@@ -14,7 +14,7 @@ const permissionManageAPI = {
     return instance({ method: 'GET', url: '/system/permission/system-apps' });
   },
   getAvailableSystemApps: async () => {
-    return instance({ method: 'GET', url: '/system/permission/system-apps/available' });
+          return instance({ method: 'GET', url: '/system/permission/system-apps/available' });
   },
   updateSystemAppAccess: async (data) => {
     const { appId, ...payload } = data || {};

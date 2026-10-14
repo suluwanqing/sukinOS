@@ -24,20 +24,16 @@ export class Registry {
     }
   }
 
-  /**
-   * 注册单个系统预置资源为系统 APP(pid = resourceId)。
-   * 供 initializeSystemApps 批量注册，以及 syncSystemAccess 权限变更后的实时同步复用。
-   */
+  // 注册单个系统预置资源为系统 APP（pid = resourceId）
+  // 供 initializeSystemApps 批量注册，以及 syncSystemAccess 权限变更后的实时同步复用
   initializeSystemApp(preset) {
     const presetResId = preset?.[ENV_KEY_RESOURCE_ID]
     if (!presetResId) return
     this.#kernel.presetResourceIds.add(presetResId)
-    // 直接拿系统预设
     const pid = presetResId
     const appName = preset?.[ENV_KEY_NAME]
     // 获取从 sysDb 加载的覆盖记录
     const dbOverride = this.#kernel.userApps.get(pid)
-    // 默认使用预设配置
     let finalMeta = preset?.[ENV_KEY_META_INFO]
     // 系统应用刷新后，默认状态永远是 INSTALLED，savedState 永远是 null
     let status = 'INSTALLED'
@@ -51,12 +47,9 @@ export class Registry {
           ...(dbOverride?.[ENV_KEY_META_INFO]?.custom || {}),
         },
       }
-      // 如果该应用在 custom 里配置了开机自启，
-      // 我们保持它的状态为 INSTALLED，后续 restoreSession 会根据 finalMeta.custom.autoStart 启动它
-      // 从 userApps 临时区清理
+      // 配了开机自启时状态仍留 INSTALLED，由 restoreSession 按 finalMeta.custom.autoStart 拉起
       this.#kernel.userApps.delete(pid)
     }
-    // 注入内存注册表
     this.#kernel.systemApps.set(pid, {
       pid,
       [ENV_KEY_NAME]: appName,
@@ -119,8 +112,6 @@ export class Registry {
   getBlockEdApps() {
     const allApps = [...this.#kernel.systemApps.values(), ...this.#kernel.userApps.values()]
     return allApps.filter(app => app?.[ENV_KEY_META_INFO]?.custom?.blockEd)
-    //custom is 用户个人习惯,在安装的时候进行注入但是系统App会设置某些字段不允许被注入
-    //这里考虑版本更新的跳过等等
   }
 
   getTypeApps(appType) {
@@ -134,8 +125,6 @@ export class Registry {
   }
 }
 
-// ─── 代理导出函数 ──────────────────────
-
 export function initializeSystemApps(kernel) {
   kernel.registry.initializeSystemApps()
 }
@@ -143,7 +132,6 @@ export function initializeSystemApps(kernel) {
 export function updateSystemAppInfo(kernel, pid, info) {
   kernel.registry.updateSystemAppInfo(pid, info)
 }
-//更新用户app信息
 export function updateUserAppInfo(kernel, pid, info) {
   kernel.registry.updateUserAppInfo(pid, info)
 }
@@ -151,7 +139,6 @@ export function updateUserAppInfo(kernel, pid, info) {
 export async function loadUserAppsFromDb(kernel) {
   return kernel.registry.loadUserAppsFromDb()
 }
-//为了兼容无法直接获取pid的地方
 export function getPidByResourceId(kernel, resourceId) {
   return kernel.registry.getPidByResourceId(resourceId)
 }
@@ -175,8 +162,7 @@ export function getHibernatedApps(kernel) {
 export function getInstalledApps(kernel) {
   return kernel.registry.getInstalledApps()
 }
-  //custom是用户个人习惯,在安装的时候进行注入但是系统App会设置某些字段不允许被注入
-  //这里考虑版本更新的跳过等等
+// custom 是用户个人习惯：安装时注入，但系统 App 会设置某些字段不允许被注入
 export function getBlockEdApps(kernel) {
   return kernel.registry.getBlockEdApps()
 }

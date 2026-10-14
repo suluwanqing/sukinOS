@@ -12,8 +12,9 @@ import {
   ENV_KEY_NAME, ENV_KEY_RESOURCE_ID, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO,
   appCustom, appCustomMapper, appTypes, LOCAL_DEV_SYMPLE_LINKS,DEFAULT_LOGO
 } from '@/sukinos/utils/config';
-import { loadEntryConfig, moduleKeyOf, buildAppEntries } from '@/sukinos/utils/entryConfig';
-import { inspectEntryLayering, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
+import { loadEntryConfig, moduleKeyOf, buildAppEntries, contentKeyOf } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, formatLayeringErrors, isHtmlKey } from '@/sukinos/utils/process/sourceMapper';
+import { collectPayloadFiles, formatPayloadSize, formatSkipped } from '@/sukinos/utils/process/payloadCollect';
 
 import RenderProcess from '@/sukinos/utils/process/renderProcess';
 import Select from "@/component/select/drowSelection/layout";
@@ -430,7 +431,7 @@ const AppPanel = ({
   </div>
 );
 
-const FilesPanel = ({ fetchStatus, lastSync, errorMsg, missingRequired, compileErr, fileList, hasLogic, localEntries, compiling, handleManualSync, handleCreate, appMeta, syncPaused, onTogglePause }) => {
+const FilesPanel = ({ fetchStatus, lastSync, errorMsg, syncNotice, missingRequired, compileErr, fileList, hasLogic, localEntries, compiling, handleManualSync, handleCreate, appMeta, syncPaused, onTogglePause }) => {
   const { mod } = STATUS_CFG[fetchStatus];
   const canPublish = missingRequired.length === 0 && !!appMeta.appName && fetchStatus === 'ok';
   return (
@@ -445,6 +446,11 @@ const FilesPanel = ({ fetchStatus, lastSync, errorMsg, missingRequired, compileE
         {lastSync ? `上次 ${lastSync.toLocaleTimeString()}` : '尚未同步'}
         {errorMsg && <span className={style[bem.e('sync-err')]}> · {errorMsg}</span>}
       </div>
+      {syncNotice && fetchStatus === 'ok' && (
+        <div className={style[bem.e('alert')]}>
+          <b>!</b> {syncNotice}
+        </div>
+      )}
       {missingRequired.length > 0 && fetchStatus === 'ok' && (
         <div className={style[bem.e('alert')]}>
           <b>!</b> 缺少：{missingRequired.join('、')}
@@ -580,7 +586,7 @@ const GuidePanel = ({ entryConfig }) => {
     {
       number: '02',
       title: '准备核心文件',
-      description: '确保你的源码目录（如 src/）包含以下核心文件：',
+      description: '确保你的源码目录（如 src/）包含以下核心文件。目录里的文件一律随包（含 .json / 字体 / 图片），只需同步整个构建产物目录；把视图入口设成产物里的 index.html，这份载荷就按文档档发布（样式与脚本由内核内联进子文档）。',
       files: [
         { name: entryConfig?.viewEntry || 'layout.jsx', description: '应用的视图入口组件' },
         { name: (entryConfig?.logicEntries || ['logic.jsx']).join('、'), description: '处理 Reducer 与状态逻辑（可选，无则应用无状态机）' },
@@ -759,6 +765,8 @@ const LocalDev = () => {
   const [fileList, setFileList] = useState([]);
   const [hasLogic, setHasLogic] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  // 采集侧不设体积闸：这里报「未采集的目录/读失败 + 载荷合计」，只是本机读数（同步链不出网）
+  const [syncNotice, setSyncNotice] = useState('');
   const [missingRequired, setMissingRequired] = useState([]);
   const [localFiles, setLocalFiles] = useState({});
   const [localLogicCode, setLocalLogicCode] = useState(null);
@@ -883,20 +891,14 @@ const LocalDev = () => {
     return () => { if (healthCheckRef.current) clearInterval(healthCheckRef.current); };
   }, [config.syncMode, config.enableHealthCheck, config.autoSync, config.healthCheckInterval, performHealthCheck, syncPaused]);
 
-  // 递归遍历目录，收集所有 .jsx/.js/.css 文件，key 用相对路径（含扩展名，供预览/上传使用）
+  // 递归遍历目录，默认全收（文本直接读、二进制折 base64），key 用相对路径（含扩展名，供预览/上传使用）
   const collectFilesRecursively = useCallback(async (dirHandle, prefix = '') => {
-    const collected = {};
-    for await (const entry of dirHandle.values()) {
-      if (entry.kind === 'directory') {
-        const sub = await collectFilesRecursively(entry, prefix ? `${prefix}/${entry.name}` : entry.name);
-        Object.assign(collected, sub);
-      } else if (entry.kind === 'file' && /\.(jsx|js|css)$/.test(entry.name)) {
-        const f = await entry.getFile(); const text = await f.text();
-        const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-        collected[relPath] = text;
-      }
-    }
-    return collected;
+    const { files, skipped } = await collectPayloadFiles(dirHandle, prefix);
+    // 采集侧不设体积闸：合计与「未采集」一起进状态面板，是选错目录时唯一的本地信号
+    const notice = [formatSkipped(skipped), formatPayloadSize(files)].filter(Boolean).join('，');
+    setSyncNotice(notice);
+    if (skipped.length) console.warn('[本地同步]', notice);
+    return files;
   }, []);
 
   const performSync = useCallback(async (cfg, versionCheck = false) => {
@@ -932,9 +934,9 @@ const LocalDev = () => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         if (data.status !== 'ok') throw new Error(data.message || '服务端异常');
+        const rawFiles = data.files || {};
         if (versionCheck && data.v === lastVRef.current) return;
         lastVRef.current = data.v;
-        const rawFiles = data.files || {};
         const resolved = buildAppEntries(rawFiles, entryCfg);
         // 服务端可能把主逻辑单独放在 data.logic（不带文件名）：此时 files 里命中的逻辑文件都是辅逻辑
         const hasServerLogic = !!data.logic;
@@ -956,6 +958,9 @@ const LocalDev = () => {
           logicAux: hasServerLogic ? resolved.logicFiles.map(moduleKeyOf) : resolved.entries.logicAux,
         });
         setFileList(keys); setHasLogic(!!logicCode); setLastSync(new Date()); setFetchStatus('ok'); setErrorMsg('');
+        // HTTP 通道没有本地采集口，上一条目录提示不该留着：换成这份产物自己的合计
+        // （合计只是「同步到的东西有多大」的本机读数：这条链不经后端，体积上限只在出网时才判）
+        setSyncNotice(formatPayloadSize(data.logic ? { ...rawFiles, 'logic (服务端单独承载的主逻辑块)': data.logic } : rawFiles));
       } catch (e) { setErrorMsg(e.message); setFetchStatus('error'); }
     }
   }, []);
@@ -1030,8 +1035,9 @@ const LocalDev = () => {
     if (registerToPool) {
       finalSysOptions.uploadInfo = { ...(finalSysOptions.uploadInfo || {}), isPrivate: true };
     }
+    const asDocument = isHtmlKey(localEntries?.view || '');
     const cleanFiles = {};
-    for (const [k, v] of Object.entries(localFiles)) { cleanFiles[k.replace(/\.(jsx|js)$/, '')] = v; }
+    for (const [k, v] of Object.entries(localFiles)) { cleanFiles[contentKeyOf(k, asDocument)] = v; }
     const resourceId = await kernel.uploadResource({ sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: true, [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: localLogicCode || null, [ENV_KEY_META_INFO]: baseMetaInfo });
     if (registerToPool && resourceId) {
       try {
@@ -1100,8 +1106,9 @@ const LocalDev = () => {
           // 入口识别结果随本次更新固化，避免沿用云端旧 metaInfo 上已过期的 entries
           if (localEntries) baseMetaInfo.entries = localEntries;
           const finalSysOptions = { ...sysOptions, userInfo, storePath };
+          const asDocument = isHtmlKey(localEntries?.view || '');
           const cleanFiles = {};
-          for (const [k, v] of Object.entries(localFiles)) { cleanFiles[k.replace(/\.(jsx|js)$/, '')] = v; }
+          for (const [k, v] of Object.entries(localFiles)) { cleanFiles[contentKeyOf(k, asDocument)] = v; }
           const targets = myUploads.filter(app => selectedUploadIds.has(app.resourceId));
           for (const app of targets) {
             const mergedMeta = { ...(app.metaInfo || {}), ...baseMetaInfo };
@@ -1180,7 +1187,7 @@ const LocalDev = () => {
               onRegisterToggle={setRegisterToPool}
             />
           )}
-          {activeNav === 'status' && <FilesPanel fetchStatus={displayStatus} lastSync={lastSync} errorMsg={errorMsg} missingRequired={missingRequired} compileErr={compileErr} fileList={fileList} hasLogic={hasLogic} localEntries={localEntries} compiling={compiling} handleManualSync={handleManualSync} handleCreate={handleCreate} appMeta={appMeta} syncPaused={syncPaused} onTogglePause={handleTogglePause} />}
+          {activeNav === 'status' && <FilesPanel fetchStatus={displayStatus} lastSync={lastSync} errorMsg={errorMsg} syncNotice={syncNotice} missingRequired={missingRequired} compileErr={compileErr} fileList={fileList} hasLogic={hasLogic} localEntries={localEntries} compiling={compiling} handleManualSync={handleManualSync} handleCreate={handleCreate} appMeta={appMeta} syncPaused={syncPaused} onTogglePause={handleTogglePause} />}
           {activeNav === 'debug' && <DebugPanel previewState={previewState} dispatchLogs={dispatchLogs} />}
           {activeNav === 'guide' && <GuidePanel entryConfig={entryConfig} />}
         </div>

@@ -12,10 +12,8 @@ import {
 import CommHub from './commHub'
 import {BabelLoader} from './babelLoader'
 import {personalizationStore} from '@/sukinos/hooks/usePersonalization'
-// 引入公共游客状态管理服务
 import {GUEST_INFO, checkIsGuest, setGuestFlag, clearGuestFlag} from '/utils/js/guest'
 
-// 子模块
 import {Cache} from './kernelParts/cache'
 import {Core} from './kernelParts/core'
 import {Flags} from './kernelParts/flags'
@@ -30,35 +28,26 @@ import permissionManageAPI from '@/apis/system/permissionManage'
 import {PRESET_RESOURCES} from '@/sukinos/resources/preset_resources'
 
 class Kernel {
-  // --- 队列管理属性 ---
-  // #installQueue = []; // 安装任务队列
-  // #isProcessingQueue = false; // 队列执行锁
 
   constructor() {
-    //---stroeDispatch---方便对仓库的操作
-    this.storeDispatch = null //注意因为我们的命名上已经有一个dispatch,避免同名文题,直接这样处理。
+    this.storeDispatch = null // 命名与既有 dispatch 冲突，故不用同名私有字段
 
-    // --- 持久化存储 ---
-    this.sysDb = null // 负责存储用户应用的注册表信息 (IndexedDB)，按用户延迟初始化
-    this.resDb = null // 负责存储所有应用的源资源，如代码、元数据 等 (IndexedDB)，按用户延迟初始化
+    this.sysDb = null // 用户应用注册表 (IndexedDB)，按用户延迟初始化
+    this.resDb = null // 应用源资源：代码、元数据等 (IndexedDB)，按用户延迟初始化
     this.dirHandle = null // 用户授权的本地文件系统目录句柄
-    this.instanceDb = null // 管理有状态实例，按用户延迟初始化
-    // --- 运行时状态管理核心 ---
-    // 此 Map 存储所有已启动的 Worker 进程实例。
-    // 无论是 'RUNNING' (活动) 还是 'HIBERNATED' (休眠) 状态的应用，只要它的进程在运行，就会在这里有记录。
+    this.instanceDb = null // 有状态实例库，按用户延迟初始化
+    // RUNNING 与 HIBERNATED 的进程都登记在此：休眠不终止 Worker
     this.processes = new Map() // 存储: { pid -> { worker, url ,pid} }
 
-    // 应用的内存注册表，作为运行时的唯一真实数据源，保证了高性能和状态一致性。
-    this.systemApps = new Map() // 存储系统应用的元数据
-    this.userApps = new Map() // 存储用户应用的元数据，在init时从sysDb加载
+    // 内存注册表是运行时的唯一真实数据源
+    this.systemApps = new Map()
+    this.userApps = new Map() // init 时由 sysDb 加载
     this.resourceIdToPid = new Map()
     this.pidToResourceId = new Map()
 
-    // --- 队列管理属性 ---
-    this.installQueue = [] // 安装任务队列
-    this.isProcessingQueue = false // 队列执行锁
+    this.installQueue = []
+    this.isProcessingQueue = false
 
-    // ─── 统一子模块 ───
     this.cache = new Cache(this)
     this.core = new Core(this)
     this.flags = new Flags(this)
@@ -70,11 +59,7 @@ class Kernel {
     this.resourceAccess = new ResourceAccess(this)
     this.settings = new Settings(this)
 
-    // --- 缓存与事件通信 ---
-    // this.subscribers = new Map() // UI组件订阅应用状态变化的集合
-    // this.stateCache = new Map() // 缓存来自应用Worker的最新UI状态，用于新订阅者立即获取
-    this.resourceCache = {} // 所有应用资源的缓存 (代码逻辑、内容等)
-    // this.eventBus = new EventTarget() // 用于系统级事件的发布/订阅
+    this.resourceCache = {}
     this.commHub = new CommHub({
       onSaveState: async (pid, payload) => {
         const app = this.#getApp(pid)
@@ -86,7 +71,6 @@ class Kernel {
           }
         }
       },
-      // 提供向目标 Worker 发送消息的消息通道（用于从系统推送主题消息给 App）
       sendToWorker: (pid, msg) => {
         const p = this.processes.get(pid)
         if (p && p.worker) {
@@ -95,29 +79,23 @@ class Kernel {
       },
     })
 
-    // --- 预设与会话 ---
-    this.presetResourceIds = new Set() // 预设资源的ID集合，用于特殊处理 (如禁止写入,和修改,实际应该更多处理,如版本控制等,字符标胶)
-    this.currentUser = null // 当前登录的用户信息
+    this.presetResourceIds = new Set() // 预设资源 ID：禁止写入与修改
+    this.currentUser = null
 
-    // --- 自动保存定时器 ---
     this.autoSaveTimers = new Map() // pid -> { stateTimerId, windowTimerId }
-    this.lastSavedState = new Map() // pid -> last persisted state (脏检查)
-    this.lastSavedWindow = new Map() // pid -> last persisted window rect (脏检查)
-    this._unsubPersonalization = null // 个人化配置变更订阅句柄
+    this.lastSavedState = new Map() // pid -> 上次落盘的 state（脏检查）
+    this.lastSavedWindow = new Map() // pid -> 上次落盘的窗口位置（脏检查）
+    this._unsubPersonalization = null
   }
-  // 检查一个PID是否属于系统应用
   isSystemApp(pid) {
     return this.flags.isSystemApp(pid)
   }
 
-  /**
-   * 按用户初始化独立的 IndexedDB 数据库
-   * 每个用户拥有独立的 SukinOS_Sys_{userId}、SukinOS_Res_{userId}、SUKIN_STATE_INSTANCE_{userId}
-   */
+  // 每用户独立三库：SukinOS_Sys_{userId} / SukinOS_Res_{userId} / SUKIN_STATE_INSTANCE_{userId}
   async initDatabases(userId) {
     const uid = userId || DEFAULT_USER_ID
 
-    // 关闭旧DB连接（用户切换时）
+    // 用户切换：先关闭上一用户的连接，再开新库
     await this.sysDb?.closeDB()
     await this.resDb?.closeDB()
     await this.instanceDb?.closeDB()
@@ -130,24 +108,18 @@ class Kernel {
     await this.instanceDb.openDB()
   }
 
-  /**
-   * 重置内核内存状态（终止进程、清空注册表、关闭数据库连接）
-   * 用于用户登出或切换时清理上一个用户的数据
-   */
+  // 登出/切换用户时清理上一用户的数据：落盘、杀进程、清注册表、关 DB 连接
   async reset() {
-    // 停止所有自动保存定时器
     this.stopAllAutoSave()
 
-    // 强制保存所有正在运行的应用状态
+    // 必须先强制落盘再终止进程，否则最后一次状态更新丢失
     this.lifecycle.forceSaveAllStates()
 
-    // 终止所有运行中的 Worker 进程
     for (const [pid] of this.processes) {
       this.internals.kill(pid)
     }
     this.processes.clear()
 
-    // 清空内存注册表
     this.systemApps.clear()
     this.userApps.clear()
     this.resourceIdToPid.clear()
@@ -156,14 +128,11 @@ class Kernel {
     this.presetResourceIds.clear()
     this.allowedSystemResIds = new Set()
 
-    // 清空通信枢纽缓存
     this.commHub.clearAll()
 
-    // 取消个人化配置订阅
     this._unsubPersonalization?.()
     this._unsubPersonalization = null
 
-    // 关闭数据库连接
     await this.sysDb?.closeDB()
     await this.resDb?.closeDB()
     await this.instanceDb?.closeDB()
@@ -174,10 +143,7 @@ class Kernel {
     this.currentUser = null
   }
 
-  /**
-   * 用户切换时重新初始化内核
-   * 执行完整的重置 → 数据库初始化 → 资源加载 → 注册表重建 → 会话恢复流程
-   */
+  // 用户切换：reset → 建库 → 资源与注册表重建 → restoreSession，顺序不可颠倒
   async reinit(userId) {
     await this.reset()
     await this.initDatabases(userId)
@@ -185,8 +151,7 @@ class Kernel {
     this.dirHandle = await navigator.storage.getDirectory()
     // 确保 Babel 编译器已加载（Worker 代码生成依赖）
     await BabelLoader.load()
-    // 重新加载核心资源和注册表
-    // 提前同步系统APP访问权限，得到准入集合，供 ensurePresets / initializeSystemApps 做准入制注册
+    // 准入集合必须先于 ensurePresets / initializeSystemApps 就绪，否则未授权资源会被注册
     await this.syncSystemAccess()
     await this.core.ensurePresets()
     await this.core.loadAllResources()
@@ -199,16 +164,13 @@ class Kernel {
     this.messaging.emitChange({type: 'APP_REGISTRY'})
   }
 
-  //存入仓库操作帧
   setDispatch(dispatch) {
     this.flags.setDispatch(dispatch)
   }
-  // 内核初始化函数
   async init(info) {
     return this.core.init(info)
   }
-  /*================================================Auto-Save 定时保存================================*/
-  // 订阅个人化面板全局配置变更，立即重启所有运行中 app 的定时器
+  // 个人化配置改的是保存间隔，需立即重启所有运行中 app 的定时器
   subscribePersonalization() {
     if (this._unsubPersonalization) return
     this._unsubPersonalization = personalizationStore.subscribe(() => {
@@ -250,7 +212,6 @@ class Kernel {
     this.autoSaveTimers.set(pid, timers)
   }
 
-  // 启动窗口位置自动保存
   startAutoSaveWindow(pid) {
     this.stopAutoSaveWindow(pid)
     const interval = this.getAutoSaveInterval(pid, 'autoSaveWindowInterval')
@@ -269,7 +230,6 @@ class Kernel {
     this.autoSaveTimers.set(pid, timers)
   }
 
-  // 执行状态保存（带脏检查）
   autoSaveState(pid) {
     const app = this.registry.getApp(pid)
     if (!app || app.isSystemApp) return
@@ -283,7 +243,6 @@ class Kernel {
     this.sysDb.updateData(app[ENV_KEY_NAME], {savedState: app.savedState}).catch(() => {})
   }
 
-  // 执行窗口位置保存（带脏检查）
   autoSaveWindow(pid) {
     const app = this.registry.getApp(pid)
     if (!app || app.isSystemApp) return
@@ -320,8 +279,7 @@ class Kernel {
     this.lastSavedWindow.clear()
   }
 
-  /*================================================提供给外部依赖调用的公开代理================================*/
-  // 因为带有 # 的私有属性无法在 generateApp.js 中直接调用，所以这里抛出同名的代理函数
+  // #私有成员无法被 generateApp.js 直接访问，这里抛出同名代理
   enqueueInstallTask(task) {
     this.internals.enqueueInstallTask(task)
   }
@@ -350,46 +308,37 @@ class Kernel {
     return this.internals.uploadCloud(data)
   }
 
-  //更新系统的sys信息,注意系统只有内存有注册表
+  // 系统应用只存在于内存注册表，不落 sysDb
   updateSystemAppInfo(pid, info) {
     this.registry.updateSystemAppInfo(pid, info)
   }
 
-  //从indexDb获取用户的注册表=>内存注册表
   async loadUserAppsFromDb() {
     return this.registry.loadUserAppsFromDb()
   }
 
-  // 初始化系统的注册表
   initializeSystemApps() {
     this.registry.initializeSystemApps()
   }
 
-  /*================================================内部私有函数==============================================*/
-  // 初始化系统应用数据到=>内存注册表
   #initializeSystemApps() {
     this.registry.initializeSystemApps()
   }
-  // 僵尸文件检查逻辑
   async #inspectZombieFile(fileHandle) {
     return this.internals.inspectZombieFile(fileHandle)
   }
 
-  //更新系统的sys信息,注意系统只有内存有注册表
   #updateSystemAppInfo(pid, info) {
     this.registry.updateSystemAppInfo(pid, info)
   }
-  //更新用户app信息
   #updateUserAppInfo(pid, info) {
     this.registry.updateUserAppInfo(pid, info)
   }
 
-  //从indexDb获取用户的注册表=>内存注册表。
   async #loadUserAppsFromDb() {
     return this.registry.loadUserAppsFromDb()
   }
 
-  //为了兼容无法直接获取pid的地方
   #getPidByResourceId(resourceId) {
     return this.registry.getPidByResourceId(resourceId)
   }
@@ -397,9 +346,7 @@ class Kernel {
     return this.registry.getResourceIdByPid(pid)
   }
 
-  /**
-   * 队列执行器：顺序处理安装/注册任务
-   */
+  // 串行处理安装/注册任务，避免并发写注册表
   async #processInstallQueue() {
     return this.internals.processInstallQueue()
   }
@@ -410,20 +357,17 @@ class Kernel {
   #getApp(pid) {
     return this.registry.getApp(pid)
   }
-  //云端上传App
   async #uploadCloud(data) {
     return this.internals.uploadCloud(data)
   }
 
   #emitChange(info) {
-    //暂时仅仅处理变化
     this.messaging.emitChange(info)
   }
   #notify(pid, type, data) {
     this.messaging.notify(pid, type, data)
   }
 
-  // --- 接收来自Worker消息处理[目前只有特性消息处理器] ---
   async #handleMsg(pid, msg) {
     await this.messaging.handleMsg(pid, msg)
   }
@@ -432,8 +376,7 @@ class Kernel {
     this.messaging.systemSwitch(p, payload)
   }
 
-  //更新resource的custom配置
-  //修改 sysDb [注册表实例]更为合理，因为 custom 属于应用运行时的个性化配置
+  // custom 属运行时个性化配置，写在 sysDb 的注册表实例上比写在资源库合理
   async updateResourceCustom(data) {
     return this.settings.updateResourceCustom(data)
   }
@@ -443,15 +386,10 @@ class Kernel {
   }
 
   #getProcessApp(pid) {
-    //先暂时统一,避免后续需要新的写入比较
     return this.internals.getProcessApp(pid)
   }
 
-  /*================================================公共 API (供UI层调用)=================================*/
 
-  /**
-   * 执行安装/注册行为的公共函数 (通过队列处理避免阻塞和冲突)
-   */
   async executeInstallation(params) {
     return this.core.executeInstallation(params)
   }
@@ -466,8 +404,7 @@ class Kernel {
     return this.registry.getInstalledApps()
   }
   getBlockEdApps() {
-    //custom是用户个人习惯,在安装的时候进行注入但是系统App会设置某些字段不允许被注入
-    //这里考虑版本更新的跳过等等
+    // custom 由安装时注入，系统 App 会置字段拒绝注入，因此这里还要跳过版本更新等情况
     return this.registry.getBlockEdApps()
   }
   getTypeApps(appType) {
@@ -476,95 +413,64 @@ class Kernel {
   async getApps() {
     return this.registry.getApps()
   }
-  // 获取资源,因为都是加载到内存里的
   getResource(resourceId) {
     return this.resourceAccess.getResource(resourceId)
   }
 
-  //处理预先资源的启动
   async ensurePresets() {
     return this.core.ensurePresets()
   }
 
-  //加载资源到内存
   async loadAllResources() {
     return this.core.loadAllResources()
   }
 
-  // --- 文件系统同步 ---
   async syncResourcesToFiles() {
-    //将从注册表indexDb读取的用户资源写入/同步至本 地,可以在这里做版本验证
     return this.core.syncResourcesToFiles()
   }
-  //注意认为id是唯一的,name就是app的名字,允许多安装
+  // id 唯一、name 即应用名，允许同一应用多次安装
   async writeAppFile(res) {
-    //写入app状态信息到本地
     return this.core.writeAppFile(res)
   }
-  //资源[app]上传,注意并没有分配pid,pid分配依赖注册表同步[这里的核心是优先创建worker，通过注册表更新资源]
+  // 上传时不分配 pid：pid 由注册表同步给出，先建 Worker 再经注册表更新资源
   async uploadResource(params) {
     return this.core.uploadResource(params)
   }
 
-  /**
-   * 通过indexDb的注册表[此时还没有检测本地apps]:去管理本地文件系统的资源和indexDb的资源
-   * 这是一个核心维护函数，确保文件系统、内存和数据库三者之间的数据一致性。
-   * 它处理 "僵尸文件" (物理文件存在但无注册记录) 和 "孤儿记录" (注册记录存在但无物理文件),他只负责文件句柄的删除
-   * 这里实际应该做版本和服务校验,放置本地端被修改,默认采用本地模式。
-   */
+  // 以 indexDb 注册表为准对齐 文件系统/内存/数据库：清理僵尸文件(有文件无注册)与孤儿记录(有注册无文件)，只删句柄不删数据
+  // 默认本地优先，不做版本与服务校验
   async syncRegistry() {
     return this.core.syncRegistry()
   }
-  // 通过资源IndexDb去注册
+  // 反向：以资源库为源补齐注册表
   async syncRegistryByRes() {
     return this.core.syncRegistryByRes()
   }
-  //更新App//更新App
   async updateApp(params) {
     return this.core.updateApp(params)
   }
 
-  //安装App这里后续实际可以考虑把所有整合简约一下
   async installApp(params) {
     return this.core.installApp(params)
   }
 
-  //App间交互
   async appIntereact({process, interactInfo}) {
-    //这里为了后续方便优化提取出来
     return this.messaging.appIntereact(process, interactInfo)
   }
-  //返回instanceDb
   async getInstanceDb() {
     return this.instance.getInstanceDb()
   }
 
-  /**
-   * 启动一个应用进程
-   * 这是一个核心的调度方法，它能处理冷启动和从休眠状态恢复两种情况。
-   * interactInfo应该是一个对象对应用户的reducer开发处理
-   function reducer(state[自动注入], action[App交互传输的interactInfo]) {
-      switch(action.type) {
-        case 'INCREMENT':
-          return { ...state, count: state.count + 1 };
-        default:
-          return state;
-      }
-    }`;
-  **/
+  // 冷启动与休眠恢复都走这一个入口；interactInfo 对应 App 侧 reducer(state, action)，state 由内核注入、action 来自交互
   async startProcess({pid, resourceId, interactInfo}) {
     return this.lifecycle.startProcess({pid, resourceId, interactInfo})
   }
 
-  //存储这个关于,窗口状态,后续可以考虑多模式处理,是冷启动还是热。主要方案1.适用display全部热启动。方案二:外壳全部display,内层冷启动
   async saveWindowState(pid, windowRect) {
     return this.lifecycle.saveWindowState(pid, windowRect)
   }
 
-  /**
-   * 仅更新窗口位置到内存（不写磁盘）
-   * 由拖拽/缩放结束后的 mouseup 触发，供 autoSaveWindow 定时器读取脏检查后写入 sysDb
-   */
+  // 只改内存：由拖拽结束的 mouseup 触发，实际落盘交给 autoSaveWindow 的脏检查，避免拖动期间高频写盘
   updateWindowRect(pid, rect) {
     const app = this.registry.getApp(pid)
     if (!app || app.isSystemApp) return
@@ -572,44 +478,26 @@ class Kernel {
     app.savedState = {...app.savedState, window: rect}
   }
 
-  /**
-   * 强制所有正在运行的应用保存其内部状态。
-   * 这个接口主要用于页面关闭前（例如在 beforeunload 事件中调用），
-   * 以确保所有应用的最新状态都被持久化，从而实现完美的会话恢复。
-   */
+  // 强制所有运行中应用落盘，供 beforeunload 这类退出时机调用
   forceSaveAllStates() {
     this.lifecycle.forceSaveAllStates()
   }
 
-  /**
-   * 休眠一个应用。
-   * 此操作只改变应用的状态标记为 'HIBERNATED'，不会终止Worker进程。
-   * Worker会继续在后台运行，保持其内部状态是“热”的。
-   */
+  // 只把状态标记为 HIBERNATED，不终止 Worker：进程留在后台保持“热”
   async hibernate(pid) {
     return this.lifecycle.hibernate(pid)
   }
 
-  /**
-   * 强制清除应用的持久化运行状态
-   */
   async clearAppSavedState(pid) {
     return this.lifecycle.clearAppSavedState(pid)
   }
 
-  /**
-   * 强制完全重置一个应用，无视配置直接清空状态并杀死进程
-   * 用于用户主动发起的重置操作
-   */
+  // 无视配置直接清空状态并杀进程，用于用户主动重置
   async forceResetApp(pid) {
     return this.lifecycle.forceResetApp(pid)
   }
 
-  /**
-   * 强制关闭一个应用 (与hibernate不同)。
-   * 此操作会彻底终止Worker进程，根据配置决定是否清除已保存状态。
-   * @param {string|number} pid - 应用进程ID
-   */
+  // 与 hibernate 的区别：彻底终止 Worker，并按配置决定是否清除已保存状态
   async forceKillProcess(pid) {
     return this.lifecycle.forceKillProcess(pid)
   }
@@ -620,50 +508,37 @@ class Kernel {
     return this.lifecycle.forceReStartApp({pid})
   }
 
-  //删除非系统内置App
+  // 仅删除非系统内置 App
   async deleteApp(params) {
     return this.core.deleteApp(params)
   }
 
-  // --- 系统恢复与进程管理 ---
   async restoreSession() {
     return this.lifecycle.restoreSession()
   }
 
-  //拉起/唤起App
   async evokeApp({pid, from, interactInfo}) {
     return this.lifecycle.evokeApp({pid, from, interactInfo})
   }
 
-  /*======================================事件分发与订阅====================================*/
-  /*
-    执行流程:
-        worker:存储逻辑和内存信息
-        UI:通过调用dispatch和对应worker的action
-        worker:触发更新,执行对应的行为,更新State,并发送消息
-        kernel:监听到worker消息,执行app的订阅更新state
-  */
+  // 事件流：UI dispatch → worker 执行并更新 state → kernel 收到消息后通知订阅者
   dispatch(pid, action) {
-    //实际还是UI触发只是会区分给kernel还是worker
+    // 仍是 UI 触发，只是要分流给 kernel 还是 worker
     return this.messaging.dispatch(pid, action)
   }
 
-  //订阅App行为
   subscribeApp(pid, cb) {
     return this.messaging.subscribeApp(pid, cb)
   }
 
-  //订阅系统行为
   subscribeSystem(cb) {
     return this.messaging.subscribeSystem(cb)
   }
 
-  // 代理订阅特定主题消息方法[kernel,app都可订阅]
   subscribe(topic, cb) {
     return this.messaging.subscribe(topic, cb)
   }
 
-  // 代理发布特定主题消息方法[kernel,app都可发布]
   publish(topic, payload) {
     return this.messaging.publish(topic, payload)
   }
@@ -676,25 +551,18 @@ class Kernel {
     this.cache.clearCachedState(pid)
   }
 
-  // 初始化系统应用数据到=>内存注册表
   initializeSystemApps() {
     this.registry.initializeSystemApps()
   }
 
-  /**
-   * 提前从后端同步当前用户有权访问的系统 APP 列表，得到准入集合 allowedSystemResIds。
-   * 该集合在 ensurePresets / initializeSystemApps 之前就绪，用于"准入制"注册：
-   * 无权访问的系统资源不会写入 resDb、加载进内存、注册为系统 APP，从而减少暴露面。
-   *  - 游客：跳过后端检查，但 ADMIN_APP_IDS(系统管理)因前端硬性规则(禁止非 root 获取)被移除，其余系统资源可见
-   *  - 非游客：仅保留后端明确 allowed=true 的系统资源(root 始终可见)
-   *  - 后端请求失败：清空集合(安全优先，不展示不可控的应用)
-   */
+  // 提前同步当前用户可访问的系统 APP → 准入集合 allowedSystemResIds；未授权资源不写 resDb、不进内存、不注册，缩小暴露面
+  //  - 游客：跳过后端检查，但移除 ADMIN_APP_IDS（前端硬性规则：禁止非 root 获取），其余系统资源可见
+  //  - 非游客：仅保留后端明确 allowed=true 的系统资源（root 始终可见）
+  //  - 后端请求失败：清空集合（安全优先，不展示不可控的应用）
   async syncSystemAccess() {
-    // 全部系统预置资源 ID
     const allSystemResIds = new Set(
       PRESET_RESOURCES.map(p => p?.[ENV_KEY_RESOURCE_ID]).filter(Boolean)
     )
-    // 游客：跳过后端检查，仅移除 ADMIN_APP_IDS 中的系统管理，其余系统资源可见
     if (checkIsGuest()) {
       this.allowedSystemResIds = new Set(
         [...allSystemResIds].filter(id => !ADMIN_APP_IDS.includes(id))
@@ -705,7 +573,7 @@ class Kernel {
     try {
       const res = await permissionManageAPI.getAvailableSystemApps()
       if (res.code !== 200 || !res.data) {
-        // API 返回错误或空数据 → 清空所有系统资源，不展示不可控的应用
+        // 出错或空数据一律清空：不放行不可控的应用
         this.allowedSystemResIds = new Set()
         this.#syncSystemAppsFromAllowed()
         return
@@ -725,15 +593,10 @@ class Kernel {
     }
   }
 
-  /**
-   * 根据 allowedSystemResIds 同步已注册的系统 APP：
-   *  - 移除已注册但当前无权限的系统 APP
-   *  - 注册有权限但尚未注册的系统 APP(pid = resourceId)
-   * 用于系统管理界面修改权限后的实时同步；初始化时 systemApps 尚为空，此方法为空操作。
-   */
+  // 按 allowedSystemResIds 增删已注册的系统 APP（pid = resourceId）：供系统管理页改权限后实时同步
+  // 初始化时 systemApps 尚为空，此处为空操作
   #syncSystemAppsFromAllowed() {
     const allowed = this.allowedSystemResIds || new Set()
-    // 移除已注册但无权限的系统 APP
     for (const [pid, app] of this.systemApps) {
       const resourceId = app[ENV_KEY_RESOURCE_ID]
       if (!resourceId || !allowed.has(resourceId)) {
@@ -743,7 +606,6 @@ class Kernel {
         if (resourceId) this.resourceIdToPid.delete(resourceId)
       }
     }
-    // 注册有权限但尚未注册的系统 APP
     for (const preset of PRESET_RESOURCES) {
       const resourceId = preset?.[ENV_KEY_RESOURCE_ID]
       if (!resourceId || !allowed.has(resourceId)) continue
@@ -752,31 +614,16 @@ class Kernel {
     }
   }
 
-  //更新用户app信息
   updateUserAppInfo(pid, info) {
     this.registry.updateUserAppInfo(pid, info)
   }
 
-  //更新resource of custom配置
-  //修改sysDb [注册表实例]更为合理，因为 custom 属于应用运行时的个性化配置
   async updateResourceCustom(data) {
     return this.settings.updateResourceCustom(data)
   }
 
-  /*============================================系统App可用Api[逻辑层]========================================*/
-  // login(userId, userName) {
-  //   if (!userId || !userName) return false
-  //   this.currentUser = { id: userId, name: userName }
-  //   alert.success(`[内核] 用户 ${userName} (ID: ${userId}) 已登录。`)
-  //   this.#emitChange()
-  //   return true
-  // }
+  // 登录/登出由 reinit(userId) 与 reset() 承担，内核不再提供 login/logout
 
-  // logout() {
-  //   alert.success(`[内核] 用户 ${this.currentUser?.name} 已登出。`)
-  //   this.currentUser = null
-  //   this.#emitChange()
-  // }
 }
 
 export default new Kernel()

@@ -818,6 +818,12 @@ const BundleSection = () => (
       <li><code>*.jsx</code>：其他页面，路由路径就是模块 key（<code>navigate('about')</code> 命中 <code>about.jsx</code>
         或 <code>about/index.jsx</code>；放在子目录里的页面要写完整路径 <code>navigate('pages/about')</code>）</li>
       <li><code>*.css</code> / <code>*.module.css</code>：样式文件，通过 <code>import './style.css'</code> 或 <code>import styles from './style.module.css'</code> 导入，系统自动 Scope</li>
+      <li><code>index.html</code>（可选的另一条路）：把它填成视图入口，这个应用就是<strong>文档档应用</strong>——
+        内容按自包含子文档渲染，不要求 <code>export default 组件</code>，外部打包产物（<code>dist/</code>）因此可以直接装进来。
+        口径与边界见「解析与分层」末节</li>
+      <li>图片 / 字体 / 媒体：随文件夹发布时读成 <code>data:</code> base64 入内容包，只被文档档引用；JSX 应用里请用 URL 引用图片</li>
+      <li>其余文件（<code>.json</code> / <code>.webmanifest</code> / <code>.map</code> 与未知后缀）：采集口默认全收，
+        按文本或嗅探结果入包，给文档档当随包载荷；它们不是模块，JSX 里 <code>import</code> 不到</li>
     </ul>
 
     <h4 className={style[bem.e('subtitle')]}>layout.jsx 模板</h4>
@@ -903,7 +909,7 @@ const LayeringSection = () => (
     <pre className={style[bem.e('code')]}>
 {`配置项         默认值       作用
 logicEntries   logic.jsx    逻辑入口模式列表（可写多条）：命中的第一个文件是主逻辑入口（状态机），其余是辅逻辑入口
-viewEntry      layout.jsx   多页应用的视图框架入口，负责接收 PageComponent 并渲染导航
+viewEntry      layout.jsx   多页应用的视图框架入口，负责接收 PageComponent 并渲染导航；填 index.html 即改成文档档应用
 mainEntry      main.jsx     单页应用的内容入口`}
     </pre>
     <ul className={style[bem.e('list')]}>
@@ -914,6 +920,10 @@ mainEntry      main.jsx     单页应用的内容入口`}
         会忽略 <code>.jsx</code> / <code>.js</code> 的差异（写 <code>layout</code> 也能命中 <code>layout.jsx</code>），
         但<strong>不认通配符，也不做目录展开</strong>——把 <code>viewEntry</code> 写成 <code>*layout.jsx</code> 或
         <code>layout</code>（目录式 <code>layout/index.jsx</code>）都定位不到，多页应用会因"缺视图入口"直接发布失败。</li>
+      <li><strong>例外：以 <code>.html</code> / <code>.htm</code> 结尾的 <code>viewEntry</code> 按路径精确匹配</strong>。
+        内容包的 key 不剥这类后缀，走上面那套 jsx/js 互认永远命不中，所以 html 入口必须把后缀写全（<code>index.html</code>）。
+        命中后固化的 <code>entries.view</code> 就是 <code>index.html</code>，运行时按这个后缀决定走哪条渲染分支，
+        <strong>不需要任何额外开关</strong>；缺入口时的提示文案也会点名这条写法。</li>
       <li>参与匹配的是<strong>相对工作区根、带扩展名的路径</strong>，目录占位（值为 <code>null</code> 的条目）不参与。</li>
     </ul>
 
@@ -938,14 +948,21 @@ logic?.jsx       单字符通配：logicX.jsx 命中，logic.jsx 不命中`}
 
     <h4 className={style[bem.e('subtitle')]}>2. 内容包与模块 key</h4>
     <p className={style[bem.e('text')]}>
-      随资源发出去的文件集合叫<strong>内容包</strong>。每个文件折成一个模块 key：<code>.jsx</code> / <code>.js</code>
-      去扩展名但保留相对路径（<code>pages/home/index</code>），<code>.css</code> 保留扩展名（<code>styles/global.css</code>）。
-      发布、预览、worker、路由解析使用同一口径。
+      随资源发出去的文件集合叫<strong>内容包</strong>，值一律是字符串。key 的写法按「谁来找它」分两套：
+      <strong>JSX 包</strong>按导入路径寻址，<code>.jsx</code> / <code>.js</code> 去扩展名但保留相对路径
+      （<code>pages/home/index</code>），<code>.css</code> 保留扩展名（<code>styles/global.css</code>）；
+      <strong>文档包</strong>（视图入口是 <code>.html</code>）按文件路径寻址 —— 文档里的
+      <code>&lt;script src="./assets/index-a1b2c3.js"&gt;</code> 引的就是路径，去扩展名会让它永远对不上，
+      所以这种包<strong>所有 key 都保留完整相对路径</strong>。用哪套由视图入口的后缀决定，一次发布只会有一套。
+      发布、预览、worker、路由解析各自内部同一口径。
     </p>
     <ul className={style[bem.e('list')]}>
       <li>文件树里的目录占位不入包。</li>
       <li>去扩展名后同名的两个文件（<code>home.jsx</code> 与 <code>home.js</code>）入包会互相覆盖，发布前报 <code>key-conflict</code>。</li>
       <li>主逻辑块<strong>不进内容包</strong>：它单独占用资源的逻辑字段（原文一份、预编译产物一份）。它要的是"按名字识别状态机"，而不是"按 key 被 require"。</li>
+      <li>图片 / 字体 / 媒体是<strong>资源档</strong>：采集期就读成 <code>data:</code> 的 base64 串入包，内容包只认字符串，二进制没有第二条通道。
+        它不进模块图、也不可 <code>import</code>，只被文档里的 <code>src</code> / <code>href</code> 引用（见本节末「文档档应用」）。
+        不在资源清单里的后缀由文件头嗅探决定落点：判成二进制同样走这条路，所以字体文件即便后缀少见也不会丢。</li>
       <li>路由解析与 <code>require</code> 用同一类候选补全：给定路由 <code>home</code>，会依次尝试 <code>home</code>、<code>./home</code>、
         <code>home/index</code>、<code>./home/index</code>。也就是说平铺的 <code>home.jsx</code> 与目录式的 <code>home/index.jsx</code>
         都能被 <code>navigate('home')</code> 命中；但路由路径含目录层级，<code>pages/home/index.jsx</code> 要用 <code>navigate('pages/home')</code> 进入。</li>
@@ -965,11 +982,12 @@ logic?.jsx       单字符通配：logicX.jsx 命中，logic.jsx 不命中`}
         所以它内部 <code>require</code> 不到任何东西。</li>
       <li>资源里固化的 <code>entries</code> 只有三项：<code>view</code> / <code>logicMain</code> / <code>logicAux</code>，
         <strong>不含单页内容入口</strong>——单页走的是"整个 content 当一个视图"这条独立分支。</li>
+      <li>视图入口的 key 是 <code>.html</code> 结尾时，这份多页载荷被称为<strong>文档包</strong>，走的第三条渲染分支见本节末。</li>
     </ul>
 
     <h4 className={style[bem.e('subtitle')]}>3. 预编译与双份存储</h4>
     <ul className={style[bem.e('list')]}>
-      <li><strong>原文与产物分开存</strong>：编辑器、更新面板、写回本地盘读的是你写的原文；执行读的是编译好的产物。所以你重新打开应用看到的仍是自己写的 JSX。</li>
+      <li><strong>原文与产物分开存</strong>：编辑器、更新面板、写回本地盘读的是你写的原文；执行读的是编译好的产物。所以你重新打开应用看到的仍是自己写的 JSX。后台「系统管理 → 应用管理 → 下载文件」导出的正是这条链路的原文那一侧。</li>
       <li><strong>编译发生在发布与预览那一刻</strong>，不是每次打开应用时。Babel 不可用时会降级为原文注入，此时带 <code>import</code> 的主逻辑块在 worker 里是整块语法错误。</li>
       <li><code>.js</code> 与 <code>.jsx</code> <strong>走同一条 Babel 通道</strong>：内容包里的模块 key 已经去掉扩展名，
         编译入口按 key 猜格式时拿不到 <code>.js</code>，一律按 JSX 交给 Babel；主逻辑块的预编译更是直接传
@@ -979,6 +997,9 @@ logic?.jsx       单字符通配：logicX.jsx 命中，logic.jsx 不命中`}
         正常发布链路会去掉扩展名，永远造不出这种 key。唯一可能的来源是手工构造或历史遗留的云端载荷：
         那种模块会被原样存进预编译产物，<code>import</code> 没转成 <code>require</code>，求值时直接语法错误。</li>
       <li>因此 <code>.json</code> / <code>.ts</code> 这类后缀也别写：它们同样会被当 JSX 送去 Babel，然后报语法错误。</li>
+      <li><strong>只有代码档与样式档进编译管线</strong>：<code>.html</code> 与资源档没有编译路径，安装期预编译、运行时编译、
+        预览编译三处都会跳过它们（把 base64 串交给 Babel 只会得到一条假编译错误）。视图入口是 html 的多页载荷，
+        安装期整批预编译直接不跑。</li>
       <li>JSX 标签被编译成 <code>AppSDK.React.createElement</code>，这就是页面里不需要 <code>import React</code>、也不允许在文件顶层重复解构 React 的原因。</li>
       <li>系统应用跳过安装期预编译（恒走原文分支），便于审计与热调试。</li>
     </ul>
@@ -1033,8 +1054,10 @@ worker 侧（逻辑层）  主逻辑块内联在沙箱块作用域里（拿到�
   logic-imports-css     逻辑层引入样式，worker 侧没有 CSS 模块
   logic-import-missing  逻辑层引用的目标不在这次发布的载荷里
   logic-exports         主逻辑块写了 export，内核取不到状态机
+  html-ref-missing      文档引用的相对载荷不在包里（多 chunk、资源没内联、或 base 不是 './'）
 软约束（预览只提示，发布仍拦）
-  page-imports-aux      页面引入辅逻辑入口，副作用会在 UI 与 worker 各跑一次`}
+  page-imports-aux      页面引入辅逻辑入口，副作用会在 UI 与 worker 各跑一次
+  html-ref-external     文档引用了跨源外链，开发环境带 COEP require-corp，运行时会被浏览器拦下`}
     </pre>
     <ul className={style[bem.e('list')]}>
       <li><strong>校验对象是这次真正会被发出去的载荷</strong>，不是本机文件树：单页只装视图入口与主逻辑块，主块里那句
@@ -1137,22 +1160,106 @@ AppSDK                  可用                                              不�
 
     <h4 className={style[bem.e('subtitle')]}>7. 文件格式与编译器口径</h4>
     <p className={style[bem.e('text')]}>
-      内容包对后缀<strong>不设白名单</strong>（工作区里手建的任意文本文件都会随资源走），但编译只分三档，
-      所以「能发出去」和「能被编译」是两件事：
+      采集口<strong>默认全收</strong>，扩展名清单只决定「怎么读」而不决定「收不收」；但载荷分档，
+      所以「能进内容包」「能被编译」是两件事：
     </p>
     <pre className={style[bem.e('code')]}>
-{`后缀             走哪条编译路径                    采集通道是否接受
-.jsx            Babel（presets: env + react）      是（上传/更新/本地开发三条通道）
-.js             同上，仍按 JSX 交给 Babel           是
-.css            CSS 模块生成器，不送 Babel          是
-.json/.ts/.svg  按 JSX 交给 Babel → 语法错误        否（采集时被过滤；在工作区手建仍会进内容包）
-图片/字体等      没有内容包通道                     否（请用 URL / CDN 资源）`}
+{`档位        文件名              走哪条路径                        采集期怎么读
+代码档      .jsx / .js          Babel（presets: env + react）      按 utf-8 读文本
+样式档      .css / .module.css  CSS 模块生成器，不送 Babel          按 utf-8 读文本
+文档档      .html / .htm        不编译，合成成子文档（见下一节）     按 utf-8 读文本
+资源档      图片/字体/媒体       不编译，只被文档引用                读字节转 data: base64 串
+数据文本档  .json / .md / .csv   进内容包但不进模块图，也不可 import  按 utf-8 读文本
+其它        任意未知后缀         同上，看嗅探结果                    见下`}
     </pre>
     <p className={style[bem.e('text')]}>
-      三条采集通道（上传面板、更新面板、本地开发同步）只读 <code>.jsx/.js/.css</code>；
-      未知后缀会被 <code>detectSourceFormat</code> 一律当成 JSX，因此不要指望 <code>data.json</code> 能被
-      <code>import</code> 进来——把这类常量写成 <code>.js</code> 模块导出即可。
+      两份清单（强制折成 <code>data:</code> 的资源后缀、直接按文本读的后缀）都不认的文件走字节嗅探：
+      头部含 NUL、或控制字符（去掉制表/换行/回车）占比到 2%，判二进制转 <code>data:</code> 串；
+      否则按 utf-8 严格解码，解得动就是文本。所以 <code>dist</code> 里的 <code>.webmanifest</code>、
+      <code>.map</code> 与不带常见后缀的字体都会随包走 —— 文档引用不到东西时，
+      <code>html-ref-missing</code> 报的就是路径或大小写写错，不再是「你的采集口不收这个文件」。
     </p>
+    <p className={style[bem.e('text')]}>
+      进了内容包不等于能被 <code>import</code>：编译管线只收代码档与样式档（裸模块 key 也算代码档，
+      发布期 <code>.jsx</code> / <code>.js</code> 后缀已经去掉），<code>.json</code> 送进去只会得到一条
+      <code>logic-import-missing</code> 或 worker 求值失败——把这类常量写成 <code>.js</code> 模块导出即可。
+      采集侧不设体积闸：整个目录一律读全，界面只报「载荷合计 X MB」——那是本机读数，同步、预览、本机安装
+      都不受它管。上限只在真正出网时判：系统配置 <code>sukinos_upload_settings</code> 按 指定用户 &gt; 角色 &gt;
+      全局默认 逐级求值（root 账号归到 <code>"root"</code> 档），只被上传/更新两个接口读到，超了由服务端拒绝，
+      提示里报出你命中的档位与该档上限。改它去「系统管理 → 系统配置 → 上传配额」，那里能按角色和按具体用户分配；
+      在「通用配置管理」里直接改这个键的 JSON 也认，落库后会即时重载内存态。后端量的是打包后的 worker（载荷以原文与预编译双份内联，base64 又让资源档
+      比原文件大约三分之一），比界面上那个合计大得多，两个数不能互相换算。
+    </p>
+    <p className={style[bem.e('text')]}>
+      目录黑名单同步与本地开发 SDK 同一份：<code>node_modules</code> / <code>dist</code> / <code>build</code>
+      与点开头的目录不递归。选错目录（比如整个仓库根）时，界面会报「跳过了多少个目录条目」而不是卡住。
+    </p>
+    <p className={style[bem.e('text')]}>
+      出网之外还有一条反向链路：<strong>后台能把你那份包取回来</strong>。「系统管理 → 应用管理 → 下载文件」按
+      <code>resourceId</code> 读磁盘上那份内联 worker，两种形态二选一——<strong>原始内联包</strong>逐字无损，
+      视图原文与预编译产物同时装着；<strong>解析后的源文件</strong>由前端把块还原成多文件 zip（与更新面板预览
+      同一个反解器），只导原文那一侧（预编译产物是派生物，要双份请选原始包），所以导出的 CSS 类名是 CSS Modules
+      加过后缀的形态，不是你以为的原文写法；只有缺「主逻辑原始源码块」的历史包，主逻辑才会看到执行块那份。
+      归档里的名字要能在本机落盘，所以工作区路径里个别不合法的形态（<code>..</code> 这类穿越段、Windows
+      不允许的字符）会在打包前被规整，弹窗会写明规整了几个 ——「解析后的源文件」不承诺路径与你上传时逐字相同，
+      要逐字那一份请选原始内联包。
+      这个接口只认超级管理员（<code>@RequireRoot()</code>），非 root 点了会拿到失败提示而不是半截文件；
+      它能取到<strong>任意人的私有包</strong>，这跟静态直链按「owner + 权限注册池」放行是两套语义，
+      前者是审计能力，后者是运行期取包。
+    </p>
+
+    <h4 className={style[bem.e('subtitle')]}>8. 文档档应用：把外部打包产物当应用装进来</h4>
+    <p className={style[bem.e('text')]}>
+      视图入口填 <code>index.html</code>（设置 → 入口约定）后，这个应用走的是与 JSX 应用完全不同的渲染分支：
+      系统把内容包里的 <code>index.html</code> 合成成一份<strong>自包含文档</strong>，塞进同源的
+      <code>&lt;iframe srcdoc&gt;</code> 里自治渲染——你的脚本自己找 <code>#root</code>、自己挂载，
+      系统不要求你按 <code>export default 组件</code> 的契约写入口。
+    </p>
+    <pre className={style[bem.e('code')]}>
+{`合成期（一次性字符串改写，运行期零请求）
+  剥掉 <base>                     留着它，未内联的相对引用会指向宿主 origin 下的真实路径
+  <link rel=stylesheet href>  →   <style> 内联，它自己的相对 url() 跟着这个 css 文件的目录解析
+  <script src>                →   就地换成内联块，保持原文档顺序与 type="module"
+  <link rel=modulepreload>    →   整条丢弃（脚本已经内联了，留着只会去网络要 404）
+  <img/audio/video/... src>   →   换成内容包里的 data: 串
+  <head> 首位插一段引导脚本     →   禁直连持久化 API + 挂 AppSDK + 吞掉 srcdoc 的路由异常`}
+    </pre>
+    <ul className={style[bem.e('list')]}>
+      <li><strong>子文档里的 <code>AppSDK</code> 就是宿主为该实例建好的那份 SDK</strong>：引导脚本把它定义成一个
+        getter，按进程 ID 惰性去宿主的登记表 <code>window.parent.__SUKIN_APPSDK__[pid]</code> 取，
+        因此注册时机不依赖子文档的解析顺序。<code>AppSDK.API.fetch</code> 照常带进程标识头，
+        <code>AppSDK.System.*</code> 照常带进程前缀。</li>
+      <li><strong>直连持久化 API 在子文档里被禁</strong>：<code>localStorage</code> / <code>sessionStorage</code> /
+        <code>indexedDB</code> / <code>openDatabase</code> / <code>caches</code> 五个名字被定义成"读写即抛"，
+        报错文案指向 <code>AppSDK.System.*</code>。名单与宿主沙箱共用同一份常量，两边口径不会漂。</li>
+      <li><strong><code>srcdoc</code> 文档里 <code>history.pushState</code> / <code>replaceState</code> 必然抛
+        <code>SecurityError</code></strong>，引导脚本把异常吞掉：路由库得以继续渲染，但地址栏语义上没有跳转。</li>
+      <li><strong>样式只活在子文档里</strong>：宿主侧的 CSS 聚合对文档包直接置空，所以那份"给每条选择器加进程根前缀"
+        的改写根本不参与——<code>@media</code> / <code>@keyframes</code> 在文档包里是<strong>正常生效</strong>的
+        （JSX 应用的样式通道不生效，见上面 CSS 侧那节）。</li>
+      <li><strong>不需要 logic，也不建议开 worker</strong>：没有主逻辑块时内核注入恒等 reducer，状态机什么都不做；
+        「设置 → 运行控制」里把 <code>Worker 运行</code> 关掉可以省掉这条通道。</li>
+    </ul>
+    <div className={style[bem.e('tip')]}>
+      <strong>发布外部产物前的三条构建配置，缺一条就会在发布校验里被拦下：</strong>
+      <pre className={style[bem.e('code')]}>
+{`base: './'                  // 绝对路径（/assets/x.js）在内容包里没有"根"可解析
+单 entry chunk              // 动态 import 需开 inlineDynamicImports 或 vite-plugin-singlefile
+assetsInlineLimit: 足够大    // 没内联的图片/字体要随包走，靠资源档采集（体积在出网时由后端按用户/角色上限判）`}
+      </pre>
+    </div>
+    <p className={style[bem.e('text')]}>这条通道的边界，别当成通用能力用：</p>
+    <ul className={style[bem.e('list')]}>
+      <li><strong>只吃单 entry chunk 产物</strong>：子文档里没有系统的说明符解析器（<code>require</code> 只存在于 JSX
+        应用的沙箱里），运行期 <code>import()</code> 与 <code>fetch('./x')</code> 拼出来的 URL 一律 404。</li>
+      <li><strong>外链会被开发环境的 COEP 拦</strong>：CDN 上的脚本与样式发布时报 <code>html-ref-external</code>。</li>
+      <li><strong>系统主题不作用于文档包</strong>：它自带样式，宿主注入的 <code>runtime-css-进程ID</code> 也不同步进子文档。</li>
+      <li><strong>宿主路由不参与</strong>：<code>state.router.path</code> 与 <code>navigate()</code> 对文档包没有意义，
+        多页请交给子文档自己的路由。</li>
+      <li><strong>同源是这条通道的前提</strong>：子文档目前是<strong>不带 <code>sandbox</code> 属性</strong>的同源
+        <code>srcdoc</code>，引导脚本与 SDK 登记表都依赖这一点。跨源档（<code>sandbox="allow-scripts"</code>）不在实现范围内，
+        要做就得换成 postMessage 协议。</li>
+    </ul>
 
     <h4 className={style[bem.e('subtitle')]}>JSX 侧：Babel 配置与失败分阶段</h4>
     <ul className={style[bem.e('list')]}>
@@ -1174,11 +1281,14 @@ AppSDK                  可用                                              不�
     <h4 className={style[bem.e('subtitle')]}>CSS 侧：模块生成与作用域改写</h4>
     <ul className={style[bem.e('list')]}>
       <li><strong>CSS 不进 Babel</strong>，由专用的 CSS 模块生成器产出 CommonJS 导出：<code>exports.style</code>
-        是样式原文（这份会被收集拼接），普通 <code>.css</code> 的 <code>default</code> 也是样式字符串，
+        是收集拼接的样式文本，普通 <code>.css</code> 的 <code>default</code> 也是样式字符串，
         <code>.module.css</code> 的 <code>default</code> 是类名映射对象。</li>
-      <li><strong>类名不做哈希</strong>：<code>styles.btn</code> 得到的就是 <code>btn</code>。隔离不靠改名，
-        而是靠作用域改写——每条选择器前被加上进程根 <code>#proc-进程ID</code>。因此它是<strong>进程级</strong>而非文件级隔离：
-        同一应用里两个模块写同名类会同时生效，不同应用之间互不影响。</li>
+      <li><strong>两层隔离各管一段</strong>：<code>.module.css</code> 里每个类名都按所在文件加后缀
+        （<code>styles.btn</code> 取到的是 <code>btn_a1b2c</code> 这类实际类名，后缀由模块 key 哈希而来，
+        同一份输入每次编译得到同一个类名），这一层管<strong>同一应用内文件之间</strong>的同名类污染；
+        每条选择器前再加进程根 <code>#proc-进程ID</code>，那一层管<strong>应用之间</strong>。
+        因此 CSS Modules 的类名只能从映射里取，写死 <code>className="btn"</code> 命不中；
+        普通 <code>.css</code> 与 <code>export const style</code> 两种写法不改名，类名照源码原样写。</li>
       <li><strong>改写是正则级的，有三类真实限制</strong>：
         <code>@media</code> / <code>@keyframes</code> / <code>@supports</code> 这类 at-rule 会连同前缀一起变成无效规则而被整块丢弃（媒体查询与 CSS 动画在这条通道上不生效），
         <code>html</code> / <code>body</code> / <code>:root</code> 加了进程根前缀后永不命中，
@@ -1197,11 +1307,12 @@ AppSDK                  可用                                              不�
    │   入口约定（logicEntries / viewEntry / mainEntry，按声明顺序 + 路径字母序）
    ├─→ 主逻辑入口  ─────────→ 原文 + 预编译产物各一份（不进内容包）
    ├─→ 辅逻辑入口 ─┐
-   ├─→ 视图入口    ├────────→ 内容包（模块 key → 源码）→ 安装期 / 预览期预编译
+   ├─→ 视图入口    ├────────→ 内容包（key → 源码）→ 安装期 / 预览期预编译
    └─→ 普通模块   ─┘
         │
         ├→ worker：主块按名字识别 initialState / reducer / init，import 编译成 require 沿产物求值
         ├→ UI：所有模块进 moduleRegistry，按 entries.view 选视图、按 state.router.path 选页
+        ├→ UI（视图入口是 .html）：不编译，整份内容包交给合成器 → 同源 srcdoc 子文档自治渲染
         └→ 分层校验：以「这次发出去的载荷」为对象；创建/预览分软硬，其余通道有问题即中断`}
     </pre>
   </div>
@@ -1851,7 +1962,8 @@ export const App = () => <div />;`}
     <h4 className={style[bem.e('subtitle')]}>样式规范（三种写法）</h4>
     <p className={style[bem.e('text')]}>
       系统支持三种样式写法，均会自动 Scope 隔离，不会污染全局。推荐使用 CSS Modules。
-      类名不做哈希，隔离靠给每条选择器加进程根前缀，因此 <code>@media</code> / <code>@keyframes</code> 这类
+      <code>.module.css</code> 的类名会按所在文件加后缀（取值只走 <code>styles.xxx</code> 映射），
+      另两种写法类名保持原样；三种写法都要再过一层进程根前缀，因此 <code>@media</code> / <code>@keyframes</code> 这类
       at-rule 与 <code>html</code> / <code>body</code> / <code>:root</code> 都会失效，细节见「解析与分层」的 CSS 小节。
       受控样式是「收集」出来的：所有内容模块导出的 <code>style</code> 会被拼成一份再统一加前缀，
       所以样式写在哪个文件都能生效，不必集中在视图入口。
@@ -1869,7 +1981,7 @@ export const style = \`
 import './style.css';
 <div className="container">...</div>
 
-// 写法三：import styles from './style.module.css'（CSS Modules，styles.btn 返回类名）
+// 写法三：import styles from './style.module.css'（CSS Modules，类名按文件加后缀，只能从映射取）
 import styles from './style.module.css';
 <div className={styles.container}>
   <h2 className={styles.title}>标题</h2>
@@ -1908,8 +2020,8 @@ const DevType = () => (
 
     <h4 className={style[bem.e('subtitle')]}>插件核心功能</h4>
     <ul className={style[bem.e('list')]}>
-      <li><strong>文件监听</strong>：自动监听 <code>.jsx/.js/.css</code> 文件变化</li>
-      <li><strong>哑文件管道</strong>：按相对路径回传全部模块文件，入口判定交给 SukinOS 的「入口约定」配置</li>
+      <li><strong>文件监听</strong>：默认全收 —— 只跳过 <code>node_modules</code> / <code>dist</code> / <code>build</code> 与点开头目录，其余文件变化一律触发同步</li>
+      <li><strong>哑文件管道</strong>：按相对路径回传目录里的全部文件，入口判定交给 SukinOS 的「入口约定」配置</li>
       <li><strong>防抖聚合</strong>：多个文件同时保存时，聚合为一次同步</li>
       <li><strong>HTTP 接口</strong>：提供 <code>/__sukin_local_sync</code> 同步接口</li>
       <li><strong>版本控制</strong>：通过时间戳标识文件版本，避免重复同步</li>
@@ -1919,6 +2031,7 @@ const DevType = () => (
     <pre className={style[bem.e('code')]}>
 {`import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [
@@ -1928,18 +2041,27 @@ export default defineConfig({
       configureServer(server) {
         const dirStates = new Map(); // dir -> { v, debounceMs, timer }
 
-        // 监听文件变化
-        server.watcher.on('all', (event, filePath) => {
-          if (!/\\.(jsx|js|css)$/.test(filePath)) return;
+        // 载荷口径与 SukinOS 侧 utils/process/payloadCollect.js 同规则：默认全收，
+        // 下面两份清单只决定「怎么读」，不决定「收不收」
+        const ASSET_EXT_RE = /\\.(png|jpe?g|gif|webp|avif|bmp|ico|svg|woff2?|ttf|otf|eot|mp3|wav|ogg|m4a|mp4|webm)$/i;
+        const TEXT_EXT_HINT_RE = /\\.(jsx|js|css|html?|md|markdown|jsonc?|csv|txt|xml|webmanifest|ya?ml|map)$/i;
+        // 两份清单都不认的后缀按文件头嗅探：含 NUL 或控制字符（去掉制表/换行/回车）占比到 2% 判二进制，
+        // 否则按 utf-8 严格解码，解得动就是文本 —— dist 里的 .webmanifest / .map / 非常见后缀字体因此都能随包走
+        // svg 必须留在资源清单里：它是文本，但 <img src> 与 @font-face 吃不了原始标记
+        const SKIP_DIR_NAMES = ['node_modules', 'dist', 'build'];
+        const isSkippedDir = (name = '') => name.startsWith('.') || SKIP_DIR_NAMES.includes(name);
 
+        // 监听文件变化：只按目录黑名单过滤，不再按扩展名丢弃。
+        // 黑名单相对被监听的目录判定 —— 同步目录本身常常就叫 dist，按整条路径判会把它全跳掉
+        server.watcher.on('all', (event, filePath) => {
           for (const [dir, state] of dirStates) {
-            if (filePath.includes(dir)) {
-              clearTimeout(state.timer);
-              state.timer = setTimeout(() => {
-                state.v = Date.now(); // 更新版本号
-              }, state.debounceMs);
-              break;
-            }
+            if (!filePath.includes(dir)) continue;
+            if (path.relative(dir, filePath).split(/[\\\\/]+/).some(isSkippedDir)) continue;
+            clearTimeout(state.timer);
+            state.timer = setTimeout(() => {
+              state.v = Date.now(); // 更新版本号
+            }, state.debounceMs);
+            break;
           }
         });
 
@@ -1951,11 +2073,15 @@ export default defineConfig({
           const dir = url.searchParams.get('dir') || 'src';
           const watchDebounce = Number(url.searchParams.get('watchDebounce') || 500);
 
-          // 处理请求：递归读取 dir 下的 .jsx/.js/.css，key 用带扩展名的相对路径
+          // 处理请求：递归读取 dir 下的文件（跳过上面那份目录黑名单），key 用带扩展名的相对路径。
+          // 资源档与嗅探出的二进制转成 data:<mime>;base64,... 的字符串，其余按 utf-8 回传
+          // （内容包只认字符串，二进制没有第二条通道）。同步侧不设体积闸：整目录一律读全，
+          // 只在控制台报载荷合计 —— 这条链不出网，天花板是本机内存；上限在桌面端上传/更新时才判。
+          // 完整实现见本地开发 SDK 的 vite.config.js
           res.end(JSON.stringify({
             status: 'ok',
             protocol: 2,                   // 协议 2：入口判定由 SukinOS 侧完成
-            files: { /* 'layout.jsx': '...', 'style.css': '...' */ },
+            files: { /* 'layout.jsx': '...', 'style.css': '...', 'index.html': '...', 'manifest.webmanifest': '{"name":"..."}', 'assets/logo.png': 'data:image/png;base64,...' */ },
             logic: '',                     // 恒为空，兼容只认 logic 字段的旧前端
             v: Date.now(),
             dir
@@ -2021,20 +2147,28 @@ export default defineConfig({
 {`1. 前端配置端口和目录
 2. 点击"立即同步"或开启自动同步
 3. 请求发送到 Vite 插件的 /__sukin_local_sync
-4. 服务端扫描目录，返回全部 .jsx/.js/.css 文件（协议 2：不再单独抽取 logic）
-5. 前端按「入口约定」判定主逻辑 / 辅逻辑 / 视图入口，再分别交给 worker 与沙箱编译
+4. 服务端扫描目录，默认全收（只跳 node_modules/dist/build 与点开头目录）：资源档与嗅探出的二进制转 data: base64，其余按 utf-8
+   （协议 2：不再单独抽取 logic，插件只做哑文件管道）
+5. 前端按「入口约定」判定主逻辑 / 辅逻辑 / 视图入口：JSX 载荷交给 worker 与沙箱编译，
+   视图入口是 .html 时不编译，整份内容包交给合成器渲染成子文档
 6. 编译成功后实时预览
 7. 文件变化触发自动重新编译`}
     </pre>
 
     <h4 className={style[bem.e('subtitle')]}>必要文件说明</h4>
     <ul className={style[bem.e('list')]}>
-      <li><strong>视图入口</strong>（默认 <code>layout.jsx</code>）：必须存在，作为应用主布局组件</li>
-      <li><strong>主逻辑入口</strong>（默认 <code>logic.jsx</code>）：可选，缺失时应用无状态机</li>
-      <li><strong>其他 .jsx/.js/.css 文件</strong>：折成模块 key 入内容包，路由路径就是模块 key（子目录页面要写完整路径）</li>
+      <li><strong>视图入口</strong>（默认 <code>layout.jsx</code>）：必须存在，作为应用主布局组件。
+        同步一个打包产物目录时把它改成 <code>index.html</code>（带后缀才命中），走的是文档档那条渲染分支</li>
+      <li><strong>主逻辑入口</strong>（默认 <code>logic.jsx</code>）：可选，缺失时应用无状态机；文档档应用一般不需要它</li>
+      <li><strong>目录里其余文件一律随包走</strong>：折成内容包 key，JSX 包里 .jsx/.js 去扩展名，
+        路由路径就是模块 key（子目录页面要写完整路径）；文档包里所有 key 保留完整相对路径</li>
       <li>入口文件名统一由开发者中心「设置 → 入口约定」中当前用户的配置判定，本地开发面板与上传/更新面板同一套口径；
         旧版模板插件（协议 1）会按文件名把 <code>logic</code> 开头的文件单独抽成主逻辑回传，
         此时样式文件与其他子目录文件不会被同步，建议更新 <code>vite.config.js</code></li>
+      <li>同步的是整个目录时不设体积闸：读全后界面与 dev server 各报一行「载荷合计 X MB」，那只是本机读数——
+        同步链不经后端，体积上限只有在你开启「云端上传」并执行上传/更新时才会判（系统配置
+        <code>sukinos_upload_settings</code>）。选错目录（整个仓库根）时先被目录黑名单挡掉，
+        面板会报跳过了多少条目而不是卡住</li>
     </ul>
 
     <h4 className={style[bem.e('subtitle')]}>开发环境要求</h4>
@@ -2093,9 +2227,14 @@ const AIPromptSection = () => {
       与页面共用的纯函数、常量请放在不命中任何入口规则的普通模块目录里
   14. 跨层复用的值写成具名导出：只有默认导出的模块，值挂在 .default 上，按名字去取拿到的是 undefined 且不报错
   15. 逻辑层（worker）没有 AppSDK、没有 document：网络请求与持久化请放页面层
-  16. 文件只有三类受控形态：.jsx / .js（都送 Babel，转 ES Module 为 CommonJS）、.css / .module.css（走样式模块）。
-      不要 import JSON / TS / 图片等资源，常量与配置写成 .js 模块导出，图片用 CDN 链接；
+  16. JSX 应用被系统认得的载荷分四档：.jsx / .js（都送 Babel，转 ES Module 为 CommonJS）、.css / .module.css（走样式模块）、
+      .html（文档档，不编译，见第 17 条）、图片/字体/媒体（采集期转 data: base64，不进模块图）。
+      采集口默认全收，所以 .json / .webmanifest / .map 这些也会进内容包，但它们不是模块、import 不到；
+      不要 import JSON / TS / 图片这些，常量与配置写成 .js 模块导出，JSX 应用里的图片仍建议用 URL 引用；
       样式里 @media / @keyframes 会因作用域改写而失效，响应式改用 matchMedia 切类名、动画用内联样式或 Web Animations API
+  17. 外部打包产物（dist）当应用发布时不要生成 JSX 代码：把视图入口设成其中的 index.html，产物需满足
+      base:'./' + 单 entry chunk + 资源已内联或随包（图片走资源档）。这种应用没有 PageComponent / 路由 / 主题那一套，
+      页面自己的脚本自治渲染，系统集成只用 AppSDK（子文档里可直接取到，持久化仍必须走 AppSDK.System）
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 【二、SDK Kernel 结构】
@@ -2181,9 +2320,9 @@ const AIPromptSection = () => {
   const { System } = AppSDK
 
   // 样式三种写法（均自动 Scope，推荐 CSS Modules）：
-  // 写法一：export const style = `/* 组件作用域 CSS，系统自动 Scope */`
-  // 写法二：import './style.css'（副作用导入，类名直接使用）
-  // 写法三：import styles from './style.module.css'（styles.btn 返回类名）
+  // 写法一：export const style = `/* 组件作用域 CSS，系统自动 Scope */`（类名不改名，照原样写进 className）
+  // 写法二：import './style.css'（副作用导入，类名不改名，直接使用）
+  // 写法三：import styles from './style.module.css'（CSS Modules，类名按所在文件加后缀，只能用 styles.xxx 取值，写死 className="btn" 命不中）
   export const style = \`/* 组件作用域 CSS，系统自动 Scope */\`;
 
   export default ({
@@ -2455,7 +2594,7 @@ const Helper = () => {
       <div className={style[bem.e('sidebar')]}>
         <div className={style[bem.e('header')]}>
           <h3>开发手册</h3>
-          <div className={style[bem.e('version')]}>v3.2.0</div>
+          <div className={style[bem.e('version')]}>v3.3.0</div>
         </div>
         <div className={style[bem.e('nav')]}>
           {docSections.map(item => (

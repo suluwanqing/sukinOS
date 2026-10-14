@@ -1,6 +1,5 @@
 import {DB_SYSTEM_APP} from '@/sukinos/utils/config'
 
-// ==================== 表结构配置 ====================
 export const STORES = {
   BOARDS: {
     name: 'sys-drawBoard_boards',
@@ -17,48 +16,31 @@ export const STORES = {
     keyPath: 'id',
     indexes: [],
   },
-  // 系统表都需要以resourceId为开头，以便于管理
+  // 表名统一带 sys- 前缀：本库（sukin_system_app）与按用户隔离的 SukinOS_Sys_* / SukinOS_Res_* 库分开
 }
 
 const CURRENT_VERSION = 1
 
 let dbInstance = null
 
-// ==================== 版本迁移策略 ====================
-// 说明：
-// -每次修改表结构（添加/删除表、添加索引等），需要增加 CURRENT_VERSION
-// -在 migrations 中添加对应版本的迁移函数
-// -迁移函数会按版本号顺序执行，从旧版本逐个升级到新版本
-// =只在新版本首次打开数据库时执行，数据会保留
+// 改表结构（增删表、加索引）就要 +1 CURRENT_VERSION，并在 migrations 里补一个同号函数：
+// 迁移按版本号逐格升级，只在新版本首次 open 时执行，数据保留。
 const migrations = {
-  // ----- 版本 1：初始创建 -----
   1: db => {
     createStores(db, [STORES.BOARDS, STORES.MINDMAPS, STORES.SHEET])
   },
 
-  // ========== 以下是升级示例（按需取消注释） ==========
+  // 以下为升级范例：按需取消注释，同时把 CURRENT_VERSION 与 STORES 配置改到对应版本。
 
-  // ----- 添加新表-----
-  // 场景：新增一个 settings 配置表
-  // 步骤：
-  //   -将 CURRENT_VERSION 改为 2
-  //   -取消下面代码的注释
-  //   -在 STORES 中添加 settings 的配置
+  // 添加新表
   // 2: (db) => {
-  //   console.log('[DB Migration] 版本2: 添加 settings 表')
   //   if (!db.objectStoreNames.contains('settings')) {
   //     db.createObjectStore('settings', { keyPath: 'key' })
   //   }
   // },
 
-  // ----- 添加索引会[丢失数据]-----
-  // 场景：给 boards 表添加 createdAt 索引，可以接受数据丢失
-  // 步骤：
-  //  -将 CURRENT_VERSION 改为 2
-  //  -取消下面代码的注释
-  //  -更新 STORES.BOARDS.indexes 配置
+  // 添加索引（丢数据）：删表重建，原数据清空
   // 2: (db) => {
-  //   console.log('[DB Migration] 版本2: 为 boards 表添加 createdAt 索引（清空数据）')
   //   if (db.objectStoreNames.contains('boards')) {
   //     db.deleteObjectStore('boards')
   //   }
@@ -66,30 +48,19 @@ const migrations = {
   //   store.createIndex('createdAt', 'createdAt', { unique: false })
   // },
 
-  // ----- 添加索引[保留数据迁移]-----
-  // 场景：给 boards 表添加 createdAt 索引，需要保留现有数据
-  // 步骤：
-  //   -将 CURRENT_VERSION 改为 2
-  //   -取消下面代码的注释
-  //   -更新 STORES.BOARDS.indexes 配置
-  //   -应用层需要同时支持读取新旧表名（boards_new）
+  // 添加索引（保数据）：建带索引的新表、搬完再删旧表；表名变成 boards_new，应用层要同时读新旧名
   // 2: async (db) => {
-  //   console.log('[DB Migration] 版本2: 为 boards 表添加 createdAt 索引（保留数据）')
-  //
   //   const oldStoreName = 'boards'
   //   const newStoreName = 'boards_new'
   //
-  //   //创建带索引的新表
   //   if (!db.objectStoreNames.contains(newStoreName)) {
   //     const newStore = db.createObjectStore(newStoreName, { keyPath: 'id' })
   //     newStore.createIndex('createdAt', 'createdAt', { unique: false })
   //   }
   //
-  //   // 获取旧表数据
   //   const oldStore = db.transaction(oldStoreName, 'readonly').objectStore(oldStoreName)
   //   const newStore = db.transaction(newStoreName, 'readwrite').objectStore(newStoreName)
   //
-  //   // 迁移数据（补充默认值）
   //   const request = oldStore.getAll()
   //   request.onsuccess = () => {
   //     const oldData = request.result || []
@@ -99,33 +70,23 @@ const migrations = {
   //       }
   //       newStore.put(item)
   //     })
-  //     console.log(`[DB Migration] 迁移了 ${oldData.length} 条数据到 ${newStoreName}`)
   //   }
   //
-  //   // 等待迁移完成，删除旧表
   //   await new Promise((resolve) => {
   //     const tx = db.transaction([oldStoreName, newStoreName], 'readwrite')
   //     tx.oncomplete = () => {
   //       db.deleteObjectStore(oldStoreName)
-  //       console.log('[DB Migration] 表结构升级完成，旧表已删除')
   //       resolve()
   //     }
   //   })
-  //   // 新表名为 boards_new，应用层代码需要适配
   // },
 }
 
-// ==================== 辅助函数 ====================
-/**
- * 创建表及索引
- * @param {IDBDatabase} db 数据库实例
- * @param {Array} stores 表配置数组
- */
+/** 建表并顺带建 STORES 里声明的索引 */
 function createStores(db, stores) {
   stores.forEach(store => {
     if (!db.objectStoreNames.contains(store.name)) {
       const storeDef = db.createObjectStore(store.name, {keyPath: store.keyPath})
-      // 创建索引
       if (store.indexes && store.indexes.length) {
         store.indexes.forEach(idx => {
           storeDef.createIndex(idx.name, idx.keyPath, idx.options)
@@ -136,12 +97,7 @@ function createStores(db, stores) {
   })
 }
 
-/**
- * 执行版本迁移
- * @param {IDBDatabase} db 数据库实例
- * @param {number} oldVersion 旧版本号
- * @param {number} newVersion 新版本号
- */
+/** 从 oldVersion 起逐版本执行 migrations，缺号的版本只跳版本号不做改动 */
 function runMigrations(db, oldVersion, newVersion) {
   console.log(`[DB Migration] 从版本 ${oldVersion} 升级到 ${newVersion}`)
 
@@ -155,10 +111,7 @@ function runMigrations(db, oldVersion, newVersion) {
   }
 }
 
-/**
- * 获取数据库实例
- * @param {number} version 指定数据库版本，默认使用 CURRENT_VERSION
- */
+/** 打开并缓存单例；version 默认 CURRENT_VERSION */
 export async function getDB(version = CURRENT_VERSION) {
   if (dbInstance) return dbInstance
 
@@ -168,7 +121,6 @@ export async function getDB(version = CURRENT_VERSION) {
     req.onupgradeneeded = event => {
       const db = req.result
       const oldVersion = event.oldVersion
-      // 执行迁移
       runMigrations(db, oldVersion, version)
     }
 
@@ -185,15 +137,11 @@ export async function getDB(version = CURRENT_VERSION) {
   })
 }
 
-/**
- * 初始化数据库
- * @param {number} version 指定数据库版本
- */
+/** getDB 的别名入口 */
 export async function initDatabase(version = CURRENT_VERSION) {
   return getDB(version)
 }
 
-// 关闭数据库连接
 export function closeDB() {
   if (dbInstance) {
     dbInstance.close()
@@ -202,10 +150,9 @@ export function closeDB() {
   }
 }
 
-// 获取指定表的操作接口
+/** 按表名包一层 get/put/getAll/delete/clear 的 Promise 接口 */
 export function getStore(storeName) {
   return {
-    // 根据 id 获取单条数据
     async get(id) {
       const db = await getDB()
       return new Promise((res, rej) => {
@@ -215,7 +162,6 @@ export function getStore(storeName) {
         r.onerror = () => rej(r.error)
       })
     },
-    // 新增或更新数据
     async put(data) {
       const db = await getDB()
       return new Promise((res, rej) => {
@@ -225,7 +171,6 @@ export function getStore(storeName) {
         tx.onerror = () => rej(tx.error)
       })
     },
-    // 获取所有数据
     async getAll() {
       const db = await getDB()
       return new Promise((res, rej) => {
@@ -235,7 +180,6 @@ export function getStore(storeName) {
         req.onerror = () => rej(req.error)
       })
     },
-    // 根据 id 删除数据
     async delete(id) {
       const db = await getDB()
       return new Promise((res, rej) => {
@@ -245,7 +189,6 @@ export function getStore(storeName) {
         tx.onerror = () => rej(tx.error)
       })
     },
-    // 清空整个表
     async clear() {
       const db = await getDB()
       return new Promise((res, rej) => {

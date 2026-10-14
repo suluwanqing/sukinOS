@@ -10,43 +10,56 @@ import {
 export const scopeCss = (css, pid) =>
   css ? css.replace(/([^\r\n,{}]+)(,(?=[^}]*{)|\s*{)/g, `#proc-${pid} $1$2`) : ''
 
-/**
- * 从 CSS 源码中提取所有类名（用于 CSS Modules 的类名映射）。
- * 匹配 `.className` 形式，类名以字母/下划线/连字符开头，可含数字/连字符。
- * 类名保持原样，作用域隔离完全依赖 scopeCss 的 #proc-${pid} 前缀，无需哈希。
- * @param {string} css - CSS 源码
- * @returns {string[]} 去重后的类名数组
- */
-const extractClassNames = (css) => {
+/** 从 CSS 源码提取所有类名，供 CSS Modules 的类名映射；形式为 `.className`，可含数字与连字符 */
+const extractClassNames = (css) => readCssTokens(css).names;
+
+// 逐段扫描 CSS：注释、字符串与 url() 里的点号不是选择器，必须整段跳过，
+// 否则 `/* .btn */`、`content: "a.b"`、`url(./1.2.png)` 都会被当成类名。
+const CSS_TOKEN_SOURCE = '(\\/\\*[\\s\\S]*?\\*\\/)|("[^"]*")|(\'[^\']*\')|(url\\([^)]*\\))|\\.(-?[_a-zA-Z]+[_a-zA-Z0-9-]*)';
+
+const readCssTokens = (css) => {
+  const re = new RegExp(CSS_TOKEN_SOURCE, 'g')
   const names = new Set()
-  const re = /\.(-?[_a-zA-Z]+[_a-zA-Z0-9-]*)/g
   let m
-  while ((m = re.exec(css)) !== null) {
-    names.add(m[1])
-  }
-  return Array.from(names)
+  while ((m = re.exec(css)) !== null) if (m[5]) names.add(m[5])
+  return { names: Array.from(names) }
 }
 
 /**
- * 生成 CSS 模块 factory（CSS 不走 Babel，直接生成 CommonJS 模块）。
- * - 普通 .css：exports.default = css 字符串，exports.style = css
- *   → 支持副作用导入 `import './style.css'` 与默认导入 `import styles from './style.css'`
- * - .module.css：exports.default = 类名映射对象 { btn: 'btn' }，exports.style = css
- *   → 支持 CSS Modules `import styles from './style.module.css'`，styles.btn 返回 'btn'
- * 只求值 exports 不覆写 module.exports：模块求值后会读回 module.exports，
- * 若在这里写成字符串，exports.style 就随对象一起被丢掉，样式静默失效。
- * factory 签名与 compileSourceAsync 保持一致：
- * (module, exports, AppSDK, __moduleRegistry, __currentModuleKey, __moduleKeys)
- * @param {string} css - CSS 源码
- * @param {string} moduleKey - 模块 key（如 'style.css' / 'style.module.css'）
- * @returns {{ factory: Function }}
+ * 文件级作用域标识：同一应用里几十个模块可能都叫 style.module.css，所以取整条模块 key 的哈希
+ * 而不是文件名。纯同步、同输入必同输出，重编译与缓存命中之间类名保持稳定。
+ */
+export const moduleScopeId = (moduleKey) => {
+  let h = 0x811c9dc5
+  for (let i = 0; i < moduleKey.length; i++) {
+    h ^= moduleKey.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return h.toString(36)
+}
+
+/** 把 CSS 里所有类选择器换成带文件作用域的写法，与 classMap 的值同源 */
+export const scopeClassNames = (css, scope) =>
+  css.replace(new RegExp(CSS_TOKEN_SOURCE, 'g'), (whole, _c, _d, _s, _u, cls) =>
+    cls ? `.${cls}_${scope}` : whole)
+
+/**
+ * 生成 CSS 模块 factory（CSS 不走 Babel，直接生成 CommonJS 模块）：
+ * - 普通 .css：exports.default = css 字符串，exports.style = css（原文，不改写类名）→ 支持副作用导入与默认导入
+ * - .module.css：类名按文件加 `_<作用域>` 后缀，exports.default = { btn: 'btn_a1b2c' }，exports.style = 改写后的
+ *   CSS，与 scopeCss 的拼接结果同源，JSX 侧仍写 styles.btn。外层 #proc-进程ID 只隔离应用之间，文件之间靠这一层，
+ *   否则两个模块的同名类会互相污染。
+ * 只求值 exports 不覆写 module.exports：模块求值后会读回 module.exports，若在这里写成字符串，exports.style
+ * 就随对象一起被丢掉，样式静默失效。factory 签名与 compileSourceAsync 保持一致。
  */
 export const createCssModule = (css, moduleKey) => {
   const isModule = /\.module\.css$/.test(moduleKey)
-  const cssStr = JSON.stringify(css)
+  const scope = isModule ? moduleScopeId(moduleKey) : ''
+  // classMap 的键是源码里的类名（JSX 用它取值），值是改写后真正落到 DOM 上的类名
   const classMap = isModule
-    ? JSON.stringify(Object.fromEntries(extractClassNames(css).map(n => [n, n])))
+    ? JSON.stringify(Object.fromEntries(extractClassNames(css).map(n => [n, `${n}_${scope}`])))
     : null
+  const cssStr = JSON.stringify(isModule ? scopeClassNames(css, scope) : css)
   const factory = new Function('module', 'exports', `
     const css = ${cssStr};
     exports.style = css;
@@ -59,10 +72,7 @@ export const createCssModule = (css, moduleKey) => {
 const compileCache = new Map()
 const hashCache = new Map()
 
-/**
- * 清空编译缓存与哈希缓存。
- * 供错误边界"重新编译"使用：清除后下次编译不再命中缓存，重新走 Babel 编译。
- */
+/** 清空编译与哈希缓存：供错误边界「重新编译」使用，清后下次不再命中缓存 */
 export const clearCompileCache = () => {
   compileCache.clear()
   hashCache.clear()
@@ -74,19 +84,14 @@ const hashString = async str => {
   const data = encoder.encode(str)
   const hashBuffer = await crypto.subtle.digest('SHA-256', data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
-  // hash 结果也应该缓存，避免重复 digest
   const hash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   hashCache.set(str, hash)
   return hash
 }
 
 /**
- * 将 Babel / 运行时抛出的原始 Error 对象标准化为结构化错误描述对象。
- * 保留行列号、原始 stack，方便 DynamicRenderer 渲染详细错误 UI。
- * @param {Error|string} err - 原始错误
- * @param {'compile'|'runtime'|'babel'} phase - 出错阶段
- * @param {string} key - 模块 key，如 'main' / 'layout'
- * @returns {{ message: string, stack: string, phase: string, key: string, loc: string }}
+ * 把 Babel / 运行时抛出的原始 Error 标准化为结构化错误描述，保留行列号与 stack，
+ * 方便 DynamicRenderer 渲染详细错误 UI。
  */
 const normalizeError = (err, phase, key = '') => {
   const isError = err instanceof Error
@@ -105,7 +110,6 @@ const normalizeError = (err, phase, key = '') => {
     stack,
     phase,
     key,
-    // 优先使用 babel 结构化位置，其次正则提取
     loc: babelLoc || loc,
     // 原始错误对象，供外层按需使用
     raw: err,
@@ -113,13 +117,10 @@ const normalizeError = (err, phase, key = '') => {
 }
 
 /**
- * 编译源码为可执行的 factory 函数
- * @param {string} sourceCode - 原始源码
- * @param {string|number} pid - 进程 ID
- * @param {Function} [targetFunctionConstructor] - 可选的目标 Function 构造器。
- *   传入 iframe.contentWindow.Function 可使 factory 内部的 globalThis 指向该 iframe，
- *   从而消除 JS 执行上下文与 UI 渲染位置（iframe 内）的跨文档断裂问题。
- *   不传则默认使用宿主 Function（向后兼容 LocalDev / 幽灵沙箱模式）。
+ * 编译源码为可执行的 factory 函数。
+ * targetFunctionConstructor 传 iframe.contentWindow.Function 可让 factory 内部的 globalThis 指向该 iframe，
+ * 从而消除 JS 执行上下文与 UI 渲染位置（iframe 内）的跨文档断裂；不传则用宿主 Function
+ * （向后兼容 LocalDev / 幽灵沙箱模式）。
  */
 export const compileSourceAsync = async (
   {sourceCode, pid, targetFunctionConstructor, module = 'component', precompiled = false, moduleRegistry, currentModuleKey},
@@ -160,7 +161,6 @@ export const compileSourceAsync = async (
     const indexedDBProxySource = createIndexedDBProxy.toString()
     const secureFetchSource = createSecureFetch.toString()
 
-    // 注入全部抽离出的工厂源码
     const sharedUtilities = getSharedSandboxUtilities(
       pid,
       storageProxySource,
@@ -283,7 +283,6 @@ export const compileSourceAsync = async (
     try {
       // 使用目标环境的 Function 构造器创建 factory，决定 factory 内部的 globalThis
       const FactoryCtor = targetFunctionConstructor || Function
-      // 注入模块解析上下文：__moduleRegistry（模块注册表）、__currentModuleKey（当前模块）、__moduleKeys（可用模块 key 列表）
       factory = new FactoryCtor(
         'module', 'exports', 'AppSDK',
         '__moduleRegistry', '__currentModuleKey', '__moduleKeys',

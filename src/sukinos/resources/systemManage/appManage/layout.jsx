@@ -22,10 +22,12 @@ import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import RateReviewIcon from "@mui/icons-material/RateReview";
 import AppSettingsAltIcon from "@mui/icons-material/AppSettingsAlt";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import FileDownloadIcon from "@mui/icons-material/FileDownload";
 
 import useDebounce from "@/sukinos/hooks/useDebounce";
 import useThrottle from "@/sukinos/hooks/useThrottle";
 import { usePermission } from "@/hooks/usePermission/main";
+import { buildWorkerFileTree, safeNameSegment, splitDataUrl } from "@/sukinos/utils/process/workerFiles";
 
 use([
   PieChart,
@@ -289,6 +291,172 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
   );
 }
 
+const DOWNLOAD_MODE_OPTIONS = [
+  { label: "原始内联包（单文件，逐字无损）", value: "raw" },
+  { label: "解析后的源文件（多文件 zip）", value: "parsed" }
+];
+
+const saveBlob = (blob, filename) => {
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+};
+
+// blob 请求里失败响应同样是 Blob（后端把 code 放 body），只能从内容读出文案
+const readBlobError = async (blob) => {
+  try {
+    const body = JSON.parse(await blob.text());
+    return body?.message || "下载失败";
+  } catch {
+    return "下载失败：响应不是应用包";
+  }
+};
+
+function AppDownloadModal({ row, onClose }) {
+  const [mode, setMode] = useState("raw");
+  const [loading, setLoading] = useState(true);
+  const [packing, setPacking] = useState(false);
+  const [error, setError] = useState("");
+  // 包体只拉一次，切下载内容不再发请求
+  const cacheRef = useRef(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      setError("");
+      cacheRef.current = null;
+      try {
+        const res = await sukinosAppManageAPI.downloadAppPackage({ resourceId: row.resourceId });
+        if (cancelled) return;
+        if (res instanceof Blob) {
+          if (res.type.includes("json")) {
+            setError(await readBlobError(res));
+            return;
+          }
+          const text = await res.text();
+          cacheRef.current = { blob: res, tree: buildWorkerFileTree(text) };
+        } else {
+          setError(res?.message || "下载失败");
+        }
+      } catch (e) {
+        if (!cancelled) setError(e?.message || "下载失败");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [row.resourceId]);
+
+  const tree = cacheRef.current?.tree || null;
+  const parsedUsable = Boolean(tree?.recognized) && !tree?.parseError;
+  const fileCount = tree ? Object.keys(tree.files).length : 0;
+  // appName 是上传时的自由文本，未净化的名字会连 zip 的根目录条目一起带歪；后缀跟库里那份记录，
+  // 与端点的 os.path.splitext(app.file_name)[1] or ".js" 同语义（无后缀上传的包落 .bin）
+  const baseName = safeNameSegment(`${row.appName}-v${row.version}`);
+  const packageExt = /\.[^.]+$/.exec(row.fileName || "")?.[0] || ".js";
+
+  const handleDownload = async () => {
+    const cache = cacheRef.current;
+    if (!cache) return;
+    if (mode === "raw") {
+      saveBlob(cache.blob, `${baseName}${packageExt}`);
+      return;
+    }
+    setPacking(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      const root = zip.folder(`${baseName}-source`);
+      Object.entries(cache.tree.files).forEach(([path, value]) => {
+        // 采集期折成 data URL 的二进制必须还原成字节，写成文本就是废文件
+        const data = splitDataUrl(value);
+        if (data?.isBase64) root.file(path, data.body, { base64: true });
+        else if (data) root.file(path, decodeURIComponent(data.body));
+        else root.file(path, value);
+      });
+      saveBlob(await zip.generateAsync({ type: "blob" }), `${baseName}-source.zip`);
+    } catch (e) {
+      alert.failure(`打包失败：${e?.message || "未知错误"}`);
+    } finally {
+      setPacking(false);
+    }
+  };
+
+  return (
+    <Modal
+      title={`下载文件 · ${row.appName}`}
+      visible
+      onClose={onClose}
+      width={560}
+      minHeight={240}
+    >
+      {loading && <p className={style[bem.e("code-text")]}>正在取回包体…</p>}
+
+      {!loading && error && (
+        <p className={style[bem.e("code-text")]}>{error}</p>
+      )}
+
+      {!loading && !error && tree && (
+        <>
+          <div className={style[bem.e("form-item")]}>
+            <label>下载内容</label>
+            <Select
+              value={mode}
+              onChange={setMode}
+              options={DOWNLOAD_MODE_OPTIONS}
+              direction="bottom"
+            />
+          </div>
+
+          <div className={style[bem.e("detail-block")]}>
+            <label>包体</label>
+            <pre>{
+              `物理文件 ${row.fileName || "-"}　体积 ${fmtBytes(row.size)}\n` +
+              (mode === "raw"
+                ? "逐字取回磁盘上那份内联 worker，视图原文与预编译产物都在其中。"
+                : `解析后 ${fileCount} 个文件${tree.hasLogic ? `，主逻辑 ${tree.logicFileName}` : "，无主逻辑块"}。\n` +
+                  "导出的是块里内联的原文：视图与样式来自原始内容包，预编译产物不在其中（可由原文重生成），" +
+                  "主逻辑优先取原始源码块（缺该块的历史包取到的是执行块），" +
+                  "CSS Modules 的类名是运行时加过后缀的形态。" +
+                  (tree.pathAdjusted
+                    ? `\n其中 ${tree.pathAdjusted} 个路径名带非法字符或穿越段，落地时已被规整——逐字取回请用原始文件。`
+                    : ""))
+            }</pre>
+          </div>
+
+          {!parsedUsable && (
+            <p className={style[bem.e("code-text")]}>
+              {tree.parseError
+                ? `内联包未能解析（${tree.parseError}），只能下载原始文件。`
+                : "不识别为 SukinOS 内联包（没有取到配置块与内容块），只能下载原始文件。"}
+            </p>
+          )}
+        </>
+      )}
+
+      <div className={style[bem.e("audit-actions")]} style={{ marginTop: 16 }}>
+        <Button type="default" size="small" onClick={onClose}>取消</Button>
+        <Button
+          type="primary"
+          size="small"
+          loading={packing}
+          disabled={loading || Boolean(error) || !cacheRef.current || (mode === "parsed" && !parsedUsable)}
+          onClick={handleDownload}
+        >
+          {mode === "raw" ? "下载原始文件" : "打包下载源文件"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
 function AppManage() {
   const { hasPermission } = usePermission();
   const [listRes, setListRes] = useState({ items: [], total: 0, totalPages: 1 });
@@ -303,6 +471,7 @@ function AppManage() {
 
   const [selected, setSelected] = useState([]);
   const [detailId, setDetailId] = useState(null);
+  const [downloadRow, setDownloadRow] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
 
   // 聚合前端统计
@@ -486,6 +655,11 @@ function AppManage() {
         icon: <VisibilityIcon style={{ color: "#6366f1" }} />,
         onClick: (row) => setDetailId(row.resourceId)
       },
+      {
+        label: "下载文件",
+        icon: <FileDownloadIcon style={{ color: "#0ea5e9" }} />,
+        onClick: (row) => setDownloadRow(row)
+      },
     ];
     if (hasPermission("system:apps_access:edit")) {
       result.push({
@@ -615,7 +789,7 @@ function AppManage() {
               onPageSizeChange={(sz) => { setPageSize(sz); setPage(1); }}
               onSelectionChange={setSelected}
               actions={actions}
-              actionWidth={160}
+              actionWidth={240}
             />
           </div>
         </div>
@@ -627,6 +801,13 @@ function AppManage() {
           resourceId={detailId}
           onClose={() => setDetailId(null)}
           onRefresh={handleRefresh}
+        />
+      )}
+
+      {downloadRow && (
+        <AppDownloadModal
+          row={downloadRow}
+          onClose={() => setDownloadRow(null)}
         />
       )}
     </div>

@@ -1,82 +1,45 @@
-/* ========================================================================================
- * 核心字段环境变量映射 [动态数据模型契约]
- *
- * 【架构说明】：
- * 为了实现底层数据模型 (IndexedDB / 物理文件) 与前端逻辑的彻底解耦，系统将所有 App 的核心属性键名
- * 抽象为以下常量。内核解析 (generateApp/Worker) 和数据库寻址将严格依赖这些常量获取数据。
- *
- * 【修改警告】：
- * 如果你修改了右侧的字符串值（例如将 'resourceId' 改为 'appId'），系统会自动同步修改 IndexedDB 的
- * 主键 (keyPath) 和 Worker 解析正则。但请注意：
- * 1. 之前基于旧名称存储的本地 IndexedDB 数据将会失效或产生游离！
- * 2. 建议仅在项目初始化、或系统版本产生重大架构重构 (破坏性更新) 时修改这些值。
- * ======================================================================================== */
 /**
- * 资源唯一标识符 (Primary Key)
- * @role 核心主键。作为 DB_RES (资源数据库) 和内存 resourceCache 的唯一键。
- * @usage 在 parseWorkerCode 中作为动态正则匹配的锚点，确保源码能够被精准反序列化。
+ * 核心字段键名映射（动态数据模型契约）：底层数据模型（IndexedDB / 物理文件）与前端逻辑靠这组常量解耦，
+ * 内核解析（generateApp / generateWorker）与数据库寻址都严格取值于它们。
+ * 改右侧字符串会连带改走 IndexedDB 主键 (keyPath) 与 Worker 解析正则，代价是旧数据的键名对不上、
+ * 本地库里已存的记录读不到 —— 所以只在项目初始化或破坏性架构重构时改。
  */
+/** DB_RES 与内存 resourceCache 的唯一键；parseWorkerCode 用它做动态正则锚点反解源码 */
 export const ENV_KEY_RESOURCE_ID = 'resourceId';
 
-/**
- * 应用名称与物理文件名标识 (Registry Key)
- * @role 注册表主键。作为 DB_SYS (用户应用注册表数据库) 的唯一键。
- * @usage 决定了本地文件系统中物理文件的名称前缀 (如 uuid-{name}.sukin-worker.js)。同一 name 视为同一应用。
- */
+/** DB_SYS（用户应用注册表）的唯一键，同时决定本地文件名 uuid-{name}.sukin-worker.js；同名即同一应用 */
 export const ENV_KEY_NAME = 'name';
 
-/**
- * 模块化标记 (Boolean)
- * @role 决定应用是单组件 (Single Component) 还是支持路由的捆绑包 (Bundle)。
- * @usage 值为 true 时，Worker 内部会额外注入 Router 导航逻辑，允许拦截 NAVIGATE 动作。
- */
+/** 为 true 时 Worker 内额外注入 Router 导航逻辑，可拦截 NAVIGATE；否则按单组件处理 */
 export const ENV_KEY_IS_BUNDLE = 'isBundle';
 
-/**
- * 业务逻辑纯净代码 (String)
- * @role 承载用户编写的 Web Worker 纯 JS/逻辑层代码 (如 initialState, reducer, init 等)。
- * @usage 在 generateWorker 时被原封不动地注入到系统模板底部，隔离执行。
- */
+/** 用户写的 Web Worker 逻辑层源码（initialState / reducer / init），generateWorker 原封注入模板底部 */
 export const ENV_KEY_LOGIC = 'logic';
 
-/**
- * 界面视图源码 (Object / String)
- * @role 承载渲染层 (UI) 所需的 React 组件字符串树或布局模板。
- * @usage 在生成文件时会被 JSON.stringify 双重序列化保护，并打上 resourceId 锚点防篡改。
- */
+/** 渲染层源码（组件字符串树或多文件内容包），生成文件时 JSON.stringify 双重序列化并打上 resourceId 锚点 */
 export const ENV_KEY_CONTENT = 'content';
 
 /**
- * 预编译后的界面视图源码 (Object / String)
- * @role 与 ENV_KEY_CONTENT 结构一致（单文件字符串或多文件对象），承载安装时由 Babel 预编译的 JS 产物。
- * @usage 双份存储策略：ENV_KEY_CONTENT 保留原始 JSX（供调试/反编译/提取），本字段存预编译 JS。
- *   运行时优先使用本字段跳过 Babel 编译；缺失或执行失败时降级用原始 JSX 重新编译兜底。
- *   系统 APP 不生成此字段，始终走 JSX 编译链路。
+ * ENV_KEY_CONTENT 的预编译产物，结构一致（单文件字符串或多文件对象）。双份存储：CONTENT 留原始 JSX
+ * （供调试 / 反编译 / 提取），本字段供运行时直接执行；缺失或执行失败时降级回原始 JSX 重编译。
+ * 系统 APP 不生成此字段，始终走 JSX 编译链路。
  */
 export const ENV_KEY_CONTENT_PRECOMPILED = 'precompiledContent';
 
 /**
- * 预编译后的主逻辑块代码 (String)
- * @role 与 ENV_KEY_LOGIC 配对，承载主逻辑块经 Babel 转成 commonjs 后的产物（import 已变成 require）。
- * @usage 双份存储：ENV_KEY_LOGIC 保留原始源码（供编辑器、反解、写回本地盘），本字段供 worker 执行。
- *   generateWorker 按「本字段 → ENV_KEY_LOGIC → 兜底 reducer」取值，所以未预编译的存量应用与系统 APP
- *   行为不变。主块由内核按名字识别 initialState/reducer/init，因此原始源码不接受 export。
+ * ENV_KEY_LOGIC 的预编译产物（commonjs，import 已变 require）。双份存储同上，
+ * generateWorker 按「本字段 → ENV_KEY_LOGIC → 兜底 reducer」取值，所以未预编译的存量应用与系统 APP 行为不变。
+ * 主块由内核按名字识别 initialState/reducer/init，因此原始源码不接受 export。
  */
 export const ENV_KEY_LOGIC_PRECOMPILED = 'precompiledLogic';
 
-/**
- * 操作系统元数据 (Object)
- * @role 决定了应用在 SukinOS 桌面上的外部表象和系统级权限。
- * @usage 包含属性如：authorId, icon, description, initialSize (窗口初始尺寸), version, exposeState, saveState 等。
- */
+/** 应用在外壳上的表现与系统级权限：authorId, icon, description, initialSize（窗口初始尺寸）, version, exposeState, saveState 等 */
 export const ENV_KEY_META_INFO = 'metaInfo';
-// ----------------------------------------------
 
 export const SUKIN_EXT = '.sukin-worker.js';
 export const SUKIN_PRE = 'uuid-'
 export const DB_INSTANCE_ID='SYSTEM-INSTANCE'
 
-//sukinos::store默认配置相关
 import {BASE_URL} from '/utils/js/getBaseUrl'
 export const SUKINOS_STORE_REMOTE_BASE=BASE_URL
 export const SUKINOS_STORE_REMOTE_TOTAL=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList`
@@ -89,9 +52,7 @@ export const SUKINOS_STORE_REMOTE_DELETE=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/a
 export const SUKINOS_STORE_REMOTE_WITH_PERMISSION=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/withPermission`
 export const SUKINOS_STORE_REMOTE_AUTHORIZED=`${SUKINOS_STORE_REMOTE_BASE}/sukinos/app/appList/authorized`
 
-// ===== 默认/游客用户配置 =====
 export const DEFAULT_USER_ID = 'default';
-// 统一的游客用户信息配置
 export const GUEST_INFO = {
   id: DEFAULT_USER_ID,
   role: 'guest',
@@ -133,23 +94,21 @@ export const DB_VFILE = {
   ]
 };
 
-export const createInstanceDbConfig = (userId) => ({//存储有状态的instance。如文件句柄
+export const createInstanceDbConfig = (userId) => ({// 存不能 JSON 化的实例（如文件句柄）
   DB_NAME: `SUKIN_STATE_INSTANCE_${userId || DEFAULT_USER_ID}`,
   STORE_NAME: 'instance',
   VERSION: 2,
   KEY_PATH: 'id',
 })
-// 系统APP需要持久化存储的用户数据,也可以存储在这个库里
+// 系统 App 要持久化的用户数据也放这个库
 export const DB_SYSTEM_APP='sukin_system_app'
 
-//文件类型标记
 export const FileType = {
   FILE: 1,
   DIRECTORY: 2
 };
 
-// （SukinOS_Sys_{userId} 等），不再有固定的全局数据库名。
-// 保留此常量仅为向后兼容，仅 VFS 仍为全局共享。
+// 库名已按用户隔离（SukinOS_Sys_{userId} 等），只有 VFS 仍全局共享，所以名单里只剩它
 export const SYSTEM_FS_NAME=['SUKIN_OS_VFS']
 export const DefaultWindow = { x: 100, y: 100, w: 500, h: 400 };
 
@@ -158,7 +117,6 @@ export const WindowSize = (() => {
     return { ...DefaultWindow };
   }
 
-  // 缓存值
   const cache = {
     x: window.screenX !== undefined ? window.screenX :
        window.screenLeft !== undefined ? window.screenLeft :
@@ -177,15 +135,13 @@ export const WindowSize = (() => {
   };
 
   let debounceTimer= null;
-  const DEBOUNCE_DELAY = 3000; // 3秒
+  const DEBOUNCE_DELAY = 3000;
   let lastUpdateTime = 0;
-  const MIN_UPDATE_INTERVAL = 1000; // 最小更新间隔1秒
+  const MIN_UPDATE_INTERVAL = 1000;
 
-  // 更新函数
   const updateCache = () => {
     const now = Date.now();
 
-    // 如果距离上次更新时间太短，跳过
     if (now - lastUpdateTime < MIN_UPDATE_INTERVAL) {
       return;
     }
@@ -214,7 +170,6 @@ export const WindowSize = (() => {
     }
   };
 
-  // 防抖处理
   const scheduleUpdate = () => {
     if (debounceTimer) {
       clearTimeout(debounceTimer);
@@ -226,7 +181,6 @@ export const WindowSize = (() => {
     }, DEBOUNCE_DELAY);
   };
 
-  // 监听事件
   const eventHandler = () => {
     scheduleUpdate();
   };
@@ -248,10 +202,8 @@ export const WindowSize = (() => {
   return cache;
 })();
 
-//决策相关
-export const TRUTH_ALL_APP = true  //这个就是如果我们扫到了本地worker但是,他没有注册资源文件,是否注册
+export const TRUTH_ALL_APP = true  // 扫到未注册的本地 worker 时是否补注册（僵尸文件）
 
-//默认组件开发代码
 export const DEFAULT_LAYOUT = `/*
       const {
           React, useState,
@@ -394,9 +346,7 @@ export const preSystemFileData = [
   }
 ]
 
-// ===== 系统预置配置文件 =====
-// 与 preSystemFileData不同，这些是系统运行所需的 JSON 配置文件，
-// 挂载时若不存在则直接写入默认内容，避免被用户误删后系统功能失效。
+// 系统预置配置文件：与 preSystemFileData 不同，这里装系统运行所需的 JSON 配置，挂载时缺文件就直接写默认内容，免得被误删后功能失效。
 // 布局文件按用户隔离：结构为 { [userId]: { [pid]: "row-col" } }
 export const DESK_LAYOUT_FILENAME = 'deskbook-layout.json';
 export const preSystemConfigFiles = [
@@ -407,8 +357,7 @@ export const preSystemConfigFiles = [
   }
 ]
 
-// ===== 内置示例应用（预制文件）=====
-// 与 preSystemFileData 一样只登记清单；正文放 resources/developer/template/sukinOS 下按文件读入。
+// 内置示例应用（预制文件）：与 preSystemFileData 一样只登记清单，正文放 resources/developer/template/sukinOS 下按文件读入。
 // path 是相对示例根目录的路径，父级目录按 path 自动补建，不必在此登记。
 // 挂载后根层直接是 layout.jsx / logic.jsx，开发者中心选这一个目录即可命中默认入口。
 export const SAMPLE_APP_DIR = { id: 'system_sukinos_sample', name: '示例应用' };

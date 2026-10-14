@@ -26,14 +26,27 @@ import { alert } from "@/component/alert/layout"
 import { ENV_KEY_NAME, ENV_KEY_IS_BUNDLE, ENV_KEY_CONTENT, ENV_KEY_LOGIC, ENV_KEY_META_INFO } from '@/sukinos/utils/config';
 import { appCustomMapper, appCustom, appTypes } from '@/sukinos/utils/config';
 import fs from '@/sukinos/utils/file/fileKernel';
-import { loadEntryConfig, saveEntryConfig, buildAppEntries, moduleKeyOf } from '@/sukinos/utils/entryConfig';
-import { inspectEntryLayering, splitLayeringErrors, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
+import { loadEntryConfig, saveEntryConfig, buildAppEntries, moduleKeyOf, contentKeyOf, formatMissingViewHint, formatDocEntryUnsupported } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, splitLayeringErrors, formatLayeringErrors, isHtmlKey } from '@/sukinos/utils/process/sourceMapper';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import { FileType } from "@/sukinos/utils/config";
 import permissionManageAPI from "@/apis/system/permissionManage";
 
 //ENV_KEY_IS_BUNDLE 这注意这个文件和setting的bundle没有区分,因为这里不会对外产生影响不再修改,而且会增加逻辑负担于=》upload
 const bem = createNamespace('developer');
+
+// 挂载完成后工作区该定在哪个目录：有可用记忆就用它，否则定在 root。
+// 本地模式的目录 id 来自 FSA 授权与本次会话的 handleRegistry，刷新后必然失效，恢复它等于把 root
+// 换成一个不存在的目录，因此只对虚拟模式生效；目录被删时 fs.getPath 返回空链，同样按"无记忆"处理。
+// 物理/幽灵 realm 下裸 localStorage 访问即抛，取不到记忆就落在 root。
+const resolveWorkspaceTarget = (fsMode) => {
+  let saved = null;
+  try { saved = localStorage.getItem(`dev_center_workspace_dir_${fsMode}`); } catch { saved = null; }
+  if (!saved || saved === 'root' || fsMode !== 'virtual') return { dirId: 'root', pathStr: '/' };
+  const pathArr = fs.getPath(saved);
+  if (pathArr.length === 0) return { dirId: 'root', pathStr: '/' };
+  return { dirId: saved, pathStr: pathArr.map(p => (p.name === 'root' ? '' : p.name)).join('/') || '/' };
+};
 
 function Developer({ app }) {
   const storePath = useSelector(selectorStoreSettingStorePath)
@@ -88,8 +101,6 @@ function Developer({ app }) {
   const saveTimeoutRef = useRef({});
   // 写锁：记录进行中的物理写入（新建/保存/重命名/删除），写锁期间 loadWorkspaceFiles 跳过，杜绝物理盘回读覆盖内存的竞态
   const pendingWritesRef = useRef(new Set());
-  // 记忆恢复每个存储模式只做一次，切换模式时由 fsMode 的 Effect 清空
-  const restoredModeRef = useRef('');
 
   // 侧边栏宽度
   const [sidebarWidth, setSidebarWidth] = useState(260);
@@ -149,17 +160,20 @@ function Developer({ app }) {
     vfsRef.current = vfs;
   }, [vfs]);
 
-  // 根据 items 物理介质列表解析内存。全类型读取（不再限制 JS/JSX）。
+  // 回读锚点目录的物理介质并解析进内存。全类型读取（不再限制 JS/JSX）。
   // 递归解析工作区目录树，key 用相对路径（如 pages/about/index.jsx），支持嵌套文件夹。
   // 目录以 null 占位写入 files（与空内容文件 '' 区分）。
   // 通过 vfsRef 的代理锁定，使其彻底变为 [] 零依赖项，引用永远保持稳定
-  const loadWorkspaceFiles = useCallback(async (currentItems) => {
+  const loadWorkspaceFiles = useCallback(async () => {
     const currentVfs = vfsRef.current;
-    // 只有映射开启，且当前浏览的目录 ID 确实是工作区确认的 ID 时，才执行解析
-    if (!isMappedRef.current || currentVfs.state.currentId !== workspaceDirIdRef.current) return;
+    // 解析目标始终是工作区锚点目录：handleReadDir 按 id 直读，与 VFS 当前浏览到哪个目录无关。
+    // 早前这里额外要求 vfs.state.currentId === workspaceDirId，于是导航没真正落地时就是
+    // "路径显示对了、目录树为空"，非得打开一次目录弹窗（它会补一次 loadDir）才恢复。
+    if (!isMappedRef.current) return;
     // 写锁期间跳过：新建的 mkdir/writeFile 会触发 fs.watch→loadDir→items 变化，
     // 若此时回读物理盘整体覆盖内存，会把刚写入内存的新建项抹掉
     if (pendingWritesRef.current.size > 0) return;
+    const anchorId = workspaceDirIdRef.current;
 
     try {
       const currentFiles = filesRef.current;
@@ -182,7 +196,9 @@ function Developer({ app }) {
         return result;
       };
 
-      const allFiles = await collectRecursive(workspaceDirIdRef.current, '');
+      const allFiles = await collectRecursive(anchorId, '');
+      // 回读是异步的：期间锚点可能已被记忆恢复或"重选"切走，晚到的结果不能再覆写当前内容
+      if (!isMappedRef.current || workspaceDirIdRef.current !== anchorId) return;
       const incomingKeys = allFiles.map(f => f.relPath);
       const currentFilesKeys = Object.keys(currentFiles);
 
@@ -247,16 +263,29 @@ function Developer({ app }) {
     return vfs.state.items.map(item => `${item.id}:${item.name}:${item.type}`).join('|');
   }, [vfs.state.items]);
 
-  // 监听 VFS 物理结构变动。
-  useEffect(() => {
-    if (vfs.state.isReady && isMapped && vfs.state.currentId === workspaceDirId) {
-      loadWorkspaceFiles(vfs.state.items);
-    }
-  }, [itemsSignature, isMapped, workspaceDirId, vfs.state.currentId, vfs.state.isReady, loadWorkspaceFiles]);
+  // 落锚：把工作区定在该模式记忆里的目录（无记忆则定在 root），并把 VFS 的浏览态一起挪过去。
+  // 可重复调用：三个 setState 传同值时 React 直接 bail out，loadDir 只在浏览态与锚点不一致时补，
+  // 因此挂载、换模式、换登录态、VFS 重挂完成这几处都能安全地调它。
+  const applyWorkspaceMapping = useCallback((mode) => {
+    const { dirId, pathStr } = resolveWorkspaceTarget(mode);
+    const currentVfs = vfsRef.current;
+    // 只设锚点不导航，资源管理器会停在 root；只导航不设锚点，路径显示对了而解析目标错——两头都要
+    if (currentVfs.state.currentId !== dirId) currentVfs.navigation.loadDir(dirId);
+    setWorkspaceDirId(dirId);
+    setWorkspacePathStr(pathStr);
+    setIsMapped(true);
+  }, []);
 
-  // 切换盘符模式时，直接执行一次根映射
+  // 监听 VFS 物理结构变动与锚点变化。解析目标始终是锚点目录本身，所以不再要求
+  // vfs.state.currentId 与锚点相等——浏览态与锚点分叉时（在目录弹窗里逛到别的文件夹）
+  // 少一次覆写、也多了"导航没落地就永远不解析"的容错。
   useEffect(() => {
-    // 清理旧缓存
+    if (vfs.state.isReady && isMapped) loadWorkspaceFiles();
+  }, [itemsSignature, isMapped, workspaceDirId, vfs.state.isReady, loadWorkspaceFiles]);
+
+  // 切换盘符模式：清掉上一个模式的编辑缓存并收掉映射权，锚点交给下面那段等挂载完成的 Effect 去定。
+  // 不在这里定锚：此刻 VFS 可能还没挂载完，读记忆会误判成"无记忆"而先扫一遍 root。
+  useEffect(() => {
     setFiles({});
     setPhysicalFiles(new Map());
     setUnsavedFiles(new Set());
@@ -264,43 +293,21 @@ function Developer({ app }) {
     Object.values(saveTimeoutRef.current).forEach(clearTimeout);
     saveTimeoutRef.current = {};
     pendingWritesRef.current.clear();
-
-    // 直接执行根映射 (强制设为 root 并开启映射权限)
-    setWorkspaceDirId('root');
-    setWorkspacePathStr('/');
-    setIsMapped(true);
-    // 每个模式有自己的记忆 key，切换后允许下一段 Effect 重新套用
-    restoredModeRef.current = '';
-
-    // 注意：此时 vfs 钩子内部会因为 mode 变化重新 boot 并 loadDir('root')
-    // loadWorkspaceFiles 会在下一步的 items 变化 Effect 中自动被触发
+    setIsMapped(false);
   }, [fsMode]);
 
-  // 记忆恢复 [可选：如果上次有记忆则覆盖 root]
-  // 每个模式只恢复一次：这段改的是工作区锚点，若跟着 breadcrumbs 重跑会在用户于目录选择弹窗里浏览时把视图拉回记忆目录
+  // 落锚时机：挂载完成（含换模式后的重挂）、换模式、换登录态（VFS 换用户库后旧锚点在新库里根本不存在）。
+  // 两个条件都从内容推导，不设"每个模式只恢复一次"的标记——标记正是原缺陷的成因：首次导航被 boot 的
+  // loadDir('root') 抢跑之后就没人补第二次，于是路径显示对了、目录树要重开一次弹窗才加载。
+  // 注意 currentId / workspaceDirId 只作为闸门读取、不进依赖：浏览目录会把 currentId 挪到 root，
+  // 进了依赖就会在用户逛弹窗时把工作区强行拽回记忆目录。
   useEffect(() => {
-    // 本地模式的目录 id 来自 FSA 授权与本次会话的 handleRegistry，刷新后必然失效，
-    // 恢复它等于把 root 换成一个不存在的目录，因此只对虚拟模式生效
-    if (!vfs.state.isReady || fsMode !== 'virtual' || restoredModeRef.current === fsMode) return;
-    restoredModeRef.current = fsMode;
-
-    let savedDirId = null;
-    try {
-      savedDirId = localStorage.getItem(`dev_center_workspace_dir_${fsMode}`);
-    } catch { return; } // 物理/幽灵 realm 下裸 localStorage 访问即抛，取不到记忆就保持 root 映射
-    if (!savedDirId || savedDirId === 'root') return;
-
-    // getPath 对已删除的目录返回空链（readdir 只会返回 []，探不出存在性）
-    const pathArr = fs.getPath(savedDirId);
-    if (pathArr.length === 0) return;
-
-    // 只设 workspaceDirId 不够：loadWorkspaceFiles 要求 vfs.state.currentId 与它相等，
-    // 不导航过去就是路径显示对了而目录树为空，得手动点一次"重选"才会解析出真实内容
-    vfsRef.current.navigation.loadDir(savedDirId);
-    setWorkspaceDirId(savedDirId);
-    setWorkspacePathStr(pathArr.map(p => p.name === 'root' ? '' : p.name).join('/') || '/');
-    setIsMapped(true);
-  }, [vfs.state.isReady, fsMode]);
+    if (!vfs.state.isReady) return;
+    const parkedAtRoot = vfs.state.currentId === 'root'; // bootFS 收尾固定停在 root
+    const anchorStale = workspaceDirId !== 'root' && fs.getPath(workspaceDirId).length === 0;
+    if (!parkedAtRoot && !anchorStale) return;
+    applyWorkspaceMapping(fsMode);
+  }, [vfs.state.isReady, fsMode, userInfo?.id, applyWorkspaceMapping]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 移除旧版 handleCreate 临时过渡阶段，不管是否存在，直接扔给 handleSave
   // 支持相对路径：当 fileName 含 '/' 时，逐级 handleEnsureDir 解析/创建父目录（virtual/local 统一）
@@ -382,12 +389,14 @@ function Developer({ app }) {
   const mainLogicCode = appEntries.logicMainFile ? files[appEntries.logicMainFile] : null;
 
   const cleanFiles = useMemo(() => {
+    // 文档包（视图入口是 html）的 key 保留完整相对路径：<script src="./assets/x.js"> 按文件路径找载荷，
+    // 去扩展名会把它变成对不上的 key；JSX 包的 key 是导入路径，必须去扩展名
+    const asDocument = isHtmlKey(appEntries.viewFile || '');
     const result = {};
     for (const [key, value] of Object.entries(files)) {
       if (value === null) continue; // 目录占位不打入内容包
       if (key === appEntries.logicMainFile) continue; // 主逻辑入口由 ENV_KEY_LOGIC 单独承载
-      // 去 .jsx/.js 后缀，保留相对路径（如 pages/about/index）
-      result[key.replace(/\.(jsx|js)$/, '')] = value;
+      result[contentKeyOf(key, asDocument)] = value;
     }
     return result;
   }, [files, appEntries]);
@@ -433,9 +442,15 @@ function Developer({ app }) {
       alert.warning(`名称占用`); return;
     }
     if (blockByLayering(true)) return;
-    // 多页面应用靠 entries.view 选页，视图入口缺失时运行时会回落到 'layout' 而白屏
-    if (uploadType === 'bundle' && !appEntries.viewFile) {
-      alert.warning(`缺少视图入口 ${entryConfig.viewEntry}，请补齐该文件或到设置里调整入口约定`); return;
+    // 视图入口缺失时运行时会回落到 'layout' 而白屏：多页面靠 entries.view 选页，
+    // 文档档更是只有这一条路（内容按文件路径寻址），所以两者都必须点名
+    if ((uploadType === 'bundle' || isHtmlKey(entryConfig.viewEntry || '')) && !appEntries.viewFile) {
+      alert.warning(formatMissingViewHint(entryConfig.viewEntry), { duration: 6000 }); return;
+    }
+    // 文档包只有 map 这一种形态：单页档装不下它引用的样式与资源，而且是静默装不下
+    const asDocEntry = isHtmlKey(appEntries.viewFile || '');
+    if (asDocEntry && uploadType !== 'bundle' && Object.keys(cleanFiles).length > 1) {
+      alert.warning(formatDocEntryUnsupported(uploadType === 'logic' ? '单页 [含逻辑]' : '单文件'), { duration: 6000 }); return;
     }
     // 单页载荷只有一个视图字符串：辅逻辑模块即便命中入口约定也不会随资源走，
     // 主逻辑块 import 的目标同理（那部分交给按载荷跑的分层校验拦）
@@ -463,7 +478,7 @@ function Developer({ app }) {
     const finalSysOptions = { ...sysOptions, userInfo, storePath };
 
     let payload;
-    if (uploadType !== 'bundle') {
+    if (uploadType !== 'bundle' && !asDocEntry) {
       // 单页内容只装一个视图字符串：口径与预览/上传面板一致（视图入口优先，其次单文件入口，最后当前编辑文件）
       const entryKey = moduleKeyOf(appEntries.viewFile || appEntries.mainFile || activeFile);
       const content = cleanFiles[entryKey] || Object.values(cleanFiles)[0];
@@ -472,6 +487,7 @@ function Developer({ app }) {
         [ENV_KEY_CONTENT]: content, [ENV_KEY_LOGIC]: mainLogicCode, [ENV_KEY_META_INFO]: baseMetaInfo
       };
     } else {
+      // 文档档落在这里：哪怕工作区只有那个 html，也必须以 map + isBundle 的形态发出去
       payload = {
         sysOptions: finalSysOptions, [ENV_KEY_NAME]: appName, [ENV_KEY_IS_BUNDLE]: true,
         [ENV_KEY_CONTENT]: cleanFiles, [ENV_KEY_LOGIC]: mainLogicCode, [ENV_KEY_META_INFO]: baseMetaInfo
@@ -493,7 +509,8 @@ function Developer({ app }) {
     // 预览只拦硬故障：worker 求不到值的场景预览出来也是假象；软约束降级为提示
     if (blockByLayering(false)) return;
     let viewCodeForPreview = null; let filesForPreview = null;
-    const isBundle = uploadType === 'bundle';
+    // 文档档的预览与发布同形态（map + isBundle），否则子文档拿不到它引用的样式与脚本
+    const isBundle = uploadType === 'bundle' || isHtmlKey(appEntries.viewFile || '');
     // 预览文件集只剔除目录占位(null)与主逻辑入口；辅逻辑入口留在集合内交给 worker 侧模块运行时
     const previewFiles = Object.fromEntries(
       Object.entries(files).filter(([k, v]) => v !== null && k !== appEntries.logicMainFile)

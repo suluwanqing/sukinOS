@@ -1,8 +1,5 @@
-/**
- * CommHub 通信枢纽
- * 集中处理 Worker <-> UI 的消息分发、状态缓存和系统事件。
- * 当前实现是轻量内存版；后续可替换为独立 Worker 文件实现通信隔离与增量处理。
- */
+// CommHub 通信枢纽：集中处理 Worker <-> UI 的消息分发、状态缓存与系统事件
+// 当前是进程内轻量内存版（EventTarget + Map），不做独立 Worker 隔离
 export default class CommHub {
   constructor({ onSaveState, sendToWorker }) {
     this.onSaveState = onSaveState
@@ -16,27 +13,22 @@ export default class CommHub {
     this.processSubscriptions = new Map() // 结构: pid -> Map(topic -> unsubscribeFn)
   }
 
-  // 发送系统级变更事件（支持增量 payload）
   emitChange(detail) {
     this.eventBus.dispatchEvent(new CustomEvent('sys_change', { detail }))
   }
 
-  // 向某个进程订阅者广播状态变化
   notify(pid, type, data) {
     this.subscribers.get(pid)?.forEach(cb => cb({ type, payload: data }))
   }
 
-  // 获取缓存的状态快照
   getCachedState(pid) {
     return this.stateCache.get(pid)
   }
 
-  // 清理缓存的状态快照
   clearCachedState(pid) {
     this.stateCache.delete(pid)
   }
 
-  // 处理来自 Worker 的消息
   async handleMsg(pid, msg) {
     if (msg.type === 'STATE_UPDATE') {
       this.stateCache.set(pid, msg.payload)
@@ -115,19 +107,13 @@ export default class CommHub {
     }
   }
 
-  /**
-   * 订阅指定主题的消息
-   * @param {string} topic - 消息主题/名称
-   * @param {function} cb - 收到消息后的回调函数
-   * @returns {function} 取消订阅的函数
-   */
+  // 订阅指定主题；返回取消订阅句柄，由调用方（或 processSubscriptions）负责在生命周期结束时调用
   subscribe(topic, cb) {
     if (!this.topicSubscribers.has(topic)) {
       this.topicSubscribers.set(topic, new Set())
     }
     this.topicSubscribers.get(topic).add(cb)
 
-    // 返回取消订阅的句柄，方便外部生命周期管理
     return () => {
       const set = this.topicSubscribers.get(topic)
       if (set) {
@@ -139,11 +125,7 @@ export default class CommHub {
     }
   }
 
-  /**
-   * 发布指定主题的消息
-   * @param {string} topic - 消息主题/名称
-   * @param {*} payload - 传递的数据内容
-   */
+  // 发布指定主题的消息
   publish(topic, payload) {
     this.topicSubscribers.get(topic)?.forEach(cb => {
       try {
@@ -154,10 +136,7 @@ export default class CommHub {
     })
   }
 
-  /**
-   * 释放并清理指定进程（Worker）建立的所有消息主体订阅，防内存泄漏
-   * @param {string|number} pid - 进程ID
-   */
+  // 释放并清理指定进程（Worker）建立的所有主题订阅，防内存泄漏
   clearProcessSubscriptions(pid) {
     const pSubs = this.processSubscriptions.get(pid)
     if (pSubs) {
@@ -170,11 +149,8 @@ export default class CommHub {
     }
   }
 
-  /**
-   * 清空所有缓存和订阅（用于 kernel reset 时彻底清理）
-   */
+  // 清空所有缓存与订阅（kernel reset 时彻底清理）
   clearAll() {
-    // 清理所有进程的 topic 订阅
     for (const pSubs of this.processSubscriptions.values()) {
       for (const unsubscribe of pSubs.values()) {
         if (typeof unsubscribe === 'function') unsubscribe()

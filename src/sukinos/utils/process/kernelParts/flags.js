@@ -14,8 +14,6 @@ export class Flags {
   }
 }
 
-// ─── 代理导出函数 ──────────────────────
-
 export function isSystemApp(kernel, pid) {
   return kernel.flags.isSystemApp(pid)
 }

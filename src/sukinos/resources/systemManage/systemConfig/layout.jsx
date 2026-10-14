@@ -4,9 +4,11 @@ import { createNamespace } from "/utils/js/classcreate";
 import LogConfig from "./logConfig/layout";
 import ConfigItemsManager from "./configItemsManager/layout";
 import SystemAppsAccess from "./systemAppsAccess/layout";
+import UploadQuota from "./uploadQuota/layout";
 import TuneIcon from "@mui/icons-material/Tune";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SecurityIcon from "@mui/icons-material/Security";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 
 const bem = createNamespace("system-config-layout");
 
@@ -50,6 +52,17 @@ function SystemConfig() {
             <SecurityIcon fontSize="small" />
             <span>系统APP放权</span>
           </div>
+
+          <div
+            className={[
+              style[bem.e("menu-item")],
+              style[bem.is("active", activeTab === "uploadQuota")]
+            ].filter(Boolean).join(" ")}
+            onClick={() => setActiveTab("uploadQuota")}
+          >
+            <UploadFileIcon fontSize="small" />
+            <span>上传配额</span>
+          </div>
         </div>
       </div>
 
@@ -57,6 +70,7 @@ function SystemConfig() {
         {activeTab === "log" && <LogConfig />}
         {activeTab === "items" && <ConfigItemsManager />}
         {activeTab === "systemApps" && <SystemAppsAccess />}
+        {activeTab === "uploadQuota" && <UploadQuota />}
       </div>
     </div>
   );

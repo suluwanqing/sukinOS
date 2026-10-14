@@ -3,10 +3,11 @@ import { createPortal } from 'react-dom'
 import createCache from '@emotion/cache'
 import { CacheProvider } from '@emotion/react'
 import { compileSourceAsync, scopeCss, createCssModule, clearCompileCache } from '@/sukinos/utils/process/renderWindow'
-import { resolveModuleKey, resolveAppEntries } from '@/sukinos/utils/process/sourceMapper'
+import { resolveModuleKey, resolveAppEntries, isHtmlKey, isCompiledKey } from '@/sukinos/utils/process/sourceMapper'
+import HtmlAppFrame from '@/sukinos/utils/process/htmlAppFrame'
+import { RESTRICTED_STORAGE_APIS } from '@/sukinos/utils/security'
 import { ENV_KEY_META_INFO,ENV_KEY_RESOURCE_ID,ENV_KEY_CONTENT,ENV_KEY_CONTENT_PRECOMPILED } from '@/sukinos/utils/config'
 import { createSdkForInstance } from "@/sukinos/resources/sdk"
-// 引入全局样式同步中心，替换原来每个 iframe 各自的 querySelectorAll + MutationObserver
 import { registerSandboxDoc } from '@/sukinos/utils/process/styleSyncHub'
 
 /**
@@ -32,8 +33,7 @@ const getGhostSandbox = () => {
   ghostIframeInstance = iframe.contentWindow;
 
   //拦截原生敏感 API，强迫 App 使用系统 SDK 钩子
-  const restrictApis = ['indexedDB', 'localStorage', 'sessionStorage', 'openDatabase', 'caches'];
-  restrictApis.forEach(api => {
+  RESTRICTED_STORAGE_APIS.forEach(api => {
     try {
       Object.defineProperty(ghostIframeInstance, api, {
         get: () => {
@@ -51,16 +51,10 @@ const getGhostSandbox = () => {
   return ghostIframeInstance;
 };
 
-// ─── 错误详情展示组件 ──────────────────────────────────────────────────────────
-/**
- * 结构化错误信息面板
- * renderWindow 返回的编译期 errorDetail（含 phase / loc / stack）
- * ErrorBoundary 捕获的运行期 error + componentStack
- */
+/** 结构化错误面板：吃 renderWindow 的编译期 errorDetail（phase/loc/stack）与运行期 error + componentStack */
 const ErrorDetailPanel = ({ errorDetail, componentStack, title, moduleKey }) => {
   const [showStack, setShowStack] = useState(false);
 
-  // 兼容两种入参格式
   const phase = errorDetail?.phase || 'runtime';
   const loc   = errorDetail?.loc   || '';
   const msg   = errorDetail?.message || (errorDetail instanceof Error ? errorDetail.message : String(errorDetail || '未知错误'));
@@ -165,7 +159,6 @@ class ErrorBoundary extends React.Component {
     this.state = {
       hasError: false,
       error: null,
-      // 保存 React 组件树调用栈，便于在 UI 中展示
       componentStack: null,
       retryCount: 0,
       isRetrying: false,
@@ -173,7 +166,6 @@ class ErrorBoundary extends React.Component {
       showDetail: false,
       // 查看源码模态框开关
       showSource: false,
-      // 复制错误信息反馈
       copied: false
     };
     this.retryTimer = null;
@@ -184,7 +176,6 @@ class ErrorBoundary extends React.Component {
   }
 
   static getDerivedStateFromError(error) {
-    // 捕获错误，渲染备用 UI
     // componentStack 在 getDerivedStateFromError 阶段拿不到，由 componentDidCatch 补充
     return { hasError: true, error };
   }
@@ -193,13 +184,10 @@ class ErrorBoundary extends React.Component {
     // 保存 React 组件树调用栈，供错误 UI 展示
     this.setState({ componentStack: info?.componentStack || null });
 
-    // 如果已经达到最大重试次数，不再触发自动重试逻辑
     if (this.state.retryCount > this.maxRetryCount) {
-      // console.error(`进程 [${this.props.pid}] 失败：已达到最大重试次数`);
       return;
     }
 
-    // 错误节流
     const now = Date.now();
     if (now - this._lastCatchAt < 5000 && this.state.retryCount > 0) {
       // 5s 内重复崩溃，跳过本次自动重试，直接进入最终错误界面（含操作按钮）
@@ -228,7 +216,6 @@ class ErrorBoundary extends React.Component {
     const isHardRetry = retryCount === this.maxRetryCount;
     const delay = isHardRetry ? 500 : this.state.retryDelay * Math.pow(2, retryCount);
 
-    // console.warn(`进程 [${pid}]：正在准备第 ${retryCount + 1} 次自动修复 (${isHardRetry ? '硬重启' : '软重启'})，延迟 ${delay}ms...`);
 
     this.retryTimer = setTimeout(() => {
       // 必须在回调里重置 hasError 为 false，
@@ -327,7 +314,6 @@ class ErrorBoundary extends React.Component {
     }
   }
 
-  // 渲染重试中的 UI（Loading 状态）
   renderRetryingUI() {
     const { copied } = this.state;
     const btnBase = { padding: '10px 18px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', border: 'none' };
@@ -339,7 +325,6 @@ class ErrorBoundary extends React.Component {
           <h3 style={{ margin: '0 0 10px', color: '#1f1f1f' }}>正在自动修复应用</h3>
           <p style={{ color: '#666', fontSize: '14px' }}>正在进行第 {this.state.retryCount + 1} 次尝试...</p>
 
-          {/* 主操作区 */}
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '20px' }}>
             <button
               onClick={() => { this.props.onRecompile?.(); }}
@@ -351,7 +336,6 @@ class ErrorBoundary extends React.Component {
             <button onClick={this.handleManualRetry} style={{ ...btnBase, background: '#1890ff', color: 'white' }}>立即重试</button>
           </div>
 
-          {/* 次操作区 */}
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
             {/* <button onClick={this.handleViewSource} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>查看源码</button> */}
             <button onClick={this.handleCopyError} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>
@@ -364,7 +348,6 @@ class ErrorBoundary extends React.Component {
     );
   }
 
-  // 渲染最终失败 UI
   renderErrorUI() {
     const { error, componentStack, showSource, copied } = this.state;
     // 尝试将 error 适配为 ErrorDetailPanel 所需的 errorDetail 格式
@@ -394,7 +377,6 @@ class ErrorBoundary extends React.Component {
             PID: <strong>{this.props.pid}</strong>，尝试多次修复失败。可尝试重新编译或检查源码。
           </p>
 
-          {/* 结构化错误详情面板 */}
           <div style={{ textAlign: 'left', marginBottom: '20px' }}>
             <ErrorDetailPanel
               errorDetail={errorDetail}
@@ -403,7 +385,6 @@ class ErrorBoundary extends React.Component {
             />
           </div>
 
-          {/* 主操作区 */}
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '12px' }}>
             <button
               onClick={() => { this.props.onRecompile?.(); }}
@@ -415,7 +396,6 @@ class ErrorBoundary extends React.Component {
             <button onClick={this.handleManualRetry} style={{ ...btnBase, background: '#1890ff', color: 'white' }}>再次重试</button>
           </div>
 
-          {/* 次操作区 */}
           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
             {/* <button onClick={this.handleViewSource} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>查看源码</button> */}
             <button onClick={this.handleCopyError} style={{ ...btnBase, background: 'white', border: '1px solid #d9d9d9', color: '#1f1f1f' }}>
@@ -459,15 +439,11 @@ class ErrorBoundary extends React.Component {
     if (isRetrying) {
       return this.renderRetryingUI();
     }
-    // 正常情况渲染子组件
     return this.props.children;
   }
 }
 
-/**
- * Iframe 样式注入提供者
- * 为挂载点内部创建一个独立的 Emotion 缓存上下文。
- */
+/** Iframe 样式注入提供者：为挂载点内部建一个独立的 Emotion 缓存上下文 */
 const IframeStyleProvider = memo(({ children, containerNode }) => {
   const [cache, setCache] = useState(null);
 
@@ -492,14 +468,9 @@ const IframeStyleProvider = memo(({ children, containerNode }) => {
 });
 
 
-/**
- * 核心沙箱组件：物理隔离并同步系统样式
- * 添加 CSS contain 属性减少重排影响范围
- */
+/** 核心沙箱组件：物理隔离并同步系统样式；CSS contain 用于缩小重排影响范围 */
 const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
   const frameRef = useRef(null);
-  // 移除每实例的 syncDebounceRef / syncedStylesRef / 私有 syncStyles
-  // 这些工作全部交给全局 styleSyncHub 处理
   const unregisterStyleSyncRef = useRef(null);
   // 缓存最近一次 css，避免相同字符串重复 set innerHTML 触发 iframe 全量重排
   const lastCssRef = useRef('');
@@ -514,8 +485,7 @@ const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
     const init = () => {
       // 同步在物理隔离 iframe 环境下应用 JS 限制拦截
       if (win) {
-        const restrictApis = ['indexedDB', 'localStorage', 'sessionStorage', 'openDatabase', 'caches'];
-        restrictApis.forEach(api => {
+        RESTRICTED_STORAGE_APIS.forEach(api => {
           try {
             if (!Object.getOwnPropertyDescriptor(win, api)?.get) {
               Object.defineProperty(win, api, {
@@ -526,9 +496,8 @@ const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
           } catch (e) {}
         });
 
-        // 解决 Iframe 内部焦点导致外部桌面快捷键失效的问题
-        // 将 iframe 内部的按键事件强行转发回父窗口，以触发 DeskBook 中的全局监听
-        // 抽出 handler 引用，组件卸载时移除监听，避免泄漏
+        // iframe 内部按键转发回父窗口，触发 DeskBook 的全局监听，解决内部焦点让桌面快捷键失效
+        // 抽出 handler 引用：组件卸载时要移除监听
         keyHandler = (e) => {
           window.parent.postMessage({
             type: 'SUKIN_GLOBAL_KEY',
@@ -556,7 +525,6 @@ const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
         win.addEventListener('mousedown', mouseHandler);
       }
 
-      // 用全局样式同步中心替代私有 querySelectorAll + Observer
       unregisterStyleSyncRef.current = registerSandboxDoc(doc);
 
       if (!doc.getElementById('sandbox-layout')) {
@@ -615,7 +583,6 @@ const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
     };
   }, [pid, onMount]);
 
-  // 样式更新优化：只更新变化的部分
   useEffect(() => {
     const doc = frameRef.current?.contentDocument;
     if (!doc || css == null) return;
@@ -631,7 +598,6 @@ const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
       doc.head.appendChild(styleTag);
     }
 
-    // 只有内容变化时才更新
     if (styleTag.innerHTML !== css) {
       styleTag.innerHTML = css;
     }
@@ -649,10 +615,7 @@ const IframeSandbox = memo(({ css, pid, onMount, isVisible = true }) => {
   return prev.pid === next.pid && prev.css === next.css && prev.onMount === next.onMount && prev.isVisible === next.isVisible;
 });
 
-/**
- * 内部组件渲染器
- * 增加对 modules 和 component 存在的防御守卫，阻止因特定页面模块 null 抛出的 TypeError
- */
+/** 内部组件渲染器：modules / component 缺失时兜底，不让 null 页面模块抛 TypeError */
 const AppInternalRenderer = memo(({ modules, resource, commonProps, currentPath, pid }) => {
   if (!modules) return null;
   if (!resource.isBundle) {
@@ -698,10 +661,7 @@ const deepEqual = (a, b) => {
   return true;
 };
 
-/**
- * 动态渲染器
- * 负责应用资源的动态编译、SDK 注入及生命周期管理。
- */
+/** 动态渲染器：应用资源的动态编译、SDK 注入与生命周期管理 */
 const DynamicRenderer =({
   resource, state, dispatch, pid, isSystemApp, onFocus,
   forceReStartApp, reStartApp, onKill ,generateAppSetting, windowControls, ref:renderRef, isVisible
@@ -728,11 +688,9 @@ const DynamicRenderer =({
     // mountNode 是 iframe 内部的 #app-mount div
     // ownerDocument.defaultView === iframe.contentWindow（物理沙箱的 JS 执行环境）
     iframeContentWinRef.current = node.ownerDocument.defaultView;
-    // portal 只需在 mount 时设置一次
     setPortalMountNode(node);
   }, []);
 
-  // 强制重新编译：清除编译缓存并递增版本号，触发编译 useEffect 重新走 Babel 编译
   const handleRecompile = useCallback(() => {
     clearCompileCache();
     setCompileVersion(v => v + 1);
@@ -745,13 +703,9 @@ const DynamicRenderer =({
   useEffect(() => { dispatchRef.current = dispatch; }, [dispatch]);
   const stableDispatch = useCallback((...args) => dispatchRef.current?.(...args), []);
 
-  // ─── 稳定化 resource 引用 ───
-  // kernel.getResource() 每次调用可能返回新引用，理论这个resourceId不会变更
-  // 但编译只需在内容真正变化时触发，引用变化不应导致重编译。
-  // 用 resourceId + content 浅比较替代引用比较
+  // getResource() 每次可能给新引用，而编译只该在内容真正变化时触发：用 resourceId + content 浅比较替代引用比较
   const stableResourceRef = useRef(resource);
   const stableResource = useMemo(() => {
-    // 如果引用相同直接复用
     if (stableResourceRef.current === resource) return stableResourceRef.current;
     const prevId = stableResourceRef.current?.[ENV_KEY_RESOURCE_ID];
     const nextId = resource?.[ENV_KEY_RESOURCE_ID];
@@ -779,9 +733,12 @@ const DynamicRenderer =({
     return createSdkForInstance(stableDispatch, pid, isSystemApp, windowControls);
   }, [stableDispatch, pid, isSystemApp, windowControls]);
 
-  // 支持上下文注入
+  // 视图入口由发布时固化的 entries 决定；后缀是 .html 即文档档，载荷自治渲染，不进编译管线
+  const viewEntryKey = resolveAppEntries(stableResource?.[ENV_KEY_META_INFO]).view;
+  const isDocumentApp = !!stableResource?.isBundle && isHtmlKey(viewEntryKey);
+
   useEffect(() => {
-    if (!stableResource) return
+    if (!stableResource || isDocumentApp) return
     let cancelled = false; // 防止 resource 切换时旧编译结果覆盖新结果
     // 编译开始前清空上一次的编译错误，避免旧错误残留误导开发者
     setCompileErrors([]);
@@ -922,6 +879,9 @@ const DynamicRenderer =({
         const files = Object.entries(stableResource.content)
         const precompiledFiles = usePrecompiled ? (stableResource[ENV_KEY_CONTENT_PRECOMPILED] || {}) : {};
         for (const [key, code] of files) {
+          // 文档档、资源档与数据文本档不进编译管线：混装包里它们只是被子文档引用的载荷，
+          // 送进 Babel 会产出一条假编译错误
+          if (!isCompiledKey(key, code)) continue;
           if (typeof code === 'string') {
             const precompiledCode = precompiledFiles[key];
             pendingModules.push({ key, code: precompiledCode || code, precompiled: !!precompiledCode });
@@ -954,13 +914,14 @@ const DynamicRenderer =({
 
   // CSS 提取器：增加 Boolean 强过滤和默认值，避免 null page 引发的 style 读取异常
   const combinedCss = useMemo(() => {
-    if (!modules) return '';
+    // 文档档的样式只活在子文档里：scopeCss 会给 at-rule 的 prelude 一起加前缀，整块会失效
+    if (!modules || isDocumentApp) return '';
     const rawCss = Object.values(modules)
       .filter(Boolean)
       .map(m => m.style || '')
       .join('\n');
     return scopeCss(rawCss, pid);
-  }, [modules, pid]);
+  }, [modules, pid, isDocumentApp]);
 
   // state 深比较worker postMessage 反序列化每次都得到新引用，
   // 但内容可能和上次完全相同。这里把"等价 state"折叠为同一引用，下游 memo 才能短路
@@ -1016,7 +977,20 @@ const DynamicRenderer =({
         onRecompile={handleRecompile}
         resource={stableResource}
       >
-        { (isParasitism || useBridgeMode) ? (
+        { isDocumentApp ? (
+          // 文档档模式：内容包里的 HTML 合成成同源子文档，样式与脚本都在子文档内自洽，
+          // 既不走 IframeSandbox（否则要等 iframe mount 才有 JS 上下文，而这里根本不需要）也不走 portal
+          <div id={`proc-${pid}`} style={{ height: '100%' }}>
+            {isVisible !== false && (
+              <HtmlAppFrame
+                pid={pid}
+                htmlKey={viewEntryKey}
+                files={stableResource[ENV_KEY_CONTENT]}
+                sdk={instanceSDK}
+              />
+            )}
+          </div>
+        ) : (isParasitism || useBridgeMode) ? (
           // 寄生模式、桥接模式或虚拟 Worker 沙箱下：UI 直接在宿主侧渲染
           <>
             {combinedCss && (

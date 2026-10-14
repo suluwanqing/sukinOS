@@ -21,12 +21,7 @@ class StyleSyncHub {
     this.registerSandboxDoc = this.registerSandboxDoc.bind(this)
   }
 
-  // ─── 读取主文档所有已处理的 CSS 规则 ────────────────────────────────────────────
-
-  /**
-   * 把 document.styleSheets 里所有规则序列化成 CSS 文本。
-   * 这是浏览器已经解析好的最终产物，不含任何 Vite/@tailwindcss 特有指令。
-   */
+  /** 序列化 styleSheets 全部规则文本：浏览器已解析好的最终产物，不含任何 Vite/@tailwindcss 特有指令 */
   serializeAllSheets() {
     const parts = []
     for (const sheet of document.styleSheets) {
@@ -42,8 +37,6 @@ class StyleSyncHub {
     }
     return parts.join('\n')
   }
-
-  // ─── 同步到所有目标 doc ───────────────────────────────────────────────────────
 
   flushAll() {
     this.rafId = null
@@ -75,8 +68,6 @@ class StyleSyncHub {
     this.rafId = requestAnimationFrame(this.flushAll)
   }
 
-  // ─── 注销并清理主文档所有活跃观察者 ──────────────────────────────────────────────
-
   disconnectObservers() {
     if (this.headObserver) {
       this.headObserver.disconnect()
@@ -91,8 +82,6 @@ class StyleSyncHub {
       this.themeObserver = null
     }
   }
-
-  // ─── 监听主文档变化 ───────────────────────────────────────────────────────────
 
   ensureObservers() {
     if (this.headObserver) return
@@ -134,14 +123,7 @@ class StyleSyncHub {
     })
   }
 
-  // ─── 公共 API ────────────────────────────────────────────────────────────────
-
-  /**
-   * 注册一个 iframe document，立即同步当前所有样式，并持续跟踪变化。
-   *
-   * @param   {Document}    targetDoc   iframe.contentDocument
-   * @returns {() => void}              卸载函数，在组件 unmount 时调用
-   */
+  /** 注册一个 iframe document，立即同步当前所有样式并持续跟踪变化；返回卸载函数，组件 unmount 时调用 */
   registerSandboxDoc(targetDoc) {
     if (!targetDoc) return () => {}
     this.ensureObservers()
@@ -156,8 +138,6 @@ class StyleSyncHub {
   }
 }
 
-// 建立全局唯一单例
 const styleSyncHubInstance = new StyleSyncHub()
 
-// 代理导出公开函数
 export const registerSandboxDoc = styleSyncHubInstance.registerSandboxDoc

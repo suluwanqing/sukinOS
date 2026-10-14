@@ -10,7 +10,7 @@ import { useSelector } from 'react-redux';
 import { selectorUserInfo, selectorStoreSettingStorePath } from '@/sukinos/store';
 import { sukinOs as sukinApi } from '@/apis/main';
 import { extUpdateCloud } from '@/sukinos/utils/process/generateApp';
-import { parseWorkerCode } from '@/sukinos/utils/process/generateWorker';
+import { buildPreviewFromWorker } from '@/sukinos/utils/process/workerFiles';
 import RenderProcess from '@/sukinos/utils/process/renderProcess';
 import { confirm } from '@/component/confirm/layout';
 import kernel from '@/sukinos/utils/process/kernel';
@@ -22,8 +22,9 @@ import {
   ENV_KEY_CONTENT,
   ENV_KEY_META_INFO
 } from '@/sukinos/utils/config';
-import { buildAppEntries } from '@/sukinos/utils/entryConfig';
-import { inspectEntryLayering, formatLayeringErrors } from '@/sukinos/utils/process/sourceMapper';
+import { buildAppEntries, contentKeyOf, formatMissingViewHint, formatDocEntryUnsupported } from '@/sukinos/utils/entryConfig';
+import { inspectEntryLayering, formatLayeringErrors, isHtmlKey } from '@/sukinos/utils/process/sourceMapper';
+import { collectPayloadFiles, formatPayloadSize, formatSkipped } from '@/sukinos/utils/process/payloadCollect';
 
 const bem = createNamespace('dev-update');
 
@@ -44,44 +45,6 @@ const buildPreviewFromSource = (source) => {
     entries: source.entries,
     isBundle: false
   };
-};
-
-const buildPreviewFromWorker = (workerCode) => {
-  if (!workerCode) return null;
-  const parsed = parseWorkerCode(workerCode);
-  const isBundle = Boolean(parsed?.[ENV_KEY_IS_BUNDLE]);
-  const content = parsed?.[ENV_KEY_CONTENT];
-  const logicCode = parsed?.[ENV_KEY_LOGIC] || '';
-  const entries = parsed?.[ENV_KEY_META_INFO]?.entries;
-
-  if (isBundle && content && typeof content === 'object') {
-    const restoredFiles = {};
-    for (const [k, v] of Object.entries(content)) {
-      // CSS 文件保留 .css 后缀，其余补 .jsx 扩展名
-      const keyWithExt = k.endsWith('.jsx') || k.endsWith('.js') || k.endsWith('.css') ? k : `${k}.jsx`;
-      restoredFiles[keyWithExt] = v;
-    }
-    return { localFiles: restoredFiles, logicCode, entries, isBundle: true };
-  }
-  const viewCode = typeof content === 'string' ? content : '';
-  return { localFiles: { 'main.jsx': viewCode }, logicCode, entries, isBundle: false };
-};
-
-// 递归遍历目录，收集 .jsx/.js/.css，key 用相对路径（带扩展名）。
-// 平铺收集会让带子目录的应用被分层校验误判成一堆 missing，因此与上传面板保持同一套递归口径
-const collectFilesRecursively = async (dirHandle, prefix = '') => {
-  const collected = {};
-  for await (const entry of dirHandle.values()) {
-    if (entry.kind === 'directory') {
-      const sub = await collectFilesRecursively(entry, prefix ? `${prefix}/${entry.name}` : entry.name);
-      Object.assign(collected, sub);
-    } else if (entry.kind === 'file' && /\.(jsx|js|css)$/.test(entry.name)) {
-      const file = await entry.getFile();
-      const relPath = prefix ? `${prefix}/${entry.name}` : entry.name;
-      collected[relPath] = await file.text();
-    }
-  }
-  return collected;
 };
 
 // 分层校验未通过时以抛错形式交给选择文件的错误通道，避免把违规内容包推上云端
@@ -283,29 +246,41 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
     if (uploadType === 'file') {
       if (!window.showOpenFilePicker) throw new Error('您的浏览器不支持文件选择功能');
       const [fileHandle] = await window.showOpenFilePicker({
-        types: [{ description: 'JSX 文件', accept: { 'text/jsx': ['.jsx'] } }],
+        types: [{ description: 'JSX / JS / HTML 文件', accept: { 'text/jsx': ['.jsx', '.js'], 'text/html': ['.html', '.htm'] } }],
         multiple: false
       });
       const file = await fileHandle.getFile();
       const fileContent = await file.text();
-      return { isBundle: false, content: fileContent, logic: null };
+      // 单个自包含 html：与上传面板同口径，走 map + isBundle，入口固化成这个文件
+      if (!isHtmlKey(file.name)) return { isBundle: false, content: fileContent, logic: null };
+      const content = { [file.name]: fileContent };
+      assertLayering(content, { entries: { view: file.name } });
+      return {
+        isBundle: true,
+        content,
+        logic: null,
+        entries: { view: file.name, logicMain: null, logicAux: [] }
+      };
     }
 
     if (!window.showDirectoryPicker) throw new Error('您的浏览器不支持文件夹选择功能');
     const handle = await window.showDirectoryPicker();
 
     if (uploadType === 'bundle') {
-      const collected = await collectFilesRecursively(handle);
+      const { files: collected, skipped } = await collectPayloadFiles(handle);
+      // 采集侧不设体积闸：合计与「未采集」一起报（上限在后端按角色配，超限由服务端拒）
+      setMessage([formatSkipped(skipped), formatPayloadSize(collected)].filter(Boolean).join('，'));
       const resolved = buildAppEntries(collected, entryConfig);
-      if (!Object.keys(collected).some(k => /\.(jsx|js)$/.test(k))) throw new Error('文件夹中没有找到视图文件');
-      if (!resolved.viewFile) throw new Error(`多页面应用必须包含视图入口 ${viewName}`);
+      if (!Object.keys(collected).some(k => /\.(jsx|js|html?)$/.test(k))) throw new Error('文件夹中没有找到视图文件');
+      if (!resolved.viewFile) throw new Error(formatMissingViewHint(viewName));
       assertLayering(collected, resolved, resolved.logicMainFile ? collected[resolved.logicMainFile] : '');
 
       const modules = {};
+      const asDocument = isHtmlKey(resolved.viewFile || '');
       for (const [name, text] of Object.entries(collected)) {
         // 主逻辑入口单独交给 worker，不进内容包
         if (name === resolved.logicMainFile) continue;
-        modules[name] = text;
+        modules[contentKeyOf(name, asDocument)] = text;
       }
 
       return {
@@ -316,6 +291,8 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
       };
     }
 
+    // 视图入口是文档档时这一档装不下：只带一个视图字符串，样式与资源整批静默丢失
+    if (isHtmlKey(entryConfig?.viewEntry || '')) throw new Error(formatDocEntryUnsupported('单页 [含逻辑]'));
     const collected = {};
     for await (const entry of handle.values()) {
       if (entry.kind !== 'file' || !/\.(jsx|js)$/.test(entry.name)) continue;
@@ -399,14 +376,6 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
         assertLayering({ 'main.jsx': viewCode }, { entries: source.entries || {} }, source.logic || '');
       }
 
-      let cleanContent = source.content;
-      if (source.isBundle && typeof source.content === 'object') {
-        cleanContent = {};
-        for (const [k, v] of Object.entries(source.content)) {
-          cleanContent[k.replace(/\.(jsx|js)$/, '')] = v;
-        }
-      }
-
       // 入口识别结果随本次更新固化，避免沿用云端旧 resources 上已过期的 entries
       const mergedMeta = { ...(app.metaInfo || {}), ...baseMetaInfo, ...(source.entries ? { entries: source.entries } : {}) };
       await extUpdateCloud(kernel, {
@@ -414,7 +383,7 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
           [ENV_KEY_NAME]: app.appName || appName,
           [ENV_KEY_RESOURCE_ID]: app.resourceId,
           [ENV_KEY_IS_BUNDLE]: source.isBundle,
-          [ENV_KEY_CONTENT]: cleanContent,
+          [ENV_KEY_CONTENT]: source.content,
           [ENV_KEY_LOGIC]: source.logic || null,
           [ENV_KEY_META_INFO]: mergedMeta
         },

@@ -26,10 +26,7 @@ const getMapperTypeFromFile = (file) => {
   return 'Txt'; // 兜底使用 Txt 模式进行文件读取
 }
 
-/**
- * 解决 iframe/沙箱 环境下 `file instanceof File` 为 false 的 BUG。
- * 在把数据喂给 dataToBase64Mapper 之前，强行剥离沙箱外壳，提取出最底层的纯净 ArrayBuffer
- */
+/** 先剥掉沙箱外壳取最底层 ArrayBuffer：iframe 里 file instanceof File 为 false，直接喂给 dataToBase64Mapper 会读空 */
 const extractSafeBuffer = (file) => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -76,13 +73,11 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
   const stateInstanceRef = useRef(stateInstance);
   useEffect(() => { stateInstanceRef.current = stateInstance; }, [stateInstance]);
 
-  //本地解析为特定的解构
   const transformLocalHandle = useCallback(async (handle, parentId) => {
     const isDir = handle.kind === 'directory'
     const type = isDir ? FileType.DIRECTORY : FileType.FILE
     // 若存在 pid 则加入 key 隔离，否则使用原有的隔离 Key
     const uniqueKey = pid ? `${mode}:${pid}:${parentId}:${handle.name}` : `${mode}:${parentId}:${handle.name}`
-    // 根据是否传入 pid 确定是否需要增加前缀
     let fileId = globalFileIdMap.get(uniqueKey)
     if (!fileId) {
       fileId = pid ? `${pid}-${generateShortId()}` : generateShortId()
@@ -108,7 +103,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
       } else {
         item.mtime = '--'
       }
-      // 使用 Ref 确保拿到最新的 stateInstance 映射
       if (stateInstanceRef.current?.putData) {
          await stateInstanceRef.current.putData(item)
       }
@@ -123,7 +117,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     return item
   }, [mode, pid]);
 
- //历史压栈
   const getLocalBreadcrumbs = useCallback((targetId) => {
     const path = []
     let curr = targetId
@@ -139,7 +132,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     return path
   }, []);
 
-  //加载当前文件夹
   const loadDir = useCallback(async (id, pushHistory = true) => {
     try {
       let list = []
@@ -191,7 +183,7 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
                    item.type === target.type;
           });
           if (isIdentical) {
-            return prevItems; // 返回旧引用
+            return prevItems;
           }
         }
         return list;
@@ -213,7 +205,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
       setCurrentId(id);
       if (pushHistory) setHistory(prev => (prev[prev.length - 1] !== id ? [...prev, id] : prev));
     } catch (e) {
-      // console.error("[useFileSystem] loadDir 异常", e)
     }
   }, [mode, systemDirHandle, getSystemDirHandleInstance, transformLocalHandle, getLocalBreadcrumbs]);
 
@@ -221,7 +212,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
   const loadDirRef = useRef(loadDir);
   useEffect(() => { loadDirRef.current = loadDir; }, [loadDir]);
 
-  // 初始化启动
   useEffect(() => {
     const bootFS = async () => {
       setIsReady(false); rootMountedRef.current = false;
@@ -236,19 +226,17 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
       } catch (e) { console.error(e) }
     }
     bootFS()
-  }, [mode]); // 只依赖 mode
+  }, [mode]);
 
-  // 注册全局跨实例同步广播监听器（结合高阶可配置化事件拦截链）
+// 全局跨实例同步广播的监听器；外部钩子链在这里生效
   useEffect(() => {
     const handleUpdate = (event) => {
         const currentOpts = optionsRef.current || {};
 
-        // 触发外部自定义事件回调
         if (currentOpts.onEvent) {
           currentOpts.onEvent(event);
         }
 
-        // 局部精细化事件同步决策链
         if (currentOpts.shouldUpdate) {
           if (!currentOpts.shouldUpdate(event)) return;
         } else {
@@ -265,7 +253,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     return () => listeners.delete(handleUpdate);
   }, []); // 依赖项必须为空，彻底断开渲染死循环
 
-  // 监听 systemDirHandle 变化
   useEffect(() => {
     if (mode === 'local' && systemDirHandle && !rootMountedRef.current) {
         loadDir('root', false).then(() => { rootMountedRef.current = true; setIsReady(true); })
@@ -278,16 +265,13 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     const unsub = fs.watch((detail) => {
       const currentOpts = optionsRef.current || {};
 
-      // 触发外部自定义事件回调
       if (currentOpts.onEvent) {
         currentOpts.onEvent(detail);
       }
 
-      //  自定义更新条件过滤
       if (currentOpts.shouldUpdate) {
         if (!currentOpts.shouldUpdate(detail)) return;
       } else {
-        // 默认过滤：如果不在白名单范围内，直接阻断
         const allowedTypes = currentOpts.watchTypes || ['structure'];
         if (detail && detail.type && !allowedTypes.includes(detail.type)) {
           return;
@@ -299,7 +283,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     return () => unsub()
   }, [isReady, currentId, mode, loadDir])
 
-  // 物理操作广播封装
   const wrapNotify = (actionType, fn) => async (...args) => {
      const res = await fn(...args);
      if (res) notifyAll({ type: actionType, payload: args[0] });
@@ -353,7 +336,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
         let name = baseName;
         let counter = 1;
 
-        // 直接读取底层镜像
         const realSiblings = mode === 'virtual' ? fs.readdir(currentId) : items;
 
         while (realSiblings.some(i => i.name === name)) {
@@ -461,7 +443,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
           return { ...item, content }
       } catch (e) { return null }
     },
-    // 文件导出功能
     handleExportFile: async (item) => {
       try {
         if (item.type === FileType.DIRECTORY) {
@@ -488,7 +469,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
         const ext = item.name.split('.').pop().toLowerCase();
         let mimeType = 'application/octet-stream';
 
-        // 识别映射类型
         const mapperType = (() => {
           if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return 'Image';
           if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'Video';
@@ -561,7 +541,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
         if (mode === 'virtual') {
             let targetId = id;
             if (!targetId) {
-               // 检索真实的物理同名
                const siblings = fs.readdir(parentId);
                const existing = siblings.find(s => s.name === name);
                if (existing) targetId = existing.id;
@@ -691,7 +670,6 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     }
   }), [mode, pid, systemDirHandle, getSystemDirHandleInstance, transformLocalHandle]);
 
-  // 暴露 API
   return {
     state: { currentId, items, history, breadcrumbs, isReady, handleRegistry: globalHandleRegistry },
     navigation: { loadDir, handleBack, handleRefresh },

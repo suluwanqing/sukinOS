@@ -69,12 +69,32 @@ export const forceDeleteApp = async (data) => {
   });
 };
 
+/**
+ * 取回应用的原始包字节（root-only）
+ * 走 blob：后端成功时直接回文件流（无 code 字段），失败时回 JSON——
+ * 两者只能在消费侧按 Blob 的 MIME 区分，所以这里不判 response.ok。
+ * @param {Object} data 包含 resourceId
+ */
+export const downloadAppPackage = async (data) => {
+  const { resourceId } = data;
+  return instance({
+    method: "GET",
+    url: `/system/sukinos/download/${encodeURIComponent(resourceId)}`,
+    responseType: "blob",
+    // 默认 10s 对整包下载太短，这里单独放宽
+    timeout: 120000,
+    // 失败文案由弹窗自己按状态码给出，不叠全局 toast
+    skipErrorToast: true
+  });
+};
+
 const sukinosAppManageAPI = {
   getSystemAppList,
   getAppStatistics,
   updateAppStatus,
   getSystemAppDetail,
-  forceDeleteApp
+  forceDeleteApp,
+  downloadAppPackage
 };
 
 export default sukinosAppManageAPI;

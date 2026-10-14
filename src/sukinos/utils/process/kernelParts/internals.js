@@ -7,12 +7,10 @@ export class Internals {
     this.#kernel = kernel
   }
 
-  // 僵尸文件检查逻辑
   async inspectZombieFile(fileHandle) {
     return extInspectZombieFile(this.#kernel, fileHandle)
   }
 
-  //云端上传App
   async uploadCloud(data) {
     return extUploadCloud(this.#kernel, data)
   }
@@ -37,9 +35,7 @@ export class Internals {
     return this.#kernel.processes.get(pid)
   }
 
-  /**
-   * 队列执行器：顺序处理安装/注册任务
-   */
+  // 队列执行器：串行消费 installQueue，isProcessingQueue 保证同一时刻只有一个排空循环
   async processInstallQueue() {
     if (this.#kernel.isProcessingQueue || this.#kernel.installQueue.length === 0) return
     this.#kernel.isProcessingQueue = true
@@ -59,8 +55,6 @@ export class Internals {
     this.processInstallQueue()
   }
 }
-
-// ─── 代理导出函数 ──────────────────────
 
 export async function inspectZombieFile(kernel, fileHandle) {
   return kernel.internals.inspectZombieFile(fileHandle)

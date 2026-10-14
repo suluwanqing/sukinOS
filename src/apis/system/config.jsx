@@ -68,6 +68,23 @@ export const getSystemStaticConfig = async () => {
   });
 };
 
+// 读取 APP 上传体积上限的内存生效值（用户档/角色档/默认档 + 当前身份解析结果）
+export const getUploadQuota = async () => {
+  return instance({
+    method: 'GET',
+    url: '/system/systemconfig/upload-info'
+  });
+};
+
+// 保存 APP 上传体积上限，后端落库后立即重载内存态
+export const updateUploadQuota = async (data) => {
+  return instance({
+    method: 'POST',
+    url: '/system/systemconfig/upload-update',
+    data: data
+  });
+};
+
 const sysConfigAPI = {
   getAllRoutes,
   getLogConfig,
@@ -76,7 +93,9 @@ const sysConfigAPI = {
   createConfigItem,
   updateConfigItem,
   deleteConfigItem,
-  getSystemStaticConfig
+  getSystemStaticConfig,
+  getUploadQuota,
+  updateUploadQuota
 };
 
 export default sysConfigAPI;

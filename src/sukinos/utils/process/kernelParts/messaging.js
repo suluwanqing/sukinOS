@@ -39,17 +39,6 @@ export class Messaging {
           )
         break
       }
-    // case 'LOGIN': {
-    //    if (this.login(args.userId, args.userName)) {
-    //     p.worker.postMessage({ type: 'UI_ACTION', payload: { type: 'USER_UPDATE', payload: this.currentUser } })
-    //   }
-    //   break
-    // }
-    // case 'LOGOUT': {
-    //   this.logout();
-    //   p.worker.postMessage({ type: 'UI_ACTION', payload: { type: 'USER_UPDATE', payload: null } })
-    //   break
-    // }
       default: {
         alert.warning('未找到对应处理器!')
         break
@@ -73,7 +62,6 @@ export class Messaging {
     const isSystem = this.#kernel.isSystemApp(pid)
     if (!p) return
     if (action.type === 'KERNEL_CALL' && action.payload) {
-      //区分系统和非系统 应用处理器
       isSystem ? this.systemSwitch(p, action.payload) : this.notSystemSwitch(action.payload)
       return
     }
@@ -101,8 +89,6 @@ export class Messaging {
     process.postMessage({type: 'APP_INTERACT', payload: interactInfo})
   }
 }
-
-// ─── 代理导出函数 ──────────────────────
 
 export function emitChange(kernel, info) {
   kernel.messaging.emitChange(info)
@@ -140,7 +126,6 @@ export function subscribeSystem(kernel, cb) {
 export function subscribe(kernel, topic, cb) {
   return kernel.messaging.subscribe(topic, cb)
 }
-// 向内核通信枢纽发布指定主题消息的委托函数[kernel,app都可]
 export function publish(kernel, topic, payload) {
   return kernel.messaging.publish(topic, payload)
 }

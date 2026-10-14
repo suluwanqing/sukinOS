@@ -22,7 +22,8 @@ async def sukinOS_upload(
     if not (userId == 1 and int(user.id) == 1):
         return api_response(code=200, msg="服务限制,暂不提供!")
     try:
-        # 1. 大小限制校验 (最大 10MB)
+        # 1. 大小限制校验（真实实现读后端内存态 upload_quota_cache，按 指定用户 > 角色 > 默认档
+        #    求值，来自系统配置 sukinos_upload_settings；三档都没有有效值才回落 APP_FILE_MAX_SIZE 兜底常量）
         file.file.seek(0, 2)
         file_size = file.file.tell()
         await file.seek(0)
@@ -55,23 +56,31 @@ async def sukinOS_upload(
     except Exception as e:
         return api_response(code=500, msg=f"上传失败: {str(e)}")`;
 
-const codeDownloadList = `@appManage.get('/download/{fileName}')
-async def sukinOS_download(fileName: str = Path(..., description="资源文件名")):
-    try:
-        secure_filename = os.path.basename(fileName)
-        file_path = os.path.join(APP_FILE_DIR, secure_filename)
-        if not os.path.exists(file_path):
-            return api_response(code=404, msg="文件不存在")
-        with open(file_path, "rb") as f:
-            file_content = f.read()
-        return api_response(
-            code=200,
-            msg="获取成功",
-            data=file_content,
-            media_type="application/javascript"
-        )
-    except Exception as e:
-        return api_response(code=500, msg=str(e))
+const codeDownloadList = `# 运行期取包不是路由：磁盘目录由 StaticFiles 挂在 APP_FILE_MOUNT 上直出
+# （Config/sukinos.py: APP_FILE_MOUNT = '/resource/sukinos/app/download'），
+# 私有包再由 Middleware/staticAuth.py 按「owner + 权限注册池」放行。
+# 曾经这里的 @appManage.get('/download/{fileName}') 已整段注释掉了。
+
+# 管理端另有一条只认 root 的：按库里的 file_name 读盘，以 attachment 回整包
+@sukinosAppManage.get('/download/{resourceId}')
+@RequireRoot()
+async def system_download_app_package(
+    resourceId: str = Path(..., description="应用资源唯一标识ID"),
+    db: Session = Depends(get_db),
+    current_user=Depends(verify_auth())
+):
+    db_app = db.query(D_SukinosApp).filter(D_SukinosApp.resource_id == resourceId).first()
+    if not db_app:
+        return api_response(code=404, msg="未检索到对应的应用记录", response_model=ErrorResponse)
+    file_path = os.path.join(APP_FILE_DIR, os.path.basename(db_app.file_name or ""))
+    if not db_app.file_name or not os.path.isfile(file_path):
+        return api_response(code=400, msg="磁盘上找不到该应用的物理包文件", response_model=ErrorResponse)
+    with open(file_path, "rb") as f:
+        raw = f.read()
+    # 不声明 response_model：命中它会让 HTTP 恒 200，且封装塞不进 Content-Disposition
+    return Response(content=raw, media_type="application/javascript", headers={
+        "Content-Disposition": f'attachment; filename="{ascii_name}"'
+    })
 
 @appManage.get('/appList')
 async def get_app_list(
@@ -189,8 +198,16 @@ const ListDownloadSection = () => (
     <h4 className={style[bem.e('subtitle')]}>1. 应用列表 (GET /appList)</h4>
     <p className={style[bem.e('text')]}>Query 参数: <code>current</code> (当前页), <code>pageSize</code> (页长)。</p>
 
-    <h4 className={style[bem.e('subtitle')]}>2. 资源下载 (GET /download/{"{fileName}"})</h4>
-    <p className={style[bem.e('text')]}>直接返回应用 <code>.js</code> 或 <code>.bin</code> 文件流。</p>
+    <h4 className={style[bem.e('subtitle')]}>2. 包体取回（两条不同的路）</h4>
+    <p className={style[bem.e('text')]}>
+      运行期装包<strong>不走</strong> <code>GET /download/{"{fileName}"}</code>：那条路由在
+      <code>Api/SukinOS/appManage.py</code> 里已经整段注释掉，包体是 <code>StaticFiles</code> 挂在
+      <code>/api/resource/sukinos/app/download</code> 上按文件名直出，私有包再由
+      <code>Middleware/staticAuth.py</code> 按「owner + 权限注册池」放行。
+      后台「系统管理 → 应用管理 → 下载文件」走的是另一条只认 root 的
+      <code>GET /system/sukinos/download/{"{resourceId}"}</code>：按库里的 <code>file_name</code> 读盘、
+      以 attachment 回整包，能取到任意人的私有包（审计语义，与上面那条不同）。
+    </p>
 
     <h4 className={style[bem.e('subtitle')]}>参考实现</h4>
     <pre className={style[bem.e('code')]}>{codeDownloadList}</pre>

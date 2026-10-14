@@ -5,14 +5,12 @@ import kernel from "@/sukinos/utils/process/kernel"
 export const useStateHandle = () => {
   const [stateInstance, setStateInstance] = useState(null)
   const [systemDirHandle, setSystemDirHandle] = useState(null)
-  // 获取数据库实例
   const getInstance = async () => {
     try {
       const dbInstance = await kernel.getInstanceDb()
       if (!dbInstance) {
         throw new Error("数据库实例不存在")
       }
-      //更新 React 状态
       setStateInstance(dbInstance)
       // 必须返回这个实例，供调用链中的下一个函数直接使用，避免闭包问题
       return dbInstance
@@ -22,7 +20,6 @@ export const useStateHandle = () => {
     }
   }
 
-  // 获取系统目录句柄实例
   const getSystemDirHandleInstance = async () => {
     try {
       let db = stateInstance
@@ -34,11 +31,9 @@ export const useStateHandle = () => {
       }
       const data = await db.getData(DB_INSTANCE_ID)
       if (!data || !data.dirHandle) {
-        // console.log("数据库中未找到已保存的目录句柄")
         alert.failure("未找到已保存的目录句柄，请先在系统切换隐私模式,执行挂载!")
         return null
       }
-      //句柄已经拿到
       setSystemDirHandle(data.dirHandle)
       return data.dirHandle
     } catch (error) {
@@ -48,13 +43,12 @@ export const useStateHandle = () => {
     }
   }
 
-  //确保持久化文件夹也无法持久化，刷新就没了[这个是为了允许随时更新Handle]
+  // 句柄跨刷新不可持久化，所以每次都覆写同一条记录，方便随时更新
   const saveSystemDirHandle = async (handle) => {
     try {
       let db = stateInstance
       if (!db) db = await getInstance()
       if (!db) throw new Error("数据库未就绪")
-      // 构造存储对象
       const payload = {
         id: DB_INSTANCE_ID,
         dirHandle: handle,
@@ -62,14 +56,13 @@ export const useStateHandle = () => {
       }
       await db.setData(payload)
       console.log("句柄已持久化到IndexedDB")
-      setSystemDirHandle(handle) // 更新本地状态
+      setSystemDirHandle(handle)
       return true
     } catch (error) {
       console.error("保存句柄失败", error)
       throw error
     }
   }
-  // 初始化所有实例
   const initialize = async () => {
     try {
       await getSystemDirHandleInstance()
@@ -79,17 +72,14 @@ export const useStateHandle = () => {
   }
 
   return {
-    // 状态
     stateInstance,
     systemDirHandle,
 
-    // 方法
     getInstance,
     getSystemDirHandleInstance,
     saveSystemDirHandle,
     initialize,
 
-    // 状态标识
     hasInstance: !!stateInstance,
     hasSystemDirHandle: !!systemDirHandle,
     instanceReady: !!stateInstance && !!systemDirHandle

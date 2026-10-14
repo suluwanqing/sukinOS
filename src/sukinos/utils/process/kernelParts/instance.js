@@ -10,8 +10,6 @@ export class Instance {
   }
 }
 
-// ─── 代理导出函数 ──────────────────────
-
 export function getInstanceDb(kernel) {
   return kernel.instance.getInstanceDb()
 }

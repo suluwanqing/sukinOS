@@ -2,19 +2,15 @@ import { useCallback, useRef } from 'react';
 import fs from '@/sukinos/utils/file/fileKernel';
 import { DESK_LAYOUT_FILENAME } from '@/sukinos/utils/config';
 
-// ===== 桌面布局持久化 Hook =====
-// 将桌面图标坐标从 localStorage 迁移到 VFS 文件（IndexedDB 底层），实现按用户隔离。
-// 所有用户维护在同一个 JSON 文件中，结构：{ [userId]: { [pid]: "row-col" } }
-// 所有用户布局 { userId: { pid: "row-col" } }，所有 Hook 实例共享，避免重复读盘
+// 桌面图标坐标存在 VFS 文件里（底层是 IndexedDB），按用户隔离。
+// 全体用户共用一个 JSON：{ [userId]: { [pid]: "row-col" } }，模块级缓存让所有 Hook 实例共享、避免重复读盘
 let layoutCache = null;
 // 布局文件 ID，避免每次保存都重新查找文件
 let layoutFileId = null;
-// 确保文件系统已就绪
 const ensureReady = async () => {
   if (!fs.ready) await fs.boot();
 };
 
-// 读取全部用户的布局（带模块级缓存）
 const readAllLayouts = async () => {
   if (layoutCache) return layoutCache;
   await ensureReady();
@@ -35,10 +31,7 @@ const readAllLayouts = async () => {
   return layoutCache;
 };
 
-/**
- * 桌面布局持久化 Hook
- * @returns {{ getLayout: (userId: string) => Promise<object>, setLayout: (userId: string, positions: object) => Promise<void> }}
- */
+/** 桌面布局 Hook：读写上面那份模块级缓存，setLayout 落盘前防抖 */
 export const useDeskLayout = () => {
   // 防抖保存定时器（每个 Hook 实例独立，避免相互干扰）
   const saveTimerRef = useRef(null);

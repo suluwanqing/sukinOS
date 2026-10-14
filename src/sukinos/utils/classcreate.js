@@ -46,23 +46,8 @@ function createNamespace(name) {
 }
 
 /**
- * BEM 类名生成示例
- *
- * const bem = createNamespace('button');
- *
- * bem.b();               // 'su-button'
- * bem.b('primary');      // 'su-button-primary'
- *
- * bem.e('icon');         // 'su-button__icon'
- * bem.e('text');         // 'su-button__text'
- *
- * bem.m('disabled');     // 'su-button--disabled'
- * bem.m('round');        // 'su-button--round'
- *
- * bem.be('primary', 'icon');     // 'su-button-primary__icon'
- * bem.bm('primary', 'disabled'); // 'su-button-primary--disabled'
- * bem.em('icon', 'large');       // 'su-button__icon--large' 
- *
- * bem.is('active', true);        // 'is-active'
+ * createNamespace('button') 给出 'su-button' 前缀的 BEM 生成器：
+ * b('primary') → su-button-primary，e('icon') → su-button__icon，m('disabled') → su-button--disabled，
+ * be / bm / em 两两组合；空参数一律返回空串，所以 is('active', false) 也是空串。
  */
 export {createNamespace}

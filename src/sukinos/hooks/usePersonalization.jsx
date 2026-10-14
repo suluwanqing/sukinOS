@@ -2,13 +2,11 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import fs from '@/sukinos/utils/file/fileKernel';
 import { FileType, preSystemFileData } from "@/sukinos/utils/config";
 
-const CONFIG_FILENAME = 'sukin_config.json'; // 唯一的配置文件名
+const CONFIG_FILENAME = 'sukin_config.json';
 
-// === 预设常量 ===
 export const PRESET_ACCENTS = ['#0067c0', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#333333'];
 export const PRESET_BG_COLORS = ['#ffffff', '#f8fafc', '#f1f5f9', '#e2e8f0', '#0f172a', '#000000'];
 
-// === 预设样式方案 ===
 export const PRESET_STYLES = {
   classic: {
     name: '经典蓝调',
@@ -402,7 +400,6 @@ export const PRESET_STYLES = {
   }
 };
 
-// === 默认个性化配置 ===
 export const defaultPersonalization = {
   themeMode: 'light',
   accentColor: '#0067c0',
@@ -487,7 +484,7 @@ export const getColorFromCSSVar = (cssVar) => {
   return cssVar;
 };
 
-// ─── 模块级单例 personalizationStore：所有 usePersonalization 实例共享同一份 config 状态 ───
+// 模块级单例：所有 usePersonalization 实例共享同一份 config 状态
 export const personalizationStore = {
   config: { ...defaultPersonalization },
   listeners: new Set(),
@@ -562,7 +559,6 @@ export const usePersonalization = () => {
         reader.readAsDataURL(blob);
       });
     } catch (e) {
-      // console.error("[Personalization] 转码失败:", e);
       return null;
     }
   }, [localAssets, getMimeType]);
@@ -679,7 +675,7 @@ export const usePersonalization = () => {
     setRefreshTrigger(prev => prev + 1);
   }, []);
 
-  //仅在用户主动修改配置时触发持久化写入
+  // 仅在用户主动修改配置时触发持久化写入
   useEffect(() => {
     if (!hasPendingChangesRef.current) return;
 
@@ -700,7 +696,6 @@ export const usePersonalization = () => {
     };
   }, [config]);
 
-  // 独立的视觉样式更新逻辑
   useEffect(() => {
     const osContainer = document.getElementById('sukin-os');
     if (!osContainer) return;
@@ -726,15 +721,12 @@ export const usePersonalization = () => {
 
       const currentAccentColor = getCurrentAccentColor();
 
-      // 根据设置计算主体 Alpha 透明度值 (0-1)
       const wOpacity = (config.windowOpacity ?? 80) / 100;
 
-      // 动态推导并生成带有透明度的表面背景色
       const surfaceLight = `rgba(255, 255, 255, ${wOpacity})`;
       const surfaceDark = `rgba(30, 30, 30, ${wOpacity})`;
       const finalSurfaceBg = config.themeMode === 'dark' ? surfaceDark : surfaceLight;
 
-      // 利用 CSS 混色模型 (color-mix) 处理头部背景的透明度
       const headerOpacityStr = `${config.windowHeaderOpacity ?? 100}%`;
       const finalHeaderBg = config.windowHeaderBg === 'transparent'
         ? 'transparent'
@@ -797,7 +789,6 @@ export const usePersonalization = () => {
         }
       `;
 
-      // 背景处理
       let videoEl = document.getElementById('su-os-bg-video');
       if (config.bgType === 'color') {
         if (videoEl) videoEl.remove();
@@ -835,8 +826,7 @@ export const usePersonalization = () => {
           if (videoBase64) {
             base64Cache.current.bg = videoBase64;
             activeResourceId.current.bg = config.bgValue;
-            if (videoElExists) videoElExists.remove(); // 清理残留
-            // 重新创建并插入视频
+            if (videoElExists) videoElExists.remove();
             videoEl = document.createElement('video');
             videoEl.id = 'su-os-bg-video';
             videoEl.autoplay = true;
@@ -852,7 +842,6 @@ export const usePersonalization = () => {
         osContainer.style.backgroundColor = 'transparent';
       }
 
-      // 应用字体和基础样式
       osContainer.style.fontFamily = `var(--su-os-font-family)`;
       osContainer.style.fontSize = `var(--su-os-font-size)`;
       osContainer.style.color = `var(--su-os-text-color)`;

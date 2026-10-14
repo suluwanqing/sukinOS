@@ -1,10 +1,11 @@
 import { TRUSTED_CDN_WHITELIST } from '@/sukinos/utils/config'
 
-// ==========================================
-// 通用安全与防篡改函数 (宿主环境使用)
-// ==========================================
+/**
+ * 沙箱内禁止直连的持久化 API：物理沙箱、幽灵沙箱与文档档子文档的引导脚本共用这一份名单，改一处即三处同步。
+ */
+export const RESTRICTED_STORAGE_APIS = ['indexedDB', 'localStorage', 'sessionStorage', 'openDatabase', 'caches'];
 
-// 随机种子生成函数。
+// 以下通用安全函数只在宿主环境使用。
 export const generateShortSeed = (
   length = 8,
   seed = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz',
@@ -38,11 +39,7 @@ export const generateShortSeed = (
   return result
 }
 
-/**
- * 安全冻结对象，跳过无法冻结的对象（如代理对象、DOM元素等）
- * @param {any} obj - 要冻结的对象
- * @returns {any} 冻结后的对象
- */
+/** 逐层 freeze；Proxy、DOM 节点、window 一类冻不动的对象原样返回 */
 export const safeDeepFreeze = (obj) => {
   if (!obj || typeof obj !== 'object') return obj;
   if (Object.isFrozen(obj)) return obj;
@@ -79,21 +76,18 @@ export const safeDeepFreeze = (obj) => {
   return obj;
 };
 
-/**
- * 创建严格的只读 SDK 代理
- * 修复 [Symbol.iterator] 导致的解构错误，并确除非特定模块外全量只读
- */
+/** 只读 SDK 代理：写 / 删 / defineProperty / 改原型一律抛错 */
 export const createReadonlySDKProxy = (AppSDK) => {
   return new Proxy(AppSDK, {
     get(target, prop) {
-      // 修复 Babel 编译后触发的 Symbol 型属性访问：直接透传
+      // Symbol 型访问直透，否则 Babel 产物读 Symbol.iterator 会撞上只读拦截
       if (typeof prop === 'symbol') {
         return Reflect.get(target, prop);
       }
 
       const value = Reflect.get(target, prop);
 
-      // 解构获取时，如果不是核心的 react/components 渲染库，返回一层强力的只读代理，避免被篡改
+      // React / Components / hooks 保持原引用，其余对象包一层只读代理
       if (value && typeof value === 'object' && prop !== 'React' && prop !== 'Components' && prop !== 'hooks') {
         return new Proxy(value, {
           get(vTarget, vProp) {
@@ -123,14 +117,9 @@ export const createReadonlySDKProxy = (AppSDK) => {
   });
 };
 
-// ==========================================
-// 沙箱代理工厂函数 (可独立执行，也可 toString 注入沙箱)
-// ==========================================
+// 下面的代理工厂会被 toString 注入沙箱，因此不得闭包引用宿主作用域里的变量。
 
-/**
- * 通用的高阶 Fetch 拦截器工厂
- * 动态注入 x-kernel-process-id
- */
+/** 给每个出网请求打上 x-kernel-process-id 头 */
 export const createSecureFetch = (originalFetch, pid) => {
   const KERNEL_HEADER_KEY = 'x-kernel-process-id';
   return async function(url, options) {
@@ -141,9 +130,7 @@ export const createSecureFetch = (originalFetch, pid) => {
   };
 };
 
-/**
- * 创建基于 PID 命名空间的 Storage 代理 (localStorage, sessionStorage)
- */
+/** localStorage / sessionStorage 的 PID 命名空间：key 自动加 pid-<pid>_ 前缀，clear 只清本进程的 */
 export const createStorageProxy = (storage, pid) => {
   const prefix = `pid-${pid}_`;
   const getPidKeys = () => Object.keys(storage).filter(k => k.startsWith(prefix));
@@ -193,9 +180,7 @@ export const createStorageProxy = (storage, pid) => {
   });
 };
 
-/**
- * 创建基于 PID 命名空间的 IndexedDB 代理
- */
+/** IndexedDB 同名前缀代理；databases() 直接给空表，避免探到别的进程的库 */
 export const createIndexedDBProxy = (indexedDB, pid) => {
     const prefix = `pid-${pid}_`;
     return new Proxy(indexedDB, {
@@ -209,13 +194,10 @@ export const createIndexedDBProxy = (indexedDB, pid) => {
     });
 };
 
-/**
- * 清理指定 PID 产生的全部存储数据 (localStorage, sessionStorage, IndexedDB)
- */
+/** 按前缀清掉该 PID 在 localStorage / sessionStorage / IndexedDB 留下的数据 */
 export const clearSandboxStorageByPid = async (pid) => {
   if (!pid) return;
   const prefix = `pid-${pid}_`;
-  // 清理 localStorage
   try {
     if (typeof localStorage !== 'undefined') {
       const localKeys = Object.keys(localStorage).filter(k => k.startsWith(prefix));
@@ -224,7 +206,6 @@ export const clearSandboxStorageByPid = async (pid) => {
   } catch (err) {
     console.warn(`Failed to clear localStorage for PID ${pid}:`, err);
   }
-  // 清理 sessionStorage
   try {
     if (typeof sessionStorage !== 'undefined') {
       const sessionKeys = Object.keys(sessionStorage).filter(k => k.startsWith(prefix));
@@ -233,7 +214,6 @@ export const clearSandboxStorageByPid = async (pid) => {
   } catch (err) {
     console.warn(`Failed to clear sessionStorage for PID ${pid}:`, err);
   }
-  // 清理 IndexedDB
   try {
     if (typeof indexedDB !== 'undefined' && typeof indexedDB.databases === 'function') {
       const dbs = await indexedDB.databases();
@@ -255,13 +235,7 @@ export const clearSandboxStorageByPid = async (pid) => {
 };
 
 
-// ==========================================
-// 沙箱环境代码规约 (注入块级作用域的字符串)
-// ==========================================
-
-/**
- * 核心安全沙箱规约 (供 renderWindow 和 generateWorker 共同注入)
- */
+/** 核心安全沙箱规约：renderWindow 与 generateWorker 共同注入的块级作用域字符串 */
 export const getSharedSandboxUtilities = (pid, storageProxySource, indexedDBProxySource, secureFetchSource) => {
   const trustedCDNString = JSON.stringify(TRUSTED_CDN_WHITELIST);
 

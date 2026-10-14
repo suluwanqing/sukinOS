@@ -14,8 +14,6 @@ export class Cache {
   }
 }
 
-// ─── 代理导出函数 ──────────────────────
-
 export function getCachedState(kernel, pid) {
   return kernel.cache.getCachedState(pid)
 }

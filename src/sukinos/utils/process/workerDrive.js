@@ -1,15 +1,9 @@
-/**
- * 逻辑块模块运行时依赖：复用与渲染侧一致的相对路径解析与 UI 依赖识别
- */
+// 相对路径解析与 UI 依赖识别与渲染侧共用同一份真源
 import { resolveModulePath, looksLikeUiModule } from './sourceMapper'
 
-/**
- * 核心路由与状态转换处理器
- */
 export const processStateAction = (state, action, isBundle) => {
   let nextState = state || {}
 
-  // 处理 Bundle 内部的虚拟页面切换逻辑
   if (isBundle && action && action.type === 'NAVIGATE') {
     const currentRouter = nextState.router || {path: 'home'}
     nextState = {
@@ -21,9 +15,6 @@ export const processStateAction = (state, action, isBundle) => {
   return nextState
 }
 
-/**
- * 初始状态自动校准器
- */
 export const initializeState = (baseState, isBundle) => {
   const state = baseState || {}
   if (isBundle && !state.router) {
@@ -32,9 +23,7 @@ export const initializeState = (baseState, isBundle) => {
   return state
 }
 
-/**
- * 宿主/沙箱特权边界绑定器（完全提取为原样字符串）
- */
+// 宿主/沙箱特权边界绑定器：整段是原样字符串，逐字节进 worker
 export const RUNNER_SANDBOX_PRIVILEGES = `  const eval = _safeGlobalProxy.eval;
   const Function = _safeGlobalProxy.Function;
   const setTimeout = _safeGlobalProxy.setTimeout;
@@ -48,9 +37,7 @@ export const RUNNER_SANDBOX_PRIVILEGES = `  const eval = _safeGlobalProxy.eval;
   const XMLHttpRequest = undefined;
   const importScripts = undefined;`
 
-/**
- * 状态分发器及同步广播驱动（通过函数注入环境变量，返回纯字符串代码）
- */
+// 状态分发器与广播/落盘驱动；env 键名要插进模板，所以导出的是「返回纯字符串代码」的函数
 export const getRunnerWorkerDispatcher = envKeyIsBundle => `  let _state = null;
 
   /* 基本驱动代码 */
@@ -80,9 +67,6 @@ export const getRunnerWorkerDispatcher = envKeyIsBundle => `  let _state = null;
     }
   };`
 
-/**
- * 消息协议路由器（通过函数注入环境变量，返回纯字符串代码）
- */
 export const getRunnerMessageRouter = envKeyIsBundle => `  _safeGlobalProxy.onmessage = (e) => {
     const { type, payload } = e.data;
     switch (type) {
@@ -131,15 +115,12 @@ export const getRunnerMessageRouter = envKeyIsBundle => `  _safeGlobalProxy.onme
   };`
 
 /**
- * 逻辑块模块运行时（无条件注入）
- *
- * 让主逻辑块引入内容包里的其他逻辑模块（原始源码写 `import`，预编译后落到这里的就是 require）：
- * 模块源码取自 PRECOMPILED_COMPONENT（安装期已编译为 CJS），require 惰性执行并缓存 exports，
- * 相对路径按调用方所在模块 key 解析，因此依赖链可以自行延伸。
- * 之所以不按"有没有辅逻辑入口"条件注入：条件注入会把"入口规则漏配"变成 worker 静默死机，
- * 而不调用 require 时这段代码完全惰性，代价只是几百字节。
- *
- * @param {string} logicMainKey 主逻辑入口的模块 key，作为顶层 require 的解析基准目录
+ * 逻辑块模块运行时（无条件注入）：让主逻辑块引入内容包里的其他逻辑模块
+ * （原始源码写 `import`，预编译后落到这里就是 require）。模块源码取自 PRECOMPILED_COMPONENT
+ * （安装期已编译为 CJS），require 惰性执行并缓存 exports，相对路径按调用方所在模块 key 解析，
+ * 所以依赖链能自行延伸。不按"有没有辅逻辑入口"条件注入：条件注入会把"入口规则漏配"变成
+ * worker 静默死机，而不调用 require 时这段完全惰性，代价只是几百字节。
+ * logicMainKey 是顶层 require 的解析基准目录。
  */
 export const getWorkerLogicModuleRuntime = (logicMainKey = 'logic') => `  /* --- 逻辑块模块运行时块 --- */
   const __resolveModulePath = ${resolveModulePath.toString()};

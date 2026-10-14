@@ -1,0 +1,206 @@
+.su-system-upload-quota {
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.su-system-upload-quota__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.su-system-upload-quota__title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.su-system-upload-quota__desc {
+  font-size: 13px;
+  color: #8b8d92;
+  margin: 4px 0 0;
+}
+
+.su-system-upload-quota__head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.su-system-upload-quota__notice {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #4b5563;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-left: 3px solid #9ca3af;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.su-system-upload-quota__notice code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  background: #f3f4f6;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.su-system-upload-quota__warning {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.su-system-upload-quota__resolved {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: center;
+  font-size: 13px;
+  color: #374151;
+  padding: 10px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.su-system-upload-quota__resolved strong {
+  font-weight: 600;
+  color: #111;
+  margin-left: 4px;
+}
+
+.su-system-upload-quota__tier {
+  font-style: normal;
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 8px;
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.su-system-upload-quota__card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.su-system-upload-quota__card-head {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.su-system-upload-quota__card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111;
+}
+
+.su-system-upload-quota__card-desc {
+  font-size: 12.5px;
+  color: #8b8d92;
+  margin: 4px 0 0;
+  line-height: 1.6;
+}
+
+.su-system-upload-quota__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) 160px minmax(120px, auto) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.su-system-upload-quota__row-label {
+  font-size: 13px;
+  color: #111;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.su-system-upload-quota__mb-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.su-system-upload-quota__mb-input input {
+  width: 110px;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #111;
+  outline: none;
+  transition: border-color 0.12s;
+}
+
+.su-system-upload-quota__mb-input input:focus {
+  border-color: #111;
+}
+
+.su-system-upload-quota__mb-input input:disabled {
+  background: #f9fafb;
+  color: #6b7280;
+  cursor: not-allowed;
+}
+
+.su-system-upload-quota__unit {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.su-system-upload-quota__bytes {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.su-system-upload-quota__btn-remove {
+  border: none;
+  background: transparent;
+  color: #9ca3af;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
+  transition: background 0.12s, color 0.12s;
+}
+
+.su-system-upload-quota__btn-remove:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.su-system-upload-quota__empty {
+  font-size: 12.5px;
+  color: #b6bac1;
+  padding: 6px 0;
+}
+
+.su-system-upload-quota__adder {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px dashed #f3f4f6;
+}

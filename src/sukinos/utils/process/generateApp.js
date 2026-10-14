@@ -12,12 +12,11 @@ import {
 } from '@/sukinos/utils/config'
 import { clearAppSandboxData } from '@/sukinos/utils/process/kernelParts/lifecycle'
 import { generateWorker, parseWorkerCode } from './generateWorker'
-import { compileSource, detectSourceFormat } from './sourceMapper'
+import { compileSource, detectSourceFormat, isCodeKey, isHtmlKey, resolveAppEntries } from './sourceMapper'
 import { alert } from "@/component/alert/layout"
 import { sukinOs as sukinApi } from "@/apis/main"
 import generateShortSeed from '/utils/js/rootSeed'
 import {clearSandboxStorageByPid} from '@/sukinos/utils/security'
-// 基础应用注册写入逻辑SYS
 export async function extRegisterAppSys(kernel, appSys) {
   kernel.updateUserAppInfo(appSys.pid, appSys);
   kernel.resourceIdToPid.set(appSys?.[ENV_KEY_RESOURCE_ID], appSys.pid);
@@ -25,7 +24,6 @@ export async function extRegisterAppSys(kernel, appSys) {
   await kernel.sysDb.putData(appSys);
 }
 
-// 僵尸文件检查解析逻辑
 export async function extInspectZombieFile(kernel, fileHandle) {
   const result = {
     isValidZombie: false,
@@ -35,9 +33,7 @@ export async function extInspectZombieFile(kernel, fileHandle) {
   try {
     const file = await fileHandle.getFile()
     const text = await file.text()
-    // 提取纯净的应用名称（去除前缀和后缀）
     const cleanName = fileHandle.name.replace(SUKIN_EXT, '').replace(SUKIN_PRE, '')
-    // 提取资源ID
     const match = text.match(/const\s+SYS_CONFIG\s*=\s*({[\s\S]*?})\s*;?\s*\n/);
     if (!match || !match[1]) {
       result.shouldRemove = true
@@ -45,7 +41,7 @@ export async function extInspectZombieFile(kernel, fileHandle) {
       return result
     }
 
-    // 为了获取被环境变量名包裹的资源ID，通过Function进行安全提取
+    // SYS_CONFIG 里的键是环境变量常量名，只能用 Function 求值才能还原出来
     let resourceId = null;
     try {
       const tempConfig = new Function(`return ${match[1]}`)();
@@ -59,15 +55,13 @@ export async function extInspectZombieFile(kernel, fileHandle) {
       return result;
     }
 
-    // 检查资源是否存在且非系统资源
     const existingResource = kernel.getResource(resourceId)
     if (existingResource && !kernel.presetResourceIds.has(resourceId)) {
-      // 有效僵尸文件：资源存在但未注册
       result.isValidZombie = true
       result.appSys = {
         pid: crypto.randomUUID(),
         [ENV_KEY_RESOURCE_ID]: resourceId,
-        [ENV_KEY_NAME]: cleanName, // 使用处理后的名称
+        [ENV_KEY_NAME]: cleanName,
         handle: fileHandle,
         savedState: null,
         status: 'INSTALLED',
@@ -77,8 +71,7 @@ export async function extInspectZombieFile(kernel, fileHandle) {
     }
 
     if (TRUTH_ALL_APP) {
-      //有效但是没有注册资源和app
-      // 尝试自动注册
+      // 扫到了 worker 但资源未注册：按 TRUTH_ALL_APP 的口径自动注册
       const resourceInfo = parseWorkerCode(text)
       const parsedResId = resourceInfo?.[ENV_KEY_RESOURCE_ID];
       const parsedName = resourceInfo?.[ENV_KEY_NAME];
@@ -99,7 +92,6 @@ export async function extInspectZombieFile(kernel, fileHandle) {
         return result
       }
     } else {
-      // 需要删除的情况
       result.shouldRemove = true
       console.warn(`[内核] 发现无效文件 ${fileHandle.name}，资源ID: ${resourceId}`)
     }
@@ -111,7 +103,6 @@ export async function extInspectZombieFile(kernel, fileHandle) {
   return result
 }
 
-// 云端上传App逻辑 [解构基于新的 sysOptions]
 export async function extUploadCloud(kernel, data) {
   const { resource, sysOptions } = data
   const { userInfo, storePath, uploadInfo } = sysOptions || {};
@@ -169,28 +160,22 @@ export async function extUpdateCloud(kernel, data) {
 }
 
 /**
- * 预编译资源内容（双份存储策略）
- * 将原始源码（JSX/JS）编译为 JS 产物，存入 ENV_KEY_CONTENT_PRECOMPILED。
- * - 单文件：content 为字符串，直接编译
- * - bundle：content 为 { key: code } 对象，按 key 逐个编译
- * - 主逻辑块单独编译进 ENV_KEY_LOGIC_PRECOMPILED（它不在 content 里，见该常量的说明）
- * - 幂等：已存在预编译产物则跳过
- * - 失败降级：编译失败捕获并告警，保留原始 JSX 供运行时 Babel 兜底，
- *   同时把失败模块写进 metaInfo.precompileIssues，供 worker 侧 require 报错时指认真因
- * @param {object} newRes - 待安装的资源对象（会被原地修改）
- * @param {object} kernel - 内核实例
- * @returns {Promise<void>}
+ * 预编译资源内容（双份存储）：原始源码编成 JS 产物存进 ENV_KEY_CONTENT_PRECOMPILED，
+ * 主逻辑块单独进 ENV_KEY_LOGIC_PRECOMPILED。幂等：已有产物则跳过。
+ * 失败只告警并记进 metaInfo.precompileIssues，保留原文供运行时 Babel 兜底。newRes 原地修改。
  */
 async function precompileResourceContent(newRes, kernel) {
   const resourceId = newRes?.[ENV_KEY_RESOURCE_ID]
   const content = newRes?.[ENV_KEY_CONTENT]
-  // 系统 APP 强制走 JSX 编译，不预编译
+  // 系统 APP 走运行时 Babel，不预编译
   if (kernel?.presetResourceIds?.has(resourceId)) return
+  // 文档包载荷是原文，再 Babel 一遍没意义，还会把已压缩的 chunk 记进 precompileIssues
+  if (isHtmlKey(resolveAppEntries(newRes?.[ENV_KEY_META_INFO]).view)) return
 
   const failedKeys = []
   const compileOne = async (code, key) => {
-    // CSS 无需预编译，运行时由 createCssModule 处理，跳过避免被当作 JSX 编译报错
-    if (/\.css$/.test(key)) return null
+    // 只有代码档需要预编译：CSS 走 createCssModule、HTML 走子文档合成，文本档不是代码
+    if (!isCodeKey(key, code)) return null
     try {
       return await compileSource(code, { filename: key })
     } catch (e) {
@@ -201,19 +186,16 @@ async function precompileResourceContent(newRes, kernel) {
   }
 
   const recordIssues = () => {
-    // 每次安装都以此轮结果为准：云端资源可能带着上一版编译失败时盖的戳，
-    // 本轮全部编译成功却不擦除，就会一直传播给后续用户并误导 worker 报错指认
+    // 以本轮结果为准：全通过就擦掉云端带来的上一版失败戳，否则会一直传播给后续用户并误导报错指认
     const meta = newRes[ENV_KEY_META_INFO]
     if (!failedKeys.length) {
       delete meta.precompileIssues
       return
     }
-    // 失败清单随资源固化：worker 侧 require 拿不到产物时，靠它把错误指到真因而不是路径写错
     meta.precompileIssues = { reason: 'failed', keys: failedKeys }
   }
 
-  // 本轮是否真的尝试过编译：一轮都没编译（产物齐全直接跳过）时不改动 precompileIssues，
-  // 免得把别处留下的失败指认无声擦掉
+  // 一轮都没尝试编译（产物齐全）时不动 precompileIssues，免得无声擦掉别处留下的失败指认
   let attempted = false
 
   if (newRes?.[ENV_KEY_CONTENT_PRECOMPILED] == null && content != null) {
@@ -240,8 +222,7 @@ async function precompileResourceContent(newRes, kernel) {
     }
   }
 
-  // 主逻辑块：编译产物供 worker 执行，原始源码仍留在 ENV_KEY_LOGIC 供编辑器与反解。
-  // 只有编译过的产物才走这条链，未预编译的存量应用与系统应用保持原文注入。
+  // 主逻辑块：产物供 worker 执行，原文留在 ENV_KEY_LOGIC 供编辑器与反解；未预编译的应用保持原文注入
   const logicCode = newRes?.[ENV_KEY_LOGIC]
   if (typeof logicCode === 'string' && logicCode && newRes?.[ENV_KEY_LOGIC_PRECOMPILED] == null) {
     attempted = true
@@ -255,7 +236,7 @@ async function precompileResourceContent(newRes, kernel) {
   if (attempted) recordIssues()
 }
 
-// 核心安装资源函数 (抽离出的纯净安装核心，避免循环排队导致死锁死循环)
+// 安装核心：不走 executeInstallation 排队，避免自己排自己的队造成嵌套死锁
 export async function extInstallResource(kernel, args) {
   const name = args?.[ENV_KEY_NAME] || args?.name;
   const resourceId = args?.[ENV_KEY_RESOURCE_ID] || args?.resourceId;
@@ -267,7 +248,6 @@ export async function extInstallResource(kernel, args) {
 
   const truthResourceId = resourceId || `app-${metaInfo?.authorId || 'local'}-${generateShortSeed()}`;
 
-  // 这里不再需要手动一一映射 metaInfo，直接用传递过来的 metaInfo (调用方已优化解构)
   const newRes = {
     [ENV_KEY_RESOURCE_ID]: truthResourceId,
     [ENV_KEY_NAME]: name,
@@ -276,7 +256,7 @@ export async function extInstallResource(kernel, args) {
     [ENV_KEY_LOGIC]: logic,
     [ENV_KEY_META_INFO]: {
       ...metaInfo,
-      createdAt: metaInfo.createdAt || new Date().toISOString(),//如果是本地就是用这个,如果是上传就会使用到服务器的时间
+      createdAt: metaInfo.createdAt || new Date().toISOString(), // 云端资源带服务器时间，只有本地装才现算
       initialSize: {
         w: Math.max(500, metaInfo?.initialSize?.w || 500), h: Math.max(400, metaInfo?.initialSize?.h || 400),
       },
@@ -284,21 +264,19 @@ export async function extInstallResource(kernel, args) {
       version: version
     }
   };
-  // 安装时自动预编译（双份存储：保留原始 JSX + 新增预编译 JS），失败自动降级
   await precompileResourceContent(newRes, kernel)
-  await kernel.resDb.putData(newRes)//存入到资源indexDb里
+  await kernel.resDb.putData(newRes)
   kernel.resourceCache[truthResourceId] = newRes;
 
   let appSys;
   const existingPid = kernel.getPidByResourceId(truthResourceId);
   if (existingPid && kernel.userApps.has(existingPid)) {
-    // 如果应用已存在（更新场景），则合并元数据以保留用户自定义配置
+    // 更新场景：合并元数据而不是覆盖，保留用户自定义配置
     appSys = kernel.userApps.get(existingPid);
     const currentAppMeta = appSys[ENV_KEY_META_INFO] || {};
     const newResourceMeta = newRes[ENV_KEY_META_INFO] || {};
 
-    // 合并元数据：以新资源为基础，应用用户的自定义设置，并深度合并 custom 对象
-    // 先铺开旧配置，再覆盖新资源元属性（如新 version），避免版本号无法更新
+    // 先铺开旧配置再覆盖新资源元属性（如新 version），custom 里用户侧胜出
     appSys[ENV_KEY_META_INFO] = {
       ...currentAppMeta,
       ...newResourceMeta,
@@ -307,9 +285,8 @@ export async function extInstallResource(kernel, args) {
         ...(currentAppMeta.custom || {})
       }
     };
-    appSys[ENV_KEY_NAME] = name; // 确保名称同步更新
+    appSys[ENV_KEY_NAME] = name;
   } else {
-    // 全新安装
     appSys = {
       pid: crypto.randomUUID(),
       [ENV_KEY_RESOURCE_ID]: truthResourceId,
@@ -322,9 +299,8 @@ export async function extInstallResource(kernel, args) {
   }
 
   if (args?.syncLocal || false) {
-    //如果允许写入本地同步,将会触发本地写入操作[包括后续状态管理]
     await kernel.writeAppFile({ ...newRes, [ENV_KEY_CONTENT]: content })
-    // 尝试获取文件句柄并关联到 appSys 中，这样安装后可以直接访问本地文件
+    // 回关联本地句柄，装完即可直接访问文件
     try {
       const fileName = `${SUKIN_PRE}${name}${SUKIN_EXT}`
       appSys.handle = await kernel.dirHandle.getFileHandle(fileName)
@@ -333,24 +309,20 @@ export async function extInstallResource(kernel, args) {
     }
   }
 
-  // 直接执行基础注册表写入（不在核心逻辑里走 executeInstallation 排队，避免嵌套死锁）
   await extRegisterAppSys(kernel, appSys);
   return truthResourceId
 }
 
-// 执行安装/注册行为 (通过队列处理避免阻塞和冲突)
+// 安装/注册统一入队，避免并发写注册表
 export async function extExecuteInstallation(kernel, params) {
   return new Promise((resolve, reject) => {
-    // 替换私有属性访问，改为公开方法代理
     kernel.enqueueInstallTask(async () => {
       try {
         const { mode, data } = params;
         if (mode === 'ZOMBIE_REGISTER') {
-          // 真正的僵尸/扫描注册分配处理
           await extRegisterAppSys(kernel, data);
-          // console.info(`[内核队列] 已完成僵尸应用注册: ${data?.[ENV_KEY_NAME]}`);
         } else if (mode === 'INSTALL_APP') {
-          // 常规安装逻辑 — 移除内层 try-catch，错误由外层统一处理并 reject
+          // 不套内层 try：错误由外层统一 reject
           const resource = parseWorkerCode(data.worker);
           await extInstallResource(kernel, { ...resource, version: data.version });
         }
@@ -363,13 +335,12 @@ export async function extExecuteInstallation(kernel, params) {
   });
 }
 
-// 将从注册表indexDb读取的用户资源写入/同步至本地
 export async function extSyncResourcesToFiles(kernel) {
   if (!kernel.dirHandle) return
   for (const res of Object.values(kernel.resourceCache)) {
     if (!kernel.presetResourceIds.has(res?.[ENV_KEY_RESOURCE_ID]) &&
       res[ENV_KEY_META_INFO]?.syncLocal || false) {
-      //如果允许同步本地才会执行,但是这并不会妨碍,扫描本地app的安装
+      // 只有开了 syncLocal 才写盘；不影响扫描侧照常安装本地 app
       const fileName = `${SUKIN_PRE}${res?.[ENV_KEY_NAME]}${SUKIN_EXT}`
       try { await kernel.dirHandle.getFileHandle(fileName) }
       catch (e) { await kernel.writeAppFile(res) }
@@ -377,7 +348,6 @@ export async function extSyncResourcesToFiles(kernel) {
   }
 }
 
-// 写入本地App文件
 export async function extWriteAppFile(kernel, res) {
   if (kernel.presetResourceIds.has(res?.[ENV_KEY_RESOURCE_ID])) return
   const fileName = `${SUKIN_PRE}${res?.[ENV_KEY_NAME]}${SUKIN_EXT}`
@@ -388,55 +358,47 @@ export async function extWriteAppFile(kernel, res) {
   await writable.close()
 }
 
-// 资源[app]上传,更新资源缓存 [解构并基于 sysOptions 判定逻辑]
 export async function extUploadResource(kernel, args) {
   const metaInfo = args?.[ENV_KEY_META_INFO] || args?.metaInfo || {};
   const sysOptions = args?.sysOptions || {};
   const shouldUpload = sysOptions.shouldUpload || false;
 
-  // 开发环境直接跳过
   if (!import.meta.env.DEV && !metaInfo?.authorId) {
     const errorMsg = '操作失败：请先登录！'
     alert.warning(errorMsg)
     return Promise.reject(new Error(errorMsg))
   }
 
-  // 调用独立抽离的核心安装逻辑
   const truthResourceId = await extInstallResource(kernel, args);
 
-  // 通知内核状态变更
   kernel.emitChange({ type: 'APP_REGISTRY' })
   if (shouldUpload) {
-    //上传服务器不等待 [传入提取的 sysOptions]
+    // 上云不 await：不阻塞安装返回
     const newRes = kernel.resourceCache[truthResourceId];
     kernel.uploadCloud({ resource: newRes, sysOptions })
   }
   return truthResourceId
 }
 
-// 同步管理本地文件系统的资源和indexDb的资源,但是这个是指SYS同步::注册行为
+// 按本地文件系统对齐 SYS 注册表：只管注册行为，不动资源库
 export async function extSyncRegistry(kernel) {
   if (!kernel.dirHandle) return
   try {
     if (!kernel.sysDb.isOpen()) await kernel.sysDb.openDB()
 
-    const physicalFiles = new Set() // 物理文件集合(存储处理后的cleanName)
-    const filesToRemove = []      // 待删除文件
-    const appsToRegister = []     // 待注册的僵尸应用数据
+    const physicalFiles = new Set() // 存处理后的 cleanName，后面的比对都以它为准
+    const filesToRemove = []
+    const appsToRegister = []
 
-    // 扫描物理文件
     for await (const entry of kernel.dirHandle.values()) {
       if (entry.kind === 'file' && entry.name.endsWith(SUKIN_EXT)) {
-        // 处理文件名，提取 cleanName 用于逻辑比对
         const cleanName = entry.name.replace(SUKIN_EXT, '').replace(SUKIN_PRE, '');
         physicalFiles.add(cleanName);
 
-        // 检查是否已注册 (比对处理后的名称)
         const isRegistered = Array.from(kernel.userApps.values())
           .some(app => app?.[ENV_KEY_NAME] === cleanName)
 
         if (isRegistered) {
-          // 更新已注册应用的句柄
           const appEntry = Array.from(kernel.userApps.entries())
             .find(([, app]) => app?.[ENV_KEY_NAME] === cleanName)
           if (appEntry) {
@@ -444,7 +406,6 @@ export async function extSyncRegistry(kernel) {
             appSys.handle = entry
           }
         } else {
-          // 处理未注册文件（僵尸文件）
           const inspectionResult = await kernel.inspectZombieFile(entry)
           if (inspectionResult.isValidZombie && inspectionResult.appSys) {
             appsToRegister.push(inspectionResult.appSys)
@@ -455,28 +416,21 @@ export async function extSyncRegistry(kernel) {
       }
     }
 
-    // 注册有效的僵尸文件 (使用队列异步处理,由于是入队不在此 await 所以安全无死锁)
+    // 入队注册、不在此 await：与队列互等会成死锁
     for (const appSys of appsToRegister) {
       kernel.executeInstallation({ mode: 'ZOMBIE_REGISTER', data: appSys });
     }
 
-    // 清理孤儿记录
     for (const app of kernel.userApps.values()) {
       const currentAppName = app?.[ENV_KEY_NAME];
-      // 比对处理后的名称，如果物理目录中不存在对应的 cleanName，则视为孤儿
+      // 孤儿 = 物理目录里已无对应 cleanName 的记录
       if (!physicalFiles.has(currentAppName)) {
-        // console.warn(`[内核] 清理孤儿用户注册表记录文件: ${currentAppName}`)
         kernel.kill(app.pid)
-        // kernel.stateCache.delete(app.pid)
-        // kernel.userApps.delete(app.pid)
-        //这个不删除是因为,可能当前是不同步本地的通过indexDb已经注册了不能删除
-        // await kernel.sysDb.deleteData(currentAppName)
+        // 故意不删 sysDb 记录：不同步本地的应用靠 indexDb 注册，删了就丢注册态
         app.handle = null
       }
     }
-    //  删除无效文件
     if (filesToRemove.length > 0) {
-      // console.info(`[内核] 开始清理 ${filesToRemove.length} 个无效文件...`)
       for (const fileHandle of filesToRemove) {
         try {
           await fileHandle.remove()
@@ -486,37 +440,28 @@ export async function extSyncRegistry(kernel) {
         }
       }
     }
-    // kernel.emitChange()
   } catch (e) {
     console.error("[内核] syncRegistry 过程中发生错误:", e)
   }
 }
 
-/**
- * 通过资源(Res)同步注册表(Sys)
- * 逻辑：遍历已加载到内存的 resourceCache，如果发现资源没有对应的 App 注册表记录，
- * 则自动为其生成注册表信息，并更新到缓存和 sysDb 中。同时清理掉没有资源对应的孤儿注册表。
- */
+/** 以资源库(Res)为准对齐注册表(Sys)：补注册缺记录的资源，清掉无资源对应的孤儿注册表 */
 export async function extSyncRegistryByRes(kernel) {
   try {
-    // 确保数据库已打开
     if (!kernel.sysDb.isOpen()) await kernel.sysDb.openDB();
     if (!kernel.resDb.isOpen()) await kernel.resDb.openDB();
 
     const appsToRegister = [];
-    const validResIds = new Set(); // 记录当前所有有效的资源ID
+    const validResIds = new Set();
     // 系统资源永不注册为用户 APP，避免生成随机 pid 的"幽灵"系统 APP
     const presetResIds = new Set(PRESET_RESOURCES.map(p => p?.[ENV_KEY_RESOURCE_ID]));
-    // 扫描资源库，寻找未注册的资源
     for (const res of Object.values(kernel.resourceCache)) {
       const resId = res?.[ENV_KEY_RESOURCE_ID];
       const appName = res?.[ENV_KEY_NAME];
       if (!resId || !appName) continue;
       validResIds.add(resId);
-      // 跳过系统预置资源 (因为系统资源在 #initializeSystemApps 已经处理)
       if (kernel.presetResourceIds.has(resId)) continue;
-      // 系统预置资源即使不在 presetResourceIds 中，也一律跳过，
-      // 并清理历史遗留的随机 pid 用户 APP 记录，确保系统 APP 只有唯一 pid(= resourceId)
+      // 系统预置资源一律跳过，并清掉历史遗留的随机 pid 记录，保证系统 APP 只有唯一 pid(= resourceId)
       if (presetResIds.has(resId)) {
         const ghostPid = kernel.getPidByResourceId(resId);
         if (ghostPid && kernel.userApps.has(ghostPid)) {
@@ -530,27 +475,25 @@ export async function extSyncRegistryByRes(kernel) {
         }
         continue;
       }
-      // 检查内存中是否已经有这个资源的注册信息
       const existingPid = kernel.getPidByResourceId(resId);
       const isRegistered = existingPid && kernel.userApps.has(existingPid);
       if (!isRegistered) {
-        // 发现未注册的资源，准备构建 App 注册数据
         const appSys = {
           pid: crypto.randomUUID(),
           [ENV_KEY_RESOURCE_ID]: resId,
           [ENV_KEY_NAME]: appName,
-          handle: null, // 默认无本地文件句柄
+          handle: null,
           savedState: null,
           status: 'INSTALLED',
           [ENV_KEY_META_INFO]: res?.[ENV_KEY_META_INFO] || {}
         };
-        // 如果该资源配置了同步本地文件 (syncLocal)，尝试关联本地句柄
+        // 配了 syncLocal 才去关联本地句柄
         if (appSys[ENV_KEY_META_INFO]?.syncLocal && kernel.dirHandle) {
           const fileName = `${SUKIN_PRE}${appName}${SUKIN_EXT}`;
           try {
             appSys.handle = await kernel.dirHandle.getFileHandle(fileName);
           } catch (e) {
-            // 如果本地文件不存在，且配置了 syncLocal，可以选择顺手把资源写入本地
+            // 本地缺文件就顺手写一份，再取句柄
             console.info(`[内核] 资源 ${appName} 配置了 syncLocal，正在自动写入本地...`);
             await kernel.writeAppFile(res);
             try {
@@ -562,13 +505,12 @@ export async function extSyncRegistryByRes(kernel) {
         }
         appsToRegister.push(appSys);
       } else {
-        // 如果应用已注册，则合并元数据，而不是直接覆盖，以保留用户自定义设置
         const appInfo = kernel.userApps.get(existingPid);
         if (appInfo) {
           const resourceMeta = res[ENV_KEY_META_INFO] || {};
           const currentAppMeta = appInfo[ENV_KEY_META_INFO] || {};
 
-          // 先铺开旧配置，再用最新资源的元属性覆盖它，避免版本号无法同步
+          // 先铺开旧配置，再用最新资源的元属性覆盖，避免版本号无法同步
           const finalMeta = {
             ...currentAppMeta,
             ...resourceMeta,
@@ -578,22 +520,20 @@ export async function extSyncRegistryByRes(kernel) {
             }
           };
 
-          // 将合并后的元数据更新到内存和数据库
           appInfo[ENV_KEY_META_INFO] = finalMeta;
-          // 异步更新，不阻塞主流程
+          // 不 await：落库不阻塞本轮同步
           kernel.sysDb.updateData(appName, { [ENV_KEY_META_INFO]: finalMeta });
         }
       }
     }
-    // 批量注册发现的新资源 (复用底层的队列安装机制，安全可靠)
+    // 复用队列安装机制；ZOMBIE_REGISTER 实际就是「直接写库 + 写缓存」，不只处理僵尸文件
     if (appsToRegister.length > 0) {
       console.info(`[内核] 根据资源库扫描，发现 ${appsToRegister.length} 个未注册应用，准备注册...`);
       for (const appSys of appsToRegister) {
-        // 使用 ZOMBIE_REGISTER 模式（它不仅处理僵尸文件，实际上就是标准的直接写库+写缓存行为）
         kernel.executeInstallation({ mode: 'ZOMBIE_REGISTER', data: appSys });
       }
     }
-    // 清理孤儿注册表 (Sys 里面有记录，但是 Res 里面已经找不到资源了)
+    // 孤儿注册表 = Sys 里有记录、Res 里已找不到资源
     const orphansToClean = [];
     for (const app of kernel.userApps.values()) {
       const currentResId = app?.[ENV_KEY_RESOURCE_ID];
@@ -602,15 +542,11 @@ export async function extSyncRegistryByRes(kernel) {
       }
     }
     for (const orphan of orphansToClean) {
-      // console.warn(`[内核] 清理无底层资源的孤儿注册表记录: ${orphan?.[ENV_KEY_NAME]}`);
-      // 杀死可能在运行的进程
       kernel.kill(orphan.pid);
-      // 清除内存缓存
       kernel.clearCachedState(orphan.pid);
       kernel.userApps.delete(orphan.pid);
       kernel.resourceIdToPid.delete(orphan[ENV_KEY_RESOURCE_ID]);
       kernel.pidToResourceId.delete(orphan.pid);
-      // 删除数据库记录
       await kernel.sysDb.deleteData(orphan[ENV_KEY_NAME]);
     }
     if (appsToRegister.length > 0 || orphansToClean.length > 0) {
@@ -621,21 +557,17 @@ export async function extSyncRegistryByRes(kernel) {
   }
 }
 
-// 更新App
 export async function extUpdateApp(kernel, { worker, version }) {
   const resource = parseWorkerCode(worker)
   const cleanName = resource?.[ENV_KEY_NAME];
   const resId = resource?.[ENV_KEY_RESOURCE_ID];
 
-  // 查询并终止正在运行的该应用
   let pid = kernel.getPidByResourceId(resId);
   if (pid && kernel.processes.has(pid)) {
     kernel.kill(pid)
     console.info(`[内核] 更新前已终止运行中的应用: ${cleanName} (PID: ${pid})`)
   }
 
-  // 利用抽离出来的安装核心，直接完成 resDb 和 sysDb 的覆写更新，代码高度精简
-  // extInstallResource 内部已包含保留用户配置的合并逻辑
   await extInstallResource(kernel, { ...resource, version });
 
   console.info(`[内核] 应用已更新: ${cleanName} -> v${version}`)
@@ -643,54 +575,50 @@ export async function extUpdateApp(kernel, { worker, version }) {
 }
 
 
-// 删除非系统内置App
+// 删除用户 App（系统预置资源不可删）
 export async function extDeleteApp(kernel, { pid, resourceId }) {
   let truthPid
   if (!pid) {
-    //那么这里实际是pid就是resurceId了,这里为了兼容,处理一下不再过多修改
+    // 兼容：调用方只给 resourceId 时按它反查 pid
     truthPid = kernel.getPidByResourceId(resourceId)
   } else {
     truthPid = pid
-    // 如果调用方没传 resourceId，则通过 pid 获取
     if (!resourceId) {
       resourceId = kernel.getResourceIdByPid(pid)
     }
   }
-  //如果还是没拿到 resourceId，从已安装的应用缓存中查找
   if (!resourceId && truthPid) {
     const appCache = kernel.userApps.get(truthPid);
     resourceId = appCache?.[ENV_KEY_RESOURCE_ID];
   }
   try {
-    //因为我们的架构是在分配注册表的时候就注入这个pid
-    // 增加判断防止 resourceId 为空时进入 has 判断
     if (resourceId && kernel.presetResourceIds.has(resourceId)) {
       alert.warning("系统预置资源不可删除")
       return
     }
     const app = await kernel.getApp(truthPid)
-    clearAppSandboxData(app) //删除应用相关的sandbox数据（如storage和indexDb数据），避免残留数据占用空间或引发冲突
+    clearAppSandboxData(app) // 清掉应用的 storage / indexDb 残留，避免占空间与后续冲突
     if (!app) {
       throw new Error("找不到应用实例");
     }
     const currentAppName = app?.[ENV_KEY_NAME];
-    const sys = await kernel.sysDb.getData(currentAppName)  //获取文件句柄
+    const sys = await kernel.sysDb.getData(currentAppName)
     if (sys && sys.handle) {
       const handle = sys.handle
-      await handle.remove()  //删除本地文件
+      await handle.remove()
     }
     if (app.status !== "INSTALLED") {
-      await kernel.forceKillProcess(truthPid)    //先杀死App,注意,有状态更新,所以注意顺序,避免被重新注册
+      await kernel.forceKillProcess(truthPid)    // 先杀进程：它会更新状态并可能重新注册，顺序不能换
     }
-    kernel.userApps.delete(truthPid)        //删除缓存注册表
-    kernel.pidToResourceId.delete(truthPid) //删除辅助转义表
+    kernel.userApps.delete(truthPid)
+    kernel.pidToResourceId.delete(truthPid)
     if (resourceId) {
-      kernel.resourceIdToPid.delete(resourceId) //删除辅助转义表
-      await kernel.resDb.deleteData(resourceId)    //删除资源[indexDb]
-      delete kernel.resourceCache[resourceId];      //删除资源缓存
-      clearSandboxStorageByPid(pid) //删除indexDb,和storage
+      kernel.resourceIdToPid.delete(resourceId)
+      await kernel.resDb.deleteData(resourceId)
+      delete kernel.resourceCache[resourceId];
+      clearSandboxStorageByPid(pid)
     }
-    await kernel.sysDb.deleteData(currentAppName)    //删除应用注册表[indexDb]
+    await kernel.sysDb.deleteData(currentAppName)
     kernel.emitChange({ type: 'APP_REGISTRY' })
   }
   catch (err) {

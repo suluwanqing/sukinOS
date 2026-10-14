@@ -4,30 +4,27 @@ const MIN_WIDTH = 300
 const MIN_HEIGHT = 200
 
 export const useWindowInteraction = ({ winSize: initialState, allowResize = true, SAFE_DRAG_AREA = 40, isIframeMode = false, onDragEnd }) => {
-  // SAFE_DRAG_AREA:安全阈值,避免dom拖出屏幕[包括dom宽/高] ,initialState{x,y,w,h}初始相对坐标和宽高需要和dom对应,优先级高于css
+  // SAFE_DRAG_AREA 是防止拖出屏幕的安全阈值；initialState 的 x/y/w/h 需与 DOM 对应，优先级高于 css
   const windowElRef = useRef(null)
 
-  // 使用ref存储状态，避免React重渲染。完全弃用 useState 以获取极致性能
+  // 矩形只存 ref、完全不进 React 状态：拖拽期间不触发重渲染
   const rectRef = useRef(initialState)
   const actionType = useRef(null)
   const startPos = useRef({ x: 0, y: 0 })
   const startRect = useRef({ ...initialState })
   const beforeMaximizeRect = useRef(null)
 
-  // 存储当前是否在拖拽中，用于外部查询
   const isDraggingRef = useRef(false)
 
-  // iframe模式下的优化：使用RAF节流
   const rafIdRef = useRef(null)
   const lastMoveTimeRef = useRef(0)
   const THROTTLE_MS = isIframeMode ? 8 : 0 // 物理沙箱模式下限制到约125fps
 
-  // 保存最新的 handleMouseMove / handleMouseUp 引用，供卸载清理 effect 读取
-  // 避免 effect 依赖数组变化导致重复注册/卸载
+  // 存最新的 handleMouseMove/handleMouseUp 供卸载清理读取，这样清理 effect 的依赖数组能保持为空
   const handleMouseMoveRef = useRef(null)
   const handleMouseUpRef = useRef(null)
 
-  //  在组件挂载时，用初始状态设置一次 DOM 元素的样式
+  // 挂载时把初始矩形写进 DOM 样式
   useEffect(() => {
     if (windowElRef.current) {
       const el = windowElRef.current
@@ -39,16 +36,13 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
     }
   }, [initialState.x, initialState.y, initialState.w, initialState.h])
 
-  // 卸载清理：组件在拖拽过程中被卸载时，确保 document 事件和 RAF 全部释放
-  // 不在此处依赖 handleMouseMove/handleMouseUp，而是读取最新 ref，避免 stale closure
+  // 卸载清理：拖拽中途被卸载也要把 document 事件与 RAF 全部释放
   useEffect(() => {
     return () => {
-      // 取消还未执行的 RAF，防止回调在卸载后异步触发时访问已为 null 的 ref
       if (rafIdRef.current) {
         cancelAnimationFrame(rafIdRef.current)
         rafIdRef.current = null
       }
-      // 移除挂在 document 上的事件，防止卸载后仍然触发并访问 null ref
       if (handleMouseMoveRef.current) {
         document.removeEventListener('mousemove', handleMouseMoveRef.current)
       }
@@ -56,16 +50,14 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
         document.removeEventListener('mouseup', handleMouseUpRef.current)
       }
     }
-  }, []) // 仅在卸载时执行一次，依赖数组为空
+  }, [])
 
-  // 批量更新样式
   const updateDOMStyles = useCallback((el, updates) => {
     for (const [key, value] of Object.entries(updates)) {
       el.style[key] = value
     }
   }, [])
 
-  // 物理沙箱模式下：使用 will-change 提示浏览器优化
   const prepareForInteraction = useCallback((el) => {
     if (!el) return
     // 交互开始：分配 GPU 合成层，禁用 transition 避免拖拽偏移
@@ -81,15 +73,11 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
     }
   }, [isIframeMode])
 
-  // 恢复交互后的状态
   const finishInteraction = useCallback((el) => {
     if (!el) return
 
-    // 清除交互期间注入的 inline transform，让 CSS class 接管 GPU 合成层分配
-    // 焦点窗口通过 .is-focused { translateZ(0) } 获得 GPU 层
-    // 非焦点窗口无 CSS transform，自动释放 GPU 层
+    // 清掉交互期间注入的 inline transform，让 CSS 接管合成层：焦点窗口靠 .is-focused{translateZ(0)} 拿到 GPU 层，非焦点自动释放
     el.style.transform = ''
-    // 交互结束：恢复 transition 效果（可根据需要从外部传入或默认）
     el.style.transition = isIframeMode ? 'none' : 'width 0.2s ease-out, height 0.2s ease-out, left 0.2s ease-out, top 0.2s ease-out'
 
     if (isIframeMode) {
@@ -103,7 +91,6 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
   const handleMouseMove = useCallback((e) => {
     if (!actionType.current || !windowElRef.current) return
 
-    // 物理沙箱模式下的节流优化
     if (isIframeMode) {
       const now = Date.now()
       if (now - lastMoveTimeRef.current < THROTTLE_MS) {
@@ -113,9 +100,7 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
     }
 
     const updateFn = () => {
-      // RAF 是异步的：在 requestAnimationFrame 回调真正执行时，
-      // 组件可能已经卸载导致 windowElRef.current 变为 null，
-      // 此处必须重新从 ref 读取，而非依赖外层 closure 捕获的旧值
+      // RAF 回调是异步的：真正执行时组件可能已卸载、ref 已为 null，所以必须重新读 ref 而不是用闭包里的旧值
       const el = windowElRef.current
       if (!el) return
 
@@ -127,28 +112,26 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
 
       switch (actionType.current) {
         case 'drag': {
-          // 计算理论上的新位置
           let newX = x + deltaX
           let newY = y + deltaY
 
-          // 获取视口（viewport）的尺寸
           const viewportW = window.innerWidth
           const viewportH = window.innerHeight
 
-          // 限制新位置在安全范围内
+          // 上下左右各保留 SAFE_DRAG_AREA 在视口内
           newY = Math.max(0, newY)
           newY = Math.min(newY, viewportH - SAFE_DRAG_AREA)
           newX = Math.max(newX, -(w - SAFE_DRAG_AREA))
           newX = Math.min(newX, viewportW - SAFE_DRAG_AREA)
 
           if (isIframeMode) {
-            // 使用 transform3d 硬件加速，并计算相对于 startRect 的增量位移，防止偏移
+            // 硬件加速：拖动期间只写 transform3d 增量，不动 left/top
             const transX = newX - x
             const transY = newY - y
             const newTransform = `translate3d(${transX}px, ${transY}px, 0)`
             if (el.style.transform !== newTransform) {
               el.style.transform = newTransform
-              // 存入 dataset 以便 mouseUp 物理化
+              // 最终坐标暂存 dataset，mouseUp 时再落回 left/top
               el.dataset.realLeft = newX
               el.dataset.realTop = newY
             }
@@ -225,8 +208,6 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current)
       rafIdRef.current = requestAnimationFrame(() => {
         rafIdRef.current = null
-        // RAF 回调是异步的，执行时组件可能已卸载，ref 已为 null，
-        // 需在进入 updateFn 前再做一次守卫，防止 getBoundingClientRect / style 访问 null
         if (!windowElRef.current) return
         updateFn()
       })
@@ -258,12 +239,9 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
         }
       }
 
-      // 恢复交互后的 transition 和状态
       finishInteraction(el)
 
-      // 更新最终的逻辑矩形状态（仅存在 ref 中）
-      // el 是从 windowElRef.current 捕获的局部变量，即使此后 ref 被置 null，
-      // el 本身仍持有对 DOM 节点的强引用，getBoundingClientRect 调用是安全的
+      // 回写最终矩形到 ref；el 是局部强引用，此后 ref 被置 null 也不影响这次测量
       const finalRect = el.getBoundingClientRect()
       rectRef.current = {
         x: finalRect.left,
@@ -272,7 +250,6 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
         h: finalRect.height,
       }
 
-      // 通知上层组件拖拽/缩放已结束，传递最新的窗口位置
       onDragEnd?.(rectRef.current)
     }
 
@@ -282,8 +259,6 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
     document.removeEventListener('mouseup', handleMouseUp)
   }, [handleMouseMove, isIframeMode, finishInteraction, onDragEnd])
 
-  // 每次 handleMouseMove / handleMouseUp 更新时，同步最新引用到 ref
-  // 卸载清理 effect 通过读取这两个 ref 保证移除的是最新注册的函数
   useEffect(() => {
     handleMouseMoveRef.current = handleMouseMove
   }, [handleMouseMove])
@@ -298,7 +273,6 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
 
     if (!allowResize && type !== 'drag') return
 
-    // 若 ref 为 null（极端情况：元素已卸载但事件仍触发），直接返回
     if (!windowElRef.current) return
 
     isDraggingRef.current = true
@@ -317,7 +291,6 @@ export const useWindowInteraction = ({ winSize: initialState, allowResize = true
         h: parseFloat(style.height) || el.offsetHeight,
       }
 
-      // 准备交互：禁用 transition 和 iframe 指针
       prepareForInteraction(el)
     }
 

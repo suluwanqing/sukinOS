@@ -8,15 +8,11 @@ export const useKernel = () => {
   const fileSystemConfig = useSelector(selectFileSystemConfig)
   const userInfo = useSelector(selectorUserInfo)
   const generateAppConfig = useSelector(selectGenerateApp)
-  // 初始化时直接检查内核是否已经就绪
-  // 如果 kernel 已经有 dirHandle 或者已经初始化过，我们就认为它是 ready 的
+  // kernel.dirHandle 存在就算就绪
   const checkIsKernelReady = () => !!kernel.dirHandle;
-  /*
-    旧版本的问题在于每次都是isReady初始化都是false,但是没有执行bootSystem去更新/获取返回kernel的状态，去更新
-    只有执行bootSystem才会更新状态,而手动调用肯定会有开销主要是,每次启动会触发文件句柄处理
-  */
+  // 挂载时不主动调 bootSystem：每次启动都重跑文件句柄处理，开销大；isReady 的初值直接读真实状态即可
   const [apps, setApps] = useState([])
-  const [isReady, setIsReady] = useState(checkIsKernelReady()) // 初始值改为真实检查
+  const [isReady, setIsReady] = useState(checkIsKernelReady())
   const [loading, setLoading] = useState(false)
   const [runningApps, setRunnigApps] = useState([])
   const [hibernatedApps, setHibernatedApps] = useState([])
@@ -63,7 +59,6 @@ export const useKernel = () => {
         updateAppsByPid(change.pid, (app) => {
           if (!app || app.status === change.status) return app
           const kernelApp = kernel.getApp(change.pid)
-          // 适配新变化,增量state
           return {
             ...app,
             status: change.status,
@@ -102,12 +97,8 @@ export const useKernel = () => {
   }
 
   useEffect(() => {
-    // 即使初始化时 isReady 是 false，如果之后 kernel 变好了，也要能跟进
-    // 这里取消 if (!isReady) return，改为在 refresh 里判断，或者由外部 bootSystem 驱动
-
-    // 如果已经 ready 或者检测到 ready，则订阅
+    // 不再用 if (!isReady) return 拦订阅：初值可能是 false，之后 kernel 变好了也要能跟上
     const unsub = kernel.subscribeSystem((detail) => {
-      // console.log("[useKernel] 内核状态变化，刷新 UI...");
       applyDelta(detail)
     })
 
@@ -117,7 +108,7 @@ export const useKernel = () => {
     }
 
     return () => { unsub() }
-  }, [refresh, applyDelta]) // 添加 applyDelta 到依赖数组
+  }, [refresh, applyDelta])
 
   const reinit = useCallback(async (userId) => {
     setLoading(true)
@@ -130,7 +121,7 @@ export const useKernel = () => {
   return {
     kernel,
     apps,
-    isReady, // 现在的 isReady 会随着 refresh 自动保持同步,而不是bootSystem
+    isReady, // 由订阅与 refresh 保持同步，不再只靠 bootSystem
     loading,
     bootSystem: () => bootSystem({
       isPrivate: fileSystemConfig?.isPrivate || true,

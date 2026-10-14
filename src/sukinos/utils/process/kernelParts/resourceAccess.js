@@ -11,8 +11,6 @@ export class ResourceAccess {
   }
 }
 
-// ─── 代理导出函数──────────────────────
-
 export function getResource(kernel, resourceId) {
   return kernel.resourceAccess.getResource(resourceId)
 }

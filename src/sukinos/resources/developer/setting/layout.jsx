@@ -18,15 +18,20 @@ import Select from "@/component/select/drowSelection/layout";
 import Check from "@/component/check/layout";
 import Input from "@/component/input/layout";
 import { DEFAULT_ENTRY_CONFIG } from '@/sukinos/utils/entryConfig';
+import { isHtmlKey } from '@/sukinos/utils/process/sourceMapper';
 
 const bem = createNamespace('setting');
 
-// 分层检查结论的行首标签（错误码见 sourceMapper.inspectEntryLayering）
+// 分层检查结论的行首标签（错误码见 sourceMapper.inspectEntryLayering；每个码都要有名字，
+// 落到 issue.code 上只是原始字符串，作者读不出「logic-imports-css」是什么毛病）
 const LAYERING_CODE_LABELS = {
   'key-conflict': '同名冲突',
   'logic-imports-css': '逻辑引样式',
   'logic-import-missing': '依赖缺失',
+  'logic-exports': '主逻辑块导出',
   'page-imports-aux': '反向依赖',
+  'html-ref-missing': '文档引用缺失',
+  'html-ref-external': '文档外链',
 };
 
 // 入口匹配结果摘要：让配置改动立刻能看到命中了哪些文件
@@ -306,10 +311,17 @@ const VisualSettings = ({ appMeta, onUpdateAppMeta }) => {
   );
 };
 
-const UploadSettings = ({ uploadType, setUploadType }) => {
+const UploadSettings = ({ uploadType, setUploadType, entryConfig }) => {
   const handleCheckGroupChange = (values) => {
     if (values && values.length > 0) setUploadType(values[0]);
   };
+  // 视图入口是文档档时「逻辑页」这一档发不出去：它只装一个视图字符串，
+  // 文档要的样式与资源会整批丢失且不报错，所以这里直接不给选
+  const docEntry = isHtmlKey(entryConfig?.viewEntry || '');
+  // 入口改回 JSX 时不擅自改用户的模式；改成文档档时那一档已不可选，停在上面只会每次发布被拦
+  useEffect(() => {
+    if (docEntry && uploadType === 'logic') setUploadType('bundle');
+  }, [docEntry, uploadType, setUploadType]);
 
   return (
     <div className={style[bem.e('settings-card')]}>
@@ -325,7 +337,7 @@ const UploadSettings = ({ uploadType, setUploadType }) => {
             onChange={handleCheckGroupChange}
             options={[
               { label: '单文件', value: 'file' },
-              { label: '逻辑页', value: 'logic' },
+              { label: '逻辑页', value: 'logic', disabled: docEntry },
               { label: '多页面', value: 'bundle' }
             ]}
             size="small"
@@ -333,6 +345,11 @@ const UploadSettings = ({ uploadType, setUploadType }) => {
             type="primary"
           />
         </div>
+        {docEntry && (
+          <div className={style[bem.e('hint')]}>
+            视图入口是 .html：文档包按文件路径找载荷，所以要多页面这一档；单文件这一档只发自包含的单个 .html。
+          </div>
+        )}
       </div>
     </div>
   );
@@ -391,6 +408,10 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
 
         <div className={style[bem.e('sub-title')]} style={{ marginTop: '12px' }}>视图入口</div>
         <Input value={config.viewEntry || ''} onChange={(e) => patch({ viewEntry: e.target.value })} placeholder="layout.jsx" size="small" />
+        <div className={style[bem.e('hint')]} style={{ marginTop: '6px' }}>
+          写成 index.html（带后缀才命中）即改走文档档：内容包里的这份文档合成成自包含子文档渲染，
+          外部打包产物（dist）就按这条发布
+        </div>
 
         <div className={style[bem.e('sub-title')]} style={{ marginTop: '12px' }}>单文件内容入口</div>
         <Input value={config.mainEntry || ''} onChange={(e) => patch({ mainEntry: e.target.value })} placeholder="main.jsx" size="small" />
@@ -479,6 +500,7 @@ function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate
         <UploadSettings
           uploadType={uploadType}
           setUploadType={setUploadType}
+          entryConfig={entryConfig}
         />
 
         <EntrySettings

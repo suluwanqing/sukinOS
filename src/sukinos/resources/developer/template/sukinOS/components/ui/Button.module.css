@@ -1,4 +1,4 @@
-/* CSS Modules：通过 `import styles from './Button.module.css'` 导入，styles.btn 返回 'btn' */
+/* CSS Modules：通过 `import styles from './Button.module.css'` 导入，类名按所在文件加后缀（styles.btn → 'btn_哈希'） */
 .btn {
   padding: 4px 12px;
   cursor: pointer;
