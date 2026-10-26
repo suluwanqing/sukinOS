@@ -12,15 +12,7 @@ import { useSelector } from "react-redux";
 import { selectFileSystemConfig } from '@/sukinos/store';
 
 // 引入图标
-import CloseIcon from '@mui/icons-material/Close';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import FolderIcon from '@mui/icons-material/Folder';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
-import UploadFileIcon from '@mui/icons-material/UploadFile';
-import DriveFolderUploadIcon from '@mui/icons-material/DriveFolderUpload';
+import { X as CloseIcon, ArrowRight as ArrowForwardIcon, Folder as FolderIcon, File as InsertDriveFileIcon, RefreshCw as RefreshIcon, ArrowLeft as ArrowBackIcon, ArrowLeftRight as SwapHorizIcon, Upload as UploadFileIcon, FolderUp as DriveFolderUploadIcon } from 'lucide-react';
 
 // 使用 BEM 工具
 const bem = createNamespace('exchange');
@@ -122,19 +114,19 @@ const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, is
            {(mode === 'virtual' || (mode === 'local' && isPrivate)) && (
              <>
                 <button onClick={() => fileInputRef.current.click()} title="上传文件">
-                    <UploadFileIcon style={{ fontSize: 16 }} />
+                    <UploadFileIcon size={16} />
                 </button>
                 <button onClick={() => folderInputRef.current.click()} title="上传文件夹">
-                    <DriveFolderUploadIcon style={{ fontSize: 16 }} />
+                    <DriveFolderUploadIcon size={16} />
                 </button>
                 <div className={style[bem.e('divider')]} />
              </>
            )}
            <button onClick={handleBack} disabled={currentId === 'root'}>
-             <ArrowBackIcon style={{ fontSize: 16 }}/>
+             <ArrowBackIcon size={16} />
            </button>
            <button onClick={handleRefresh}>
-             <RefreshIcon style={{ fontSize: 16 }}/>
+             <RefreshIcon size={16} />
            </button>
         </div>
       </div>
@@ -157,8 +149,8 @@ const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, is
           >
             <div className={style[bem.e('icon')]}>
                {item.type === FileType.DIRECTORY ?
-                 <FolderIcon style={{ color: 'var(--su-yellow-400)' }} /> :
-                 <InsertDriveFileIcon style={{ color: 'var(--su-primary-300)' }} />
+                 <FolderIcon style={{ color: '#facc15' }} /> :
+                 <InsertDriveFileIcon style={{ color: '#7dd3fc' }} />
                }
             </div>
             <span className={style[bem.e('name')]} title={item.name}>{item.name}</span>
@@ -328,9 +320,9 @@ function ExChange({ visible, onClose }) {
           />
 
           <div className={style[bem.e('middle-indicator')]}>
-            <ArrowForwardIcon />
+            <ArrowForwardIcon width="1em" height="1em" />
             <span>交换</span>
-            <ArrowForwardIcon style={{ transform: 'rotate(180deg)' }}/>
+            <ArrowForwardIcon width="1em" height="1em" style={{ transform: 'rotate(180deg)' }} />
           </div>
 
           <FilePanel

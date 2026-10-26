@@ -3,10 +3,7 @@ import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 import { sukinOsActions, selectGenerateApp ,selectFileSystemConfig} from '@/sukinos/store';
 import Check from '@/component/check/layout';
-import SettingsSystemDaydreamIcon from '@mui/icons-material/SettingsSystemDaydream';
-import SecurityIcon from '@mui/icons-material/Security';
-import MemoryIcon from '@mui/icons-material/Memory';
-import LayersIcon from '@mui/icons-material/Layers';
+import { MonitorCog as SettingsSystemDaydreamIcon, ShieldCheck as SecurityIcon, Cpu as MemoryIcon, Layers as LayersIcon } from 'lucide-react';
 import { confirm} from "@/component/confirm/layout"
 import kernel from "@/sukinos/utils/process/kernel"
 
@@ -93,7 +90,7 @@ function System() {
 
       <div className={style[bem.e('section')]}>
         <div className={style[bem.e('section-title')]}>
-          <SettingsSystemDaydreamIcon style={{ fontSize: 18, marginRight: 8 }} />
+          <SettingsSystemDaydreamIcon size={18} style={{ marginRight: 8 }} />
           应用生成与运行环境
         </div>
 
@@ -101,7 +98,7 @@ function System() {
           <div className={style[bem.e('toggle-row')]}>
             <div className={style[bem.e('info-group')]}>
               <div className={style[bem.e('label-group')]}>
-                <MemoryIcon style={{ fontSize: 16, color: 'var(--su-primary-500)' }} />
+                <MemoryIcon size={16} style={{ color: '#0ea5e9' }} />
                 <span className={style[bem.e('label-bold')]}>单实例运行环境</span>
               </div>
               <span className={style[bem.e('description')]}>
@@ -123,7 +120,7 @@ function System() {
           <div className={style[bem.e('toggle-row')]}>
             <div className={style[bem.e('info-group')]}>
               <div className={style[bem.e('label-group')]}>
-                <LayersIcon style={{ fontSize: 16, color: generateAppConfig.useVirtualWorker ? 'var(--su-success-500)' : 'var(--su-primary-500)' }} />
+                <LayersIcon size={16} style={{ color: generateAppConfig.useVirtualWorker ? '#22c55e' : '#0ea5e9' }} />
                 <span className={style[bem.e('label-bold')]}>主线程轻量化运行沙箱</span>
               </div>
               <span className={style[bem.e('description')]}>
@@ -145,7 +142,7 @@ function System() {
           <div className={style[bem.e('toggle-row')]}>
             <div className={style[bem.e('info-group')]}>
               <div className={style[bem.e('label-group')]}>
-                <SecurityIcon style={{ fontSize: 16, color: generateAppConfig.truthAllApp ? '#ff4d4f' : 'var(--su-gray-500)' }} />
+                <SecurityIcon size={16} style={{ color: generateAppConfig.truthAllApp ? '#ff4d4f' : '#6b7280' }} />
                 <span className={style[bem.e('label-bold')]}>信任所有第三方应用</span>
               </div>
               <span className={style[bem.e('description')]}>
@@ -167,7 +164,7 @@ function System() {
           <div className={style[bem.e('toggle-row')]}>
             <div className={style[bem.e('info-group')]}>
               <div className={style[bem.e('label-group')]}>
-                <SecurityIcon style={{ fontSize: 16, color: fileSystemConfig?.isPrivate ? '#ff4d4f' : 'var(--su-gray-500)' }} />
+                <SecurityIcon size={16} style={{ color: fileSystemConfig?.isPrivate ? '#ff4d4f' : '#6b7280' }} />
                 <span className={style[bem.e('label-bold')]}>隐私模式</span>
               </div>
               <span className={style[bem.e('description')]}>

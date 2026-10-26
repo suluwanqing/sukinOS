@@ -1,10 +1,7 @@
 import React from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import InfoIcon from '@mui/icons-material/Info';
-import AppsIcon from '@mui/icons-material/Apps';
-import ExtensionIcon from '@mui/icons-material/Extension';
-import CodeIcon from '@mui/icons-material/Code';
+import { Info as InfoIcon, LayoutGrid as AppsIcon, Puzzle as ExtensionIcon, Code as CodeIcon } from 'lucide-react';
 
 const bem = createNamespace('setting-about');
 
@@ -23,7 +20,7 @@ const About = () => {
       desc: "命令式全局通知组件，支持多类型堆叠与自动关闭。",
       props: [
         { name: "info", type: "string", default: "-", options: "提示文本内容" },
-        { name: "duration", type: "number", default: "1500", options: "显示持续时间(ms)" },
+        { name: "duration", type: "number", default: "2500", options: "显示持续时间(ms)" },
         { name: "multiLine", type: "boolean", default: "false", options: "是否支持多行文本" },
         { name: "allowMultiple", type: "boolean", default: "false", options: "是否开启向下堆叠" }
       ],
@@ -44,10 +41,11 @@ const About = () => {
       name: "Button",
       desc: "系统标准交互按钮，支持多种状态与图标配置。",
       props: [
-        { name: "type", type: "string", default: "'default'", options: "primary|success|warning|danger|dark" },
+        { name: "type", type: "string", default: "'default'", options: "default|primary|success|warning|danger|info|dark" },
         { name: "size", type: "string", default: "'medium'", options: "large|medium|small" },
         { name: "loading", type: "boolean", default: "false", options: "显示加载动画" },
-        { name: "plain", type: "boolean", default: "false", options: "朴素/镂空模式" }
+        { name: "plain", type: "boolean", default: "false", options: "朴素/镂空模式" },
+        { name: "round", type: "boolean", default: "false", options: "全圆角（药丸）模式" }
       ],
       example: `<Button type="primary" size="small" loading={false}>\n  提交更改\n</Button>`
     },
@@ -60,14 +58,19 @@ const About = () => {
         { name: "prefixIcon", type: "ReactNode", default: "-", options: "前置辅助图标" },
         { name: "isRound", type: "boolean", default: "false", options: "全圆角样式" }
       ],
-      example: `<Input \n  clearable \n  prefixIcon={<UserIcon />} \n  placeholder="请输入账号" \n/>`
+      example: `<Input \n  clearable \n  prefixIcon={<User size={16} />} \n  placeholder="请输入账号" \n/>`
     },
     {
       name: "Check",
-      desc: "高性能状态开关切换器。",
+      desc: "开关切换器，自绘轨道与滑块，role=switch / aria-checked 由组件自己挂，空格与回车可切换。",
       props: [
         { name: "checked", type: "boolean", default: "false", options: "当前开关状态" },
-        { name: "type", type: "string", default: "'default'", options: "激活时的主题颜色" },
+        { name: "onChange", type: "function", default: "-", options: "(checked) => void" },
+        { name: "type", type: "string", default: "'default'", options: "default|primary|success|warning|danger|info|dark；配色只有两支：dark 走黑轨，其余一律紫" },
+        { name: "size", type: "string", default: "'medium'", options: "large|medium|small" },
+        { name: "dot", type: "boolean", default: "false", options: "圆点模式（更矮的轨道 + 大圆点）" },
+        { name: "round", type: "boolean", default: "false", options: "全圆角轨道" },
+        { name: "plain", type: "boolean", default: "false", options: "简约风格（透明轨道 + 带色边框）" },
         { name: "disabled", type: "boolean", default: "false", options: "是否禁用交互" }
       ],
       example: `<Check checked={active} onChange={setActive} type="success" />`
@@ -117,7 +120,7 @@ const About = () => {
   return (
     <div className={style[bem.b()]}>
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><InfoIcon style={{ fontSize: 18, marginRight: 8 }} /> 系统概览</div>
+        <div className={style[bem.e('section-title')]}><InfoIcon size={18} style={{ marginRight: 8 }} /> 系统概览</div>
         <div className={style[bem.e('card')]}>
           <div className={style[bem.e('hero')]}>
             <div className={style[bem.e('logo-box')]}>S</div>
@@ -141,7 +144,7 @@ const About = () => {
       </div>
 
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><AppsIcon style={{ fontSize: 18, marginRight: 8 }} /> 预制应用</div>
+        <div className={style[bem.e('section-title')]}><AppsIcon size={18} style={{ marginRight: 8 }} /> 预制应用</div>
         <div className={style[bem.e('grid')]}>
           {PREBUILT_APPS.map((app, index) => (
             <div key={index} className={style[bem.e('app-card')]}>
@@ -156,7 +159,7 @@ const About = () => {
       </div>
 
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><ExtensionIcon style={{ fontSize: 18, marginRight: 8 }} /> 内部组件库 (SDK UI)</div>
+        <div className={style[bem.e('section-title')]}><ExtensionIcon size={18} style={{ marginRight: 8 }} /> 内部组件库 (SDK UI)</div>
         {SYSTEM_COMPONENTS.map((comp, index) => (
           <div key={index} className={style[bem.e('card')]} style={{ marginBottom: 16 }}>
             <div className={style[bem.e('comp-info')]}>
@@ -188,7 +191,7 @@ const About = () => {
             </div>
 
             <div className={style[bem.e('example-header')]}>
-              <CodeIcon style={{ fontSize: 14, marginRight: 6 }} /> 使用示例
+              <CodeIcon size={14} style={{ marginRight: 6 }} /> 使用示例
             </div>
             <div className={style[bem.e('code-block')]}>
               <pre>{comp.example}</pre>

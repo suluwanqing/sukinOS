@@ -1,21 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import DescriptionIcon from '@mui/icons-material/Description';
-import ExtensionIcon from '@mui/icons-material/Extension';
-import BuildIcon from '@mui/icons-material/Build';
-import SecurityIcon from '@mui/icons-material/Security';
-import CodeIcon from '@mui/icons-material/Code';
-import FolderZipIcon from '@mui/icons-material/FolderZip';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import WebIcon from '@mui/icons-material/Web';
-import PublicIcon from '@mui/icons-material/Public';
-import StorageIcon from '@mui/icons-material/Storage';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import LayersIcon from '@mui/icons-material/Layers';
-import RocketLaunchIcon from '@mui/icons-material/RocketLaunch';
-import CloudQueueIcon from '@mui/icons-material/CloudQueue';
+import { FileText as DescriptionIcon, Puzzle as ExtensionIcon, Wrench as BuildIcon, ShieldCheck as SecurityIcon, Code as CodeIcon, Archive as FolderZipIcon, Network as AccountTreeIcon, Globe as WebIcon, Globe as PublicIcon, HardDrive as StorageIcon, CircleAlert as ErrorOutlineIcon, Bot as SmartToyIcon, Layers as LayersIcon, Rocket as RocketLaunchIcon, Cloud as CloudQueueIcon } from 'lucide-react';
 const bem = createNamespace('developer-helper');
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -53,7 +39,7 @@ const IntroSection = () => (
     <div className={style[bem.e('highlight')]}>
       <h4 className={style[bem.e('subtitle')]}>三种沙箱执行模式</h4>
       <ul className={style[bem.e('list')]}>
-        <li><strong>物理沙箱（普通应用的默认）：</strong>UI 通过 <code>createPortal</code> 泵入独立 iframe，CSS 完全隔离，MUI 样式通过 Emotion CacheProvider 单独注入。</li>
+        <li><strong>物理沙箱（普通应用的默认）：</strong>UI 通过 <code>createPortal</code> 泵入独立 iframe，CSS 完全隔离，<code>Emotion</code> 之类的运行时生成样式通过 CacheProvider 单独注入这个 iframe。</li>
         <li><strong>桥接模式：</strong>JS 在共享的幽灵 iframe 中执行，UI 渲染到宿主。由宿主的「单 Iframe」或「虚拟 Worker」开关打开。</li>
         <li><strong>寄生模式：</strong>JS 与 UI 都直接跑在宿主，适合系统级组件内嵌场景。它由 <code>metaInfo.isParasitism === true</code> 决定，
           目前只有预置系统应用带这个标记。</li>
@@ -391,9 +377,10 @@ export default ({ state }) => {
            Select（下拉）, BoardSelection（面板选择）, DateGoogle（日期选择）
 容器布局   Page, GeneralPurposePage, InfoList, PageList, Nav, RoolWrapper
 反馈浮层   alert, confirm, AlertConfirm, Notification, OverPlay, ContextMenu, Loading
-其他       Logo, getLogoBase64Url`}
+其他       Logo, getLogoBase64Url, Code`}
     </pre>
     <ul className={style[bem.e('list')]}>
+      <li><code>RoolWrapper</code> 与 <code>Code</code> 只透传 <code>children</code> 与 <code>className</code>，没有内建样式和行为，占位保住导出名。</li>
       <li><code>Button</code>：通用按钮，支持 <code>type="danger"</code> 等变体。<code>Input</code>：<code>forwardRef</code> 组件，支持受控/非受控。</li>
       <li><code>alert</code> 与 <code>confirm</code> 是<strong>命令式对象</strong>而不是组件：
         <code>alert.success(info)</code> / <code>alert.failure</code> / <code>alert.warning</code> / <code>alert.dark</code>，
@@ -402,8 +389,13 @@ export default ({ state }) => {
       <li>只有 <code>export default</code> 的组件（如 <code>AlertProvider</code>）<strong>不在这份名单里</strong>；
         <code>formData</code>、<code>tag</code>、<code>title</code> 三个目录没有具名导出，因此也没被注册。
         需要的能力请自己写在内容包里，用相对 <code>import</code> 引入。</li>
-      <li>这套组件依赖宿主的 Emotion 主题上下文，物理沙箱下已经通过 CacheProvider 接好；
-        <strong>请不要试图 <code>import</code> <code>@mui</code> 之类的第三方包</strong>——沙箱的 <code>require</code> 只认你内容包里的模块 key。</li>
+      <li>这套组件的样式是 Tailwind 工具类，<strong>颜色一律走语义令牌</strong>（<code>bg-popover</code>、<code>text-foreground</code>、<code>border-border</code> 这类），
+      不再写死字面色值：宿主 <code>global.css</code> 的 <code>:root</code> / <code>.dark</code> 里集中定义了 13 组语义令牌，
+      <code>@theme inline</code> 把它们映射成 <code>bg-*</code> / <code>text-*</code> / <code>border-*</code> 工具类；
+      <strong>深色有全局通道</strong>——在祖先节点挂 <code>dark</code> 类即可翻动整套配色（<code>@custom-variant dark</code> 已把 <code>dark:</code> 绑到 class 上）。
+      <code>Nav</code> 与 <code>PageList</code> 的 <code>theme="dark"</code> 就是靠这个实现的，不再各备第二套字面类名；
+      组件内部的图标是宿主打包好的内联 SVG，用 <code>currentColor</code> 上色，不做运行时样式注入；
+      <strong>请不要试图 <code>import</code> <code>@mui</code> 之类的第三方包</strong>——沙箱的 <code>require</code> 只认你内容包里的模块 key。</li>
     </ul>
 
     <h4 className={style[bem.e('subtitle')]}>系统应用额外组件</h4>

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import { confirm } from '@/component/Confirm/layout';
+import { confirm } from '@/component/confirm/layout';
 import useKernel from "@/sukinos/hooks/useKernel";
 import Button from "@/component/button/layout";
 const bem = createNamespace('upload');

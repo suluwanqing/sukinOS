@@ -32,7 +32,7 @@ const CloseIcon = () => (
 );
 
 const HelpOutlineIcon = () => (
-  <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "6px", color: "#999999" }}>
+  <svg width="1em" height="1em" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block", verticalAlign: "middle", marginRight: "6px", color: "#9ca3af", flexShrink: 0 }}>
     <circle cx="12" cy="12" r="10"></circle>
     <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
     <line x1="12" y1="17" x2="12.01" y2="17"></line>
@@ -226,6 +226,7 @@ function LogConfig() {
                 onChange={val => handleConfigUpdate("auditMode", val)}
                 options={AUDIT_MODE_OPTIONS}
                 direction="bottom"
+                size="small"
               />
             </div>
           </div>
@@ -260,7 +261,7 @@ function LogConfig() {
             value={newIgnorePath}
             onChange={e => setNewIgnorePath(e.target.value)}
           />
-          <Button type="dark" plain size="medium" onClick={handleAddIgnorePath}>
+          <Button type="dark" plain size="small" onClick={handleAddIgnorePath}>
             <span>加入持久化放行名单</span>
           </Button>
         </div>
@@ -273,6 +274,7 @@ function LogConfig() {
                 <button
                   className={style[bem.e("ignore-btn-remove")]}
                   onClick={() => handleRemoveIgnorePath(path)}
+                  title="移除路径"
                 >
                   <CloseIcon />
                 </button>
@@ -298,6 +300,7 @@ function LogConfig() {
               options={routeSelectOptions}
               placeholder="请选择已有接口路由"
               direction="bottom"
+              size="small"
             />
           </div>
           <div className={style[bem.e("input-wrapper")]}>
@@ -314,13 +317,14 @@ function LogConfig() {
               onChange={setRuleMethod}
               options={METHOD_OPTIONS}
               direction="bottom"
+              size="small"
             />
           </div>
           <div className={style[bem.e("prefix-checkbox")]}>
             <Check checked={ruleIsPrefix} onChange={setRuleIsPrefix} round type="dark" />
             <span>前缀匹配</span>
           </div>
-          <Button type="dark" size="medium" onClick={handleAddRule}>
+          <Button type="dark" size="small" onClick={handleAddRule}>
             <span>配置定制规则</span>
           </Button>
         </div>
@@ -376,6 +380,7 @@ function LogConfig() {
                     <button
                       className={style[bem.e("rule-btn-delete")]}
                       onClick={() => handleRemoveRule(idx)}
+                      title="删除规则"
                     >
                       <DeleteOutlineIcon />
                     </button>
@@ -394,7 +399,7 @@ function LogConfig() {
       <div className={style[bem.e("footer")]}>
         <Button
           type="dark"
-          size="medium"
+          size="small"
           loading={submitting}
           onClick={handleSaveConfig}
         >

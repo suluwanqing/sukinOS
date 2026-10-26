@@ -2,22 +2,22 @@
   height: 100%;
   width: 100%;
   display: flex;
-  background-color: var(--su-white);
+  background-color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  color: var(--su-gray-900);
+  color: #111827;
   overflow: hidden;
 }
 
 .su-store__sidebar {
   width: 200px;
   height: 100%;
-  background-color: var(--su-gray-50);
+  background-color: #f9fafb;
   display: flex;
   flex-direction: column;
   padding: 24px 12px;
   box-sizing: border-box;
   flex-shrink: 0;
-  border-right: 1px solid var(--su-gray-100);
+  border-right: 1px solid #f3f4f6;
 }
 
 .su-store__sidebar-header {
@@ -32,7 +32,7 @@
   width: 100%;
   height: 100%;
   overflow-y: scroll;
-  background-color: var(--su-white);
+  background-color: #ffffff;
 }
 
 .su-store__content::-webkit-scrollbar {
@@ -50,7 +50,7 @@
   font-size: 16px;
   font-weight: 700;
   letter-spacing: -0.2px;
-  color: var(--su-gray-800);
+  color: #1f2937;
 }
 
 .su-store__nav {
@@ -63,26 +63,26 @@
   padding: 10px 16px;
   cursor: pointer;
   font-size: 14px;
-  color: var(--su-gray-600);
+  color: #4b5563;
   border-radius: 8px;
   font-weight: 500;
 }
 
 .su-store__nav-item:hover {
-  background-color: var(--su-gray-100);
-  color: var(--su-gray-900);
+  background-color: #f3f4f6;
+  color: #111827;
 }
 
 .is-active {
-  background-color: var(--su-black) !important;
-  color: var(--su-white) !important;
+  background-color: #000000 !important;
+  color: #ffffff !important;
   font-weight: 600;
 }
 
 .su-store__content {
   flex: 1;
   height: 100%;
-  background-color: var(--su-white);
+  background-color: #ffffff;
   overflow-y: auto;
   box-sizing: border-box;
 }

@@ -11,13 +11,8 @@ const Explorer = lazy(() => import('./explorer/layout'));
 const AppView = lazy(() => import('./right/appView/layout'));
 const Helper = lazy(() => import('./right/healper/layout'));
 
-import GetAppIcon from '@mui/icons-material/GetApp';
-import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
+import { Download as GetAppIcon, MonitorDown as SystemUpdateAltIcon, FolderOpen as FolderOpenIcon, Settings as SettingsIcon, BookOpen as MenuBookIcon, Eye as VisibilityIcon } from 'lucide-react';
 import Nav from "./nav/layout"
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import SettingsIcon from '@mui/icons-material/Settings';
-import MenuBookIcon from '@mui/icons-material/MenuBook';
-import VisibilityIcon from '@mui/icons-material/Visibility';
 import { selectorUserInfo, selectorStoreSettingStorePath } from "@/sukinos/store"
 import { useDispatch, useSelector } from 'react-redux';
 import { DEFAULT_LAYOUT, DEFAULT_LOGO} from "@/sukinos/utils/config"
@@ -532,12 +527,12 @@ function Developer({ app }) {
 
   // 活动栏菜单
   const funcItems = [
-    { id: 'explorer', icon: <FolderOpenIcon fontSize="medium" />, title: '资源管理器', onClick: () => { setActiveSidebar('explorer'); setActiveMain('editor'); } },
-    { id: 'setting', icon: <SettingsIcon fontSize="medium" />, title: '配置', onClick: () => setActiveSidebar('setting') },
-    { id: 'upload', icon: <GetAppIcon fontSize="medium" />, title: '导入', onClick: () => setActiveMain('upload') },
-    { id: 'update', icon: <SystemUpdateAltIcon fontSize="medium" />, title: '更新', onClick: () => setActiveMain('update') },
-    { id: 'preview', icon: <VisibilityIcon fontSize="medium" />, title: '预览', onClick: () => handlePreviewApp(), hidden: !previewApp && activeMain !== 'preview' },
-    { id: 'helper', icon: <MenuBookIcon fontSize="medium" />, title: '手册', onClick: () => setActiveMain('helper') },
+    { id: 'explorer', icon: <FolderOpenIcon />, title: '资源管理器', onClick: () => { setActiveSidebar('explorer'); setActiveMain('editor'); } },
+    { id: 'setting', icon: <SettingsIcon />, title: '配置', onClick: () => setActiveSidebar('setting') },
+    { id: 'upload', icon: <GetAppIcon />, title: '导入', onClick: () => setActiveMain('upload') },
+    { id: 'update', icon: <SystemUpdateAltIcon />, title: '更新', onClick: () => setActiveMain('update') },
+    { id: 'preview', icon: <VisibilityIcon />, title: '预览', onClick: () => handlePreviewApp(), hidden: !previewApp && activeMain !== 'preview' },
+    { id: 'helper', icon: <MenuBookIcon />, title: '手册', onClick: () => setActiveMain('helper') },
   ];
 
   // 如果未登录，显示未登录提示

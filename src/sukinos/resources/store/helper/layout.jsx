@@ -1,12 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import DnsIcon from '@mui/icons-material/Dns';
-import CloudUploadIcon from '@mui/icons-material/CloudUpload';
-import CloudDownloadIcon from '@mui/icons-material/CloudDownload';
-import SystemUpdateAltIcon from '@mui/icons-material/SystemUpdateAlt';
-import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
-import CodeIcon from '@mui/icons-material/Code';
+import { Server as DnsIcon, CloudUpload as CloudUploadIcon, CloudDownload as CloudDownloadIcon, MonitorDown as SystemUpdateAltIcon, UserCog as ManageAccountsIcon, Code as CodeIcon } from 'lucide-react';
 const bem = createNamespace('store-helper');
 const codeUpload = `@appManage.post('/upload')
 async def sukinOS_upload(

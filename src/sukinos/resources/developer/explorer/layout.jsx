@@ -1,23 +1,11 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import AddIcon from '@mui/icons-material/Add';
-import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
-import CloseIcon from '@mui/icons-material/Close';
-import DescriptionIcon from '@mui/icons-material/Description';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import FolderIcon from '@mui/icons-material/Folder';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import SettingsIcon from '@mui/icons-material/Settings';
-import SyncIcon from '@mui/icons-material/Sync';
-import ComputerIcon from '@mui/icons-material/Computer';
-import ChevronRightIcon from '@mui/icons-material/ChevronRight';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import { Plus as AddIcon, FolderPlus as CreateNewFolderIcon, X as CloseIcon, FileText as DescriptionIcon, FolderOpen as FolderOpenIcon, Folder as FolderIcon, ArrowLeft as ArrowBackIcon, Settings as SettingsIcon, RefreshCw as SyncIcon, Monitor as ComputerIcon, ChevronRight as ChevronRightIcon, ChevronDown as ExpandMoreIcon, MoveVertical as DragIndicatorIcon } from 'lucide-react';
 import { FileType } from "@/sukinos/utils/config";
 import { alert } from '@/component/alert/layout'
 import { confirm } from '@/component/confirm/layout';
-import ContextMenu from '@/component/contextMenu/layout.jsx';
+import ContextMenu from '@/component/contextMenu/layout';
 import { DndContext, PointerSensor, closestCenter, pointerWithin, DragOverlay, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -110,13 +98,13 @@ function TreeNode({ node, depth, expanded, onToggleExpand, activeFile, setActive
           {...listeners}
         >
           <span className={style[bem.e('arrow')]} onClick={(e) => { e.stopPropagation(); onToggleExpand(node.path); }}>
-            {isDir ? (isExpanded ? <ExpandMoreIcon style={{ fontSize: 16 }} /> : <ChevronRightIcon style={{ fontSize: 16 }} />) : <span className={style[bem.e('arrow-spacer')]} />}
+            {isDir ? (isExpanded ? <ExpandMoreIcon size={16} /> : <ChevronRightIcon size={16} />) : <span className={style[bem.e('arrow-spacer')]} />}
           </span>
-          {isDir ? <FolderIcon style={{ fontSize: 16, color: '#f59e0b' }} /> : <DescriptionIcon style={{ fontSize: 16 }} />}
+          {isDir ? <FolderIcon size={16} style={{ color: '#f59e0b' }} /> : <DescriptionIcon size={16} />}
           <span className={style[bem.e('node-text')]}>{node.name}</span>
           {isEntry && <span className={style[bem.e('entry-flag')]}>入口</span>}
           {unsavedFiles.has(node.path) && <span className={style[bem.e('unsaved-dot')]}></span>}
-          <span className={style[bem.e('drag-handle')]}><DragIndicatorIcon style={{ fontSize: 14 }} /></span>
+          <span className={style[bem.e('drag-handle')]}><DragIndicatorIcon size={14} /></span>
         </div>
       </ContextMenu>
       {hint === 'after' && <div className={style[bem.e('drop-line')]} style={{ bottom: -1, left: indent }} />}
@@ -128,7 +116,7 @@ function TreeNode({ node, depth, expanded, onToggleExpand, activeFile, setActive
 function DragChip({ path, isDir }) {
   return (
     <div className={style[bem.e('drag-chip')]}>
-      {isDir ? <FolderIcon style={{ fontSize: 15, color: '#f59e0b' }} /> : <DescriptionIcon style={{ fontSize: 15 }} />}
+      {isDir ? <FolderIcon size={15} style={{ color: '#f59e0b' }} /> : <DescriptionIcon size={15} />}
       <span className={style[bem.e('drag-chip-text')]}>{path.split('/').pop()}</span>
     </div>
   );
@@ -501,14 +489,14 @@ function Explorer({
         <span className={style[bem.e('title')]}>资源管理器</span>
         <div className={style[bem.e('actions')]}>
           <button className={style[bem.e('icon-btn')]} onClick={handleToggleFsMode} title={fsMode === 'local' ? '本地模式' : '虚拟模式'}>
-            {fsMode === 'local' ? <ComputerIcon style={{ fontSize: 16, color: 'var(--su-primary)' }} /> : <SyncIcon style={{ fontSize: 16 }} />}
+            {fsMode === 'local' ? <ComputerIcon size={16} style={{ color: '#409eff' }} /> : <SyncIcon size={16} />}
           </button>
         </div>
       </div>
 
       {!isMapped ? (
         <div className={style[bem.e('unmapped-state')]}>
-          <FolderOpenIcon style={{ fontSize: 48, color: 'var(--su-gray-300)', marginBottom: 8 }} />
+          <FolderOpenIcon size={48} style={{ color: '#d1d5db', marginBottom: 8 }} />
           <button className={style[bem.e('modal-action-btn')]} onClick={openWorkspaceModal} style={{ margin: '0 auto' }}>
             {fsMode === 'local' ? '选择本地目录' : '选择工作区目录'}
           </button>
@@ -519,20 +507,20 @@ function Explorer({
             <div className={style[bem.e('mapping-header')]}>
               <span style={{ fontSize: '10px' }}>WORKSPACE ({fsMode.toUpperCase()})</span>
               <div className={style[bem.e('actions')]}>
-                <button className={style[bem.e('icon-btn')]} onClick={openWorkspaceModal} title="重选"><SettingsIcon fontSize="small" /></button>
+                <button className={style[bem.e('icon-btn')]} onClick={openWorkspaceModal} title="重选"><SettingsIcon size={20} /></button>
                  {/* <button className={style[bem.e('icon-btn')]} onClick={() => setShowImportModal(true)} title="导入"><FileDownloadIcon fontSize="small" /></button> */}
-                 <button className={style[bem.e('icon-btn')]} onClick={() => handleAddFile('', 'file')} title="新建文件"><AddIcon fontSize="small" /></button>
-                 <button className={style[bem.e('icon-btn')]} onClick={() => handleAddFile('', 'dir')} title="新建文件夹"><CreateNewFolderIcon fontSize="small" /></button>
+                 <button className={style[bem.e('icon-btn')]} onClick={() => handleAddFile('', 'file')} title="新建文件"><AddIcon size={20} /></button>
+                 <button className={style[bem.e('icon-btn')]} onClick={() => handleAddFile('', 'dir')} title="新建文件夹"><CreateNewFolderIcon size={20} /></button>
               </div>
             </div>
             <div className={style[bem.e('mapping-body')]}>
               <div className={style[bem.e('mapping-info')]} title={workspacePathStr}>
-                <FolderOpenIcon style={{ fontSize: 16, color: '#f59e0b' }} />
+                <FolderOpenIcon size={16} style={{ color: '#f59e0b' }} />
                 <span className={style[bem.e('mapping-path-text')]}>{workspacePathStr}</span>
               </div>
               <label className={style[bem.e('mapping-toggle')]}>
                 <input type="checkbox" checked={isAutoSave} onChange={e => setIsAutoSave(e.target.checked)} />
-                <SyncIcon style={{ fontSize: 14, color: isAutoSave ? 'var(--su-primary)' : 'var(--su-gray-400)' }} />
+                <SyncIcon size={14} style={{ color: isAutoSave ? '#409eff' : '#9ca3af' }} />
                 实时自动保存
               </label>
             </div>
@@ -569,10 +557,10 @@ function Explorer({
           <div className={style[bem.e('modal')]} onClick={e => e.stopPropagation()}>
             <div className={style[bem.e('modal-header')]}>
               <span className={style[bem.e('modal-title')]}>选择工作区目录</span>
-              <button className={style[bem.e('modal-close')]} onClick={() => setShowWorkspaceModal(false)}><CloseIcon fontSize="small" /></button>
+              <button className={style[bem.e('modal-close')]} onClick={() => setShowWorkspaceModal(false)}><CloseIcon size={20} /></button>
             </div>
             <div className={style[bem.e('modal-toolbar')]}>
-              <button className={style[bem.e('modal-action-btn')]} onClick={vfs.navigation.handleBack} disabled={vfs.state.history.length <= 1}><ArrowBackIcon style={{ fontSize: 14 }} /> 返回</button>
+              <button className={style[bem.e('modal-action-btn')]} onClick={vfs.navigation.handleBack} disabled={vfs.state.history.length <= 1}><ArrowBackIcon size={14} /> 返回</button>
               <div className={style[bem.e('modal-path-container')]}>
                 <span className={style[bem.e('modal-path')]}>{vfs.state.breadcrumbs.map(b => b.name === 'root' ? '' : b.name).join(' / ') || '/'}</span>
               </div>
@@ -580,7 +568,7 @@ function Explorer({
             <div className={style[bem.e('modal-body')]}>
               {vfs.state.items.filter(i => i.type === FileType.DIRECTORY).map(item => (
                 <div key={item.id} className={style[bem.e('fs-item')]} onClick={() => vfs.navigation.loadDir(item.id)}>
-                  <FolderIcon style={{ fontSize: 18, color: '#f59e0b' }} />
+                  <FolderIcon size={18} style={{ color: '#f59e0b' }} />
                   <span>{item.name}</span>
                 </div>
               ))}

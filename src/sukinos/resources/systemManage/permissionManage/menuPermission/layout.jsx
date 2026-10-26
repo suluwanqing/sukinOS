@@ -9,8 +9,7 @@ import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
 import PageList from "@/component/list/pageList/layout";
 import Modal from "@/component/modal/layout";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import { Pencil as EditIcon, Trash2 as DeleteIcon } from 'lucide-react';
 
 const bem = createNamespace("system-permission");
 
@@ -222,7 +221,7 @@ function MenuPermissionPanel() {
       render: (r) => (
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <button className={style[bem.e("action-btn")]} onClick={() => openEditModal(r.id)} title="编辑">
-            <EditIcon style={{ color: "#171717", fontSize: 16 }} />
+            <EditIcon size={16} style={{ color: "#171717" }} />
             <span style={{ marginLeft: 2, fontSize: 12 }}>编辑</span>
           </button>
           {!isNavItem(r.id) && (
@@ -242,7 +241,7 @@ function MenuPermissionPanel() {
                 },
               });
             }} title="删除" style={{ color: "#f43f5e" }}>
-              <DeleteIcon style={{ fontSize: 16 }} />
+              <DeleteIcon size={16} />
               <span style={{ marginLeft: 2, fontSize: 12 }}>删除</span>
             </button>
           )}

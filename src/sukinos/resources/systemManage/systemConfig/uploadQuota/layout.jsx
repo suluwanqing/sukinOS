@@ -201,9 +201,9 @@ function UploadQuota() {
           </p>
         </div>
         <div className={style[bem.e("head-actions")]}>
-          <Button type="default" size="medium" onClick={loadQuota} loading={loading}>重新载入</Button>
+          <Button type="default" size="small" onClick={loadQuota} loading={loading}>重新载入</Button>
           {canWrite && (
-            <Button type="dark" size="medium" loading={saving} onClick={handleSave}>应用并生效</Button>
+            <Button type="dark" size="small" loading={saving} onClick={handleSave}>应用并生效</Button>
           )}
         </div>
       </div>
@@ -294,14 +294,16 @@ function UploadQuota() {
 
         {canWrite && (
           <div className={style[bem.e("adder")]}>
-            <Select
-              value={newRoleId}
-              onChange={setNewRoleId}
-              options={pickableRoles}
-              placeholder="选择角色..."
-              direction="bottom"
-              size="small"
-            />
+            <div style={{ width: 180 }}>
+              <Select
+                value={newRoleId}
+                onChange={setNewRoleId}
+                options={pickableRoles}
+                placeholder="选择角色..."
+                direction="bottom"
+                size="small"
+              />
+            </div>
             <Button type="dark" plain size="small" onClick={addRoleRow}>加入角色档</Button>
           </div>
         )}
@@ -340,15 +342,17 @@ function UploadQuota() {
 
         {canWrite && (
           <div className={style[bem.e("adder")]}>
-            <Select
-              value={newUserId}
-              onChange={setNewUserId}
-              optionsAsync={searchUsers}
-              searchable
-              placeholder="搜索账号..."
-              direction="bottom"
-              size="small"
-            />
+            <div style={{ width: 220 }}>
+              <Select
+                value={newUserId}
+                onChange={setNewUserId}
+                optionsAsync={searchUsers}
+                searchable
+                placeholder="搜索账号..."
+                direction="bottom"
+                size="small"
+              />
+            </div>
             <Button type="dark" plain size="small" onClick={addUserRow}>加入用户档</Button>
           </div>
         )}

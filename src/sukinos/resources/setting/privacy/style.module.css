@@ -7,7 +7,7 @@
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-  color: var(--su-text-color-regular);
+  color: #606266;
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -15,8 +15,8 @@
 
 .su-setting-privacy__card {
   padding: 32px;
-  background: var(--su-bg-color);
-  border: 1px solid var(--su-border-color);
+  background: #ffffff;
+  border: 1px solid #dcdfe6;
   border-radius: 12px;
 }
 
@@ -29,18 +29,18 @@
   font-size: 20px;
   font-weight: 700;
   margin: 0 0 12px 0;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-setting-privacy__description {
   font-size: 13px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
   line-height: 1.6;
 }
 
 .su-setting-privacy__divider {
   height: 1px;
-  background: var(--su-border-color-extra-light);
+  background: #f2f6fc;
   margin: 24px 0;
 }
 
@@ -51,7 +51,7 @@
 .su-setting-privacy__label-bold {
   font-size: 14px;
   font-weight: 600;
-  color: var(--su-text-color-primary);
+  color: #303133;
   display: block;
   margin-bottom: 6px;
 }

@@ -11,8 +11,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import systemAPI from "@/apis/system/main.jsx";
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import TimelineIcon from '@mui/icons-material/Timeline';
+import { ChartColumn as AssessmentIcon, ChartGantt as TimelineIcon } from 'lucide-react';
 
 // 注册必须的组件
 use([
@@ -124,7 +123,7 @@ function TrendChart({ data }) {
     <div ref={ref} style={{ width: "100%", height: "100%" }} />
   ) : (
     <div className={style[bem.e("empty-chart")]}>
-      <TimelineIcon sx={{ fontSize: 44, color: "#e5e7eb", mb: 1 }} />
+      <TimelineIcon size={44} style={{ color: "#e5e7eb", marginBottom: 8 }} />
       <span>暂无趋势数据</span>
     </div>
   );
@@ -169,7 +168,7 @@ function TimePieChart({ data }) {
     <div ref={ref} style={{ width: "100%", height: "100%" }} />
   ) : (
     <div className={style[bem.e("empty-chart")]}>
-      <AssessmentIcon sx={{ fontSize: 44, color: "#e5e7eb", mb: 1 }} />
+      <AssessmentIcon size={44} style={{ color: "#e5e7eb", marginBottom: 8 }} />
       <span>暂无统计数据</span>
     </div>
   );

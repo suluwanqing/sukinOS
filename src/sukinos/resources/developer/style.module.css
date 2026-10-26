@@ -3,7 +3,7 @@
   height: 100dvh;
   display: flex;
   overflow: hidden;
-  background-color: var(--su-bg-color);
+  background-color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .su-developer__activity-bar {
@@ -11,15 +11,15 @@
   height: 100%;
   flex-shrink: 0;
   z-index: 10;
-  background-color: var(--su-fill-color-light);
-  border-right: 1px solid var(--su-border-color);
+  background-color: #f5f7fa;
+  border-right: 1px solid #dcdfe6;
   display: flex;
   flex-direction: column;
 }
 .su-developer__sidebar-wrapper {
   height: 100%;
   flex-shrink: 0;
-  background-color: var(--su-bg-color-page);
+  background-color: #f2f3f5;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -37,7 +37,7 @@
 
 .su-developer__sidebar-resizer:hover,
 .su-developer__sidebar-resizer:active {
-  background: var(--su-primary-500);
+  background: #0ea5e9;
 }
 .su-developer__main-wrapper {
   flex: 1;
@@ -45,7 +45,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: var(--su-bg-color);
+  background-color: #ffffff;
   min-width: 0;
 }
 .su-developer__unlogin-state {
@@ -59,7 +59,7 @@
 
 .su-developer__unlogin-content {
   text-align: center;
-  color: var(--su-gray-500);
+  color: #6b7280;
 }
 
 .su-developer__unlogin-content h3 {

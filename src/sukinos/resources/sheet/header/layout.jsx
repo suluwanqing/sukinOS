@@ -1,10 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import SearchIcon from '@mui/icons-material/Search';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
-import DownloadIcon from '@mui/icons-material/Download';
-import UploadIcon from '@mui/icons-material/Upload';
+import { Search as SearchIcon, Columns3 as ViewColumnIcon, Download as DownloadIcon, Upload as UploadIcon } from 'lucide-react';
 import Input from '@/component/input/layout';
 
 const bem = createNamespace('br-header');
@@ -107,13 +104,13 @@ function Header({ store }) {
             onChange={handleFileChange}
           />
           <button className={style[bem.e('btn')]} onClick={() => fileInputRef.current?.click()}>
-            <UploadIcon sx={{ fontSize: 16, marginRight: '4px' }} />
+            <UploadIcon size={16} style={{ marginRight: '4px' }} />
             导入
           </button>
 
           <div className={style[bem.e('dropdown-wrap')]} ref={exportPanelRef}>
             <button className={style[bem.e('btn')]} onClick={() => setShowExportPanel(!showExportPanel)}>
-              <DownloadIcon sx={{ fontSize: 16, marginRight: '4px' }} />
+              <DownloadIcon size={16} style={{ marginRight: '4px' }} />
               导出
             </button>
             {showExportPanel && (
@@ -154,7 +151,7 @@ function Header({ store }) {
               className={`${style[bem.e('tool-btn')]} ${showHidePanel ? style['is-active'] : ''}`}
               onClick={() => setShowHidePanel(!showHidePanel)}
             >
-              <ViewColumnIcon sx={{ fontSize: 16, marginRight: '4px' }} />
+              <ViewColumnIcon size={16} style={{ marginRight: '4px' }} />
               显示列
             </button>
             {showHidePanel && (
@@ -191,7 +188,7 @@ function Header({ store }) {
               }}
               placeholder="搜索记录..."
               clearable
-              prefixIcon={<SearchIcon style={{ fontSize: 16, color: '#94a3b8' }} />}
+              prefixIcon={<SearchIcon size={16} style={{ color: '#94a3b8' }} />}
             />
           </div>
         </div>

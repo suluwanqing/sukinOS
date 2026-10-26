@@ -7,19 +7,12 @@ import { CanvasRenderer } from "echarts/renderers";
 import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import requestLogAPI from "@/apis/system/requestLog";
-import PageList from "@/component/list/pagelist/layout";
+import PageList from "@/component/list/pageList/layout";
 import Button from "@/component/button/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
-import SearchIcon from "@mui/icons-material/Search";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import TimelineIcon from "@mui/icons-material/Timeline";
-import SpeedIcon from "@mui/icons-material/Speed";
-import RefreshIcon from "@mui/icons-material/Refresh";
+import { Search as SearchIcon, Eye as VisibilityIcon, Trash2 as DeleteIcon, CircleCheck as CheckCircleOutlineIcon, CircleAlert as ErrorOutlineIcon, ChartGantt as TimelineIcon, Gauge as SpeedIcon, RefreshCw as RefreshIcon } from 'lucide-react';
 
 import useDebounce from "@/sukinos/hooks/useDebounce";
 import useThrottle from "@/sukinos/hooks/useThrottle";
@@ -533,25 +526,25 @@ function SystemLog() {
             <div className={style[bem.e("card-head")]}>当前指标</div>
             <div className={style[bem.e("stat-grid")]}>
               <StatCard
-                icon={<TimelineIcon fontSize="inherit" />}
+                icon={<TimelineIcon width="1em" height="1em" />}
                 label="日志总量"
                 value={stats?.total}
                 tone="indigo"
               />
               <StatCard
-                icon={<CheckCircleOutlineIcon fontSize="inherit" />}
+                icon={<CheckCircleOutlineIcon width="1em" height="1em" />}
                 label="成功记录"
                 value={stats?.success}
                 tone="emerald"
               />
               <StatCard
-                icon={<ErrorOutlineIcon fontSize="inherit" />}
+                icon={<ErrorOutlineIcon width="1em" height="1em" />}
                 label="失败记录"
                 value={stats?.failed}
                 tone="rose"
               />
               <StatCard
-                icon={<SpeedIcon fontSize="inherit" />}
+                icon={<SpeedIcon width="1em" height="1em" />}
                 label="平均耗时"
                 value={stats ? `${stats.avg_duration ?? stats.avgDuration}ms` : "-"}
                 tone="amber"
@@ -589,7 +582,7 @@ function SystemLog() {
           <div className={style[bem.e("toolbar")]}>
             <div className={style[bem.e("toolbar-left")]}>
               <div className={style[bem.e("search-bar")]}>
-                <SearchIcon fontSize="small" style={{ color: "#9ca3af" }} />
+                <SearchIcon size={20} style={{ color: "#9ca3af" }} />
                 <input
                   placeholder="搜索接口、操作者..."
                   value={keywordInput}
@@ -649,7 +642,7 @@ function SystemLog() {
                 title="刷新数据"
                 disabled={refreshing}
               >
-                <RefreshIcon fontSize="small" />
+                <RefreshIcon size={20} />
                 <span>刷新</span>
               </button>
               <Button type="primary" plain size="small" onClick={handleExport}>导出CSV</Button>

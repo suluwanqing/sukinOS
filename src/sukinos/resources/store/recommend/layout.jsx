@@ -2,7 +2,7 @@ import { useEffect, useRef, useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 import Input from '@/component/input/layout';
-import SearchIcon from '@mui/icons-material/Search';
+import { Search as SearchIcon } from 'lucide-react';
 
 const bem = createNamespace('recommend');
 
@@ -77,7 +77,7 @@ function Recommend({
               placeholder="搜索商店应用..."
               isRound
               clearable
-              prefixIcon={<SearchIcon style={{ fontSize: 18, color: '#999' }} />}
+              prefixIcon={<SearchIcon size={18} style={{ color: '#999' }} />}
             />
           </div>
         </div>

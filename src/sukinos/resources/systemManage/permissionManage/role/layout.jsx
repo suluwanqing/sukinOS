@@ -8,8 +8,7 @@ import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
 import PageList from "@/component/list/pageList/layout";
 import Modal from "@/component/modal/layout";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+import { Pencil as EditIcon, Trash2 as DeleteIcon } from 'lucide-react';
 
 const bem = createNamespace("system-permission");
 
@@ -116,7 +115,7 @@ function RolePanel() {
             title="编辑"
             style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 6px", borderRadius: 6, display: "inline-flex", alignItems: "center" }}
           >
-            <EditIcon style={{ color: "#171717", fontSize: 18 }} />
+            <EditIcon size={18} style={{ color: "#171717" }} />
           </button>
           {!r.is_system && (
             <button
@@ -125,7 +124,7 @@ function RolePanel() {
               title="删除"
               style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 6px", borderRadius: 6, display: "inline-flex", alignItems: "center" }}
             >
-              <DeleteIcon style={{ color: "#ef4444", fontSize: 18 }} />
+              <DeleteIcon size={18} style={{ color: "#ef4444" }} />
             </button>
           )}
         </div>

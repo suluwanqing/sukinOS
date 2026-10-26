@@ -11,7 +11,7 @@
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-  color: var(--su-text-color-regular);
+  color: #606266;
   margin-bottom: 16px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -19,8 +19,8 @@
 
 .su-setting-about__card {
   padding: 24px;
-  background: var(--su-bg-color);
-  border: 1px solid var(--su-border-color);
+  background: #ffffff;
+  border: 1px solid #dcdfe6;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -34,8 +34,8 @@
 .su-setting-about__logo-box {
   width: 60px;
   height: 60px;
-  background: var(--su-text-color-primary);
-  color: var(--su-white);
+  background: #303133;
+  color: #ffffff;
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -48,17 +48,17 @@
   font-size: 24px;
   font-weight: 800;
   margin: 0;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-setting-about__version-text {
   font-size: 12px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
 }
 
 .su-setting-about__divider {
   height: 1px;
-  background: var(--su-border-color-extra-light);
+  background: #f2f6fc;
   margin: 20px 0;
 }
 
@@ -75,7 +75,7 @@
 
 .su-setting-about__label {
   font-size: 11px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
   text-transform: uppercase;
   font-weight: 600;
 }
@@ -83,7 +83,7 @@
 .su-setting-about__value {
   font-size: 13px;
   font-weight: 600;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-setting-about__grid {
@@ -94,8 +94,8 @@
 
 .su-setting-about__app-card {
   padding: 20px;
-  background: var(--su-bg-color);
-  border: 1px solid var(--su-border-color);
+  background: #ffffff;
+  border: 1px solid #dcdfe6;
   border-radius: 12px;
 }
 
@@ -109,26 +109,26 @@
 .su-setting-about__label-bold {
   font-size: 14px;
   font-weight: 600;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-setting-about__tag {
   font-size: 10px;
   padding: 2px 6px;
-  background: var(--su-fill-color-light);
+  background: #f5f7fa;
   border-radius: 4px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
 }
 
 .su-setting-about__description {
   font-size: 12px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
   line-height: 1.6;
 }
 
 .su-setting-about__table-container {
   margin: 16px 0;
-  border: 1px solid var(--su-border-color-extra-light);
+  border: 1px solid #f2f6fc;
   border-radius: 8px;
   overflow: hidden;
 }
@@ -141,21 +141,21 @@
 }
 
 .su-setting-about__table th {
-  background: var(--su-fill-color-light);
+  background: #f5f7fa;
   padding: 10px 12px;
-  color: var(--su-text-color-regular);
+  color: #606266;
   font-weight: 700;
 }
 
 .su-setting-about__table td {
   padding: 10px 12px;
-  border-top: 1px solid var(--su-border-color-extra-light);
-  color: var(--su-text-color-primary);
+  border-top: 1px solid #f2f6fc;
+  color: #303133;
 }
 
 .su-setting-about__code-inline {
-  background: rgba(var(--su-primary-rgb), 0.1);
-  color: var(--su-text-color-primary);
+  background: rgba(64, 158, 255, 0.1);
+  color: #303133;
   padding: 2px 4px;
   border-radius: 4px;
   font-family: monospace;
@@ -167,13 +167,13 @@
 }
 
 .su-setting-about__option-cell {
-  color: var(--su-text-color-secondary);
+  color: #909399;
 }
 
 .su-setting-about__example-header {
   font-size: 11px;
   font-weight: 700;
-  color: var(--su-text-color-secondary);
+  color: #909399;
   margin: 12px 0 8px 0;
   display: flex;
   align-items: center;

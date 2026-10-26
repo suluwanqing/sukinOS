@@ -1,14 +1,7 @@
 import React, { useState } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
-import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
-import TuneOutlinedIcon from '@mui/icons-material/TuneOutlined';
-import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
-import ImportExportOutlinedIcon from '@mui/icons-material/ImportExportOutlined';
-import StorageOutlinedIcon from '@mui/icons-material/StorageOutlined';
-import BookOutlinedIcon from '@mui/icons-material/BookOutlined';
+import { BookOpenText as AutoStoriesOutlinedIcon, Table as TableChartOutlinedIcon, Network as AccountTreeOutlinedIcon, SlidersHorizontal as TuneOutlinedIcon, LayoutDashboard as DashboardOutlinedIcon, ArrowLeftRight as ImportExportOutlinedIcon, HardDrive as StorageOutlinedIcon, BookOpen as BookOutlinedIcon } from 'lucide-react';
 
 const bem = createNamespace('br-manual');
 
@@ -16,13 +9,13 @@ function ManualView() {
   const [activeTab, setActiveTab] = useState('intro');
 
   const menuItems = [
-    { id: 'intro', label: '快速入门', icon: <AutoStoriesOutlinedIcon sx={{ fontSize: 18 }} /> },
-    { id: 'tables', label: '表格管理', icon: <TableChartOutlinedIcon sx={{ fontSize: 18 }} /> },
-    { id: 'tree', label: '树状层级', icon: <AccountTreeOutlinedIcon sx={{ fontSize: 18 }} /> },
-    { id: 'fields', label: '字段定义', icon: <TuneOutlinedIcon sx={{ fontSize: 18 }} /> },
-    { id: 'views', label: '多重视图', icon: <DashboardOutlinedIcon sx={{ fontSize: 18 }} /> },
-    { id: 'impexp', label: '数据备份', icon: <ImportExportOutlinedIcon sx={{ fontSize: 18 }} /> },
-    { id: 'storage', label: '离线保存', icon: <StorageOutlinedIcon sx={{ fontSize: 18 }} /> },
+    { id: 'intro', label: '快速入门', icon: <AutoStoriesOutlinedIcon size={18} /> },
+    { id: 'tables', label: '表格管理', icon: <TableChartOutlinedIcon size={18} /> },
+    { id: 'tree', label: '树状层级', icon: <AccountTreeOutlinedIcon size={18} /> },
+    { id: 'fields', label: '字段定义', icon: <TuneOutlinedIcon size={18} /> },
+    { id: 'views', label: '多重视图', icon: <DashboardOutlinedIcon size={18} /> },
+    { id: 'impexp', label: '数据备份', icon: <ImportExportOutlinedIcon size={18} /> },
+    { id: 'storage', label: '离线保存', icon: <StorageOutlinedIcon size={18} /> },
   ];
 
   const renderContent = () => {
@@ -133,7 +126,7 @@ function ManualView() {
     <div className={style[bem.b()]}>
       <div className={style[bem.e('aside')]}>
         <div className={style[bem.e('menu-title')]}>
-          <BookOutlinedIcon sx={{ fontSize: 18, marginRight: '8px' }} />
+          <BookOutlinedIcon size={18} style={{ marginRight: '8px' }} />
           使用指南目录
         </div>
         <div className={style[bem.e('menu')]}>

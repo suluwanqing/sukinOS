@@ -5,12 +5,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, horizontalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import CustomSelect from '../components/select/layout';
 import Cell from '../cell/layout';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import TuneIcon from '@mui/icons-material/Tune';
-import AddIcon from '@mui/icons-material/Add';
-import SubdirectoryArrowRightIcon from '@mui/icons-material/SubdirectoryArrowRight';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { MoveVertical as DragIndicatorIcon, SlidersHorizontal as TuneIcon, Plus as AddIcon, CornerDownRight as SubdirectoryArrowRightIcon, Trash2 as DeleteIcon, ChevronDown as ArrowDropDownIcon } from 'lucide-react';
 import useWheelToHorizontalScroll from '@/sukinos/hooks/useWheelToHorizontalScroll';
 
 const bem = createNamespace('br-grid');
@@ -59,7 +54,7 @@ function SortableHeader({ column, store, onEditColumn }) {
     <th ref={setNodeRef} style={dndStyle} className={`${style[bem.e('th')]} ${isDragging ? style['is-dragging'] : ''}`}>
       <div className={style[bem.e('th-inner')]}>
         <div {...attributes} {...listeners} className={style[bem.e('th-drag')]} title="长按拖拽排序">
-          <DragIndicatorIcon sx={{ fontSize: 16 }} />
+          <DragIndicatorIcon size={16} />
         </div>
         <div
           className={style[bem.e('th-content')]}
@@ -75,7 +70,7 @@ function SortableHeader({ column, store, onEditColumn }) {
           )}
         </div>
         <div className={style[bem.e('th-setting')]} onClick={() => onEditColumn(column)} title="列设置">
-          <TuneIcon sx={{ fontSize: 16 }} />
+          <TuneIcon size={16} />
         </div>
       </div>
       <div className={style[bem.e('th-resize')]} onMouseDown={handleResize} />
@@ -193,7 +188,7 @@ function ColumnModal({ column, store, onClose, onSave, onDelete }) {
                 <div className={style[bem.e('custom-select-trigger-wrap')]}>
                   <div className={style[bem.e('select-trigger')]} onClick={() => setShowPresetDrop(!showPresetDrop)}>
                     <span>选择预制导入配置</span>
-                    <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                    <ArrowDropDownIcon size={18} />
                   </div>
                   {showPresetDrop && (
                     <CustomSelect
@@ -229,7 +224,7 @@ function ColumnModal({ column, store, onClose, onSave, onDelete }) {
                   <span title={fieldTypes.find(t => t.value === form.type)?.label || ''}>
                     {fieldTypes.find(t => t.value === form.type)?.label || '选择字段类型'}
                   </span>
-                  <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                  <ArrowDropDownIcon size={18} />
                 </div>
                 {showTypeDrop && (
                   <CustomSelect
@@ -257,7 +252,7 @@ function ColumnModal({ column, store, onClose, onSave, onDelete }) {
                 <div className={style[bem.e('custom-select-trigger-wrap')]}>
                   <div className={style[bem.e('select-trigger')]} onClick={() => setShowBoolDrop(!showBoolDrop)}>
                     <span title={form.defaultValue ? '选中' : '未选中'}>{form.defaultValue ? '选中' : '未选中'}</span>
-                    <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                    <ArrowDropDownIcon size={18} />
                   </div>
                   {showBoolDrop && (
                     <CustomSelect
@@ -276,7 +271,7 @@ function ColumnModal({ column, store, onClose, onSave, onDelete }) {
                 <div className={style[bem.e('custom-select-trigger-wrap')]}>
                   <div className={style[bem.e('select-trigger')]} onClick={() => setShowSelectDefaultDrop(!showSelectDefaultDrop)}>
                     <span title={form.defaultValue || '-- 无默认值 --'}>{form.defaultValue || '-- 无默认值 --'}</span>
-                    <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                    <ArrowDropDownIcon size={18} />
                   </div>
                   {showSelectDefaultDrop && (
                     <CustomSelect
@@ -545,7 +540,7 @@ function GridView({ store }) {
                     {rec[activeTable.columns[0]?.id] || '无标题'}
                   </span>
                   <button className={style[bem.e('card-del-btn')]} onClick={() => handleDeleteRecord(rec.id)}>
-                    <DeleteIcon sx={{ fontSize: 16 }} />
+                    <DeleteIcon size={16} />
                   </button>
                 </div>
                 <div className={style[bem.e('card-body')]}>
@@ -620,7 +615,7 @@ function GridView({ store }) {
             );
           })}
           <div className={style[bem.e('card-add-placeholder')]} onClick={() => handleAddRecord(null)}>
-            <AddIcon sx={{ fontSize: 20 }} style={{ marginRight: '6px' }} />
+            <AddIcon size={20} style={{ marginRight: '6px' }} />
             新建卡片
           </div>
         </div>
@@ -769,7 +764,7 @@ function GridView({ store }) {
                   ))}
                 </SortableContext>
                 <th className={style[bem.e('th-add')]} onClick={() => setColModalState({ visible: true, column: null })} title="添加字段">
-                  <AddIcon sx={{ fontSize: 16 }} />
+                  <AddIcon size={16} />
                 </th>
               </tr>
             </thead>
@@ -781,10 +776,10 @@ function GridView({ store }) {
                       <span className={style[bem.e('row-num')]}>{index + 1}</span>
                       <div className={style[bem.e('row-btns')]}>
                         <button onClick={() => handleAddRecord(row.id)} title="添加子项">
-                          <SubdirectoryArrowRightIcon sx={{ fontSize: 14 }} />
+                          <SubdirectoryArrowRightIcon size={14} />
                         </button>
                         <button onClick={() => handleDeleteRecord(row.id)} title="删除行">
-                          <DeleteIcon sx={{ fontSize: 14 }} />
+                          <DeleteIcon size={14} />
                         </button>
                       </div>
                     </div>
@@ -799,7 +794,7 @@ function GridView({ store }) {
               ))}
               <tr className={style[bem.e('tr-add')]} onClick={() => handleAddRecord(null)}>
                 <td className={style[bem.e('td-index')]}>
-                  <AddIcon sx={{ fontSize: 14 }} />
+                  <AddIcon size={14} />
                 </td>
                 <td colSpan={visibleCols.length + 1} className={style[bem.e('td-add-text')]}>
                   点击新增首层级数据

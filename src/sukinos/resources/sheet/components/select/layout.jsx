@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import CheckIcon from '@mui/icons-material/Check';
+import { Check as CheckIcon } from 'lucide-react';
 
 const bem = createNamespace('br-select');
 
@@ -46,7 +46,7 @@ function CustomSelect({ options = [], value, onCommit, onClose, placeholder = "æ
             <div key={idx} className={style[bem.e('item')]} onClick={() => { onCommit(val); onClose(); }}>
               {color && <div className={style[bem.e('dot')]} style={{ backgroundColor: color }} />}
               <span>{label}</span>
-              {isSelected && <CheckIcon sx={{ fontSize: 14, marginLeft: 'auto', color: '#3b82f6' }} />}
+              {isSelected && <CheckIcon size={14} style={{ marginLeft: 'auto', color: '#3b82f6' }} />}
             </div>
           );
         })}

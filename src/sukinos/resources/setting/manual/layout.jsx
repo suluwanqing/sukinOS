@@ -1,14 +1,14 @@
 import React from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import ArticleIcon from '@mui/icons-material/Article';
+import { FileText as ArticleIcon } from 'lucide-react';
 
 const bem = createNamespace('setting-manual');
 
 const ManualRenderer = ({ title, paragraphs }) => (
   <div className={style[bem.b()]}>
     <div className={style[bem.e('header')]}>
-      <ArticleIcon className={style[bem.e('icon')]} />
+      <ArticleIcon className={style[bem.e('icon')]} width="1em" height="1em" />
       <h2 className={style[bem.e('title')]}>{title}</h2>
     </div>
     <div className={style[bem.e('divider')]} />

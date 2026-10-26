@@ -215,7 +215,7 @@ export const DEFAULT_LAYOUT = `/*
 */
 
     export const style = \`
-      .nav { background: var(--su-gray-100); padding: 12px; display: flex; gap: 10px; border-bottom: 1px solid var(--su-border-color); }
+      .nav { background: #f3f4f6; padding: 12px; display: flex; gap: 10px; border-bottom: 1px solid #dcdfe6; }
       .link { cursor: pointer; color: #007bff; font-weight: 500; }
       .body { padding: 20px; }
     \`;

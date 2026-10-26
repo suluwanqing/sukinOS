@@ -5,7 +5,7 @@ import { sukinOsActions, selectorUserInfo, selectorRoutePermissionsLoaded, selec
 import { asistant as asistantApi, login as loginApi, user as userApi } from '@/apis/auth';
 import permissionManageAPI from "@/apis/system/permissionManage";
 import { updateRoutePermissionCache } from '@/middleware/routePermission/cache';
-import { alert } from '@/component/Alert/layout';
+import { alert } from '@/component/alert/layout';
 import generateShortSeed from "/utils/js/rootSeed"
 import loginDateWs from '/utils/js/socket/loginDate/main'
 import { authLock, startAutoRefresh, stopAutoRefresh } from '/utils/js/authLock';

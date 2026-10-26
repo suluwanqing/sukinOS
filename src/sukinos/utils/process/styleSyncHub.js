@@ -32,7 +32,7 @@ class StyleSyncHub {
           .join('\n')
         if (rules) parts.push(rules)
       } catch {
-        // 跨域 sheet 跳过（iconfont CDN 等）
+        // 跨域 sheet 读 cssRules 必抛，只能整张跳过
       }
     }
     return parts.join('\n')

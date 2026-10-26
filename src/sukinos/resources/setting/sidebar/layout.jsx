@@ -1,7 +1,7 @@
 import React from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import SearchIcon from '@mui/icons-material/Search';
+import { Search as SearchIcon } from 'lucide-react';
 
 const bem = createNamespace('setting-sidebar');
 
@@ -12,7 +12,7 @@ function Sidebar({ items, activeId, onSelect }) {
         <h2 className={style[bem.e('title')]}>设置</h2>
         <div className={style[bem.e('search-wrapper')]}>
           <div className={style[bem.e('search-inner')]}>
-            <SearchIcon className={style[bem.e('search-icon')]} />
+            <SearchIcon className={style[bem.e('search-icon')]} width="1em" height="1em" />
             <input
               type="text"
               placeholder="查找设置"

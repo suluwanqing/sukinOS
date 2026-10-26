@@ -1,10 +1,7 @@
 import { useState, useEffect } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import UploadIcon from '@mui/icons-material/Upload';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import { FolderOpen as FolderOpenIcon, Upload as UploadIcon, CircleAlert as ErrorOutlineIcon, CircleCheck as CheckCircleOutlineIcon } from 'lucide-react';
 import kernel from "@/sukinos/utils/process/kernel"
 import { selectorUserInfo, selectorStoreSettingStorePath } from "@/sukinos/store"
 import { useSelector } from 'react-redux';
@@ -203,7 +200,7 @@ function Uploader({ appMeta, uploadType, entryConfig }) {
     <div className={style[bem.b()]}>
       <div className={style[bem.e('card')]}>
         <div className={style[bem.e('card-header')]}>
-          <FolderOpenIcon className={style[bem.e('card-icon')]} fontSize="large" />
+          <FolderOpenIcon className={style[bem.e('card-icon')]} width="1em" height="1em" />
           <h2 className={style[bem.e('card-title')]}>{currentConfig.title}</h2>
         </div>
         <p className={style[bem.e('card-description')]}>{currentConfig.desc}</p>
@@ -236,13 +233,13 @@ function Uploader({ appMeta, uploadType, entryConfig }) {
         )}
         <div className={style[bem.e('upload')]}>
           <button className={style[bem.e('upload-btn')]} onClick={handleMainAction} disabled={isUploading}>
-            {isUploading ? (<><span className={style[bem.e('upload-spinner')]}></span>上传处理中...</>) : (<><UploadIcon fontSize="small"/>选择文件上传</>)}
+            {isUploading ? (<><span className={style[bem.e('upload-spinner')]}></span>上传处理中...</>) : (<><UploadIcon size={20} />选择文件上传</>)}
           </button>
         </div>
         {message && (
           <div className={`${style[bem.e('message')]} ${style[bem.e(`message-${messageType}`)]}`}>
-            {messageType === 'error' && <ErrorOutlineIcon fontSize="small"/>}
-            {messageType === 'success' && <CheckCircleOutlineIcon fontSize="small"/>}
+            {messageType === 'error' && <ErrorOutlineIcon size={20} />}
+            {messageType === 'success' && <CheckCircleOutlineIcon size={20} />}
             {message}
           </div>
         )}

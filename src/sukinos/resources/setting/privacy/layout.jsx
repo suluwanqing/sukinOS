@@ -1,7 +1,6 @@
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import SecurityIcon from '@mui/icons-material/Security';
-import ShieldIcon from '@mui/icons-material/Shield';
+import { ShieldCheck as SecurityIcon, Shield as ShieldIcon } from 'lucide-react';
 
 const bem = createNamespace('setting-privacy');
 
@@ -16,11 +15,11 @@ const Privacy = () => {
     <div className={style[bem.b()]}>
       <div className={style[bem.e('section')]}>
         <div className={style[bem.e('section-title')]}>
-          <SecurityIcon style={{ fontSize: 18, marginRight: 8 }} /> 隐私与安全政策
+          <SecurityIcon size={18} style={{ marginRight: 8 }} /> 隐私与安全政策
         </div>
         <div className={style[bem.e('card')]}>
           <div className={style[bem.e('hero')]}>
-            <ShieldIcon style={{ fontSize: 48, color: 'var(--su-text-color-primary)', marginBottom: 16 }} />
+            <ShieldIcon size={48} style={{ color: '#303133', marginBottom: 16 }} />
             <h2 className={style[bem.e('hero-title')]}>您的隐私是系统设计的基石。</h2>
             <p className={style[bem.e('description')]}>
               我们坚信数据所有权应回归用户。SukinOS 的每一行代码都旨在提供无感且安全的本地计算体验。

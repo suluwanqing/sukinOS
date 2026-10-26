@@ -13,7 +13,7 @@ import AppAPI from '@/apis/sukinOs/app.jsx';
 import permissionManageAPI from '@/apis/system/permissionManage';
 import { alert } from "@/component/alert/layout";
 import useKernel from "@/sukinos/hooks/useKernel"
-import { confirm } from '@/component/Confirm/layout';
+import { confirm } from '@/component/confirm/layout';
 import { selectorStoreSettingStorePath } from "@/sukinos/store";
 
 const bem = createNamespace('store');

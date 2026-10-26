@@ -2,19 +2,7 @@ import React, { useState, useEffect, memo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 
-import LightModeIcon from '@mui/icons-material/LightMode';
-import TextFieldsIcon from '@mui/icons-material/TextFields';
-import WallpaperIcon from '@mui/icons-material/Wallpaper';
-import RoundedCornerIcon from '@mui/icons-material/RoundedCorner';
-import InvertColorsIcon from '@mui/icons-material/InvertColors';
-import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
-import VideocamOutlinedIcon from '@mui/icons-material/VideocamOutlined';
-import ColorLensOutlinedIcon from '@mui/icons-material/ColorLensOutlined';
-import WebAssetOutlinedIcon from '@mui/icons-material/WebAssetOutlined';
-import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
-import GridViewOutlinedIcon from '@mui/icons-material/GridViewOutlined';
-import StyleOutlinedIcon from '@mui/icons-material/StyleOutlined';
-import MemoryIcon from '@mui/icons-material/Memory';
+import { SunMedium as LightModeIcon, Type as TextFieldsIcon, Wallpaper as WallpaperIcon, Square as RoundedCornerIcon, PaintBucket as InvertColorsIcon, Image as ImageOutlinedIcon, Video as VideocamOutlinedIcon, Palette as ColorLensOutlinedIcon, AppWindow as WebAssetOutlinedIcon, LayoutDashboard as DashboardOutlinedIcon, LayoutGrid as GridViewOutlinedIcon, Paintbrush as StyleOutlinedIcon, Cpu as MemoryIcon } from 'lucide-react';
 
 import usePersonalization, {
   PRESET_BG_COLORS,
@@ -22,7 +10,8 @@ import usePersonalization, {
   PRESET_FONTS,
   colorSystem,
   colorSystemRange,
-  colorSystemPre
+  scaleColor,
+  defaultPersonalization
 } from '@/sukinos/hooks/usePersonalization';
 
 const bem = createNamespace('setting-personalize');
@@ -74,7 +63,7 @@ const ColorSelector = ({
   presets,
   currentValue,
   customConfig,
-  customVar,
+  customHex,
   onSelectPreset,
   onUpdateCustom,
   type = 'large'
@@ -90,9 +79,9 @@ const ColorSelector = ({
       ))}
       <div className={style[bem.e('color-divider')]}></div>
       <div
-        className={`${style[bem.e(type === 'large' ? 'color-swatch' : 'color-swatch-small')]} ${currentValue === customVar ? style[bem.is('active', true)] : ''}`}
-        style={{ backgroundColor: customVar }}
-        onClick={() => onSelectPreset(customVar)}
+        className={`${style[bem.e(type === 'large' ? 'color-swatch' : 'color-swatch-small')]} ${currentValue === customHex ? style[bem.is('active', true)] : ''}`}
+        style={{ backgroundColor: customHex }}
+        onClick={() => onSelectPreset(customHex)}
       />
     </div>
     <div className={style[bem.e('custom-selector')]}>
@@ -138,19 +127,19 @@ const Personalization = () => {
   const presetStylesList = getAllPresetStyles();
 
   const isPresetAccent = PRESET_ACCENTS.includes(config.accentColor);
-  const currentAccentVar = `var(${colorSystemPre}-${config.customColor.baseColor}-${config.customColor.shade})`;
+  const currentAccentHex = scaleColor(config.customColor, defaultPersonalization.accentColor);
   const isPresetBgColor = PRESET_BG_COLORS.includes(config.bgValue);
-  const currentBgVar = `var(${colorSystemPre}-${config.customBgColor.baseColor}-${config.customBgColor.shade})`;
-  const currentDeskFontVar = `var(${colorSystemPre}-${config.customDeskFontColor.baseColor}-${config.customDeskFontColor.shade})`;
-  const currentWindowHeaderBgVar = `var(${colorSystemPre}-${config.customWindowHeaderBg.baseColor}-${config.customWindowHeaderBg.shade})`;
-  const currentWindowHeaderColorVar = `var(${colorSystemPre}-${config.customWindowHeaderColor.baseColor}-${config.customWindowHeaderColor.shade})`;
+  const currentBgHex = scaleColor(config.customBgColor, PRESET_BG_COLORS[0]);
+  const currentDeskFontHex = scaleColor(config.customDeskFontColor, defaultPersonalization.deskFontColor);
+  const currentWindowHeaderBgHex = scaleColor(config.customWindowHeaderBg, defaultPersonalization.windowHeaderBg);
+  const currentWindowHeaderColorHex = scaleColor(config.customWindowHeaderColor, defaultPersonalization.windowHeaderColor);
 
   return (
     <div className={style[bem.b()]}>
       <div className={style[bem.e('section')]}>
         <div className={[style[bem.e('section-title')],style[bem.e('pre-theme')]].join(' ')}>
           <div className={style[bem.e('title-wrap')]}>
-            <StyleOutlinedIcon style={{ fontSize: 18, marginRight: 8 }} />
+            <StyleOutlinedIcon size={18} style={{ marginRight: 8 }} />
             主题方案
           </div>
           <button
@@ -197,7 +186,7 @@ const Personalization = () => {
 
       <div className={style[bem.e('row')]}>
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><LightModeIcon style={{ fontSize: 18, marginRight: 8 }} /> 主题模式</div>
+          <div className={style[bem.e('section-title')]}><LightModeIcon size={18} style={{ marginRight: 8 }} /> 主题模式</div>
           <div className={style[bem.e('card')]}>
             <div className={style[bem.e('theme-options')]}>
               <div
@@ -219,13 +208,13 @@ const Personalization = () => {
         </div>
 
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><InvertColorsIcon style={{ fontSize: 18, marginRight: 8 }}/> 强调色</div>
+          <div className={style[bem.e('section-title')]}><InvertColorsIcon size={18} style={{ marginRight: 8 }} /> 强调色</div>
           <div className={style[bem.e('card')]}>
             <ColorSelector
               presets={PRESET_ACCENTS}
               currentValue={config.accentColor}
               customConfig={config.customColor}
-              customVar={currentAccentVar}
+              customHex={currentAccentHex}
               onSelectPreset={(val) => updateConfig('accentColor', val)}
               onUpdateCustom={(base, shade) => updateCustomColor('accent', base, shade)}
             />
@@ -234,17 +223,17 @@ const Personalization = () => {
       </div>
 
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><WallpaperIcon style={{ fontSize: 18, marginRight: 8 }} /> 桌面背景</div>
+        <div className={style[bem.e('section-title')]}><WallpaperIcon size={18} style={{ marginRight: 8 }} /> 桌面背景</div>
         <div className={style[bem.e('card')]}>
           <div className={style[bem.e('tabs')]}>
             <button className={`${style[bem.e('tab')]} ${bgTab === 'color' ? style[bem.is('active', true)] : ''}`} onClick={() => setBgTab('color')}>
-              <ColorLensOutlinedIcon style={{ fontSize: 16 }} /> 纯色
+              <ColorLensOutlinedIcon size={16} /> 纯色
             </button>
             <button className={`${style[bem.e('tab')]} ${bgTab === 'image' ? style[bem.is('active', true)] : ''}`} onClick={() => setBgTab('image')}>
-              <ImageOutlinedIcon style={{ fontSize: 16 }} /> 图片
+              <ImageOutlinedIcon size={16} /> 图片
             </button>
             <button className={`${style[bem.e('tab')]} ${bgTab === 'video' ? style[bem.is('active', true)] : ''}`} onClick={() => setBgTab('video')}>
-              <VideocamOutlinedIcon style={{ fontSize: 16 }} /> 视频
+              <VideocamOutlinedIcon size={16} /> 视频
             </button>
           </div>
 
@@ -259,8 +248,8 @@ const Personalization = () => {
                     </div>
                   ))}
                   <div className={`${style[bem.e('grid-item')]} ${config.bgType === 'color' && !isPresetBgColor ? style[bem.is('selected', true)] : ''}`}
-                    onClick={() => updateMultipleConfigs({ bgType: 'color', bgValue: currentBgVar })}>
-                    <div className={style[bem.e('preview-box')]} style={{ background: currentBgVar }}></div>
+                    onClick={() => updateMultipleConfigs({ bgType: 'color', bgValue: currentBgHex })}>
+                    <div className={style[bem.e('preview-box')]} style={{ background: currentBgHex }}></div>
                     <span className={style[bem.e('filename')]}>自定义</span>
                   </div>
                 </div>
@@ -320,7 +309,7 @@ const Personalization = () => {
 
       <div className={style[bem.e('row')]}>
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><GridViewOutlinedIcon style={{ fontSize: 18, marginRight: 8 }} /> 图标外观</div>
+          <div className={style[bem.e('section-title')]}><GridViewOutlinedIcon size={18} style={{ marginRight: 8 }} /> 图标外观</div>
           <div className={style[bem.e('card')]}>
             <SliderRow label="尺寸" value={config.deskIconSize} min={30} max={100} unit="%" onChange={(val) => updateConfig('deskIconSize', val)} />
             <SliderRow label="圆角" value={config.deskIconRadius} min={0} max={50} unit="px" onChange={(val) => updateConfig('deskIconRadius', val)} />
@@ -329,14 +318,14 @@ const Personalization = () => {
         </div>
 
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><TextFieldsIcon style={{ fontSize: 18, marginRight: 8 }} /> 桌面文字</div>
+          <div className={style[bem.e('section-title')]}><TextFieldsIcon size={18} style={{ marginRight: 8 }} /> 桌面文字</div>
           <div className={style[bem.e('card')]}>
             <ColorSelector
               type="small"
               presets={PRESET_ACCENTS}
               currentValue={config.deskFontColor}
               customConfig={config.customDeskFontColor}
-              customVar={currentDeskFontVar}
+              customHex={currentDeskFontHex}
               onSelectPreset={(val) => updateConfig('deskFontColor', val)}
               onUpdateCustom={(base, shade) => updateCustomColor('deskFont', base, shade)}
             />
@@ -346,7 +335,7 @@ const Personalization = () => {
 
       <div className={style[bem.e('row')]}>
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><DashboardOutlinedIcon style={{ fontSize: 18, marginRight: 8 }} /> 桌面布局</div>
+          <div className={style[bem.e('section-title')]}><DashboardOutlinedIcon size={18} style={{ marginRight: 8 }} /> 桌面布局</div>
           <div className={style[bem.e('card')]}>
             <SliderRow label="间距" value={config.deskGridGap} min={0} max={40} unit="px" onChange={(val) => updateConfig('deskGridGap', val)} />
             <SliderRow label="边距" value={config.deskPadding} min={0} max={60} step={2} unit="px" onChange={(val) => updateConfig('deskPadding', val)} />
@@ -354,7 +343,7 @@ const Personalization = () => {
         </div>
 
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><WebAssetOutlinedIcon style={{ fontSize: 18, marginRight: 8 }} /> 窗口头部背景</div>
+          <div className={style[bem.e('section-title')]}><WebAssetOutlinedIcon size={18} style={{ marginRight: 8 }} /> 窗口头部背景</div>
           <div className={style[bem.e('card')]}>
             <div className={style[bem.e('color-row')]}>
               {PRESET_BG_COLORS.map(c => (
@@ -369,9 +358,9 @@ const Personalization = () => {
                    onClick={() => updateConfig('windowHeaderBg', 'transparent')} />
               <div className={style[bem.e('color-divider')]}></div>
               <div
-                className={`${style[bem.e('color-swatch-small')]} ${config.windowHeaderBg === currentWindowHeaderBgVar ? style[bem.is('active', true)] : ''}`}
-                style={{ backgroundColor: currentWindowHeaderBgVar }}
-                onClick={() => updateConfig('windowHeaderBg', currentWindowHeaderBgVar)}
+                className={`${style[bem.e('color-swatch-small')]} ${config.windowHeaderBg === currentWindowHeaderBgHex ? style[bem.is('active', true)] : ''}`}
+                style={{ backgroundColor: currentWindowHeaderBgHex }}
+                onClick={() => updateConfig('windowHeaderBg', currentWindowHeaderBgHex)}
               />
             </div>
             <div className={style[bem.e('custom-selector')]}>
@@ -404,7 +393,7 @@ const Personalization = () => {
 
       <div className={style[bem.e('row')]}>
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><TextFieldsIcon style={{ fontSize: 18, marginRight: 8 }} /> 窗口文字颜色</div>
+          <div className={style[bem.e('section-title')]}><TextFieldsIcon size={18} style={{ marginRight: 8 }} /> 窗口文字颜色</div>
           <div className={style[bem.e('card')]}>
             <div className={style[bem.e('color-row')]}>
               {PRESET_ACCENTS.map(c => (
@@ -422,9 +411,9 @@ const Personalization = () => {
                    onClick={() => updateConfig('windowHeaderColor', '#000000')} />
               <div className={style[bem.e('color-divider')]}></div>
               <div
-                className={`${style[bem.e('color-swatch-small')]} ${config.windowHeaderColor === currentWindowHeaderColorVar ? style[bem.is('active', true)] : ''}`}
-                style={{ backgroundColor: currentWindowHeaderColorVar }}
-                onClick={() => updateConfig('windowHeaderColor', currentWindowHeaderColorVar)}
+                className={`${style[bem.e('color-swatch-small')]} ${config.windowHeaderColor === currentWindowHeaderColorHex ? style[bem.is('active', true)] : ''}`}
+                style={{ backgroundColor: currentWindowHeaderColorHex }}
+                onClick={() => updateConfig('windowHeaderColor', currentWindowHeaderColorHex)}
               />
             </div>
             <div className={style[bem.e('custom-selector')]}>
@@ -453,7 +442,7 @@ const Personalization = () => {
         </div>
 
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><TextFieldsIcon style={{ fontSize: 18, marginRight: 8 }} /> 全局字体样式</div>
+          <div className={style[bem.e('section-title')]}><TextFieldsIcon size={18} style={{ marginRight: 8 }} /> 全局字体样式</div>
           <div className={style[bem.e('card')]}>
             <div className={style[bem.e('font-list')]}>
               {PRESET_FONTS.map(f => (
@@ -471,7 +460,7 @@ const Personalization = () => {
       </div>
 
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><RoundedCornerIcon style={{ fontSize: 18, marginRight: 8 }} /> 视觉反馈</div>
+        <div className={style[bem.e('section-title')]}><RoundedCornerIcon size={18} style={{ marginRight: 8 }} /> 视觉反馈</div>
         <div className={style[bem.e('card')]}>
           <div className={style[bem.e('toggle-row')]}>
             <div>
@@ -502,7 +491,7 @@ const Personalization = () => {
       </div>
 
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><MemoryIcon style={{ fontSize: 18, marginRight: 8 }} /> 性能优化</div>
+        <div className={style[bem.e('section-title')]}><MemoryIcon size={18} style={{ marginRight: 8 }} /> 性能优化</div>
         <div className={style[bem.e('card')]}>
           <SliderRow label="最大可见窗口" hint="超出自动 LRU 休眠" value={config.maxWindows} min={3} max={30} step={1} unit="" onChange={(val) => updateConfig('maxWindows', val)} />
           <div className={style[bem.e('divider')]}></div>

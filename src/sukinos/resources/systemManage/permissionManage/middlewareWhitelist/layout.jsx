@@ -8,7 +8,7 @@ import { confirm } from "@/component/confirm/layout";
 import Select from "@/component/select/drowSelection/layout";
 import PageList from "@/component/list/pageList/layout";
 import Modal from "@/component/modal/layout";
-import DeleteIcon from "@mui/icons-material/Delete";
+import { Trash2 as DeleteIcon } from 'lucide-react';
 
 const bem = createNamespace("system-permission");
 

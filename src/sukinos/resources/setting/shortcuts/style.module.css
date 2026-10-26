@@ -8,7 +8,7 @@
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-  color: var(--su-text-color-regular);
+  color: #606266;
   margin-bottom: 16px;
   text-transform: uppercase;
   letter-spacing: 0.8px;
@@ -16,8 +16,8 @@
 
 .su-setting-shortcuts__card {
   padding: 32px;
-  background: var(--su-bg-color);
-  border: 1px solid var(--su-border-color-extra-light);
+  background: #ffffff;
+  border: 1px solid #f2f6fc;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
 }
@@ -32,7 +32,7 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 0;
-  border-bottom: 1px solid var(--su-border-color-extra-light);
+  border-bottom: 1px solid #f2f6fc;
 
 }
 
@@ -47,7 +47,7 @@
 .su-setting-shortcuts__description {
   font-size: 14px;
   font-weight: 500;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-setting-shortcuts__key-group {
@@ -62,11 +62,11 @@
   font-family: "SF Mono", "Monaco", "Inconsolata", monospace;
   font-size: 12px;
   font-weight: 600;
-  color: var(--su-text-color-primary);
-  background-color: var(--su-white);
-  border: 1px solid var(--su-border-color);
+  color: #303133;
+  background-color: #ffffff;
+  border: 1px solid #dcdfe6;
   border-radius: 6px;
-  box-shadow: 0 2px 0 var(--su-border-color-extra-light);
+  box-shadow: 0 2px 0 #f2f6fc;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -75,19 +75,19 @@
 
 .su-setting-shortcuts__plus {
   font-size: 12px;
-  color: var(--su-text-color-placeholder);
+  color: #a8abb2;
   font-weight: 400;
 }
 
 .su-setting-shortcuts__divider {
   height: 1px;
-  background: var(--su-border-color-extra-light);
+  background: #f2f6fc;
   margin: 24px 0 16px 0;
 }
 
 .su-setting-shortcuts__footer-text {
   font-size: 12px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
   opacity: 0.7;
 }
 

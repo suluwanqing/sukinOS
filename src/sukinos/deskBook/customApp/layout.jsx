@@ -6,9 +6,7 @@ import useFileKernel from '@/sukinos/hooks/useFileKernel'
 import { dataToBase64Mapper } from "/utils/js/func/data/exChangeBase64"
 import { confirm } from '@/component/confirm/layout'
 
-import CloseIcon from '@mui/icons-material/Close'
-import FileUploadIcon from '@mui/icons-material/FileUpload'
-import PhotoLibraryIcon from '@mui/icons-material/PhotoLibrary'
+import { X as CloseIcon, Upload as FileUploadIcon, Images as PhotoLibraryIcon } from 'lucide-react'
 
 const bem = createNamespace('customapp')
 
@@ -136,7 +134,7 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
       <div className={style[bem.e('modal')]}>
         <div className={style[bem.e('header')]}>
           <span className={style[bem.e('header-title')]}>设置: {editingAppName || '应用详情'}</span>
-          <button className={style[bem.e('close-btn')]} onClick={onClose}><CloseIcon fontSize="small" /></button>
+          <button className={style[bem.e('close-btn')]} onClick={onClose}><CloseIcon size={20} /></button>
         </div>
 
         <div className={style[bem.e('content')]}>
@@ -164,7 +162,7 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
                 <div className={style[bem.e('preview-info')]}>
                   <div className={style[bem.e('icon-title')]}>应用当前图标</div>
                   <button className={style[bem.e('upload-trigger')]} onClick={() => fileInputRef.current?.click()}>
-                    <FileUploadIcon fontSize="inherit" style={{marginRight: 6}} />
+                    <FileUploadIcon width="1em" height="1em" style={{marginRight: 6}} />
                     <span>{isUploading ? '正在处理...' : '上传本地图片'}</span>
                   </button>
                   <input type="file" ref={fileInputRef} style={{ display: 'none' }} accept="image/*" onChange={handleLocalUpload} />
@@ -173,7 +171,7 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
 
               <div className={style[bem.e('gallery-section')]}>
                 <div className={style[bem.e('gallery-head')]}>
-                  <PhotoLibraryIcon fontSize="inherit" style={{marginRight: 6}} />
+                  <PhotoLibraryIcon width="1em" height="1em" style={{marginRight: 6}} />
                   资源库 ({images.length})
                 </div>
                 <div className={style[bem.e('grid')]}>

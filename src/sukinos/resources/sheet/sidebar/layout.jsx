@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import TableChartOutlinedIcon from '@mui/icons-material/TableChartOutlined';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
+import { Table as TableChartOutlinedIcon, Plus as AddIcon, Trash2 as DeleteOutlineIcon, CircleHelp as HelpOutlineIcon, Columns3 as ViewColumnIcon } from 'lucide-react';
 import { selectorUserInfo } from "@/sukinos/store";
 import { useSelector } from 'react-redux';
 import Logo from "@/component/logo/layout";
@@ -69,11 +65,11 @@ function Sidebar({ store }) {
         <div className={style[bem.e('section-top')]}>
           <div className={style[bem.e('sec-header')]}>
             <div className={style[bem.e('sec-title')]}>
-              <TableChartOutlinedIcon sx={{ fontSize: 18 }} className={style[bem.e('item-icon')]} />
+              <TableChartOutlinedIcon size={18} className={style[bem.e('item-icon')]} />
               数据表管理
             </div>
             <button className={style[bem.e('sec-add')]} onClick={handleAddTable} title="新建表格">
-              <AddIcon sx={{ fontSize: 18 }} />
+              <AddIcon size={18} />
             </button>
           </div>
         </div>
@@ -107,7 +103,7 @@ function Sidebar({ store }) {
                   />
                 ) : (
                   <div className={style[bem.e('item-left')]} onDoubleClick={(e) => startRename(e, t)}>
-                    <TableChartOutlinedIcon className={style[bem.e('item-icon')]} sx={{ fontSize: 18 }} />
+                    <TableChartOutlinedIcon className={style[bem.e('item-icon')]} size={18} />
                     <span className={style[bem.e('item-name')]} title="双击重命名">{t.name}</span>
                   </div>
                 )}
@@ -117,7 +113,7 @@ function Sidebar({ store }) {
                     className={style[bem.e('item-del')]}
                     title="删除"
                   >
-                    <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                    <DeleteOutlineIcon size={16} />
                   </button>
                 )}
               </div>
@@ -132,7 +128,7 @@ function Sidebar({ store }) {
             style={{ marginBottom: 4 }}
           >
             <div className={style[bem.e('item-left')]}>
-              <ViewColumnIcon className={style[bem.e('item-icon')]} sx={{ fontSize: 18 }} />
+              <ViewColumnIcon className={style[bem.e('item-icon')]} size={18} />
               <span className={style[bem.e('item-name')]}>预制列管理</span>
             </div>
           </div>
@@ -141,7 +137,7 @@ function Sidebar({ store }) {
             onClick={() => dispatch({ type: 'OPEN_MANUAL_TAB' })}
           >
             <div className={style[bem.e('item-left')]}>
-              <HelpOutlineIcon className={style[bem.e('item-icon')]} sx={{ fontSize: 18 }} />
+              <HelpOutlineIcon className={style[bem.e('item-icon')]} size={18} />
               <span className={style[bem.e('item-name')]}>使用手册</span>
             </div>
           </div>

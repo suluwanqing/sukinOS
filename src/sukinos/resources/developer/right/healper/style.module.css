@@ -2,18 +2,18 @@
   display: flex;
   width: 100%;
   height: 100%;
-  background-color: var(--su-color-white);
+  background-color: #ffffff;
   border-radius: 8px;
   overflow: hidden;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-developer-helper__sidebar {
   width: 240px;
-  background-color: var(--su-fill-color-lighter);
-  border-right: 1px solid var(--su-border-color-light);
+  background-color: #fafafa;
+  border-right: 1px solid #e4e7ed;
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -21,13 +21,13 @@
 
 .su-developer-helper__header {
   padding: 24px 20px;
-  border-bottom: 1px solid var(--su-border-color-light);
+  border-bottom: 1px solid #e4e7ed;
 }
 
 .su-developer-helper__header h3 {
   margin: 0;
   font-size: 18px;
-  color: var(--su-text-color-primary);
+  color: #303133;
   font-weight: 700;
   letter-spacing: -0.5px;
 }
@@ -37,7 +37,7 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.5px;
-  color: var(--su-text-color-placeholder);
+  color: #a8abb2;
   text-transform: uppercase;
 }
 
@@ -49,7 +49,7 @@
   flex-direction: column;
   gap: 2px;
   scrollbar-width: thin;
-  scrollbar-color: var(--su-border-color-light) transparent;
+  scrollbar-color: #e4e7ed transparent;
 }
 
 .su-developer-helper__nav::-webkit-scrollbar {
@@ -61,7 +61,7 @@
 }
 
 .su-developer-helper__nav::-webkit-scrollbar-thumb {
-  background-color: var(--su-border-color-light);
+  background-color: #e4e7ed;
   border-radius: 4px;
 }
 
@@ -74,25 +74,25 @@
   transition:
     background-color 0.15s ease,
     color 0.15s ease;
-  color: var(--su-text-color-regular);
+  color: #606266;
   font-size: 13.5px;
   font-weight: 500;
   user-select: none;
 }
 
 .su-developer-helper__nav-item:hover {
-  background-color: rgba(var(--su-black-300-rgb), 0.3);
-  color: var(--su-black);
+  background-color: rgba(224, 224, 224, 0.3);
+  color: #000000;
 }
 
 .su-developer-helper__nav-item.is-active {
-  background-color: var(--su-black);
-  color: var(--su-color-white);
+  background-color: #000000;
+  color: #ffffff;
 }
 
 .su-developer-helper__nav-item.is-active:hover {
-  background-color: var(--su-gray-800);
-  color: var(--su-color-white);
+  background-color: #1f2937;
+  color: #ffffff;
 }
 
 .su-developer-helper__nav-icon {
@@ -122,9 +122,9 @@
   flex: 1;
   padding: 40px 60px;
   overflow-y: auto;
-  background-color: var(--su-color-white);
+  background-color: #ffffff;
   scrollbar-width: thin;
-  scrollbar-color: var(--su-border-color-light) transparent;
+  scrollbar-color: #e4e7ed transparent;
 }
 
 .su-developer-helper__content::-webkit-scrollbar {
@@ -136,7 +136,7 @@
 }
 
 .su-developer-helper__content::-webkit-scrollbar-thumb {
-  background-color: var(--su-border-color-light);
+  background-color: #e4e7ed;
   border-radius: 6px;
 }
 
@@ -160,7 +160,7 @@
 .su-developer-helper__title {
   margin: 0 0 24px 0;
   font-size: 30px;
-  color: var(--su-black);
+  color: #000000;
   font-weight: 800;
   letter-spacing: -0.8px;
   line-height: 1.2;
@@ -171,17 +171,17 @@
   margin: 36px 0 14px 0;
   font-size: 15px;
   font-weight: 700;
-  color: var(--su-black);
+  color: #000000;
   letter-spacing: 0.2px;
   padding-bottom: 6px;
-  border-bottom: 2px solid var(--su-black);
+  border-bottom: 2px solid #000000;
 }
 
 .su-developer-helper__text {
   margin: 0 0 16px 0;
   font-size: 14.5px;
   line-height: 1.75;
-  color: var(--su-text-color-regular);
+  color: #606266;
 }
 
 .su-developer-helper__text code,
@@ -191,11 +191,11 @@
   display: inline-block;
   padding: 1px 6px;
   border-radius: 4px;
-  background-color: var(--su-fill-color-light);
-  border: 1px solid var(--su-border-color-extra-light);
+  background-color: #f5f7fa;
+  border: 1px solid #f2f6fc;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12.5px;
-  color: var(--su-gray-800);
+  color: #1f2937;
   line-height: 1.6;
   vertical-align: middle;
 }
@@ -211,31 +211,31 @@
 .su-developer-helper__list li {
   font-size: 14.5px;
   line-height: 1.9;
-  color: var(--su-text-color-regular);
+  color: #606266;
   list-style-type: square;
 }
 
 .su-developer-helper__list li strong {
-  color: var(--su-text-color-primary);
+  color: #303133;
   font-weight: 600;
 }
 
 .su-developer-helper__code {
   position: relative;
-  background-color: var(--su-fill-color-lighter);
-  border: 1px solid var(--su-border-color-light);
+  background-color: #fafafa;
+  border: 1px solid #e4e7ed;
   border-radius: 8px;
   padding: 20px 24px;
   margin: 28px 0 24px 0;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   font-size: 12.5px;
   line-height: 1.65;
-  color: var(--su-gray-800);
+  color: #1f2937;
   overflow-x: auto;
   white-space: pre;
   tab-size: 2;
   scrollbar-width: thin;
-  scrollbar-color: var(--su-border-color-light) transparent;
+  scrollbar-color: #e4e7ed transparent;
 }
 
 .su-developer-helper__code::-webkit-scrollbar {
@@ -247,13 +247,13 @@
 }
 
 .su-developer-helper__code::-webkit-scrollbar-thumb {
-  background-color: var(--su-border-color-light);
+  background-color: #e4e7ed;
   border-radius: 4px;
 }
 
 .su-developer-helper__highlight {
-  background-color: var(--su-fill-color-lighter);
-  border: 1px solid var(--su-border-color-extra-light);
+  background-color: #fafafa;
+  border: 1px solid #f2f6fc;
   border-radius: 8px;
   padding: 20px 24px 24px 24px;
   margin: 28px 0 0 0;
@@ -274,16 +274,16 @@
 .su-developer-helper__tip {
   margin: 20px 0;
   padding: 12px 16px;
-  background-color: rgba(var(--su-yellow-50-rgb), 0.8);
-  border: 1px solid rgba(var(--su-yellow-200-rgb), 0.6);
-  border-left: 3px solid var(--su-orange-400);
+  background-color: rgba(254, 252, 232, 0.8);
+  border: 1px solid rgba(254, 240, 138, 0.6);
+  border-left: 3px solid #fb923c;
   border-radius: 6px;
   font-size: 13.5px;
   line-height: 1.65;
-  color: var(--su-orange-900);
+  color: #7c2d12;
 }
 
 .su-developer-helper__tip strong {
   font-weight: 700;
-  color: var(--su-orange-800);
+  color: #9a3412;
 }

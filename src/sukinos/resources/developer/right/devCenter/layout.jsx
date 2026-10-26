@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import DescriptionIcon from '@mui/icons-material/Description';
+import { FileText as DescriptionIcon } from 'lucide-react';
 
 const bem = createNamespace('dev-center');
 
@@ -107,7 +107,7 @@ function DevCenter({ files, activeFile, handleContentChange, triggerVfsSave, isM
   const editorTabs = (
     <div className={style[bem.e('editor-tabs')]}>
       <div className={style[bem.e('editor-tab-active')]}>
-        <DescriptionIcon style={{ fontSize: 14, marginRight: 6, color: 'var(--su-primary-500)' }} />
+        <DescriptionIcon size={14} style={{ marginRight: 6, color: '#0ea5e9' }} />
         {activeFile || '未选择文件'}
         {unsavedFiles.has(activeFile) && <span className={style[bem.e('unsaved-dot')]} title="已修改"></span>}
       </div>

@@ -1,7 +1,7 @@
 import React from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import KeyboardIcon from '@mui/icons-material/Keyboard';
+import { Keyboard as KeyboardIcon } from 'lucide-react';
 
 const bem = createNamespace('setting-shortcuts');
 
@@ -19,7 +19,7 @@ const Shortcuts = () => {
     <div className={style[bem.b()]}>
       <div className={style[bem.e('section')]}>
         <div className={style[bem.e('section-title')]}>
-          <KeyboardIcon style={{ fontSize: 18, marginRight: 8 }} /> 快捷键指南
+          <KeyboardIcon size={18} style={{ marginRight: 8 }} /> 快捷键指南
         </div>
         <div className={style[bem.e('card')]}>
           <div className={style[bem.e('list')]}>

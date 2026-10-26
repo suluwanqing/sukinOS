@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { HighlightOff, Visibility, VisibilityOff } from '@mui/icons-material';
+import { CircleX as HighlightOff, Eye as Visibility, EyeOff as VisibilityOff } from 'lucide-react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 
@@ -30,7 +30,7 @@ const Form = ({ fields, formData, errors, onInputChange, onClear, sendCode, coun
               <div className={style[bem.e('suffix')]}>
                 {isPass && (
                   <span className={style[bem.e('action-icon')]} onClick={() => setShowPassword(!showPassword)}>
-                    {showPassword ? <VisibilityOff fontSize="small"/> : <Visibility fontSize="small"/>}
+                    {showPassword ? <VisibilityOff size={20}/> : <Visibility size={20}/>}
                   </span>
                 )}
                 {isCode && (
@@ -44,7 +44,7 @@ const Form = ({ fields, formData, errors, onInputChange, onClear, sendCode, coun
                 )}
                 {!isCode && !isPass && formData[field.name] && (
                   <span className={style[bem.e('action-icon')]} onClick={() => onClear(field.name)}>
-                    <HighlightOff fontSize="small"/>
+                    <HighlightOff size={20}/>
                   </span>
                 )}
               </div>

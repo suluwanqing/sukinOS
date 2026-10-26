@@ -5,10 +5,7 @@ import LogConfig from "./logConfig/layout";
 import ConfigItemsManager from "./configItemsManager/layout";
 import SystemAppsAccess from "./systemAppsAccess/layout";
 import UploadQuota from "./uploadQuota/layout";
-import TuneIcon from "@mui/icons-material/Tune";
-import SettingsIcon from "@mui/icons-material/Settings";
-import SecurityIcon from "@mui/icons-material/Security";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
+import { SlidersHorizontal as TuneIcon, Settings as SettingsIcon, ShieldCheck as SecurityIcon, Upload as UploadFileIcon } from 'lucide-react';
 
 const bem = createNamespace("system-config-layout");
 
@@ -27,7 +24,7 @@ function SystemConfig() {
             ].filter(Boolean).join(" ")}
             onClick={() => setActiveTab("log")}
           >
-            <TuneIcon fontSize="small" />
+            <TuneIcon size={17} />
             <span>日志审计配置</span>
           </div>
 
@@ -38,7 +35,7 @@ function SystemConfig() {
             ].filter(Boolean).join(" ")}
             onClick={() => setActiveTab("items")}
           >
-            <SettingsIcon fontSize="small" />
+            <SettingsIcon size={17} />
             <span>通用配置管理</span>
           </div>
 
@@ -49,7 +46,7 @@ function SystemConfig() {
             ].filter(Boolean).join(" ")}
             onClick={() => setActiveTab("systemApps")}
           >
-            <SecurityIcon fontSize="small" />
+            <SecurityIcon size={17} />
             <span>系统APP放权</span>
           </div>
 
@@ -60,7 +57,7 @@ function SystemConfig() {
             ].filter(Boolean).join(" ")}
             onClick={() => setActiveTab("uploadQuota")}
           >
-            <UploadFileIcon fontSize="small" />
+            <UploadFileIcon size={17} />
             <span>上传配额</span>
           </div>
         </div>

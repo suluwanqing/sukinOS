@@ -2,16 +2,7 @@ import React, { useState, useEffect } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
-import SettingsIcon from '@mui/icons-material/Settings';
-import PreviewIcon from '@mui/icons-material/Preview';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
-import InfoIcon from '@mui/icons-material/Info';
-import EditIcon from '@mui/icons-material/Edit';
-import ListIcon from '@mui/icons-material/List';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import RestoreIcon from '@mui/icons-material/Restore';
+import { CirclePlus as AddCircleOutlineIcon, Settings as SettingsIcon, Eye as PreviewIcon, Upload as FileUploadIcon, Info as InfoIcon, Pencil as EditIcon, List as ListIcon, Network as AccountTreeIcon, Trash2 as DeleteOutlineIcon, RotateCcw as RestoreIcon } from 'lucide-react';
 
 import CheckGroup from "@/component/checkGroup/layout";
 import Select from "@/component/select/drowSelection/layout";
@@ -137,7 +128,7 @@ const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {
   return (
     <div className={style[bem.e('settings-card')]}>
       <div className={style[bem.e('card-header')]}>
-        <InfoIcon fontSize="small" />
+        <InfoIcon size={20} />
         <h3>基础配置</h3>
       </div>
 
@@ -195,7 +186,7 @@ const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {
             <div className={style[bem.e('label-row')]} style={{ marginBottom: '8px' }}>
               <label className={style[bem.e('label')]}>应用类型</label>
               <div className={style[bem.e('mode-toggle')]} onClick={toggleMode}>
-                {isManual ? <ListIcon fontSize="inherit" /> : <EditIcon fontSize="inherit" />}
+                {isManual ? <ListIcon width="1em" height="1em" /> : <EditIcon width="1em" height="1em" />}
                 <span>{isManual ? '手动输入' : '选择预设'}</span>
               </div>
             </div>
@@ -210,9 +201,9 @@ const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {
               />
             ) : (
               <Select
-                boxStyle={{ backgroundColor: 'var(--su-white)', borderRadius: '4px', color: 'var(--su-text-color-primary)', height: '28px', fontSize: '12px', padding: '0 8px', border: '1px solid var(--su-border-color)' }}
-                dropdownStyle={{ border: '1px solid var(--su-border-color)', borderRadius: '4px', maxHeight: '200px', padding: '4px 0', backgroundColor: 'var(--su-white)' }}
-                optionStyle={{ padding: '6px 8px', fontSize: '12px', color: 'var(--su-text-color-primary)' }}
+                boxStyle={{ backgroundColor: '#ffffff', borderRadius: '4px', color: '#303133', height: '28px', fontSize: '12px', padding: '0 8px', border: '1px solid #dcdfe6' }}
+                dropdownStyle={{ border: '1px solid #dcdfe6', borderRadius: '4px', maxHeight: '200px', padding: '4px 0', backgroundColor: '#ffffff' }}
+                optionStyle={{ padding: '6px 8px', fontSize: '12px', color: '#303133' }}
                 showTitle={true}
                 value={appMeta.appType}
                 options={appTypes}
@@ -225,7 +216,7 @@ const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {
 
       {/* 动态扩展的 Custom 配置区 */}
       {appMeta.custom && Object.keys(appMeta.custom).length > 0 && (
-        <div className={style[bem.e('setting-group')]} style={{ marginTop: '16px', borderTop: '1px solid var(--su-gray-200)', paddingTop: '16px' }}>
+        <div className={style[bem.e('setting-group')]} style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
           <div className={style[bem.e('config-sub-group')]}>
             <div className={style[bem.e('sub-title')]}>扩展特性 (Custom)</div>
             {Object.entries(appMeta.custom).map(([key, value]) => (
@@ -260,7 +251,7 @@ const VisualSettings = ({ appMeta, onUpdateAppMeta }) => {
   return (
     <div className={style[bem.e('settings-card')]}>
       <div className={style[bem.e('card-header')]}>
-        <SettingsIcon fontSize="small" />
+        <SettingsIcon size={20} />
         <h3>视觉表现</h3>
       </div>
 
@@ -326,7 +317,7 @@ const UploadSettings = ({ uploadType, setUploadType, entryConfig }) => {
   return (
     <div className={style[bem.e('settings-card')]}>
       <div className={style[bem.e('card-header')]}>
-        <FileUploadIcon fontSize="small" />
+        <FileUploadIcon size={20} />
         <h3>部署模式</h3>
       </div>
       <div className={style[bem.e('setting-group')]}>
@@ -374,7 +365,7 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
   return (
     <div className={style[bem.e('settings-card')]}>
       <div className={style[bem.e('card-header')]}>
-        <AccountTreeIcon fontSize="small" />
+        <AccountTreeIcon size={20} />
         <h3>入口约定</h3>
       </div>
 
@@ -392,7 +383,7 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
                 className={style[bem.e('pattern-remove')]}
                 onClick={() => patch({ logicEntries: patterns.filter((_, i) => i !== index) })}
               >
-                <DeleteOutlineIcon fontSize="inherit" />
+                <DeleteOutlineIcon width="1em" height="1em" />
               </button>
             </div>
           ))}
@@ -402,7 +393,7 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
           className={style[bem.e('pattern-add')]}
           onClick={() => patch({ logicEntries: [...patterns, ''] })}
         >
-          <AddCircleOutlineIcon fontSize="inherit" />
+          <AddCircleOutlineIcon width="1em" height="1em" />
           添加匹配规则
         </button>
 
@@ -429,7 +420,7 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
           style={{ marginBottom: issues === null ? 0 : '8px' }}
           onClick={() => setIssues(onLayeringCheck ? onLayeringCheck() : [])}
         >
-          <InfoIcon fontSize="inherit" />
+          <InfoIcon width="1em" height="1em" />
           运行分层检查
         </button>
         {issues !== null && (
@@ -446,7 +437,7 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
         )}
 
         <button type="button" className={style[bem.e('pattern-add')]} style={{ marginTop: '10px' }} onClick={() => updateEntryConfig({ ...DEFAULT_ENTRY_CONFIG })}>
-          <RestoreIcon fontSize="inherit" />
+          <RestoreIcon width="1em" height="1em" />
           恢复默认
         </button>
       </div>
@@ -513,11 +504,11 @@ function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate
 
       <div className={style[bem.e('footer-actions')]}>
         <button className={style[bem.e('preview-btn')]} onClick={onPreview}>
-          <PreviewIcon fontSize="small" />
+          <PreviewIcon size={20} />
           效果预览
         </button>
         <button className={style[bem.e('create-btn')]} onClick={onCreate} disabled={!appName}>
-          <AddCircleOutlineIcon fontSize="small" />
+          <AddCircleOutlineIcon size={20} />
           执行创建
         </button>
       </div>

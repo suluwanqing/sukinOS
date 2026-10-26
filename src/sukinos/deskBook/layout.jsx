@@ -9,7 +9,7 @@ import AdaptiveWindowPlaceholder from "./AdaptivePlaceholder"
 import useKernel from "@/sukinos/hooks/useKernel"
 import { WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_META_INFO, ENV_KEY_NAME, ENV_KEY_RESOURCE_ID, DEFAULT_USER_ID } from "@/sukinos/utils/config"
 import Boot from "./boot/layout"
-import ContextMenu from "@/component/contextMenu/layout.jsx"
+import ContextMenu from "@/component/contextMenu/layout"
 import { selectorSetting, selectGenerateApp } from "../store"
 import { useDispatch, useSelector } from 'react-redux'
 import usePersonalization from "@/sukinos/hooks/usePersonalization"

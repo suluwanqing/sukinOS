@@ -20,16 +20,7 @@ import RenderProcess from '@/sukinos/utils/process/renderProcess';
 import Select from "@/component/select/drowSelection/layout";
 import Input from "@/component/input/layout";
 import { confirm } from '@/component/confirm/layout';
-import CloseIcon from '@mui/icons-material/Close';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import PauseIcon from '@mui/icons-material/Pause';
-import FolderZipIcon from '@mui/icons-material/FolderZip';
-import TerminalIcon from '@mui/icons-material/Terminal';
-import HttpIcon from '@mui/icons-material/Http';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import BoltIcon from '@mui/icons-material/Bolt';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import DownloadIcon from '@mui/icons-material/Download';
+import { X as CloseIcon, Play as PlayArrowIcon, Pause as PauseIcon, Archive as FolderZipIcon, Terminal as TerminalIcon, Link2 as HttpIcon, FolderOpen as FolderOpenIcon, Zap as BoltIcon, CircleHelp as HelpOutlineIcon, Download as DownloadIcon } from 'lucide-react';
 
 const bem = createNamespace('local-dev');
 
@@ -493,7 +484,7 @@ const FilesPanel = ({ fetchStatus, lastSync, errorMsg, syncNotice, missingRequir
           onClick={onTogglePause}
           title={syncPaused ? '恢复自动同步' : '立即暂停同步'}
         >
-          {syncPaused ? <PlayArrowIcon sx={{fontSize: 16}} /> : <PauseIcon sx={{fontSize: 16}}/>}
+          {syncPaused ? <PlayArrowIcon size={16} /> : <PauseIcon size={16} />}
           {syncPaused ? '恢复' : '暂停'}
         </button>
         <button className={style[bem.e('btn-ghost')]} onClick={handleManualSync} disabled={fetchStatus === 'syncing'}>
@@ -603,7 +594,7 @@ const GuidePanel = ({ entryConfig }) => {
   const syncModes = [
     {
       id: 'http',
-      icon: <HttpIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />,
+      icon: <HttpIcon size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />,
       title: '模式 A：HTTP 服务',
       principle: '前端定时轮询请求本地 Node.js 服务器暴露的同步接口。',
       steps: [
@@ -615,7 +606,7 @@ const GuidePanel = ({ entryConfig }) => {
     },
     {
       id: 'local',
-      icon: <FolderOpenIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />,
+      icon: <FolderOpenIcon size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />,
       title: '模式 B：本地文件夹 (零配置)',
       principle: '利用浏览器 API 直接读取你硬盘上的文件夹内容，性能最佳且无需启动 Node 服务。',
       steps: [
@@ -627,7 +618,7 @@ const GuidePanel = ({ entryConfig }) => {
     },
     {
       id: 'sse',
-      icon: <BoltIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />,
+      icon: <BoltIcon size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />,
       title: '模式 C：SSE 推送 + 文件夹',
       principle: '本地插件通过 SSE 实时告知前端"文件已改"，前端再精准读取文件夹。零延迟，低能耗。',
       steps: [
@@ -644,13 +635,13 @@ const GuidePanel = ({ entryConfig }) => {
   const downloadTemplates = [
     {
       id: 'standard',
-      icon: <FolderZipIcon sx={{ mr: 1, fontSize: 18 }} />,
+      icon: <FolderZipIcon size={18} style={{ marginRight: 8 }} />,
       label: 'Vite 插件模板',
       description: '包含完整的 Vite 插件配置 and 示例代码'
     },
     {
       id: 'logic',
-      icon: <TerminalIcon sx={{ mr: 1, fontSize: 18 }} />,
+      icon: <TerminalIcon size={18} style={{ marginRight: 8 }} />,
       label: 'SSE服务模板[服务已经提供sse接口]',
       description: '适合SSE + 文件夹模式'
     }
@@ -660,7 +651,7 @@ const GuidePanel = ({ entryConfig }) => {
     <div className={style[bem.e('panel-body')]}>
       <section className={style[bem.e('section')]}>
         <Cap>
-          <HelpOutlineIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+          <HelpOutlineIcon size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
           快速上手流程
         </Cap>
         <div className={style[bem.e('guide-steps')]}>
@@ -715,7 +706,7 @@ const GuidePanel = ({ entryConfig }) => {
       <Divider />
       <section className={style[bem.e('section')]}>
         <Cap>
-          <DownloadIcon sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+          <DownloadIcon size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} />
           资源模板下载
         </Cap>
         <div className={style[bem.e('guide-actions')]}>
@@ -1157,14 +1148,14 @@ const LocalDev = () => {
         </div>
         <div className={style[bem.e('bar-bottom')]}>
           <button className={[style[bem.e('pause-fab')], syncPaused ? style[bem.e('pause-fab--paused')] : ''].join(' ')} onClick={handleTogglePause} title={syncPaused ? '恢复同步' : '暂停同步'}>
-            {syncPaused ? <PlayArrowIcon sx={{fontSize: 16}} /> : <PauseIcon sx={{fontSize: 16}} />}
+            {syncPaused ? <PlayArrowIcon size={16} /> : <PauseIcon size={16} />}
           </button>
           <span className={[style[bem.e('status-pip')], stMod ? style[bem.e(`status-pip--${stMod}`)] : ''].join(' ')} title={STATUS_CFG[displayStatus].label} />
         </div>
       </div>
 
       <div className={[style[bem.e('drawer')], drawerOpen ? style[bem.e('drawer--open')] : ''].join(' ')} ref={drawerRef}>
-        <div className={style[bem.e('drawer-head')]}><span className={style[bem.e('drawer-title')]}>{activeNav ? PANEL_TITLES[activeNav] : ''}</span><button className={style[bem.e('drawer-close')]} onClick={() => setActiveNav(null)}><CloseIcon sx={{fontSize: 18}} /></button></div>
+        <div className={style[bem.e('drawer-head')]}><span className={style[bem.e('drawer-title')]}>{activeNav ? PANEL_TITLES[activeNav] : ''}</span><button className={style[bem.e('drawer-close')]} onClick={() => setActiveNav(null)}><CloseIcon size={18} /></button></div>
         <div className={style[bem.e('drawer-scroll')]}>
           {activeNav === 'connect' && <ConnectPanel draft={draft} config={config} setCfg={(k,v)=>setDraft(p=>({...p,[k]:v}))} folderName={folderName} handleSelectFolder={async()=>{try{const h=await window.showDirectoryPicker();folderHandleRef.current=h;setFolderName(h.name);performSync(configRef.current,false);}catch(e){}}} userInfo={userInfo} />}
           {activeNav === 'app' && (
@@ -1218,7 +1209,7 @@ const LocalDev = () => {
         <div className={style[bem.e('canvas-body')]} id={`proc-${previewId}`}>
           {Object.keys(localFiles).length === 0 && !compiling && (
             <div className={style[bem.e('canvas-empty')]}>
-              <div className={style[bem.e('empty-glyph')]}><BoltIcon sx={{fontSize: 60, color: '#ddd'}} /></div>
+              <div className={style[bem.e('empty-glyph')]}><BoltIcon size={60} style={{ color: '#ddd' }} /></div>
               <p className={style[bem.e('empty-text')]}>请检查连接配置或本地服务</p>
               <button className={style[bem.e('empty-cta')]} onClick={() => handleNavClick('connect')}>配置连接</button>
             </div>

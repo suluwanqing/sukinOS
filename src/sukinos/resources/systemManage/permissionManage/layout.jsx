@@ -3,12 +3,7 @@ import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import permissionManageAPI from "@/apis/system/permissionManage";
 import sukinosAppManageAPI from "@/apis/system/sukinosAppManage";
-import LockIcon from "@mui/icons-material/Lock";
-import VpnKeyIcon from "@mui/icons-material/VpnKey";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import AltRouteIcon from "@mui/icons-material/AltRoute";
-import SupervisorAccountIcon from "@mui/icons-material/SupervisorAccount";
-import DnsIcon from "@mui/icons-material/Dns";
+import { Lock as LockIcon, KeyRound as VpnKeyIcon, Eye as VisibilityIcon, Route as AltRouteIcon, UserCog as SupervisorAccountIcon, Server as DnsIcon } from 'lucide-react';
 
 import PermissionRegistry from "./registry/layout";
 import RolePanel from "./role/layout";
@@ -21,12 +16,12 @@ import { usePermission } from "@/hooks/usePermission/main";
 const bem = createNamespace("system-permission");
 
 const SECTIONS = [
-  { id: "registry", label: "权限注册池", icon: <LockIcon fontSize="small" /> },
-  { id: "role", label: "角色管理", icon: <SupervisorAccountIcon fontSize="small" /> },
-  { id: "menuPermission", label: "菜单权限管理", icon: <VisibilityIcon fontSize="small" /> },
-  { id: "routePermission", label: "路由权限管理", icon: <AltRouteIcon fontSize="small" /> },
-  { id: "registryPower", label: "注册权管理", icon: <VpnKeyIcon fontSize="small" /> },
-  { id: "middlewareWhitelist", label: "中间件白名单", icon: <DnsIcon fontSize="small" />, rootOnly: true },
+  { id: "registry", label: "权限注册池", icon: <LockIcon size={17} /> },
+  { id: "role", label: "角色管理", icon: <SupervisorAccountIcon size={17} /> },
+  { id: "menuPermission", label: "菜单权限管理", icon: <VisibilityIcon size={17} /> },
+  { id: "routePermission", label: "路由权限管理", icon: <AltRouteIcon size={17} /> },
+  { id: "registryPower", label: "注册权管理", icon: <VpnKeyIcon size={17} /> },
+  { id: "middlewareWhitelist", label: "中间件白名单", icon: <DnsIcon size={17} />, rootOnly: true },
 ];
 
 function PermissionManage() {
@@ -34,6 +29,7 @@ function PermissionManage() {
   const [activeSection, setActiveSection] = useState("registry");
   const [appList, setAppList] = useState([]);
   const [registryMap, setRegistryMap] = useState({});
+
   const fetchData = useCallback(async () => {
     try {
       const [appRes, regRes] = await Promise.all([
@@ -44,10 +40,10 @@ function PermissionManage() {
       if (regRes.code === 200) {
         const map = {};
         (regRes.data || []).forEach(r => {
-    const id = r.resourceId || r.resource_id;
-    const enabled = r.permissionEnabled ?? r.permission_enabled;
-    if (enabled !== false) map[id] = r;
-  });
+          const id = r.resourceId || r.resource_id;
+          const enabled = r.permissionEnabled ?? r.permission_enabled;
+          if (enabled !== false) map[id] = r;
+        });
         setRegistryMap(map);
       }
     } catch (e) { console.error("加载数据失败", e); }
@@ -57,8 +53,18 @@ function PermissionManage() {
 
   const visibleSections = SECTIONS.filter(s => !s.rootOnly || isRoot);
 
-  const renderContent = () => {
-    switch (activeSection) {
+
+  const activeVisible = visibleSections.find(s => s.id === activeSection);
+  const displaySection = activeVisible?.id || visibleSections[0]?.id || "registry";
+
+  useEffect(() => {
+    if (activeSection !== displaySection) {
+      setActiveSection(displaySection);
+    }
+  }, [displaySection, activeSection]);
+
+  const renderContent = (currentSection) => {
+    switch (currentSection) {
       case "registry":
         return <PermissionRegistry appList={appList} registryMap={registryMap} onRefresh={fetchData} />;
       case "role":
@@ -76,13 +82,9 @@ function PermissionManage() {
     }
   };
 
-  // 如果当前切到的 section 被过滤掉了（比如非 root 切到白名单），重置
-  const activeVisible = visibleSections.find(s => s.id === activeSection);
-  const displaySection = activeVisible?.id || visibleSections[0]?.id || "registry";
-
   return (
     <div className={style[bem.b()]}>
-      <div className={style[bem.e("sidebar")]}>
+      <aside className={style[bem.e("sidebar")]}>
         <div className={style[bem.e("sidebar-title")]}>权限管理</div>
         <div className={style[bem.e("menu")]}>
           {visibleSections.map(item => (
@@ -90,7 +92,7 @@ function PermissionManage() {
               key={item.id}
               className={[
                 style[bem.e("menu-item")],
-                style[bem.is("active", activeSection === item.id)]
+                style[bem.is("active", displaySection === item.id)]
               ].filter(Boolean).join(" ")}
               onClick={() => setActiveSection(item.id)}
             >
@@ -99,10 +101,10 @@ function PermissionManage() {
             </div>
           ))}
         </div>
-      </div>
-      <div className={style[bem.e("content")]}>
-        {renderContent()}
-      </div>
+      </aside>
+      <main className={style[bem.e("content")]}>
+        {renderContent(displaySection)}
+      </main>
     </div>
   );
 }

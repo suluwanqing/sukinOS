@@ -11,18 +11,14 @@ import {
 } from '@/sukinos/utils/config';
 import useKernel from "@/sukinos/hooks/useKernel";
 import { confirm } from '@/component/confirm/layout';
-import SearchIcon from '@mui/icons-material/Search';
-import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
-import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
-import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import { Search as SearchIcon, Play as PlayArrowRoundedIcon, Trash2 as DeleteOutlineRoundedIcon, RotateCcw as RestartAltRoundedIcon, X as CloseRoundedIcon } from 'lucide-react';
 import fs from '@/sukinos/utils/file/fileKernel';
 import {clearAppSandboxData} from '@/sukinos/utils/process/kernelParts/lifecycle'
 const bem = createNamespace('start');
 
 const SearchBar = ({ searchQuery, setSearchQuery }) => (
   <div className={style[bem.e('search-bar')]}>
-    <SearchIcon sx={{ color: 'var(--su-text-color-secondary)', fontSize: 20 }} />
+    <SearchIcon size={20} style={{ color: '#909399' }} />
     <input
       type="text"
       placeholder="搜索应用..."
@@ -37,7 +33,7 @@ const SearchBar = ({ searchQuery, setSearchQuery }) => (
         onClick={() => setSearchQuery('')}
         title="清除"
       >
-        <CloseRoundedIcon sx={{ fontSize: 16 }} />
+        <CloseRoundedIcon size={16} />
       </button>
     )}
   </div>
@@ -202,7 +198,7 @@ function Start(props) {
                         onClick={() => handleStart(app.pid)}
                         title="启动"
                       >
-                        <PlayArrowRoundedIcon sx={{ fontSize: 20 }} />
+                        <PlayArrowRoundedIcon size={20} />
                       </button>
 
                       <button
@@ -210,7 +206,7 @@ function Start(props) {
                         onClick={() => handleResetData(app)}
                         title="重置数据"
                       >
-                        <RestartAltRoundedIcon sx={{ fontSize: 18 }} />
+                        <RestartAltRoundedIcon size={18} />
                       </button>
 
                       <button
@@ -218,7 +214,7 @@ function Start(props) {
                         onClick={() => handleDelete(app)}
                         title="卸载"
                       >
-                        <DeleteOutlineRoundedIcon sx={{ fontSize: 18 }} />
+                        <DeleteOutlineRoundedIcon size={18} />
                       </button>
                     </div>
                   </div>

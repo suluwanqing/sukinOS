@@ -17,10 +17,7 @@ import {
 
 import { updateTypes } from '/utils/js/logInfo'
 
-import AddIcon from '@mui/icons-material/Add'
-import EditIcon from '@mui/icons-material/Edit'
-import AccessTimeIcon from '@mui/icons-material/AccessTime'
-import CloseIcon from '@mui/icons-material/Close'
+import { Plus as AddIcon, Pencil as EditIcon, Clock as AccessTimeIcon, X as CloseIcon } from 'lucide-react'
 
 const bem = createNamespace('system-update')
 const formBem = createNamespace('update-form')
@@ -125,7 +122,7 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
             {initialData ? '修改版本历史' : '提交系统更新'}
           </span>
           <button className={style[formBem.e('close-btn')]} onClick={onClose}>
-            <CloseIcon fontSize="small" />
+            <CloseIcon size={20} />
           </button>
         </div>
 
@@ -206,7 +203,7 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
                 <div className={style[formBem.e('sub-header')]}>
                   <span className={style[formBem.e('label')]}>改动细节管理</span>
                   <button className={style[formBem.e('add-btn')]} onClick={handleAddItem}>
-                    <AddIcon fontSize="inherit" /> 增加明细条目
+                    <AddIcon width="1em" height="1em" /> 增加明细条目
                   </button>
                 </div>
 
@@ -446,7 +443,7 @@ function SystemUpdate({ user }) {
         ].filter(Boolean).join(' ')}>
           <Button type="primary" size="small" onClick={openCreateModal}>
             <div className={style[bem.e('btn-inner')]}>
-              <AddIcon fontSize="inherit" style={{ marginRight: 4 }} />
+              <AddIcon width="1em" height="1em" style={{ marginRight: 4 }} />
               新增版本状态
             </div>
           </Button>
@@ -474,7 +471,7 @@ function SystemUpdate({ user }) {
                         </span>
                       )}
                       <span className={style[bem.e('time')]}>
-                        <AccessTimeIcon fontSize="inherit" style={{ marginRight: 4, verticalAlign: 'middle' }} />
+                        <AccessTimeIcon width="1em" height="1em" style={{ marginRight: 4, verticalAlign: 'middle' }} />
                         {formatTime(group.createdAt)}
                       </span>
                     </div>
@@ -482,7 +479,7 @@ function SystemUpdate({ user }) {
                     {isRoot && (
                       <div className={style[bem.e('operations')]}>
                         <button className={style[bem.e('op-btn')]} onClick={() => openEditModal(group)}>
-                          <EditIcon fontSize="inherit" />
+                          <EditIcon width="1em" height="1em" />
                         </button>
                         <button className={[style[bem.e('op-btn')], style[bem.e('op-btn-danger')]].join(' ')} onClick={() => handleDelete(group.id)}>
                           <SvgTrashIcon />

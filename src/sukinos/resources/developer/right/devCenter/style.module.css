@@ -11,31 +11,31 @@
 }
 .su-dev-center__editor-tabs {
   height: 35px;
-  background: var(--su-fill-color-light);
+  background: #f5f7fa;
   display: flex;
   align-items: flex-end;
-  border-bottom: 1px solid var(--su-border-color);
+  border-bottom: 1px solid #dcdfe6;
 }
 .su-dev-center__editor-tab-active {
   height: 35px;
-  background: var(--su-bg-color);
+  background: #ffffff;
   padding: 0 16px;
   display: flex;
   align-items: center;
   font-size: 13px;
-  color: var(--su-text-color-primary);
-  border-right: 1px solid var(--su-border-color);
+  color: #303133;
+  border-right: 1px solid #dcdfe6;
 }
 .su-dev-center__file-badge {
   margin-left: 8px;
   font-size: 10px;
-  background: var(--su-fill-color-dark);
+  background: #ebedf0;
   padding: 2px 6px;
   border-radius: 10px;
-  color: var(--su-text-color-regular);
+  color: #606266;
 }
 .su-dev-center__editor-frame {
   flex: 1;
   overflow: hidden;
-  background: var(--su-bg-color);
+  background: #ffffff;
 }

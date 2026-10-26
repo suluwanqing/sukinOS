@@ -22,13 +22,13 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: var(--su-text-color-regular);
+  color: #606266;
   position: relative;
   transition: color 0.2s ease;
 }
 
 .su-nav__item:hover {
-  color: var(--su-black);
+  color: #000000;
 }
 
 .su-nav__icon {
@@ -39,9 +39,9 @@
 }
 
 .su-nav__item.is-active {
-  color: var(--su-black);
+  color: #000000;
 }
 
 .su-nav__item.is-active:hover {
-  color: var(--su-gray-600);
+  color: #4b5563;
 }

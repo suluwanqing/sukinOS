@@ -1,11 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import FolderOpenIcon from '@mui/icons-material/FolderOpen';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import FileUploadIcon from '@mui/icons-material/FileUpload';
+import { FolderOpen as FolderOpenIcon, Eye as VisibilityIcon, CircleAlert as ErrorOutlineIcon, CircleCheck as CheckCircleOutlineIcon, Upload as FileUploadIcon } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { selectorUserInfo, selectorStoreSettingStorePath } from '@/sukinos/store';
 import { sukinOs as sukinApi } from '@/apis/main';
@@ -131,7 +127,7 @@ function UpdatePreviewModal({ open, app, source, onClose, onConfirmPreview }) {
           )}
           {!loading && errorMsg && (
             <div className={style[bem.e('modal-error')]}>
-              <ErrorOutlineIcon fontSize="large" />
+              <ErrorOutlineIcon size={35} />
               <span>{errorMsg}</span>
             </div>
           )}
@@ -437,7 +433,7 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
     <div className={style[bem.b()]}>
       <div className={style[bem.e('header')]}>
         <div className={style[bem.e('header-icon')]}>
-          <FolderOpenIcon fontSize="medium" />
+          <FolderOpenIcon />
         </div>
         <div className={style[bem.e('header-text')]}>
           <div className={style[bem.e('title')]}>应用云端更新与部署</div>
@@ -499,7 +495,7 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
                           className={style[bem.e('action-btn')]}
                           onClick={(e) => handleSelectSource(e, app.resourceId)}
                         >
-                          <FileUploadIcon fontSize="inherit" />
+                          <FileUploadIcon width="1em" height="1em" />
                           重载文件
                         </button>
                         <button
@@ -507,7 +503,7 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
                           onClick={(e) => openPreview(e, app)}
                           disabled={!hasFile}
                         >
-                          <VisibilityIcon fontSize="inherit" />
+                          <VisibilityIcon width="1em" height="1em" />
                           对比预览
                         </button>
                       </div>
@@ -524,8 +520,8 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
         <div className={style[bem.e('msg-container')]}>
           {message && (
             <div className={`${style[bem.e('message')]} ${style[bem.e(`message-${messageType}`)]}`}>
-              {messageType === 'error' && <ErrorOutlineIcon fontSize="small" />}
-              {messageType === 'success' && <CheckCircleOutlineIcon fontSize="small" />}
+              {messageType === 'error' && <ErrorOutlineIcon size={20} />}
+              {messageType === 'success' && <CheckCircleOutlineIcon size={20} />}
               {message}
             </div>
           )}

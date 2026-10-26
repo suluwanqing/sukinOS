@@ -1,6 +1,5 @@
 import style from "./style.module.css"
 import { createNamespace } from '/utils/js/classcreate'
-import SearchIcon from '@mui/icons-material/Search'
 import React, { useState, useEffect, useRef, useMemo } from "react"
 import VfsImage from '@/sukinos/middleware/VfsImage/main.jsx'
 

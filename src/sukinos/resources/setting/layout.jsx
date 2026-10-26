@@ -3,12 +3,7 @@ import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 
 /* 导入图标 */
-import PersonIcon from '@mui/icons-material/Person';
-import SecurityIcon from '@mui/icons-material/Security';
-import HelpIcon from '@mui/icons-material/Help';
-import ColorLensIcon from "@mui/icons-material/ColorLens";
-import InfoIcon from '@mui/icons-material/Info';
-import SettingsIcon from '@mui/icons-material/Settings';
+import { User as PersonIcon, ShieldCheck as SecurityIcon, CircleHelp as HelpIcon, Palette as ColorLensIcon, Info as InfoIcon, Settings as SettingsIcon } from 'lucide-react';
 
 /* 导入提取后的独立组件 */
 import Sidebar from './sidebar/layout';
@@ -29,37 +24,37 @@ function Setting() {
     {
       id: 'user',
       label: '用户',
-      icon: <PersonIcon />,
+      icon: <PersonIcon width="1em" height="1em" />,
       render: <UserSettings />
     },
     {
       id: 'system',
       label: '系统设置',
-      icon: <SettingsIcon />,
+      icon: <SettingsIcon width="1em" height="1em" />,
       render: <System />
     },
     {
       id: 'personalization',
       label: '个性化',
-      icon: <ColorLensIcon />,
+      icon: <ColorLensIcon width="1em" height="1em" />,
       render: <PersonalizationSettings />
     },
     {
       id: 'shortcuts',
       label: '快捷键',
-      icon: <HelpIcon />,
+      icon: <HelpIcon width="1em" height="1em" />,
       render: <Shortcuts />
     },
     {
       id: 'privacy',
       label: '隐私与安全',
-      icon: <SecurityIcon />,
+      icon: <SecurityIcon width="1em" height="1em" />,
       render: <Privacy />
     },
     {
       id: 'about',
       label: '系统信息',
-      icon: <InfoIcon />,
+      icon: <InfoIcon width="1em" height="1em" />,
       render: <SystemInfo />
     }
   ];

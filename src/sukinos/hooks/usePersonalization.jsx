@@ -70,7 +70,7 @@ export const PRESET_STYLES = {
       bgValue: '#ecfdf5',
       fontSize: 15,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-hei)',
+      fontValue: '"SimHei", "黑体", sans-serif',
       borderRadius: 10,
       glassEffect: false,
       deskIconSize: 52,
@@ -96,7 +96,7 @@ export const PRESET_STYLES = {
       bgValue: '#fffbeb',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-song)',
+      fontValue: '"SimSun", "宋体", serif',
       borderRadius: 14,
       glassEffect: true,
       deskIconSize: 48,
@@ -122,7 +122,7 @@ export const PRESET_STYLES = {
       bgValue: '#fdf2f8',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-kai)',
+      fontValue: '"KaiTi", "楷体", serif',
       borderRadius: 16,
       glassEffect: true,
       deskIconSize: 54,
@@ -148,7 +148,7 @@ export const PRESET_STYLES = {
       bgValue: '#ffffff',
       fontSize: 13,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-applesystem)',
+      fontValue: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
       borderRadius: 6,
       glassEffect: false,
       deskIconSize: 46,
@@ -174,7 +174,7 @@ export const PRESET_STYLES = {
       bgValue: '#1e1b4b',
       fontSize: 15,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-hei)',
+      fontValue: '"SimHei", "黑体", sans-serif',
       borderRadius: 10,
       glassEffect: true,
       deskIconSize: 56,
@@ -200,7 +200,7 @@ export const PRESET_STYLES = {
       bgValue: '#022c22',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-song)',
+      fontValue: '"SimSun", "宋体", serif',
       borderRadius: 11,
       glassEffect: true,
       deskIconSize: 51,
@@ -226,7 +226,7 @@ export const PRESET_STYLES = {
       bgValue: '#fff5f7',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-kai)',
+      fontValue: '"KaiTi", "楷体", serif',
       borderRadius: 18,
       glassEffect: true,
       deskIconSize: 53,
@@ -278,7 +278,7 @@ export const PRESET_STYLES = {
       bgValue: '#fefce8',
       fontSize: 15,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-youyuan)',
+      fontValue: '"YouYuan", "幼圆", sans-serif',
       borderRadius: 13,
       glassEffect: true,
       deskIconSize: 55,
@@ -304,7 +304,7 @@ export const PRESET_STYLES = {
       bgValue: '#2e1065',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-hei)',
+      fontValue: '"SimHei", "黑体", sans-serif',
       borderRadius: 12,
       glassEffect: true,
       deskIconSize: 52,
@@ -330,7 +330,7 @@ export const PRESET_STYLES = {
       bgValue: '#fef3c7',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-song)',
+      fontValue: '"SimSun", "宋体", serif',
       borderRadius: 9,
       glassEffect: false,
       deskIconSize: 49,
@@ -356,7 +356,7 @@ export const PRESET_STYLES = {
       bgValue: '#ecfeff',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-hei)',
+      fontValue: '"SimHei", "黑体", sans-serif',
       borderRadius: 10,
       glassEffect: true,
       deskIconSize: 50,
@@ -382,7 +382,7 @@ export const PRESET_STYLES = {
       bgValue: '#1c1917',
       fontSize: 14,
       fontType: 'preset',
-      fontValue: 'var(--su-font-family-kai)',
+      fontValue: '"KaiTi", "楷体", serif',
       borderRadius: 10,
       glassEffect: true,
       deskIconSize: 54,
@@ -416,8 +416,8 @@ export const defaultPersonalization = {
   deskPadding: 20,
   deskFontColor: '#ffffff',
   deskIconShadow: 0,
-  windowHeaderBg: 'var(--su-gray-50)',
-  windowHeaderColor: 'var(--su-gray-800)',
+  windowHeaderBg: '#f9fafb',
+  windowHeaderColor: '#1f2937',
   windowOpacity: 80,
   windowHeaderOpacity: 100,
   windowPadding: 0,
@@ -449,39 +449,84 @@ export const defaultPersonalization = {
   autoSaveWindowInterval: 0, // 自动保存窗口位置间隔(秒), 0=禁用
 };
 
-export const colorSystemPre = '--su';
 export const colorSystem = ['yellow', 'apricot', 'cyan', 'red', 'black', 'primary'];
 export const colorSystemRange = [50, 100, 200, 300, 400, 500, 900];
 
+// 令牌层（utils/css/color.css）删除后，再拼 var(--su-<base>-<shade>) 会解析为空，
+// 所以把取色器用的 6 基色 × 7 档按旧表原值搬成字面 hex，配置里存的直接是可用颜色。
+export const COLOR_SCALE = {
+  yellow: { 50: '#fefce8', 100: '#fef9c3', 200: '#fef08a', 300: '#fde047', 400: '#facc15', 500: '#eab308', 900: '#713f12' },
+  apricot: { 50: '#fefaf6', 100: '#fdf2e6', 200: '#fbe4cd', 300: '#f8d5b0', 400: '#f4b884', 500: '#f19e5c', 900: '#7d3f26' },
+  cyan: { 50: '#ecfeff', 100: '#cffafe', 200: '#a5f3fc', 300: '#67e8f9', 400: '#22d3ee', 500: '#06b6d4', 900: '#164e63' },
+  red: { 50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5', 400: '#f87171', 500: '#ef4444', 900: '#7f1d1d' },
+  black: { 50: '#fafafa', 100: '#f5f5f5', 200: '#eeeeee', 300: '#e0e0e0', 400: '#bdbdbd', 500: '#9e9e9e', 900: '#212121' },
+  primary: { 50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc', 400: '#38bdf8', 500: '#0ea5e9', 900: '#0c4a6e' },
+};
+
+// 老存档的 baseColor 可能在表外（出厂默认里就写着 dark），查不到时退回调用方给的兜底色
+export const scaleColor = (custom, fallback) => COLOR_SCALE[custom.baseColor]?.[custom.shade] ?? fallback;
+
 export const PRESET_FONTS = [
-  { name: '系统默认', value: 'var(--su-font-family-applesystem)' },
-  { name: '微软雅黑', value: 'var(--su-font-family-yahei)' },
-  { name: '现代黑体', value: 'var(--su-font-family-hei)' },
-  { name: '经典宋体', value: 'var(--su-font-family-song)' },
-  { name: '优雅楷体', value: 'var(--su-font-family-kai)' },
-  { name: '清秀仿宋', value: 'var(--su-font-family-fangsong)' },
-  { name: '艺术隶书', value: 'var(--su-font-family-lishu)' },
-  { name: '圆润幼圆', value: 'var(--su-font-family-youyuan)' },
+  { name: '系统默认', value: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' },
+  { name: '微软雅黑', value: '"Microsoft YaHei", "微软雅黑", sans-serif' },
+  { name: '现代黑体', value: '"SimHei", "黑体", sans-serif' },
+  { name: '经典宋体', value: '"SimSun", "宋体", serif' },
+  { name: '优雅楷体', value: '"KaiTi", "楷体", serif' },
+  { name: '清秀仿宋', value: '"FangSong", "仿宋", serif' },
+  { name: '艺术隶书', value: '"LiSu", "隶书", serif' },
+  { name: '圆润幼圆', value: '"YouYuan", "幼圆", sans-serif' },
 ];
 
-export const getColorFromCSSVar = (cssVar) => {
-  if (!cssVar || !cssVar.startsWith('var(--su-')) return cssVar;
-  const tempDiv = document.createElement('div');
-  tempDiv.style.display = 'none';
-  tempDiv.style.color = cssVar;
-  document.body.appendChild(tempDiv);
-  const computedColor = getComputedStyle(tempDiv).color;
-  document.body.removeChild(tempDiv);
-  if (computedColor && computedColor.startsWith('rgb')) {
-    const match = computedColor.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (match) {
-      const r = parseInt(match[1]).toString(16).padStart(2, '0');
-      const g = parseInt(match[2]).toString(16).padStart(2, '0');
-      const b = parseInt(match[3]).toString(16).padStart(2, '0');
-      return `#${r}${g}${b}`;
+// 读档归一：老存档里 fontValue / windowHeaderBg 这类配置项存的是 var(--su-*) 串，
+// 令牌层删除后这些引用解析为空。--custom-* 与 --su-os-* 仍是活的运行时变量，原样保留；
+// 认不出的 --su-* 直接丢掉，让 defaultPersonalization 接手。
+const LEGACY_VAR_VALUES = {
+  '--su-font-family-yahei': `"Microsoft YaHei", "微软雅黑", sans-serif`,
+  '--su-font-family-hei': `"SimHei", "黑体", sans-serif`,
+  '--su-font-family-song': `"SimSun", "宋体", serif`,
+  '--su-font-family-kai': `"KaiTi", "楷体", serif`,
+  '--su-font-family-fangsong': `"FangSong", "仿宋", serif`,
+  '--su-font-family-lishu': `"LiSu", "隶书", serif`,
+  '--su-font-family-youyuan': `"YouYuan", "幼圆", sans-serif`,
+  '--su-font-family-applesystem': `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`,
+  '--su-font-family-xingkai': `'STXingkai', '华文行楷', 'Xingkai SC', '楷体', cursive`,
+  '--su-font-family-xinwei': `'STXinwei', '华文新魏', 'KaiTi', serif`,
+  '--su-font-family-hupo': `'STHupo', '华文琥珀', 'YouYuan', sans-serif`,
+  '--su-font-family-caiyun': `'STCaiyun', '华文彩云', 'YouYuan', sans-serif`,
+  '--su-font-family-libian': `'STLibian', '华文隶变', 'LiSu', serif`,
+  '--su-gray-50': '#f9fafb',
+  '--su-gray-800': '#1f2937',
+  ...Object.fromEntries(
+    Object.entries(COLOR_SCALE).flatMap(([base, shades]) =>
+      Object.entries(shades).map(([shade, hex]) => [`--su-${base}-${shade}`, hex]))
+  ),
+};
+
+// 配置项 → 记 baseColor/shade 的那半个字段，丢掉色值串时要把档位记忆一起丢，
+// 否则会出现"颜色回到出厂、取色器还停在自定义档"的错位
+const LEGACY_COLOR_PAIRS = {
+  accentColor: 'customColor',
+  bgValue: 'customBgColor',
+  deskFontColor: 'customDeskFontColor',
+  windowHeaderBg: 'customWindowHeaderBg',
+  windowHeaderColor: 'customWindowHeaderColor',
+};
+
+const normalizeLegacyConfig = (parsed) => {
+  const out = { ...parsed };
+  for (const [key, value] of Object.entries(out)) {
+    const m = typeof value === 'string' && /^var\(\s*(--[\w-]+)\s*\)$/.exec(value);
+    if (!m) continue;
+    if (/^--(custom|su-os)-/.test(m[1])) continue;
+    if (LEGACY_VAR_VALUES[m[1]]) {
+      out[key] = LEGACY_VAR_VALUES[m[1]];
+      continue;
     }
+    console.warn(`[Personalization] 配置项 ${key} 的值 ${value} 无法解析，改用出厂值`);
+    delete out[key];
+    if (LEGACY_COLOR_PAIRS[key]) delete out[LEGACY_COLOR_PAIRS[key]];
   }
-  return cssVar;
+  return out;
 };
 
 // 模块级单例：所有 usePersonalization 实例共享同一份 config 状态
@@ -501,6 +546,11 @@ export const personalizationStore = {
   }
 };
 
+/* themeMode 的首屏引导与 <html> 上的 .dark 切换抽到了同目录的 themeMode.js：
+   那个文件零依赖，src/main.jsx 需要它做首屏防闪，若从这里引会把整条 VFS 依赖链
+   拖进入口 chunk。 */
+import { applyThemeMode } from './themeMode.js';
+
 export const usePersonalization = () => {
   const [config, setConfig] = useState(() => personalizationStore.get());
   useEffect(() => personalizationStore.subscribe(setConfig), []);
@@ -510,6 +560,26 @@ export const usePersonalization = () => {
   const base64Cache = useRef({ bg: null, font: null });
   const saveTimerRef = useRef(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  /* ===== 深色模式接线 =====
+     global.css 里 @custom-variant dark (&:is(.dark *)) 把 dark: 工具类绑到了 .dark class 上，
+     :root / .dark 两套语义令牌也据此二选一。所以只要在 <html> 上挂/摘 .dark，
+     整棵文档树里的 bg-popover / text-foreground / border-border 就会自动取到对应的一套值。
+
+     挂 documentElement 而不是 #sukin-os：本项目有一批浮层是 portal 到 document.body 的
+     （toast、confirm、右键菜单、PageList 列设置面板），它们在 #sukin-os 的 DOM 子树之外。
+     只挂 #sukin-os 的话，深色模式下这些浮层仍是浅色，在深色桌面上非常扎眼。
+     它们用的都是语义令牌，.dark 下有配套的深色值，翻过去是正确的。
+
+     顺带说明：body 的 bg-background 会跟着翻，但 #sukin-os 是 100dvw×100dvh 且自带
+     个性化背景色，视觉上看不到 body，无副作用。
+
+     <html> 不属于 React 树，不能用受控 className，所以走 classList。
+     首屏的那一次挂载由 main.jsx 里的 bootstrapThemeMode() 提前做完（同步、防闪），
+     这里负责配置变化后的持续同步与回写镜像。 */
+  useEffect(() => {
+    applyThemeMode(config.themeMode);
+  }, [config.themeMode]);
 
   // 区分配置是来自外部加载，还是来自本组件实例的用户修改，防止刷新等外部副作用触发误重写
   const hasPendingChangesRef = useRef(false);
@@ -558,7 +628,7 @@ export const usePersonalization = () => {
         reader.onerror = reject;
         reader.readAsDataURL(blob);
       });
-    } catch (e) {
+    } catch {
       return null;
     }
   }, [localAssets, getMimeType]);
@@ -589,8 +659,8 @@ export const usePersonalization = () => {
                   jsonStr = new TextDecoder('utf-8').decode(content.buffer);
               }
               const parsed = JSON.parse(jsonStr);
-              personalizationStore.set(prev => ({ ...prev, ...parsed }));
-            } catch (e) { console.error("配置解析失败，使用默认"); }
+              personalizationStore.set(prev => ({ ...prev, ...normalizeLegacyConfig(parsed) }));
+            } catch { console.error("配置解析失败，使用默认"); }
           }
         } else {
           const newFile = await fs.writeFile('root', CONFIG_FILENAME, JSON.stringify(defaultPersonalization));
@@ -631,26 +701,25 @@ export const usePersonalization = () => {
   }, []);
 
   const updateCustomColor = useCallback((target, baseColor, shade) => {
-    const newVar = `var(${colorSystemPre}-${baseColor}-${shade})`;
+    const hex = COLOR_SCALE[baseColor][shade];
     hasPendingChangesRef.current = true;
     if (target === 'accent') {
-      personalizationStore.set(prev => ({ ...prev, accentColor: newVar, customColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, accentColor: hex, customColor: { baseColor, shade } }));
     } else if (target === 'bg') {
-      personalizationStore.set(prev => ({ ...prev, bgType: 'color', bgValue: newVar, customBgColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, bgType: 'color', bgValue: hex, customBgColor: { baseColor, shade } }));
     } else if (target === 'deskFont') {
-      personalizationStore.set(prev => ({ ...prev, deskFontColor: newVar, customDeskFontColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, deskFontColor: hex, customDeskFontColor: { baseColor, shade } }));
     } else if (target === 'windowHeaderBg') {
-      personalizationStore.set(prev => ({ ...prev, windowHeaderBg: newVar, customWindowHeaderBg: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, windowHeaderBg: hex, customWindowHeaderBg: { baseColor, shade } }));
     } else if (target === 'windowHeaderColor') {
-      personalizationStore.set(prev => ({ ...prev, windowHeaderColor: newVar, customWindowHeaderColor: { baseColor, shade } }));
+      personalizationStore.set(prev => ({ ...prev, windowHeaderColor: hex, customWindowHeaderColor: { baseColor, shade } }));
     }
   }, []);
 
   const getCurrentAccentColor = useCallback(() => {
     const { accentColor, customColor } = config;
     if (PRESET_ACCENTS.includes(accentColor)) return accentColor;
-    if (accentColor && accentColor.startsWith('var(--su-')) return accentColor;
-    return `var(${colorSystemPre}-${customColor.baseColor}-${customColor.shade})`;
+    return scaleColor(customColor, defaultPersonalization.accentColor);
   }, [config]);
 
   // 刷新时主动从 VFS (虚拟文件系统) 读取最新的存储内容，防止由于 Hook 状态孤立引起的配置回滚
@@ -666,7 +735,7 @@ export const usePersonalization = () => {
               jsonStr = new TextDecoder('utf-8').decode(content.buffer);
           }
           const parsed = JSON.parse(jsonStr);
-          personalizationStore.set(prev => ({ ...prev, ...parsed }));
+          personalizationStore.set(prev => ({ ...prev, ...normalizeLegacyConfig(parsed) }));
         }
       } catch (e) {
         console.error("重新加载配置失败:", e);

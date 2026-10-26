@@ -14,7 +14,7 @@
   align-items: center;
   font-size: 13px;
   font-weight: 600;
-  color: var(--su-text-color-regular, #64748b);
+  color: #606266;
   margin-bottom: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -22,8 +22,8 @@
 
 .su-setting-system__card {
   padding: 20px 24px;
-  background: var(--su-bg-color, #ffffff);
-  border: 1px solid var(--su-border-color, #e2e8f0);
+  background: #ffffff;
+  border: 1px solid #dcdfe6;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
@@ -53,12 +53,12 @@
 .su-setting-system__label-bold {
   font-size: 14px;
   font-weight: 600;
-  color: var(--su-text-color-primary, #1e293b);
+  color: #303133;
 }
 
 .su-setting-system__description {
   font-size: 12px;
-  color: var(--su-text-color-secondary, #94a3b8);
+  color: #909399;
   line-height: 1.5;
   margin: 0;
   padding-left: 24px;
@@ -73,6 +73,6 @@
 
 .su-setting-system__divider {
   height: 1px;
-  background: var(--su-border-color-extra-light, #f1f5f9);
+  background: #f2f6fc;
   margin: 20px 0;
 }

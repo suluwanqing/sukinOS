@@ -104,7 +104,7 @@
 }
 
 .su-system-app__card {
-  background: var(--su-white);
+  background: #ffffff;
   border-radius: 8px;
   border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
@@ -139,7 +139,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  background: var(--su-white);
+  background: #ffffff;
   padding: 14px 16px;
   border-radius: 8px;
   border: 1px solid rgba(226, 232, 240, 0.8);
@@ -175,7 +175,7 @@
 
 .su-system-app__search-bar:focus-within {
   border-color: #6366f1;
-  background: var(--su-white);
+  background: #ffffff;
 }
 
 .su-system-app__search-bar input {
@@ -220,7 +220,7 @@
 
 .su-system-app__input:focus {
   border-color: #6366f1;
-  background: var(--su-white);
+  background: #ffffff;
 }
 
 .su-system-app__btn-refresh {
@@ -233,7 +233,7 @@
   font-size: 12px;
   font-weight: 500;
   color: #475569;
-  background: var(--su-white);
+  background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   cursor: pointer;
@@ -260,7 +260,7 @@
 }
 
 .su-system-app__list-card {
-  background: var(--su-white);
+  background: #ffffff;
   border-radius: 8px;
   border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
@@ -345,7 +345,7 @@
   width: 720px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 64px);
-  background: var(--su-white);
+  background: #ffffff;
   border-radius: 12px;
   display: flex;
   flex-direction: column;

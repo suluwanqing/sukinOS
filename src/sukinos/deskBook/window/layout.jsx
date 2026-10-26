@@ -3,18 +3,14 @@ import { createNamespace } from '/utils/js/classcreate'
 import { useWindowInteraction } from '@/sukinos/hooks/useWindowInteraction'
 import useProcessBridge from '@/sukinos/hooks/useProcessBridge'
 import DynamicRenderer from './process/layout'
-import CloseIcon from '@mui/icons-material/Close'
-import CodeIcon from '@mui/icons-material/Code'
-import FullscreenIcon from '@mui/icons-material/Fullscreen'
-import FullscreenExitIcon from '@mui/icons-material/FullscreenExit'
-import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule'
+import { X as CloseIcon, Code as CodeIcon, Maximize as FullscreenIcon, Minimize as FullscreenExitIcon, Minus as HorizontalRuleIcon } from 'lucide-react'
 import style from "./style.module.css"
 import { ENV_KEY_RESOURCE_ID, ENV_KEY_NAME, ENV_KEY_META_INFO } from '@/sukinos/utils/config'
 import VfsImage from '@/sukinos/middleware/VfsImage/main.jsx'
 
 const bem = createNamespace('window')
 const ScreenIcon = ({ isMaximized }) => {
-  return isMaximized ? <FullscreenExitIcon fontSize='small' /> : <FullscreenIcon fontSize='small' />
+  return isMaximized ? <FullscreenExitIcon size={20} /> : <FullscreenIcon size={20} />
 }
 
 // 会话级别进程挂载跟踪器
@@ -192,10 +188,10 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
 
 
   const headerFuncs = useMemo(() => [
-    ...(exposeState ? [{ id: 'state', icon: <CodeIcon fontSize='small' />, onClick: () => setShowState(!showState) }] : []),
-    { id: 'back', icon: <HorizontalRuleIcon fontSize='small' />, onClick: handleClose },
+    ...(exposeState ? [{ id: 'state', icon: <CodeIcon size={20} />, onClick: () => setShowState(!showState) }] : []),
+    { id: 'back', icon: <HorizontalRuleIcon size={20} />, onClick: handleClose },
     { id: 'window', icon: <ScreenIcon isMaximized={isMaximized} />, onClick: toggleMaximize },
-    { id: 'close', icon: <CloseIcon fontSize='small' />, onClick: () => handleKillProcess(pid) },
+    { id: 'close', icon: <CloseIcon size={20} />, onClick: () => handleKillProcess(pid) },
   ].filter(Boolean), [exposeState, showState, isMaximized, handleClose, toggleMaximize, handleKillProcess, pid]);
 
   const resizeHandles = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']

@@ -1,0 +1,210 @@
+@import "tw-animate-css";
+@import "tailwindcss";
+/* 组件库是唯一写裸 Tailwind 类的地方：业务侧（sukinos / apps / index）走 CSS Modules，
+   所以这里只扫 component。改动这条之前先确认没有新增裸类名的目录。 */
+@source "./component";
+
+/* ===========================================================================
+   令牌层：值与命名逐字取自 ui.shadcn.com 的 new-york-v4 / neutral 默认风格。
+   命名约定：--{语义} 管表面色，--{语义}-foreground 管其上的文字与图标色；
+   :root 定义亮色，.dark 覆盖同名令牌；@theme inline 把 --x 映射成 --color-x，
+   从而生成 bg-x / text-x / border-x / ring-x 工具类。
+   半径由单一 --radius 派生整套刻度，改这一个值即换全站圆角。
+   =========================================================================== */
+
+:root {
+  --radius: 0.625rem;
+
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+
+  /* 业务侧存量 type 轴的三个语义档，按官网 theming 文档的自定义令牌方式承接。
+     这两个角色必须同时满足，取值时按此权衡：
+       角色 A 作前景色（toast 图标、plain 按钮文字）压在 bg-popover 上 -> 需 >= 3:1
+       角色 B 作按钮底色，上面压 --x-foreground -> 需 >= 4.5:1
+     浅色模式：底色要压白字，所以取中深色；加深对两个角色同向有利。
+     深色模式：底色要压深字，所以取中浅色（与官方 --primary 在深色下反色同理）。
+     warning 色相感知偏亮，两个模式都配深棕前景。 */
+  --success: oklch(0.508 0.118 165.612);
+  --success-foreground: oklch(0.985 0 0);
+  --warning: oklch(0.666 0.179 75);
+  --warning-foreground: oklch(0.28 0.07 46);
+  --info: oklch(0.5 0.134 242.749);
+  --info-foreground: oklch(0.985 0 0);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+
+  /* 深色模式走 inverted 方案：令牌取中浅色、前景取深色，
+     这样「图标压深色弹层」与「深字压令牌底」两个角色同向满足。 */
+  --success: oklch(0.765 0.177 150.7);
+  --success-foreground: oklch(0.205 0 0);
+  --warning: oklch(0.8 0.15 75);
+  --warning-foreground: oklch(0.28 0.07 46);
+  --info: oklch(0.7 0.15 241.4);
+  --info-foreground: oklch(0.205 0 0);
+}
+
+/* 半径刻度：--radius-lg 即基础值，更小者收窄、更大者放宽 */
+@theme inline {
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
+
+/* 深色改为 class 驱动：Tailwind v4 默认把 dark: 绑在 prefers-color-scheme 上，
+   这里改绑 .dark，与官网一致，便于用 class 切换主题。 */
+@custom-variant dark (&:is(.dark *));
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Tailwind v4 把 button 的 cursor 改成了 default，按官网说明恢复 pointer */
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+/* 重置一律交给 preflight：它本来就在 @layer base 里做了 box-sizing / margin / padding / border。
+   这里不要再写未分层的 * 规则：未分层的作者样式优先级高于所有分层样式，
+   一条 padding: 0 就能压死 @layer utilities 里的内边距与外边距工具类，与特异性无关。 */
+
+body,
+#root {
+  width: 100%;
+  height: 100dvh;
+  scroll-behavior: smooth;
+}
+
+body::-webkit-scrollbar {
+  display: none;
+}
+
+@font-face {
+  font-family: 'CurlycueEnglish';
+  src: url('/fonts/breadshop-font/Breadshop-4nLED.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Edge/Chrome 窗口控制遮罩模式下，顶部让出 28px 给系统按钮 */
+@media (display-mode: window-controls-overlay) {
+  #root > div {
+    margin-top: 28px;
+  }
+}
+
+@keyframes ui-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ui-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes ui-pop-in {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes ui-pop-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.96); }
+}
+@keyframes ui-drop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-drop-in-up {
+  from { opacity: 0; transform: translateY(4px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes ui-slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes ui-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes ui-morph-jump {
+  0% { transform: translateY(0) rotate(0deg) scale(1); border-radius: 8px; }
+  50% { transform: translateY(-50px) rotate(180deg) scale(0.8); border-radius: 50%; }
+  100% { transform: translateY(0) rotate(360deg) scale(1); border-radius: 8px; }
+}
+@keyframes ui-shadow-pulse {
+  0%, 100% { transform: scale(1.4); opacity: 0.3; }
+  50% { transform: scale(0.6); opacity: 0.05; }
+}

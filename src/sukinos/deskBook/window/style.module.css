@@ -8,12 +8,12 @@
 .su-window {
   position: absolute;
   /* 使用动态生成的具有透明度通道的变量 */
-  background: var(--su-os-surface-bg, var(--su-white)) !important;
+  background: var(--su-os-surface-bg, #ffffff) !important;
 
   border-radius: var(--custom-window-border-radius);
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--su-os-border-color, var(--su-border-color));
+  border: 1px solid var(--su-os-border-color, #dcdfe6);
   overflow: hidden;
   user-select: none;
   --header-height: attr(data-header-height px);
@@ -44,8 +44,8 @@
   height: var(--header-height);
   padding: 8px 12px;
   /* 头部背景继承全局动态混色后的带透明度颜色 */
-  background: var(--custom-window-header-bg, var(--su-gray-50));
-  border-bottom: 1px solid var(--su-os-border-color, var(--su-border-color));
+  background: var(--custom-window-header-bg, #f9fafb);
+  border-bottom: 1px solid var(--su-os-border-color, #dcdfe6);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -57,13 +57,13 @@
 .su-window__name {
   font-weight: bold;
   font-size: 13px;
-  color: var(--custom-window-header-color, var(--su-gray-800));
+  color: var(--custom-window-header-color, #1f2937);
 }
 
 .su-window__icon {
   height: 200%;
   aspect-ratio: 1;
-  border-radius: var(--su-border-radius-sm);
+  border-radius: 0.125rem;
 }
 
 .su-window__actions {
@@ -93,11 +93,11 @@
 }
 
 .su-window__action-btn--close {
-  background: var(--su-warning);
+  background: #e6a23c;
 }
 
 .su-window__action-btn--kill {
-  background: var(--su-danger);
+  background: #f56c6c;
 }
 
 .su-window__content {
@@ -178,25 +178,25 @@
   left: 0;
   right: 0;
   /* 状态面板为了清晰可读，采用独立的不受影响纯色实体 */
-  background: var(--su-os-surface-bg-solid, var(--su-white));
-  border: 1px solid var(--su-os-border-color, var(--su-border-color));
+  background: var(--su-os-surface-bg-solid, #ffffff);
+  border: 1px solid var(--su-os-border-color, #dcdfe6);
   border-top: none;
   border-radius: 0 0 8px 8px;
-  box-shadow: 0 4px 6px -1px rgba(var(--su-black-rgb), 0.1);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   z-index: 20;
   overflow: hidden;
 }
 
 .su-window__state-header {
   padding: 8px 12px;
-  background: var(--su-gray-100);
-  border-bottom: 1px solid var(--su-border-color);
+  background: #f3f4f6;
+  border-bottom: 1px solid #dcdfe6;
   display: flex;
   justify-content: space-between;
   align-items: center;
   font-size: 12px;
   font-weight: 600;
-  color: var(--su-gray-700);
+  color: #374151;
 }
 
 .su-window__state-close {
@@ -205,7 +205,7 @@
   cursor: pointer;
   font-size: 16px;
   line-height: 1;
-  color: var(--su-gray-500);
+  color: #6b7280;
   width: 20px;
   height: 20px;
   display: flex;
@@ -215,8 +215,8 @@
 }
 
 .su-window__state-close:hover {
-  background: var(--su-border-color);
-  color: var(--su-gray-700);
+  background: #dcdfe6;
+  color: #374151;
 }
 
 .su-window__state-content {
@@ -224,8 +224,8 @@
   padding: 12px;
   font-size: 11px;
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-  background: var(--su-gray-50);
-  color: var(--su-gray-800);
+  background: #f9fafb;
+  color: #1f2937;
   max-height: 300px;
   overflow: auto;
   white-space: pre-wrap;

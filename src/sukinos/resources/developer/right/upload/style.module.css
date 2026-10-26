@@ -8,8 +8,8 @@
 }
 
 .su-upload__card {
-  background: var(--su-white);
-  border: 1px solid var(--su-gray-200);
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
   border-radius: 8px;
   padding: 32px;
   max-width: 480px;
@@ -29,28 +29,28 @@
 }
 
 .su-upload__card-icon {
-  color: var(--su-gray-900);
+  color: #111827;
   font-size: 48px;
 }
 
 .su-upload__card-title {
   font-size: 20px;
   font-weight: 600;
-  color: var(--su-gray-900);
+  color: #111827;
   margin: 0;
 }
 
 .su-upload__card-description {
   font-size: 14px;
-  color: var(--su-gray-600);
+  color: #4b5563;
   margin: 0;
   line-height: 1.6;
   text-align: center;
 }
 
 .su-upload__requirements {
-  background: var(--su-gray-50);
-  border: 1px solid var(--su-gray-200);
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
   border-radius: 6px;
   padding: 20px;
 }
@@ -58,7 +58,7 @@
 .su-upload__requirements-title {
   font-size: 14px;
   font-weight: 600;
-  color: var(--su-gray-900);
+  color: #111827;
   margin: 0 0 12px 0;
 }
 
@@ -73,14 +73,14 @@
 
 .su-upload__requirements-item {
   font-size: 13px;
-  color: var(--su-gray-700);
+  color: #374151;
   display: flex;
   align-items: flex-start;
   gap: 8px;
 }
 
 .su-upload__requirements-bullet {
-  color: var(--su-gray-900);
+  color: #111827;
   font-weight: 600;
 }
 
@@ -94,7 +94,7 @@
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  color: var(--su-gray-700);
+  color: #374151;
   cursor: pointer;
   user-select: none;
 }
@@ -111,8 +111,8 @@
 }
 
 .su-upload__upload-btn {
-  background: var(--su-gray-900);
-  color: var(--su-white);
+  background: #111827;
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   font-size: 14px;
@@ -128,12 +128,12 @@
 }
 
 .su-upload__upload-btn:hover:not(:disabled) {
-  background: var(--su-gray-800);
+  background: #1f2937;
 }
 
 .su-upload__upload-btn:disabled {
-  background: var(--su-gray-100);
-  color: var(--su-gray-400);
+  background: #f3f4f6;
+  color: #9ca3af;
   cursor: not-allowed;
 }
 
@@ -148,13 +148,13 @@
 }
 
 .su-upload__message-error {
-  background: var(--su-red-50);
-  color: var(--su-red-700);
-  border: 1px solid var(--su-red-200);
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .su-upload__message-success {
-  background: var(--su-green-50);
-  color: var(--su-green-700);
-  border: 1px solid var(--su-green-200);
+  background: #f0fdf4;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
 }

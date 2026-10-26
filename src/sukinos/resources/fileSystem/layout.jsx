@@ -2,18 +2,8 @@ import React, { useState, useMemo } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 import { FileType} from "@/sukinos/utils/config"
-import ContextMenu from "@/component/contextMenu/layout.jsx";
-import FolderIcon from '@mui/icons-material/Folder';
-import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import GridViewIcon from '@mui/icons-material/GridView';
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted';
-import CreateNewFolderIcon from '@mui/icons-material/CreateNewFolder';
-import NoteAddIcon from '@mui/icons-material/NoteAdd';
-import HomeIcon from '@mui/icons-material/Home';
-import ComputerIcon from '@mui/icons-material/Computer';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
+import ContextMenu from "@/component/contextMenu/layout";
+import { Folder as FolderIcon, File as InsertDriveFileIcon, ArrowLeft as ArrowBackIcon, RefreshCw as RefreshIcon, LayoutGrid as GridViewIcon, List as FormatListBulletedIcon, FolderPlus as CreateNewFolderIcon, FilePlus as NoteAddIcon, Home as HomeIcon, Monitor as ComputerIcon, ArrowLeftRight as SwapHorizIcon } from 'lucide-react';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import ExChange from "./exchange/layout";
 import InteractiveAwakening from '@/sukinos/middleware/InteractiveAwakening/main';
@@ -28,19 +18,19 @@ const Sidebar = React.memo(({ mode, setMode }) => {
           className={[style[bem.e('sidebar-item')], style[bem.is('active', mode === 'virtual')]].join(' ')}
           onClick={() => setMode('virtual')}
         >
-          <HomeIcon fontSize="small" /> <span>虚拟盘</span>
+          <HomeIcon size={20} /> <span>虚拟盘</span>
         </div>
         <div
           className={[style[bem.e('sidebar-item')], style[bem.is('active', mode === 'local')]].join(' ')}
           onClick={() => setMode('local')}
         >
-          <ComputerIcon fontSize="small" /> <span>此电脑</span>
+          <ComputerIcon size={20} /> <span>此电脑</span>
         </div>
         <div
           className={[style[bem.e('sidebar-item')], style[bem.is('active', mode === 'remote')]].join(' ')}
           onClick={() => setMode('remote')}
         >
-          <ComputerIcon fontSize="small" /> <span>云端</span>
+          <ComputerIcon size={20} /> <span>云端</span>
         </div>
       </div>
     </div>
@@ -182,10 +172,10 @@ const FileSystem = ({ app }) => {
         <div className={style[bem.e('header')]}>
           <div className={style[bem.e('nav-controls')]}>
             <button className={style[bem.e('icon-btn')]} onClick={handleBack} disabled={history.length <= 1}>
-              <ArrowBackIcon fontSize="small" />
+              <ArrowBackIcon size={20} />
             </button>
             <button className={style[bem.e('icon-btn')]} onClick={handleRefresh}>
-              <RefreshIcon fontSize="small" />
+              <RefreshIcon size={20} />
             </button>
           </div>
 
@@ -201,28 +191,28 @@ const FileSystem = ({ app }) => {
           <div className={style[bem.e('actions')]}>
 
             <button className={style[bem.e('icon-btn')]} onClick={() => setExchangeVisible(true)} title="文件交换/传输">
-              <SwapHorizIcon fontSize="small" />
+              <SwapHorizIcon size={20} />
             </button>
             <div className={style[bem.e('divider')]}></div>
 
             <button className={style[bem.e('icon-btn')]} onClick={() => onCreate(FileType.DIRECTORY)} title="新建文件夹">
-              <CreateNewFolderIcon fontSize="small" />
+              <CreateNewFolderIcon size={20} />
             </button>
             <button className={style[bem.e('icon-btn')]} onClick={() => onCreate(FileType.FILE )} title="新建文件">
-              <NoteAddIcon fontSize="small" />
+              <NoteAddIcon size={20} />
             </button>
             <div className={style[bem.e('divider')]}></div>
             <button
               className={[style[bem.e('icon-btn')],style[bem.is('active', viewMode === 'grid')]].join(' ')}
               onClick={() => setViewMode('grid')}
             >
-              <GridViewIcon fontSize="small" />
+              <GridViewIcon size={20} />
             </button>
             <button
               className={[style[bem.e('icon-btn')],style[bem.is('active', viewMode === 'list')]].join(' ')}
               onClick={() => setViewMode('list')}
             >
-              <FormatListBulletedIcon fontSize="small" />
+              <FormatListBulletedIcon size={20} />
             </button>
           </div>
         </div>
@@ -243,8 +233,8 @@ const FileSystem = ({ app }) => {
                     >
                     <div className={style[bem.e('item-icon')]}>
                         {item.type === FileType.DIRECTORY
-                        ? <FolderIcon style={{ color: '#FFCA28', fontSize: viewMode === 'grid' ? 50 : 24, width: viewMode === 'grid' ? 50 : 24, height: viewMode === 'grid' ? 50 : 24, flexShrink: 0 }} />
-                        : <InsertDriveFileIcon style={{ color: '#90CAF9', fontSize: viewMode === 'grid' ? 50 : 24, width: viewMode === 'grid' ? 50 : 24, height: viewMode === 'grid' ? 50 : 24, flexShrink: 0 }} />
+                        ? <FolderIcon style={{ color: '#FFCA28', width: viewMode === 'grid' ? 50 : 24, height: viewMode === 'grid' ? 50 : 24, flexShrink: 0 }} />
+                        : <InsertDriveFileIcon style={{ color: '#90CAF9', width: viewMode === 'grid' ? 50 : 24, height: viewMode === 'grid' ? 50 : 24, flexShrink: 0 }} />
                         }
                     </div>
 

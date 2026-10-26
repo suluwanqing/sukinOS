@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import CloseIcon from '@mui/icons-material/Close';
-import SearchIcon from '@mui/icons-material/Search';
+import { X as CloseIcon, Search as SearchIcon } from 'lucide-react';
 import processKernel from "@/sukinos/utils/process/kernel";
 
 import styles from './style.module.css';
@@ -80,14 +79,14 @@ export const InteractiveAwakening = ({
             </p>
           </div>
           <button onClick={onClose} className={styles[bem.e('close-btn')]}>
-            <CloseIcon style={{ fontSize: 18 }} />
+            <CloseIcon size={18} />
           </button>
         </div>
 
 
         <div className={styles[bem.e('search-bar')]}>
           <div className={styles[bem.e('search-inner')]}>
-            <SearchIcon className={styles[bem.e('search-icon')]} style={{ fontSize: 16 }} />
+            <SearchIcon className={styles[bem.e('search-icon')]} size={16} />
             <input
               type="text"
               placeholder="搜索可用应用..."

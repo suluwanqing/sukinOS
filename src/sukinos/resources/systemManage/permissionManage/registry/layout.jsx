@@ -9,7 +9,7 @@ import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
 import PageList from "@/component/list/pageList/layout";
 import Modal from "@/component/modal/layout";
-import SettingsIcon from "@mui/icons-material/Settings";
+import { Settings as SettingsIcon } from 'lucide-react';
 
 const bem = createNamespace("system-permission");
 

@@ -11,18 +11,12 @@ import permissionManageAPI from "@/apis/system/permissionManage";
 import Check from '@/component/check/layout';
 import Button from '@/component/button/layout';
 import Select from '@/component/select/drowSelection/layout';
-import PageList from '@/component/list/pagelist/layout';
+import PageList from '@/component/list/pageList/layout';
 import { alert } from '@/component/alert/layout';
 import { confirm } from '@/component/confirm/layout';
 import Modal from '@/component/modal/layout';
 import { usePermission } from "@/hooks/usePermission/main";
-import SearchIcon from '@mui/icons-material/Search';
-import CloseIcon from '@mui/icons-material/Close';
-import DeleteIcon from '@mui/icons-material/Delete';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import EmailIcon from '@mui/icons-material/Email';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import EditIcon from '@mui/icons-material/Edit';
+import { Search as SearchIcon, X as CloseIcon, Trash2 as DeleteIcon, Eye as VisibilityIcon, Mail as EmailIcon, ChartGantt as TimelineIcon, Pencil as EditIcon } from 'lucide-react';
 
 use([
   LineChart,
@@ -199,7 +193,7 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
         <div className={style[bem.e("modal-head")]}>
           <div className={style[bem.e("modal-title")]}>成员详细档案</div>
           <button className={style[bem.e("modal-close")]} onClick={onClose}>
-            <CloseIcon fontSize="small" />
+            <CloseIcon size={20} />
           </button>
         </div>
         <div className={style[bem.e("modal-body")]}>
@@ -239,8 +233,8 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
               <div className={style[bem.e("detail-grid")]}>
                 <div className={style[bem.e("info-group")]}>
                   <label>基础信息</label>
-                  <p><EmailIcon fontSize="inherit" /> {user.email || "未绑定邮箱"}</p>
-                  <p><TimelineIcon fontSize="inherit" /> 最终登录: {fmtTime(user.lastLogin)}</p>
+                  <p><EmailIcon width="1em" height="1em" /> {user.email || "未绑定邮箱"}</p>
+                  <p><TimelineIcon width="1em" height="1em" /> 最终登录: {fmtTime(user.lastLogin)}</p>
                   <p>
                     性别: {user.sex === "M" ? "男" : user.sex === "F" ? "女" : "保密"}
                     &nbsp;|&nbsp;年龄: {user.age || "24"}
@@ -467,7 +461,7 @@ function Users() {
     <div className={style[bem.b()]}>
       <div className={style[bem.e("toolbar")]}>
         <div className={style[bem.e("search-bar")]}>
-          <SearchIcon fontSize="small" style={{ color: '#9ca3af' }} />
+          <SearchIcon size={20} style={{ color: '#9ca3af' }} />
           <input
             placeholder="搜索账号、名称、邮箱..."
             value={search}

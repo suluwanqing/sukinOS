@@ -10,7 +10,7 @@
   font-size: 24px;
   margin: 0;
   font-weight: 700;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-manage__list {
@@ -23,14 +23,14 @@
   display: flex;
   align-items: center;
   padding: 16px;
-  background-color: var(--su-white);
+  background-color: #ffffff;
   border-radius: 12px;
-  border: 1px solid var(--su-border-color-light);
+  border: 1px solid #e4e7ed;
 }
 
 .su-manage__item:hover {
-  border-color: var(--su-border-color);
-  box-shadow: 0 4px 12px rgba(var(--su-black-rgb), 0.03);
+  border-color: #dcdfe6;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
 }
 
 .su-manage__icon {
@@ -39,7 +39,7 @@
   border-radius: 10px;
   margin-right: 16px;
   object-fit: cover;
-  background-color: var(--su-fill-color-light);
+  background-color: #f5f7fa;
 }
 
 .su-manage__info {
@@ -49,12 +49,12 @@
 .su-manage__name {
   font-weight: 600;
   font-size: 15px;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-manage__meta {
   font-size: 12px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
   margin-top: 4px;
 }
 
@@ -65,8 +65,8 @@
 
 .su-manage__btn-primary {
   padding: 6px 16px;
-  background-color: var(--su-black);
-  color: var(--su-white);
+  background-color: #000000;
+  color: #ffffff;
   border: none;
   border-radius: 6px;
   font-size: 12px;
@@ -77,8 +77,8 @@
 .su-manage__btn-danger {
   padding: 6px 16px;
   background-color: transparent;
-  color: var(--su-text-color-secondary);
-  border: 1px solid var(--su-border-color);
+  color: #909399;
+  border: 1px solid #dcdfe6;
   border-radius: 6px;
   font-size: 12px;
   cursor: pointer;
@@ -86,7 +86,7 @@
 }
 
 .su-manage__btn-danger:hover {
-  color: var(--su-danger);
-  border-color: var(--su-danger);
-  background-color: rgba(var(--su-danger-rgb), 0.1);
+  color: #f56c6c;
+  border-color: #f56c6c;
+  background-color: rgba(239, 68, 68, 0.1);
 }

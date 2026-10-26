@@ -3,14 +3,7 @@ import { useSelector } from "react-redux";
 import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import Nav from '@/component/nav/layout';
-import DashboardIcon from '@mui/icons-material/Dashboard';
-import PeopleIcon from '@mui/icons-material/People';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import FactCheckIcon from '@mui/icons-material/FactCheck';
-import SettingsIcon from "@mui/icons-material/Settings";
-import AppsIcon from '@mui/icons-material/Apps';
-import LockIcon from '@mui/icons-material/Lock';
+import { LayoutDashboard as DashboardIcon, Users as PeopleIcon, ChartGantt as TimelineIcon, Clock as AccessTimeIcon, ClipboardCheck as FactCheckIcon, Settings as SettingsIcon, LayoutGrid as AppsIcon, Lock as LockIcon } from 'lucide-react';
 import Overview from './overview/layout';
 import Users from './users/layout';
 import Behavior from './behavior/layout';
@@ -28,14 +21,14 @@ const bem = createNamespace("system");
 
 // [后端初始化: 导航图标由 icon 字段映射]
 const ICON_MAP = {
-  Dashboard: <DashboardIcon fontSize="small" />,
-  People: <PeopleIcon fontSize="small" />,
-  Timeline: <TimelineIcon fontSize="small" />,
-  Settings: <SettingsIcon fontSize="small" />,
-  AccessTime: <AccessTimeIcon fontSize="small" />,
-  FactCheck: <FactCheckIcon fontSize="small" />,
-  Apps: <AppsIcon fontSize="small" />,
-  Lock: <LockIcon fontSize="small" />,
+  Dashboard: <DashboardIcon size={18} />,
+  People: <PeopleIcon size={18} />,
+  Timeline: <TimelineIcon size={18} />,
+  Settings: <SettingsIcon size={18} />,
+  AccessTime: <AccessTimeIcon size={18} />,
+  FactCheck: <FactCheckIcon size={18} />,
+  Apps: <AppsIcon size={18} />,
+  Lock: <LockIcon size={18} />,
 };
 
 export function Avatar({ user, size = 32 }) {
@@ -106,7 +99,13 @@ function SystemDashboard() {
             <strong>sukin</strong>
           </div>
         </div>
-        <Nav items={visibleNavItems} activeId={tab} onChange={setTab} theme="dark" />
+        <Nav
+          items={visibleNavItems}
+          activeId={tab}
+          onChange={setTab}
+          theme="dark"
+          className="w-full border-r-0 bg-transparent flex-1"
+        />
       </aside>
 
       <main className={style[bem.e("main")]}>
@@ -123,7 +122,7 @@ function SystemDashboard() {
                 <strong>{currentUser?.username || "管理员"}</strong>
                 <span>System Root</span>
               </div>
-              <Avatar user={currentUser} size={42} />
+              <Avatar user={currentUser} size={36} />
             </div>
           </div>
         </header>

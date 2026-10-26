@@ -175,7 +175,7 @@
 .su-deskbook__window-switcher {
   width: 400px;
   max-width: 90vw;
-  background-color: var(--su-bg-color);
+  background-color: #ffffff;
   border-radius: 12px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   overflow: hidden;
@@ -187,17 +187,17 @@
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background-color: var(--su-fill-color-light);
-  border-bottom: 1px solid var(--su-border-color-lighter);
+  background-color: #f5f7fa;
+  border-bottom: 1px solid #ebeef5;
   font-weight: 600;
   font-size: 14px;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-deskbook__window-switcher-count {
   font-size: 12px;
   font-weight: normal;
-  color: var(--su-text-color-secondary);
+  color: #909399;
 }
 
 .su-deskbook__window-switcher-list {
@@ -216,16 +216,16 @@
 }
 
 .su-deskbook__window-switcher-item:hover {
-  background-color: var(--su-fill-color-hover);
+  background-color: #f5f7fa;
 }
 
 .su-deskbook__window-switcher-item.is-selected {
-  background-color: var(--su-primary-light);
-  border-left: 3px solid var(--su-primary);
+  background-color: #ecf5ff;
+  border-left: 3px solid #409eff;
 }
 
 .su-deskbook__window-switcher-item.is-active {
-  background-color: var(--su-fill-color-active);
+  background-color: #e6e8eb;
 }
 
 .su-deskbook__window-switcher-icon {
@@ -235,19 +235,19 @@
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  background-color: var(--su-fill-color-light);
+  background-color: #f5f7fa;
   border-radius: 8px;
 }
 
 .su-deskbook__window-switcher-name {
   flex: 1;
   font-size: 14px;
-  color: var(--su-text-color-primary);
+  color: #303133;
 }
 
 .su-deskbook__window-switcher-badge {
   padding: 2px 8px;
-  background-color: var(--su-primary);
+  background-color: #409eff;
   color: white;
   border-radius: 12px;
   font-size: 10px;
@@ -258,10 +258,10 @@
   display: flex;
   justify-content: space-between;
   padding: 12px 20px;
-  background-color: var(--su-fill-color-light);
-  border-top: 1px solid var(--su-border-color-lighter);
+  background-color: #f5f7fa;
+  border-top: 1px solid #ebeef5;
   font-size: 12px;
-  color: var(--su-text-color-secondary);
+  color: #909399;
 }
 
 @keyframes fadeIn {
@@ -286,7 +286,7 @@
 
 .su-deskbook__window-switcher-status {
   padding: 2px 8px;
-  background-color: var(--su-warning);
+  background-color: #e6a23c;
   color: white;
   border-radius: 12px;
   font-size: 10px;
@@ -294,7 +294,7 @@
 }
 
 .su-deskbook__window-switcher-item.is-running {
-  border-left: 2px solid var(--su-success);
+  border-left: 2px solid #67c23a;
 }
 
 .su-deskbook__fullscreen {

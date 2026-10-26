@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-  MailOutline, LockOutlined,
-  VerifiedUserOutlined, GitHub, Google
-} from '@mui/icons-material';
+  Mail as MailOutline, Lock as LockOutlined,
+  BadgeCheck as VerifiedUserOutlined
+} from 'lucide-react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 import Form from './form/layout';
@@ -18,26 +18,26 @@ const TITLE_META = {
 const LOGIN_CONFIG = {
   fields: {
     account: [
-      { name: 'account', type: 'text', placeholder: '账号 / 邮箱 ', icon: <MailOutline fontSize="small" />, rules: { required: true, message: '请输入账户信息' } },
-      { name: 'password', type: 'password', placeholder: '请输入密码', icon: <LockOutlined fontSize="small" />, isPassword: true, rules: { required: true, minLength: 6, message: '密码长度不能少于6位' } }
+      { name: 'account', type: 'text', placeholder: '账号 / 邮箱 ', icon: <MailOutline size={20} />, rules: { required: true, message: '请输入账户信息' } },
+      { name: 'password', type: 'password', placeholder: '请输入密码', icon: <LockOutlined size={20} />, isPassword: true, rules: { required: true, minLength: 6, message: '密码长度不能少于6位' } }
     ],
     code: [
       {
-        name: 'account', type: 'text', placeholder: '邮箱', icon: <MailOutline fontSize="small" />,
+        name: 'account', type: 'text', placeholder: '邮箱', icon: <MailOutline size={20} />,
         rules: {
           required: true, pattern: /^(1[3-9]\d{9}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/,
           message: '请输入正确的邮箱'
         }
       },
       {
-        name: 'code', type: 'text', placeholder: '请输入验证码', icon: <VerifiedUserOutlined fontSize="small" />,
+        name: 'code', type: 'text', placeholder: '请输入验证码', icon: <VerifiedUserOutlined size={20} />,
         rules: { required: true, maxLength: 6, message: '验证码错误' }
       }
     ],
     recoverPassword: [
-      { name: 'account', type: 'text', placeholder: '请输入邮箱', icon: <MailOutline fontSize="small" />, rules: { required: true, pattern: /^(1[3-9]\d{9}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/, message: '请输入您的手机号 / 邮箱' } },
-      { name: 'code', type: 'text', placeholder: '请输入验证码', icon: <VerifiedUserOutlined fontSize="small" />, rules: { required: true, maxLength: 6, message: '验证码错误' } },
-      { name: 'password', type: 'password', placeholder: '请输入新密码', icon: <LockOutlined fontSize="small" />, isPassword: true, rules: { required: true, minLength: 6, message: '密码长度不能少于6位' } }
+      { name: 'account', type: 'text', placeholder: '请输入邮箱', icon: <MailOutline size={20} />, rules: { required: true, pattern: /^(1[3-9]\d{9}|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/, message: '请输入您的手机号 / 邮箱' } },
+      { name: 'code', type: 'text', placeholder: '请输入验证码', icon: <VerifiedUserOutlined size={20} />, rules: { required: true, maxLength: 6, message: '验证码错误' } },
+      { name: 'password', type: 'password', placeholder: '请输入新密码', icon: <LockOutlined size={20} />, isPassword: true, rules: { required: true, minLength: 6, message: '密码长度不能少于6位' } }
     ]
   },
   thirdParty: [

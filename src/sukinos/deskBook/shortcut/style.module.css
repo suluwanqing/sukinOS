@@ -74,7 +74,7 @@
 }
 
 .is-shortcut-selected .su-shortcut__icon-wrapper {
-  box-shadow: 0 0 0 3px var(--su-text-color-primary, #0067c0);
+  box-shadow: 0 0 0 3px #303133;
 }
 
 :global(#sukin-os[style*='themeMode: light']) .su-shortcut__label {

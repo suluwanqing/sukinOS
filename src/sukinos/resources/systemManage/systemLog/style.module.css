@@ -104,7 +104,7 @@
 }
 
 .su-system-log__card {
-  background: var(--su-white);
+  background: #ffffff;
   border-radius: 12px;
   border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
@@ -144,7 +144,7 @@
   justify-content: space-between;
   align-items: center;
   gap: 16px;
-  background: var(--su-white);
+  background: #ffffff;
   padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid rgba(226, 232, 240, 0.8);
@@ -181,7 +181,7 @@
 
 .su-system-log__search-bar:focus-within {
   border-color: #6366f1;
-  background: var(--su-white);
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
@@ -227,7 +227,7 @@
 
 .su-system-log__input:focus {
   border-color: #6366f1;
-  background: var(--su-white);
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
@@ -245,7 +245,7 @@
 
 .su-system-log__date-group:focus-within {
   border-color: #6366f1;
-  background: var(--su-white);
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
@@ -277,7 +277,7 @@
   font-size: 12px;
   font-weight: 500;
   color: #475569;
-  background: var(--su-white);
+  background: #ffffff;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
   cursor: pointer;
@@ -350,7 +350,7 @@
 }
 
 .su-system-log__list-card {
-  background: var(--su-white);
+  background: #ffffff;
   border-radius: 12px;
   border: 1px solid rgba(226, 232, 240, 0.8);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
@@ -414,7 +414,7 @@
   width: 720px;
   max-width: calc(100vw - 32px);
   max-height: calc(100vh - 64px);
-  background: var(--su-white);
+  background: #ffffff;
   border-radius: 16px;
   display: flex;
   flex-direction: column;

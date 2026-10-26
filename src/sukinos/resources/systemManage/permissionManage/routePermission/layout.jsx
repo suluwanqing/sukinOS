@@ -11,8 +11,7 @@ import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import PageList from "@/component/list/pageList/layout";
 import Modal from "@/component/modal/layout";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import EditIcon from "@mui/icons-material/Edit";
+import { Eye as VisibilityIcon, Pencil as EditIcon } from 'lucide-react';
 
 const bem = createNamespace("system-permission");
 

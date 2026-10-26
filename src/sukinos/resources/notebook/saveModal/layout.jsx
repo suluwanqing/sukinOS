@@ -3,9 +3,7 @@ import style from './style.module.css'
 import { createNamespace } from '/utils/js/classcreate'
 import fs from '@/sukinos/utils/file/fileKernel'
 import { FileType} from "@/sukinos/utils/config"
-import FolderIcon from '@mui/icons-material/Folder'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import HomeIcon from '@mui/icons-material/Home'
+import { Folder as FolderIcon, ArrowLeft as ArrowBackIcon, Home as HomeIcon } from 'lucide-react'
 const bem = createNamespace('save-modal')
 const SaveModal = ({ visible, onClose, onConfirm }) => {
   const [fileName, setFileName] = useState('file.txt')
@@ -83,13 +81,13 @@ const SaveModal = ({ visible, onClose, onConfirm }) => {
             disabled={history.length <= 1}
             title="返回上一级"
           >
-            <ArrowBackIcon fontSize="small" />
+            <ArrowBackIcon size={20} />
           </button>
 
           <div className={style[bem.e('breadcrumbs')]}>
             {breadcrumbs.map((crumb, index) => (
               <span key={crumb.id} className={style[bem.e('crumb')]}>
-                {index === 0 && <HomeIcon style={{fontSize: 14, marginRight: 2, marginBottom: -2}}/>}
+                {index === 0 && <HomeIcon size={14} style={{ marginRight: 2, marginBottom: -2 }} />}
                 <span
                   className={style[bem.e('crumb-text')]}
                   onClick={() => {
@@ -118,7 +116,7 @@ const SaveModal = ({ visible, onClose, onConfirm }) => {
                   onClick={() => handleEnterFolder(folder.id)}
                   title={folder.name}
                 >
-                  <FolderIcon className={style[bem.e('folder-icon')]} />
+                  <FolderIcon className={style[bem.e('folder-icon')]} width="1em" height="1em" />
                   <span className={style[bem.e('folder-name')]}>{folder.name}</span>
                 </div>
               ))}

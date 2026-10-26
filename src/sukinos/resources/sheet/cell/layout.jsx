@@ -2,9 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 import CustomSelect from '../components/select/layout';
-import CheckIcon from '@mui/icons-material/Check';
-import ArrowRightIcon from '@mui/icons-material/ArrowRight';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { Check as CheckIcon, ArrowRight as ArrowRightIcon, ChevronDown as ArrowDropDownIcon } from 'lucide-react';
 
 const bem = createNamespace('br-cell');
 
@@ -72,7 +70,7 @@ function Cell({ store, record, column, isFirstCol }) {
       <div style={{ paddingLeft, display: 'flex', alignItems: 'center', marginRight: 4 }}>
         {record._hasChildren ? (
           <div className={style[bem.e('tree-toggle')]} onClick={toggleExpand}>
-            {record._isExpanded ? <ArrowDropDownIcon sx={{ fontSize: 18 }} /> : <ArrowRightIcon sx={{ fontSize: 18 }} />}
+            {record._isExpanded ? <ArrowDropDownIcon size={18} /> : <ArrowRightIcon size={18} />}
           </div>
         ) : (
           <div style={{ width: 18 }} />
@@ -97,7 +95,7 @@ function Cell({ store, record, column, isFirstCol }) {
           }}
         >
           <div className={`${style[bem.e('checkbox')]} ${isChecked ? style['is-checked'] : ''}`}>
-            {isChecked && <CheckIcon sx={{ fontSize: 12 }} />}
+            {isChecked && <CheckIcon size={12} />}
           </div>
           <span className={style[bem.e('boolean-text')]}>{labelText}</span>
         </div>
@@ -303,7 +301,7 @@ function Cell({ store, record, column, isFirstCol }) {
                       }}
                     >
                       <div className={`${style[bem.e('multi-check-box')]} ${isChecked ? style['is-checked'] : ''}`}>
-                        {isChecked && <CheckIcon sx={{ fontSize: 10 }} />}
+                        {isChecked && <CheckIcon size={10} />}
                       </div>
                       <span
                         className={style[bem.e('multi-tag-badge')]}

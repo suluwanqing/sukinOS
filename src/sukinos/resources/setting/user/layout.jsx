@@ -3,19 +3,12 @@ import { useSelector, useDispatch } from 'react-redux';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import SendIcon from '@mui/icons-material/Send';
-import SecurityIcon from '@mui/icons-material/Security';
-import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
-import ExitToAppIcon from '@mui/icons-material/ExitToApp';
+import { Pencil as EditIcon, Save as SaveIcon, Send as SendIcon, ShieldCheck as SecurityIcon, UserRound as PersonOutlineIcon, Eye as VisibilityIcon, EyeOff as VisibilityOffIcon, LogOut as ExitToAppIcon } from 'lucide-react';
 
 import { user as userApi } from '@/apis/main';
 import auth from '@/apis/auth';
 import { sukinOsActions, selectorUserInfo, selectVerificationData } from '@/sukinos/store';
-import { alert } from '@/component/Alert/layout';
+import { alert } from '@/component/alert/layout';
 import { DEFAULT_USER_AVATOR_URL } from "@/sukinos/utils/config";
 import generateShortSeed from "/utils/js/rootSeed";
 
@@ -271,10 +264,10 @@ const UserSettings = () => {
     return (
       <div className={style[bem.b()]}>
         <div className={style[bem.e('section')]}>
-          <div className={style[bem.e('section-title')]}><PersonOutlineIcon style={{ fontSize: 18, marginRight: 8 }} /> 临时访客</div>
+          <div className={style[bem.e('section-title')]}><PersonOutlineIcon size={18} style={{ marginRight: 8 }} /> 临时访客</div>
           <div className={style[bem.e('card')]} style={{ textAlign: 'center', padding: '48px 24px' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 64, height: 64, borderRadius: '50%', backgroundColor: '#eafaf5', color: '#3eb08f', marginBottom: 16 }}>
-              <SecurityIcon style={{ fontSize: 32 }} />
+              <SecurityIcon size={32} />
             </div>
             <strong style={{ display: 'block', fontSize: 18, fontWeight: '800', color: '#1e2d27', marginBottom: 8 }}>访客模式受限</strong>
             <p style={{ maxWidth: 360, margin: '0 auto 24px', fontSize: 13, color: '#60736b', lineHeight: 1.6 }}>
@@ -285,7 +278,7 @@ const UserSettings = () => {
               onClick={logout}
               style={{ margin: '0 auto', color: '#3eb08f', borderColor: '#3eb08f' }}
             >
-              <ExitToAppIcon style={{ fontSize: 16, marginRight: 6 }} />
+              <ExitToAppIcon size={16} style={{ marginRight: 6 }} />
               <span>登录 / 注册新账号</span>
             </button>
           </div>
@@ -299,7 +292,7 @@ const UserSettings = () => {
     <div className={style[bem.b()]}>
 
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><PersonOutlineIcon style={{ fontSize: 18, marginRight: 8 }} /> 个人资料</div>
+        <div className={style[bem.e('section-title')]}><PersonOutlineIcon size={18} style={{ marginRight: 8 }} /> 个人资料</div>
         <div className={style[bem.e('card')]}>
 
           <div className={style[bem.e('profile-top')]}>
@@ -311,7 +304,7 @@ const UserSettings = () => {
                   onClick={() => fileInputRef.current.click()}
                   disabled={isLoading}
                 >
-                  <EditIcon style={{ fontSize: 14 }} />
+                  <EditIcon size={14} />
                 </button>
               )}
               <input
@@ -354,7 +347,7 @@ const UserSettings = () => {
                 className={style[bem.e('btn')]}
                 onClick={() => setIsEditing(true)}
               >
-                <EditIcon style={{ fontSize: 16 }} />
+                <EditIcon size={16} />
                 <span>编辑资料</span>
               </button>
             )}
@@ -407,7 +400,7 @@ const UserSettings = () => {
       </div>
 
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><SecurityIcon style={{ fontSize: 18, marginRight: 8 }} /> 安全设置</div>
+        <div className={style[bem.e('section-title')]}><SecurityIcon size={18} style={{ marginRight: 8 }} /> 安全设置</div>
         <div className={style[bem.e('card')]}>
           <div className={style[bem.e('profile-top')]}>
             <div className={style[bem.e('info')]}>
@@ -446,7 +439,7 @@ const UserSettings = () => {
                       className={style[bem.e('password-toggle')]}
                       onClick={() => setShowNewPassword(!showNewPassword)}
                     >
-                      {showNewPassword ? <VisibilityIcon style={{ fontSize: 18 }} /> : <VisibilityOffIcon style={{ fontSize: 18 }} />}
+                      {showNewPassword ? <VisibilityIcon size={18} /> : <VisibilityOffIcon size={18} />}
                     </button>
                   </div>
                 </div>
@@ -468,7 +461,7 @@ const UserSettings = () => {
                       className={style[bem.e('password-toggle')]}
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     >
-                      {showConfirmPassword ? <VisibilityIcon style={{ fontSize: 18 }} /> : <VisibilityOffIcon style={{ fontSize: 18 }} />}
+                      {showConfirmPassword ? <VisibilityIcon size={18} /> : <VisibilityOffIcon size={18} />}
                     </button>
                   </div>
                 </div>
@@ -489,7 +482,7 @@ const UserSettings = () => {
                       onClick={() => handleSendCode('updatePassword')}
                       disabled={passwordCountdown > 0 || isLoading}
                     >
-                      {passwordCountdown > 0 ? `${passwordCountdown}s` : <SendIcon style={{ fontSize: 16 }}/>}
+                      {passwordCountdown > 0 ? `${passwordCountdown}s` : <SendIcon size={16} />}
                     </button>
                   </div>
                 </div>
@@ -497,7 +490,7 @@ const UserSettings = () => {
                 <div className={style[bem.e('action-buttons')]}>
                   <button className={style[bem.e('btn-text')]} onClick={resetPasswordState} disabled={isLoading}>取消</button>
                   <button className={`${style[bem.e('btn')]} ${style[bem.is('primary', true)]}`} onClick={handleSavePassword} disabled={isLoading}>
-                    <SaveIcon style={{ fontSize: 16 }} /> {isLoading ? '提交中...' : '确认修改'}
+                    <SaveIcon size={16} /> {isLoading ? '提交中...' : '确认修改'}
                   </button>
                 </div>
               </div>
@@ -509,7 +502,7 @@ const UserSettings = () => {
 
       {/* 账户登出操作区域 */}
       <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><ExitToAppIcon style={{ fontSize: 18, marginRight: 8 }} /> 账户操作</div>
+        <div className={style[bem.e('section-title')]}><ExitToAppIcon size={18} style={{ marginRight: 8 }} /> 账户操作</div>
         <div className={style[bem.e('card')]}>
           <div className={style[bem.e('profile-top')]}>
             <div className={style[bem.e('info')]}>
@@ -521,7 +514,7 @@ const UserSettings = () => {
               onClick={logout}
               style={{ color: '#d32f2f', borderColor: '#d32f2f' }}
             >
-              <ExitToAppIcon style={{ fontSize: 16 }} />
+              <ExitToAppIcon size={16} />
               <span>退出账号</span>
             </button>
           </div>

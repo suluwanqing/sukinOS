@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import ViewColumnIcon from '@mui/icons-material/ViewColumn';
-import AddIcon from '@mui/icons-material/Add';
-import DeleteIcon from '@mui/icons-material/Delete';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
+import { Columns3 as ViewColumnIcon, Trash2 as DeleteIcon, ChevronDown as ArrowDropDownIcon } from 'lucide-react';
 import CustomSelect from '../components/select/layout';
 
 const bem = createNamespace('br-presets');
@@ -96,7 +93,7 @@ function PresetColumnsView({ store }) {
             <div className={style[bem.e('custom-select-trigger-wrap')]}>
               <div className={style[bem.e('select-trigger')]} onClick={() => setShowTypeDrop(!showTypeDrop)}>
                 <span>{fieldTypes.find(t => t.value === type)?.label}</span>
-                <ArrowDropDownIcon sx={{ fontSize: 18 }} />
+                <ArrowDropDownIcon size={18} />
               </div>
               {showTypeDrop && (
                 <CustomSelect
@@ -180,7 +177,7 @@ function PresetColumnsView({ store }) {
 
       <div className={style[bem.e('main')]}>
         <div className={style[bem.e('header')]}>
-          <ViewColumnIcon sx={{ fontSize: 22 }} />
+          <ViewColumnIcon size={22} />
           <span>预制列资源库</span>
         </div>
         <div className={style[bem.e('grid')]}>
@@ -194,7 +191,7 @@ function PresetColumnsView({ store }) {
                   </span>
                 </div>
                 <button className={style[bem.e('card-del-btn')]} onClick={() => handleDelete(p.id, p.name)}>
-                  <DeleteIcon sx={{ fontSize: 16 }} />
+                  <DeleteIcon size={16} />
                 </button>
               </div>
 

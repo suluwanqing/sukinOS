@@ -6,7 +6,7 @@ import Header from './header/layout';
 import GridView from './grid/layout';
 import ManualView from './manual/layout';
 import PresetColumnsView from './presets/layout';
-import CloseIcon from '@mui/icons-material/Close';
+import { X as CloseIcon } from 'lucide-react';
 import { getSheetState, putSheetState } from './db';
 import useWheelToHorizontalScroll from '@/sukinos/hooks/useWheelToHorizontalScroll';
 
@@ -302,7 +302,7 @@ function BaserowApp({ state, dispatch }) {
                     dispatch({ type: 'CLOSE_TAB', payload: tabId });
                   }}
                 >
-                  <CloseIcon sx={{ fontSize: 12 }} />
+                  <CloseIcon size={12} />
                 </button>
               </div>
             );

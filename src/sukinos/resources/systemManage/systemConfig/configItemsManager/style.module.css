@@ -1,57 +1,56 @@
 .su-config-items-manager {
-  padding: 28px 32px;
+  padding: 20px 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
   height: 100%;
   box-sizing: border-box;
 }
-
 
 .su-config-items-manager__head {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
 }
 
 .su-config-items-manager__title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  color: #111;
+  color: #111827;
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
 }
 
 .su-config-items-manager__desc {
-  font-size: 13px;
-  color: #8b8d92;
-  margin: 4px 0 0;
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 2px 0 0;
 }
-
-
 
 .su-config-items-manager__search {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 12px;
+  gap: 6px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  width: 280px;
-  transition: border-color 0.15s;
+  border-radius: 6px;
+  width: 240px;
+  transition: border-color 0.12s;
+  box-sizing: border-box;
 }
 
 .su-config-items-manager__search:focus-within {
-  border-color: #111;
+  border-color: #111827;
 }
 
 .su-config-items-manager__search input {
   border: none;
   background: transparent;
   outline: none;
-  font-size: 14px;
-  color: #111;
+  font-size: 13px;
+  color: #111827;
   flex: 1;
   min-width: 0;
 }
@@ -59,7 +58,6 @@
 .su-config-items-manager__search input::placeholder {
   color: #9ca3af;
 }
-
 
 .su-config-items-manager__list {
   flex: 1;
@@ -69,19 +67,19 @@
 
 .su-config-items-manager__cards {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
-
 
 .su-config-items-manager__card {
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  background: #fff;
+  border-radius: 8px;
+  background: #ffffff;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: border-color 0.15s;
+  min-width: 0;
+  transition: border-color 0.12s;
 }
 
 .su-config-items-manager__card:hover {
@@ -92,27 +90,27 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 14px;
   border-bottom: 1px solid #f3f4f6;
 }
 
 .su-config-items-manager__card-info {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
   flex: 1;
 }
 
 .su-config-items-manager__key {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
-  color: #111;
+  color: #111827;
   background: #f3f4f6;
-  padding: 3px 10px;
-  border-radius: 6px;
+  padding: 2px 8px;
+  border-radius: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -122,7 +120,7 @@
 }
 
 .su-config-items-manager__desc-text {
-  font-size: 13px;
+  font-size: 12px;
   color: #6b7280;
   line-height: 1.4;
   display: -webkit-box;
@@ -141,19 +139,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border: none;
   background: transparent;
-  border-radius: 6px;
+  border-radius: 4px;
   cursor: pointer;
   color: #9ca3af;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .su-config-items-manager__btn-icon:hover {
   background: #f3f4f6;
-  color: #111;
+  color: #111827;
 }
 
 .su-config-items-manager__btn-icon:last-child:hover {
@@ -161,15 +161,17 @@
   color: #dc2626;
 }
 
-
 .su-config-items-manager__card-body {
+  overflow-x: auto;
   overflow-y: auto;
-  max-height: 220px;
-  padding: 14px 16px;
+  max-height: 180px;
+  padding: 10px 14px;
+  background: #fafafa;
 }
 
 .su-config-items-manager__card-body::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 
 .su-config-items-manager__card-body::-webkit-scrollbar-track {
@@ -188,9 +190,9 @@
 .su-config-items-manager__code {
   margin: 0;
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 12px;
-  line-height: 1.7;
-  color: #111;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: #1f2937;
   white-space: pre;
 }
 
@@ -198,14 +200,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 56px 0;
+  padding: 48px 0;
 }
 
 .su-config-items-manager__spinner {
-  width: 22px;
-  height: 22px;
-  border: 3px solid #f3f4f6;
-  border-top-color: #111;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #f3f4f6;
+  border-top-color: #111827;
   border-radius: 50%;
   animation: spin 0.6s linear infinite;
 }
@@ -214,49 +216,47 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 56px 32px;
+  gap: 8px;
+  padding: 48px 24px;
   color: #9ca3af;
-  font-size: 14px;
+  font-size: 13px;
 }
-
-
 
 .su-config-items-manager__overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.3);
+  background: rgba(0, 0, 0, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fade-in 0.1s;
+  animation: fade-in 0.12s;
 }
 
 .su-config-items-manager__modal {
-  width: 560px;
-  max-width: calc(100vw - 40px);
-  max-height: calc(100vh - 64px);
-  background: #fff;
-  border-radius: 12px;
+  width: 520px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  background: #ffffff;
+  border-radius: 8px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px -8px rgba(0,0,0,0.18);
-  animation: scale-in 0.1s;
+  box-shadow: 0 16px 48px -6px rgba(0, 0, 0, 0.16);
+  animation: scale-in 0.12s;
 }
 
 .su-config-items-manager__modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
+  padding: 14px 20px;
   border-bottom: 1px solid #e5e7eb;
 }
 
 .su-config-items-manager__modal-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #111;
+  color: #111827;
   margin: 0;
 }
 
@@ -265,23 +265,25 @@
   background: transparent;
   color: #6b7280;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  padding: 6px 12px;
-  border-radius: 6px;
-  transition: background 0.12s, color 0.12s;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .su-config-items-manager__modal-close:hover {
   background: #f3f4f6;
-  color: #111;
+  color: #111827;
 }
 
 .su-config-items-manager__modal-body {
-  padding: 24px;
+  padding: 18px 20px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
   overflow-y: auto;
 }
 
@@ -289,42 +291,39 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 14px 24px;
+  padding: 12px 20px;
   border-top: 1px solid #e5e7eb;
 }
-
 
 .su-config-items-manager__preset-box {
   background: #f9fafb;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 14px 16px;
+  border-radius: 6px;
+  padding: 10px 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .su-config-items-manager__preset-label {
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 13px;
+  gap: 5px;
+  font-size: 12px;
   font-weight: 500;
   color: #374151;
 }
 
-
-
 .su-config-items-manager__field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .su-config-items-manager__field label {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 600;
-  color: #111;
+  color: #111827;
 }
 
 .su-config-items-manager__label-muted {
@@ -333,18 +332,18 @@
 }
 
 .su-config-items-manager__field input {
-  height: 38px;
-  padding: 0 12px;
+  height: 32px;
+  padding: 0 10px;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #111;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
   outline: none;
   transition: border-color 0.12s;
 }
 
 .su-config-items-manager__field input:focus {
-  border-color: #111;
+  border-color: #111827;
 }
 
 .su-config-items-manager__field input:disabled {
@@ -355,13 +354,13 @@
 
 .su-config-items-manager__editor {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
-  color: #111;
-  padding: 12px;
-  min-height: 150px;
+  color: #111827;
+  padding: 10px;
+  min-height: 140px;
   border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border-radius: 6px;
   outline: none;
   resize: vertical;
   transition: border-color 0.12s;
@@ -369,19 +368,24 @@
 }
 
 .su-config-items-manager__editor:focus {
-  border-color: #111;
+  border-color: #111827;
 }
 
-
-
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
+  from {
+    opacity: 0;
+  }
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.97); }
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }

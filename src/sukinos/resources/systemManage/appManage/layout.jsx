@@ -7,22 +7,14 @@ import { CanvasRenderer } from "echarts/renderers";
 import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import sukinosAppManageAPI from "@/apis/system/sukinosAppManage";
-import PageList from "@/component/list/pagelist/layout";
+import PageList from "@/component/list/pageList/layout";
 import Button from "@/component/button/layout";
 import Modal from "@/component/modal/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
 
-import SearchIcon from "@mui/icons-material/Search";
-import VisibilityIcon from "@mui/icons-material/Visibility";
-import DeleteIcon from "@mui/icons-material/Delete";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
-import RateReviewIcon from "@mui/icons-material/RateReview";
-import AppSettingsAltIcon from "@mui/icons-material/AppSettingsAlt";
-import RefreshIcon from "@mui/icons-material/Refresh";
-import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { Search as SearchIcon, Eye as VisibilityIcon, Trash2 as DeleteIcon, CircleCheck as CheckCircleOutlineIcon, CircleAlert as ErrorOutlineIcon, MessageSquareText as RateReviewIcon, Settings2 as AppSettingsAltIcon, RefreshCw as RefreshIcon, FileDown as FileDownloadIcon } from 'lucide-react';
 
 import useDebounce from "@/sukinos/hooks/useDebounce";
 import useThrottle from "@/sukinos/hooks/useThrottle";
@@ -695,25 +687,25 @@ function AppManage() {
             <div className={style[bem.e("card-head")]}>商城应用指标概览</div>
             <div className={style[bem.e("stat-grid")]}>
               <StatCard
-                icon={<AppSettingsAltIcon fontSize="inherit" />}
+                icon={<AppSettingsAltIcon width="1em" height="1em" />}
                 label="商城应用总量"
                 value={stats.total}
                 tone="indigo"
               />
               <StatCard
-                icon={<CheckCircleOutlineIcon fontSize="inherit" />}
+                icon={<CheckCircleOutlineIcon width="1em" height="1em" />}
                 label="活跃正常上架"
                 value={stats.active}
                 tone="emerald"
               />
               <StatCard
-                icon={<RateReviewIcon fontSize="inherit" />}
+                icon={<RateReviewIcon width="1em" height="1em" />}
                 label="等待审核应用"
                 value={stats.underReview}
                 tone="amber"
               />
               <StatCard
-                icon={<ErrorOutlineIcon fontSize="inherit" />}
+                icon={<ErrorOutlineIcon width="1em" height="1em" />}
                 label="下架禁用应用"
                 value={stats.disabled}
                 tone="rose"
@@ -736,7 +728,7 @@ function AppManage() {
           <div className={style[bem.e("toolbar")]}>
             <div className={style[bem.e("toolbar-left")]}>
               <div className={style[bem.e("search-bar")]}>
-                <SearchIcon fontSize="small" style={{ color: "#9ca3af" }} />
+                <SearchIcon size={20} style={{ color: "#9ca3af" }} />
                 <input
                   placeholder="搜索应用名称、资源标识..."
                   value={keywordInput}
@@ -770,7 +762,7 @@ function AppManage() {
                 title="同步并刷新数据"
                 disabled={refreshing}
               >
-                <RefreshIcon fontSize="small" />
+                <RefreshIcon size={20} />
                 <span>同步数据</span>
               </button>
             </div>

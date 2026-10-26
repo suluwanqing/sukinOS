@@ -5,10 +5,10 @@
 }
 
 .su-behavior__card {
-  background: var(--su-white);
+  background: #ffffff;
   border-radius: 14px;
-  border: 1px solid var(--su-gray-100);
-  box-shadow: 0 1px 4px rgba(var(--su-black-rgb), 0.04);
+  border: 1px solid #f3f4f6;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   overflow: hidden;
 }
 
@@ -16,8 +16,8 @@
   padding: 18px 22px 14px;
   font-size: 13px;
   font-weight: 600;
-  color: var(--su-gray-700);
-  border-bottom: 1px solid var(--su-gray-50);
+  color: #374151;
+  border-bottom: 1px solid #f9fafb;
   letter-spacing: 0.1px;
 }
 
@@ -49,18 +49,18 @@
 .su-behavior__week-meta strong {
   font-size: 12px;
   font-weight: 600;
-  color: var(--su-gray-700);
+  color: #374151;
 }
 
 .su-behavior__week-meta span {
   font-size: 12px;
-  color: var(--su-gray-400);
+  color: #9ca3af;
   font-weight: 500;
 }
 
 .su-behavior__week-progress {
   height: 6px;
-  background: var(--su-gray-100);
+  background: #f3f4f6;
   border-radius: 100px;
   overflow: hidden;
 }
@@ -68,7 +68,7 @@
 .su-behavior__week-bar {
   width: 100%;
   height: 100%;
-  background: var(--su-primary-500);
+  background: #0ea5e9;
   border-radius: 100px;
 }
 
@@ -79,7 +79,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--su-gray-400);
+  color: #9ca3af;
   font-size: 13px;
   gap: 8px;
 }

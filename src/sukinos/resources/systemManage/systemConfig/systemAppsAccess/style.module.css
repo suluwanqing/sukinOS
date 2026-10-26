@@ -4,80 +4,56 @@
   gap: 12px;
   height: 100%;
   padding: 20px 24px;
+  box-sizing: border-box;
 }
 
 .su-system-apps-access__section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
 }
 
 .su-system-apps-access__section-header h3 {
   margin: 0;
   font-size: 16px;
   font-weight: 600;
-  color: #171717;
+  color: #111827;
+  letter-spacing: -0.2px;
 }
 
 .su-system-apps-access__desc {
-  font-size: 13px;
-  color: #60646c;
+  font-size: 12.5px;
+  color: #6b7280;
   line-height: 1.5;
-  margin: 0;
-}
-
-.su-system-apps-access__table-wrap {
-  overflow-x: auto;
-}
-
-.su-system-apps-access__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.su-system-apps-access__table th {
-  text-align: left;
-  padding: 10px 12px;
-  background-color: #fafafa;
-  font-weight: 600;
-  color: #171717;
-  border-bottom: 1px solid #f0f0f3;
-  white-space: nowrap;
-}
-
-.su-system-apps-access__table td {
-  padding: 10px 12px;
-  border-bottom: 1px solid #f0f0f3;
-  color: #171717;
-}
-
-.su-system-apps-access__table tr:hover td {
-  background-color: #fafafa;
+  margin: 3px 0 0;
 }
 
 .su-system-apps-access__code {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 12px;
-  color: #60646c;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 11.5px;
+  color: #6b7280;
+  margin-top: 1px;
 }
 
 .su-system-apps-access__badge-on {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 1.5px 7px;
   border-radius: 4px;
-  font-size: 12px;
-  background-color: rgba(82, 196, 26, 0.1);
-  color: #52c41a;
+  font-size: 11.5px;
+  font-weight: 500;
+  background-color: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
 }
 
 .su-system-apps-access__badge-off {
   display: inline-block;
-  padding: 2px 8px;
+  padding: 1.5px 7px;
   border-radius: 4px;
-  font-size: 12px;
-  background-color: rgba(255, 77, 79, 0.1);
-  color: #ff4d4f;
+  font-size: 11.5px;
+  font-weight: 500;
+  background-color: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }
 
 .su-system-apps-access__inline-select {
@@ -89,143 +65,151 @@
 .su-system-apps-access__tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .su-system-apps-access__tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 2px 8px;
-  font-size: 12px;
-  background-color: #f0f0f3;
+  padding: 2px 7px;
+  font-size: 11.5px;
+  background-color: #f3f4f6;
   border-radius: 4px;
-  color: #171717;
+  color: #1f2937;
 }
 
 .su-system-apps-access__tag-remove {
   border: none;
   background: none;
   cursor: pointer;
-  font-size: 14px;
-  color: #999;
-  padding: 0;
+  font-size: 13px;
+  color: #9ca3af;
+  padding: 0 1px;
   line-height: 1;
+  transition: color 0.12s;
 }
 
 .su-system-apps-access__tag-remove:hover {
-  color: #ff4d4f;
-}
-
-.su-system-apps-access__empty {
-  text-align: center;
-  padding: 40px 20px;
-  color: #60646c;
-}
-
-.su-system-apps-access__actions {
-  display: flex;
-  gap: 6px;
-  align-items: center;
+  color: #dc2626;
 }
 
 .su-system-apps-access__dirty {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
-  background-color: #faad14;
+  background-color: #f59e0b;
   flex-shrink: 0;
 }
 
-/* ── Form elements ── */
 .su-system-apps-access__form-group {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .su-system-apps-access__form-group label {
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
-  color: #222;
+  color: #111827;
+}
+
+.su-system-apps-access__input {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  outline: none;
+  background: #ffffff;
+  transition:
+    border-color 0.12s,
+    box-shadow 0.12s;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.su-system-apps-access__input:focus {
+  border-color: #111827;
+  box-shadow: 0 0 0 1px #111827;
 }
 
 .su-system-apps-access__form-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
-  margin-top: 8px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f3;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid #f3f4f6;
 }
 
-
 .su-system-apps-access__split-left {
-  padding-right: 20px;
+  padding-right: 18px;
   border-right: 1px solid #f0f0f3;
 }
 
 .su-system-apps-access__split-left-label {
   font-size: 11px;
   font-weight: 600;
-  color: #6a6a6a;
+  color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .su-system-apps-access__split-left-title {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  color: #222;
-  margin-bottom: 4px;
+  color: #111827;
+  margin-bottom: 2px;
 }
 
 .su-system-apps-access__split-left-sub {
-  font-size: 13px;
-  color: #6a6a6a;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: #6b7280;
 }
 
 .su-system-apps-access__split-left-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 5px;
+  margin-top: 10px;
 }
 
 .su-system-apps-access__split-left-badge {
   display: inline-block;
-  padding: 3px 10px;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 11.5px;
   font-weight: 500;
   border-radius: 9999px;
-  background: #f7f7f7;
-  color: #222;
+  background: #f3f4f6;
+  color: #1f2937;
 }
 
 .su-system-apps-access__split-left-badge-on {
   display: inline-block;
-  padding: 3px 10px;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 11.5px;
   font-weight: 500;
   border-radius: 9999px;
-  background: #f0fff0;
-  color: #22c55e;
+  background: rgba(34, 197, 94, 0.1);
+  color: #16a34a;
 }
 
 .su-system-apps-access__split-left-badge-off {
   display: inline-block;
-  padding: 3px 10px;
-  font-size: 12px;
+  padding: 2px 8px;
+  font-size: 11.5px;
   font-weight: 500;
   border-radius: 9999px;
-  background: #f7f7f7;
-  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
 }
-
 
 .su-system-apps-access__split-right {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 14px;
 }

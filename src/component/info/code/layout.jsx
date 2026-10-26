@@ -1,11 +1,5 @@
-import { createNamespace } from '/utils/js/classcreate';
-import style from './style.module.css';
-const bem = createNamespace('code');
-export const Code=()=>{
-  return (
-    <div className={style[bem.b()]}>
+export const Code = ({ children, className }) => (
+  <code className={className}>{children}</code>
+)
 
-    </div>
-  )
-}
 export default Code

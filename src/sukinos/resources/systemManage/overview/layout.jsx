@@ -13,17 +13,7 @@ import { createNamespace } from "/utils/js/classcreate";
 import systemAPI from "@/apis/system/main.jsx";
 import statusAPI from "@/apis/system/status.jsx";
 
-import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
-import OnlinePredictionIcon from '@mui/icons-material/OnlinePrediction';
-import VerifiedUserIcon from '@mui/icons-material/VerifiedUser';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import AssessmentIcon from '@mui/icons-material/Assessment';
-import TimelineIcon from '@mui/icons-material/Timeline';
-import DnsIcon from '@mui/icons-material/Dns';
-import StorageIcon from '@mui/icons-material/Storage';
-import MemoryIcon from '@mui/icons-material/Memory';
-import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import { UsersRound as PeopleOutlineIcon, MonitorSmartphone as OnlinePredictionIcon, BadgeCheck as VerifiedUserIcon, ShieldCheck as AdminPanelSettingsIcon, ChartColumn as AssessmentIcon, ChartGantt as TimelineIcon, Server as DnsIcon, HardDrive as StorageIcon, Cpu as MemoryIcon, CircleCheck as CheckCircleOutlineIcon, CircleAlert as ErrorOutlineIcon } from 'lucide-react';
 
 // 注册必须的组件
 use([
@@ -73,7 +63,7 @@ function StatCard({ icon, label, value, subText, color }) {
             : <span className={style[bem.e("spinner")]} />}
         </div>
         {subText && (
-          <div style={{ fontSize: "11px", color: "var(--su-gray-500, #9ca3af)", marginTop: "4px", fontWeight: "normal" }}>
+          <div style={{ fontSize: "11px", color: "#6b7280", marginTop: "4px", fontWeight: "normal" }}>
             {subText}
           </div>
         )}
@@ -123,7 +113,7 @@ function TimePieChart({ data }) {
     <div ref={ref} style={{ width: "100%", height: "100%" }} />
   ) : (
     <div className={style[bem.e("empty-chart")]}>
-      <AssessmentIcon sx={{ fontSize: 44, color: "#e5e7eb", mb: 1 }} />
+      <AssessmentIcon size={44} style={{ color: "#e5e7eb", marginBottom: 8 }} />
       <span>暂无统计数据</span>
     </div>
   );
@@ -194,7 +184,7 @@ function TrendChart({ data }) {
     <div ref={ref} style={{ width: "100%", height: "100%" }} />
   ) : (
     <div className={style[bem.e("empty-chart")]}>
-      <TimelineIcon sx={{ fontSize: 44, color: "#e5e7eb", mb: 1 }} />
+      <TimelineIcon size={44} style={{ color: "#e5e7eb", marginBottom: 8 }} />
       <span>暂无趋势数据</span>
     </div>
   );
@@ -226,11 +216,11 @@ function StatusIndicator({ healthy, label, version }) {
       </div>
       {healthy ? (
         <span className={`${style[bem.e("badge")]} ${style[bem.em("badge", "success")]}`}>
-          <CheckCircleOutlineIcon fontSize="inherit" style={{ marginRight: 4 }} /> 正常运行
+          <CheckCircleOutlineIcon width="1em" height="1em" style={{ marginRight: 4 }} /> 正常运行
         </span>
       ) : (
         <span className={`${style[bem.e("badge")]} ${style[bem.em("badge", "error")]}`}>
-          <ErrorOutlineIcon fontSize="inherit" style={{ marginRight: 4 }} /> 连通异常
+          <ErrorOutlineIcon width="1em" height="1em" style={{ marginRight: 4 }} /> 连通异常
         </span>
       )}
     </div>
@@ -273,26 +263,26 @@ function Overview() {
     <div className={style[bem.b()]}>
       <div className={style[bem.e("stat-grid")]}>
         <StatCard
-          icon={<PeopleOutlineIcon fontSize="inherit" />}
+          icon={<PeopleOutlineIcon width="1em" height="1em" />}
           label="账户注册总数"
           value={stats?.totalUsers}
           subText={stats ? `正常 ${stats.enabledUsers} | 禁用 ${stats.disabledUsers}` : null}
           color="indigo"
         />
         <StatCard
-          icon={<OnlinePredictionIcon fontSize="inherit" />}
+          icon={<OnlinePredictionIcon width="1em" height="1em" />}
           label="当前实时在线"
           value={stats?.onlineUsers}
           color="emerald"
         />
         <StatCard
-          icon={<VerifiedUserIcon fontSize="inherit" />}
+          icon={<VerifiedUserIcon width="1em" height="1em" />}
           label="本月活跃成员"
           value={stats?.activeUsers}
           color="amber"
         />
         <StatCard
-          icon={<AdminPanelSettingsIcon fontSize="inherit" />}
+          icon={<AdminPanelSettingsIcon width="1em" height="1em" />}
           label="管理权限分配"
           value={stats?.rootUsers}
           color="rose"
@@ -317,14 +307,14 @@ function Overview() {
 
       <div className={style[bem.e("panel")]}>
         <div className={style[bem.e("panel-head")]}>
-          <DnsIcon className={style[bem.e("panel-icon")]} />
+          <DnsIcon className={style[bem.e("panel-icon")]} width="1em" height="1em" />
           <span>服务器物理负载状况 (60s 实时更新)</span>
         </div>
         <div className={style[bem.e("panel-body")]}>
           {sysLoading && !sysStatus ? (
             <div className={style[bem.e("loading-wrapper")]}>
               <span className={style[bem.e("spinner")]} />
-              <span style={{ marginLeft: 12, color: "var(--su-gray-500)", fontSize: "13px" }}>正在加载负载指标...</span>
+              <span style={{ marginLeft: 12, color: "#6b7280", fontSize: "13px" }}>正在加载负载指标...</span>
             </div>
           ) : (
             sysStatus?.resources && (
@@ -357,7 +347,7 @@ function Overview() {
       <div className={style[bem.e("services-grid")]}>
         <div className={style[bem.e("panel")]}>
           <div className={style[bem.e("panel-head")]}>
-            <StorageIcon className={style[bem.e("panel-icon")]} />
+            <StorageIcon className={style[bem.e("panel-icon")]} width="1em" height="1em" />
             <span>关系型数据库指标</span>
           </div>
           <div className={style[bem.e("panel-body")]}>
@@ -404,7 +394,7 @@ function Overview() {
 
         <div className={style[bem.e("panel")]}>
           <div className={style[bem.e("panel-head")]}>
-            <MemoryIcon className={style[bem.e("panel-icon")]} />
+            <MemoryIcon className={style[bem.e("panel-icon")]} width="1em" height="1em" />
             <span>内存键值型缓存指标</span>
           </div>
           <div className={style[bem.e("panel-body")]}>
