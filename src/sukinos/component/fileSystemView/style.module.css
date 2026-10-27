@@ -1,202 +1,284 @@
-.su-file-view {
+.container {
   display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
   background-color: #ffffff;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
-  font-family: inherit;
-  color: #303133;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.04);
+  user-select: none;
+  position: relative;
+  transition: all 0.2s ease;
 }
 
-.su-file-view__toolbar {
+.orientationVertical {
+  flex-direction: column;
+}
+
+.orientationHorizontal {
+  flex-direction: row;
+}
+
+.sideNav {
+  width: 200px;
+  min-width: 180px;
+  background-color: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  gap: 12px;
+}
+
+.mainPanel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100%;
+  background-color: #ffffff;
+}
+
+.toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background-color: #f5f7fa;
-  border-bottom: 1px solid #e4e7ed;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  gap: 12px;
 }
 
-.su-file-view__nav,
-.su-file-view__actions {
+.navGroup,
+.actionGroup {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
-.su-file-view__breadcrumbs {
-  display: flex;
-  align-items: center;
-  margin-left: 8px;
-  font-size: 14px;
-  color: #606266;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
-.su-file-view__crumb {
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.su-file-view__crumb:hover {
-  color: #0284c7;
-}
-
-.su-file-view__crumb:last-child {
-  font-weight: 500;
-  color: #303133;
-  cursor: default;
-}
-
-.su-file-view__separator {
-  margin: 0 4px;
-  color: #a8abb2;
-}
-
-.su-file-view__icon-btn {
+.iconBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
-  color: #606266;
-  border-radius: 4px;
+  color: #64748b;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 18px;
-  transition: all 0.2s;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.su-file-view__icon-btn:hover:not(.is-disabled) {
-  background-color: #ebedf0;
-  color: #0284c7;
+.iconBtn:hover:not(.disabled) {
+  background-color: #e2e8f0;
+  color: #0f172a;
 }
 
-.su-file-view__icon-btn.is-active {
+.iconBtn.active {
   background-color: #e0f2fe;
   color: #0284c7;
 }
 
-.su-file-view__icon-btn.is-disabled {
-  color: #c0c4cc;
+.iconBtn.disabled {
+  color: #cbd5e1;
   cursor: not-allowed;
 }
 
-.su-file-view__body {
+.breadcrumbBar {
+  display: flex;
+  align-items: center;
+  padding: 3px 8px;
+  background-color: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 420px;
+}
+
+.breadcrumbBar::-webkit-scrollbar {
+  display: none;
+}
+
+.crumbItem {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #64748b;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.crumbItem:hover:not(.crumbCurrent) {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+
+.crumbCurrent {
+  color: #0f172a;
+  font-weight: 600;
+  cursor: default;
+}
+
+.crumbSeparator {
+  margin: 0 2px;
+  color: #cbd5e1;
+  font-size: 11px;
+}
+
+.bodyArea {
   flex: 1;
   overflow-y: auto;
   position: relative;
   background-color: #ffffff;
 }
 
-.su-file-view__empty {
+.bodyArea::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.bodyArea::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bodyArea::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+.bodyArea::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.emptyNotice {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  color: #909399;
-  font-size: 14px;
-}
-
-.su-file-view__content {
   display: flex;
-  padding: 8px;
-}
-
-.su-file-view__content--list {
   flex-direction: column;
-  padding: 0;
+  align-items: center;
+  gap: 8px;
+  color: #94a3b8;
+  font-size: 13px;
 }
 
-.su-file-view__list-header {
+/* 列表模式 */
+.listView {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.listHeader {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  border-bottom: 1px solid #ebeef5;
-  background-color: #f2f3f5;
-  font-size: 13px;
-  color: #909399;
+  padding: 6px 16px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 5;
 }
 
-.su-file-view__content--list .su-file-view__item {
+.listItem {
   display: flex;
   align-items: center;
-  padding: 8px 16px;
-  border-bottom: 1px solid #f2f6fc;
+  padding: 7px 16px;
+  border-bottom: 1px solid #f8fafc;
   cursor: pointer;
-  user-select: none;
-  transition: background-color 0.1s;
+  transition: background-color 0.12s;
+  font-size: 13px;
 }
 
-.su-file-view__col--name,
-.su-file-view__item--name {
+.listItem:hover {
+  background-color: #f8fafc;
+}
+
+.listItem.selected {
+  background-color: #f0f9ff;
+}
+
+.colName {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-width: 0;
+}
+
+.textTruncate {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 14px;
+  color: #334155;
+  font-weight: 450;
 }
 
-.su-file-view__col--mtime {
-  width: 150px;
-  font-size: 13px;
-  color: #606266;
+.colTime {
+  width: 140px;
+  font-size: 12px;
+  color: #64748b;
+  font-family: monospace;
 }
 
-.su-file-view__col--size {
-  width: 100px;
+.colSize {
+  width: 90px;
   text-align: right;
-  font-size: 13px;
-  color: #606266;
+  font-size: 12px;
+  color: #64748b;
+  font-family: monospace;
 }
 
-.su-file-view__content--list .su-file-view__item--icon {
-  font-size: 20px;
-  margin-right: 12px;
-  display: flex;
-  align-items: center;
-}
-
-.su-file-view__content--grid {
+.gridView {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 8px;
+  padding: 12px;
   align-content: flex-start;
 }
 
-.su-file-view__content--grid .su-file-view__item {
+.gridItem {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 12px 8px;
-  border-radius: 6px;
+  padding: 10px 6px;
+  border-radius: 8px;
   cursor: pointer;
-  user-select: none;
-  transition: all 0.2s;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   border: 1px solid transparent;
 }
 
-.su-file-view__content--grid .su-file-view__item--icon {
-  font-size: 48px;
-  margin-bottom: 8px;
-  display: flex;
-  align-items: center;
+.gridItem:hover {
+  background-color: #f8fafc;
 }
 
-.su-file-view__content--grid .su-file-view__item--name {
-  font-size: 13px;
+.gridItem.selected {
+  background-color: #f0f9ff;
+  border-color: #bae6fd;
+}
+
+.gridIconBox {
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gridName {
+  font-size: 12px;
+  color: #334155;
   text-align: center;
-  word-break: break-all;
+  width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   display: -webkit-box;
@@ -204,23 +286,13 @@
   -webkit-box-orient: vertical;
 }
 
-.su-file-view__item:hover {
-  background-color: #f5f7fa;
-}
-
-.su-file-view__item.is-selected {
-  background-color: #f0f9ff;
-  border-color: #bae6fd;
-}
-
-.su-file-view__content--list .su-file-view__item.is-selected {
-  border-color: #f2f6fc;
-}
-
-.su-file-view__statusbar {
-  padding: 4px 12px;
-  font-size: 12px;
-  color: #909399;
+.statusBar {
+  padding: 5px 14px;
+  font-size: 11px;
+  color: #64748b;
   background-color: #ffffff;
-  border-top: 1px solid #e4e7ed;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }

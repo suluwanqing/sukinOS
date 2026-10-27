@@ -1,4 +1,4 @@
-const dataType = [
+export const dataType = [
   'Json',
   'Array',
   'String',
@@ -9,193 +9,122 @@ const dataType = [
   'Audio',
   'Txt',
   'Html',
+  'Binary', // 增加通用二进制类型
 ]
 
-const dataToBase64Mapper = async (data, inputType) => {
-  let processedData
+const textDecoder = new TextDecoder('utf-8')
+function base64ToBlob(base64Data, defaultMime = 'application/octet-stream') {
+  let mime = defaultMime
+  let base64 = base64Data
 
-  switch (inputType) {
-    case 'Json':
-    case 'Array':
-    case 'Object':
-      if (typeof data === 'string') {
-        try {
-          JSON.parse(data)
-          processedData = data
-        } catch (e) {
-          throw new Error(`无效的JSON/Array/Object字符串: ${e.message}`)
-        }
-      } else if (typeof data === 'object' && data !== null) {
-        processedData = JSON.stringify(data)
-      } else {
-        throw new Error(`类型 ${inputType} 的输入数据格式不正确。`)
-      }
-      break
-
-    case 'String':
-      processedData = String(data)
-      break
-
-    case 'Number':
-      if (typeof data !== 'number' && isNaN(Number(data))) {
-        throw new Error('输入类型声明为数字，但实际数据无法转换为数字')
-      }
-      processedData = String(data)
-      break
-
-    case 'Image':
-    case 'Video':
-    case 'Audio':
-    case 'Html':
-    case 'Txt':
-      if (data instanceof ArrayBuffer) {
-        const bytes = new Uint8Array(data)
-        processedData = Array.from(bytes, byte => String.fromCharCode(byte)).join('')
-      } else if (data instanceof Blob || data instanceof File) {
-        processedData = await new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            const result = reader.result
-            if (typeof result === 'string') {
-              if (result.startsWith('data:')) {
-                const base64Part = result.split(',')[1]
-                if (!base64Part) {
-                  reject(new Error('无效的Data URL格式'))
-                  return
-                }
-                resolve(atob(base64Part))
-              } else {
-                resolve(atob(result))
-              }
-            } else {
-              const bytes = new Uint8Array(result)
-              resolve(Array.from(bytes, byte => String.fromCharCode(byte)).join(''))
-            }
-          }
-          reader.onerror = () => reject(new Error('文件读取失败'))
-          reader.readAsDataURL(data)
-        })
-      } else if (typeof data === 'string') {
-        if (data.startsWith('data:')) {
-          const base64Part = data.split(',')[1]
-          if (!base64Part) {
-            throw new Error('无效的Data URL格式')
-          }
-          processedData = atob(base64Part)
-        } else {
-          processedData = atob(data)
-        }
-      } else {
-        throw new Error(`不支持的多媒体数据类型: ${typeof data}`)
-      }
-      break
-
-    default:
-      throw new Error(`不支持的数据类型: ${inputType}`)
+  if (base64Data.includes(',')) {
+    const parts = base64Data.split(',')
+    const match = parts[0].match(/:(.*?);/)
+    if (match) mime = match[1]
+    base64 = parts[1]
   }
 
-  let base64String
+  base64 = base64.replace(/\s/g, '')
+  const mod4 = base64.length % 4
+  if (mod4 > 0) base64 = base64.padEnd(base64.length + (4 - mod4), '=')
 
-  if (
-    inputType === 'Image' ||
-    inputType === 'Video' ||
-    inputType === 'Audio' ||
-    inputType === 'Txt' ||
-    inputType === 'Html'
-  ) {
-    base64String = btoa(processedData)
-  } else {
-    if (typeof processedData !== 'string') {
-      processedData = String(processedData)
-    }
-    base64String = btoa(unescape(encodeURIComponent(processedData)))
+  const binaryString = atob(base64)
+  const len = binaryString.length
+  const bytes = new Uint8Array(len)
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i)
   }
-
-  return base64String
+  return new Blob([bytes], {type: mime})
 }
 
-const dataDeBase64Mapper = async (base64String, targetType) => {
-  if (typeof base64String !== 'string') {
-    throw new Error('Base64字符串必须是字符串类型')
-  }
+export const dataToBase64Mapper = async (data, inputType) => {
+  if (data === undefined || data === null) return null
 
-  base64String = base64String.replace(/\s/g, '')
-
-  if (base64String.length % 4 !== 0) {
-    base64String = base64String.padEnd(base64String.length + (4 - (base64String.length % 4)), '=')
-  }
-
-  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64String)) {
-    throw new Error('无效的Base64字符串')
-  }
-
-  let decodedData
-
+  // 如果本身就是 File 或 Blob，且不是明确的文本/代码，直接原样存入 Blob，绝不转 text()！
   if (
-    targetType === 'Image' ||
-    targetType === 'Video' ||
-    targetType === 'Audio' ||
-    targetType === 'Txt' ||
-    targetType === 'Html'
+    (data instanceof Blob || data instanceof File) &&
+    inputType !== 'Txt' &&
+    inputType !== 'Html' &&
+    inputType !== 'Json'
   ) {
-    try {
-      const binaryString = atob(base64String)
+    return data
+  }
 
-      if (targetType === 'Txt' || targetType === 'Html') {
-        decodedData = binaryString
-      } else {
-        const bytes = new Uint8Array(binaryString.length)
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i)
-        }
-        decodedData = bytes.buffer
-      }
-    } catch (e) {
-      throw new Error(`Base64解码失败: ${e.message}`)
-    }
-  } else {
-    try {
-      const decodedString = atob(base64String)
+  // 结构化对象/数组
+  if (['Array', 'Object', 'Json'].includes(inputType)) {
+    if (typeof data === 'string') {
       try {
-        decodedData = decodeURIComponent(escape(decodedString))
-      } catch (e) {
-        decodedData = decodedString
+        return JSON.parse(data)
+      } catch {
+        return data
       }
-
-      switch (targetType) {
-        case 'Json':
-          decodedData = JSON.parse(decodedData)
-          break
-        case 'Array':
-          decodedData = JSON.parse(decodedData)
-          if (!Array.isArray(decodedData)) {
-            throw new Error('解码后的数据不是数组')
-          }
-          break
-        case 'Number':
-          const num = Number(decodedData)
-          if (isNaN(num)) {
-            throw new Error('解码后的数据不是一个有效的数字')
-          }
-          decodedData = num
-          break
-        case 'Object':
-          decodedData = JSON.parse(decodedData)
-          if (
-            typeof decodedData !== 'object' ||
-            decodedData === null ||
-            Array.isArray(decodedData)
-          ) {
-            throw new Error('解码后的数据不是对象')
-          }
-          break
-      }
-    } catch (e) {
-      throw new Error(`数据解码或转换失败: ${e.message}`)
     }
+    return data
   }
 
-  return decodedData
+  // 基础类型
+  if (inputType === 'Number') return Number(data)
+
+  // 纯文本类（严格确认是纯文本时才走 text()）
+  if (inputType === 'Txt' || inputType === 'Html' || inputType === 'String') {
+    if (data instanceof Blob) {
+      // 容错：如果用户强行把 pdf/docx 传给 Txt，检测 mime，如果是 zip/pdf 坚决不转 text
+      const type = data.type.toLowerCase()
+      if (type.includes('pdf') || type.includes('officedocument') || type.includes('zip')) {
+        return data // 拦截保护，不破坏二进制
+      }
+      return await data.text()
+    }
+    return String(data)
+  }
+
+  // 多媒体与通用二进制（PDF、Office、音视频等）：存为纯正的 Blob
+  if (data instanceof Blob) return data
+  if (data instanceof ArrayBuffer) return new Blob([data])
+  if (ArrayBuffer.isView(data)) return new Blob([data.buffer])
+  if (typeof data === 'string') return base64ToBlob(data)
+
+  return data
 }
 
-export {dataToBase64Mapper, dataDeBase64Mapper}
+export const dataDeBase64Mapper = async (storedData, targetType) => {
+  if (storedData === undefined || storedData === null) return storedData
+
+  // 如果取出来已经是 Blob，且目标是非文本（PDF/Office/媒体），直接原样返回给业务层
+  if (storedData instanceof Blob) {
+    if (targetType === 'Txt' || targetType === 'Html' || targetType === 'String') {
+      // 如果内容是 PDF/Office，不要调用 text()，直接返回 Blob
+      if (storedData.type.includes('pdf') || storedData.type.includes('officedocument')) {
+        return storedData
+      }
+      return await storedData.text()
+    }
+    return storedData
+  }
+
+  //文本类还原
+  if (targetType === 'String' || targetType === 'Txt' || targetType === 'Html') {
+    if (storedData instanceof ArrayBuffer) return textDecoder.decode(new Uint8Array(storedData))
+    return String(storedData)
+  }
+
+  if (targetType === 'Number') return Number(storedData)
+
+  // 结构化对象
+  if (['Array', 'Object', 'Json'].includes(targetType)) {
+    if (typeof storedData === 'string') {
+      try {
+        return JSON.parse(storedData)
+      } catch {
+        return storedData
+      }
+    }
+    return storedData
+  }
+
+  // 复杂二进制与媒体类
+  if (storedData instanceof ArrayBuffer) return new Blob([storedData])
+  if (typeof storedData === 'string') return base64ToBlob(storedData)
+
+  return storedData
+}

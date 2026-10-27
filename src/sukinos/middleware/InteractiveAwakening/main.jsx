@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { X as CloseIcon, Search as SearchIcon } from 'lucide-react';
+import { X as CloseIcon, Search as SearchIcon, AppWindow, ArrowRight } from 'lucide-react';
 import processKernel from "@/sukinos/utils/process/kernel";
 
 import styles from './style.module.css';
@@ -11,13 +11,12 @@ export const InteractiveAwakening = ({
   visible,
   type = 'editor',
   title = '选择交互应用',
-  description = '请选择一个程序来执行此操作',
+  description = '请选择一个程序来运行该文件',
   interactInfo,
   from='system',
   onClose
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-
 
   const apps = useMemo(() => {
     if (!visible || !type) return [];
@@ -62,13 +61,9 @@ export const InteractiveAwakening = ({
 
   return (
     <div className={styles[bem.b()]}>
-
       <div className={styles[bem.e('backdrop')]} onClick={onClose} />
 
-
       <div className={styles[bem.e('card')]}>
-
-
         <div className={styles[bem.e('header')]}>
           <div className={styles[bem.e('header-info')]}>
             <h3 className={styles[bem.e('title')]}>
@@ -78,33 +73,35 @@ export const InteractiveAwakening = ({
               {description}
             </p>
           </div>
-          <button onClick={onClose} className={styles[bem.e('close-btn')]}>
-            <CloseIcon size={18} />
+          <button onClick={onClose} className={styles[bem.e('close-btn')]} title="关闭">
+            <CloseIcon size={15} strokeWidth={2} />
           </button>
         </div>
 
-
         <div className={styles[bem.e('search-bar')]}>
           <div className={styles[bem.e('search-inner')]}>
-            <SearchIcon className={styles[bem.e('search-icon')]} size={16} />
+            <SearchIcon className={styles[bem.e('search-icon')]} size={15} strokeWidth={2} />
             <input
               type="text"
               placeholder="搜索可用应用..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={styles[bem.e('input')]}
+              autoFocus
             />
           </div>
         </div>
 
-
         <div className={styles[bem.e('content')]}>
           {filteredApps.length === 0 ? (
             <div className={styles[bem.e('empty')]}>
+              <div className={styles[bem.e('empty-icon-wrapper')]}>
+                <AppWindow size={30} strokeWidth={1.5} />
+              </div>
               <span>暂无相兼容的交互应用</span>
             </div>
           ) : (
-            <div className={styles[bem.e('grid')]}>
+            <div className={styles[bem.e('list')]}>
               {filteredApps.map((app) => (
                 <button
                   key={app.id}
@@ -132,18 +129,18 @@ export const InteractiveAwakening = ({
                       {app.description}
                     </span>
                   </div>
+                  <div className={styles[bem.e('action-hint')]}>
+                    <ArrowRight size={14} className={styles[bem.e('arrow-icon')]} />
+                  </div>
                 </button>
               ))}
             </div>
           )}
         </div>
 
-
         <div className={styles[bem.e('footer')]}>
-          <span>行为类别: {type}</span>
-          <span>交互总线</span>
+          <span className={styles[bem.e('footer-badge')]}>TYPE: {type}</span>
         </div>
-
       </div>
     </div>
   );

@@ -1,16 +1,18 @@
 import React, { useState, useMemo } from 'react';
-import style from './style.module.css';
-import { createNamespace } from '/utils/js/classcreate';
+import {
+  Folder, File, ArrowLeft, RefreshCw, LayoutGrid, List,
+  Image as ImageIcon, Film, Music, FileCode, Archive, HardDrive,
+  FolderOpen
+} from 'lucide-react';
 import { FileType } from "@/sukinos/utils/config";
-
-const bem = createNamespace('file-view');
+import style from './style.module.css';
 
 const formatBytes = (bytes) => {
   if (bytes === 0 || !bytes) return '--';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
 
 const formatDate = (timestamp) => {
@@ -19,26 +21,48 @@ const formatDate = (timestamp) => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 };
 
+const FileTypeIcon = ({ item, isGrid = false }) => {
+  const isDir = item.type === FileType.DIRECTORY || item.type === 'directory';
+  const iconSize = isGrid ? 36 : 18;
 
-const Icons = {
-  Folder: () => <svg viewBox="0 0 24 24" fill="#eab308" width="1em" height="1em"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>,
-  File: () => <svg viewBox="0 0 24 24" fill="#9ca3af" width="1em" height="1em"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>,
-  Back: () => <svg viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>,
-  Refresh: () => <svg viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em"><path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/></svg>,
-  Grid: () => <svg viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em"><path d="M4 4h4v4H4V4zm6 0h4v4h-4V4zm6 0h4v4h-4V4zM4 10h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4zM4 16h4v4H4v-4zm6 0h4v4h-4v-4zm6 0h4v4h-4v-4z"/></svg>,
-  List: () => <svg viewBox="0 0 24 24" fill="currentColor" width="1em" height="1em"><path d="M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z"/></svg>
+  if (isDir) {
+    return <Folder size={iconSize} className="text-amber-400 fill-amber-400/20" />;
+  }
+
+  const ext = item.name?.split('.').pop()?.toLowerCase() || '';
+
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(ext)) {
+    return <ImageIcon size={iconSize} className="text-emerald-500" />;
+  }
+  if (['mp4', 'webm', 'ogg', 'mov', 'mkv'].includes(ext)) {
+    return <Film size={iconSize} className="text-indigo-500" />;
+  }
+  if (['mp3', 'wav', 'flac', 'aac', 'm4a'].includes(ext)) {
+    return <Music size={iconSize} className="text-pink-500" />;
+  }
+  if (['js', 'jsx', 'ts', 'tsx', 'html', 'css', 'json', 'py', 'md', 'txt'].includes(ext)) {
+    return <FileCode size={iconSize} className="text-sky-500" />;
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+    return <Archive size={iconSize} className="text-amber-500" />;
+  }
+
+  return <File size={iconSize} className="text-slate-400" />;
 };
 
 const FileSystemView = ({
-  items = [],                // 目录列表数据 [{id, name, type, size, mtime}]
-  breadcrumbs = [],          // 面包屑数据 [{id, name}]
-  isLoading = false,         // 加载状态
-  onItemClick,               // 单击项目 (主要用于选中)
-  onItemDoubleClick,         // 双击项目 (进入文件夹或打开文件)
-  onBreadcrumbClick,         // 点击面包屑导航
-  onBack,                    // 返回上一级
-  onRefresh,                 // 刷新当前目录
-  defaultLayout = 'list'     // 默认视图 'list' | 'grid'
+  items = [],
+  breadcrumbs = [],
+  isLoading = false,
+  onItemClick,
+  onItemDoubleClick,
+  onBreadcrumbClick,
+  onBack,
+  onRefresh,
+  defaultLayout = 'list',
+  width = '100%',
+  height = '100%',
+  orientation = 'vertical',
 }) => {
   const [layout, setLayout] = useState(defaultLayout);
   const [selectedId, setSelectedId] = useState(null);
@@ -50,112 +74,176 @@ const FileSystemView = ({
     if (onItemClick) onItemClick(item);
   };
 
-  return (
-    <div className={style[bem.b()]}>
-      {/* 顶部工具栏 */}
-      <div className={style[bem.e('toolbar')]}>
-        <div className={style[bem.e('nav')]}>
-          <button
-            className={`${style[bem.e('icon-btn')]} ${isRoot ? style[bem.is('disabled', true)] : ''}`}
-            onClick={onBack}
-            disabled={isRoot}
-            title="返回上一级"
-          >
-            <Icons.Back />
-          </button>
-          <button className={style[bem.e('icon-btn')]} onClick={onRefresh} title="刷新">
-            <Icons.Refresh />
-          </button>
+  const containerStyle = useMemo(() => ({
+    width: typeof width === 'number' ? `${width}px` : width,
+    height: typeof height === 'number' ? `${height}px` : height,
+  }), [width, height]);
 
-          {/* 面包屑导航 */}
-          <div className={style[bem.e('breadcrumbs')]}>
-            {breadcrumbs.map((crumb, index) => (
-              <React.Fragment key={crumb.id}>
-                <span
-                  className={style[bem.e('crumb')]}
-                  onClick={() => onBreadcrumbClick && onBreadcrumbClick(crumb.id)}
-                >
-                  {crumb.name}
-                </span>
-                {index < breadcrumbs.length - 1 && <span className={style[bem.e('separator')]}>/</span>}
-              </React.Fragment>
+  const selectedItem = useMemo(() => {
+    return items.find(i => i.id === selectedId) || null;
+  }, [items, selectedId]);
+
+  return (
+    <div
+      className={`${style.container} ${orientation === 'horizontal' ? style.orientationHorizontal : style.orientationVertical}`}
+      style={containerStyle}
+    >
+      {orientation === 'horizontal' && (
+        <aside className={style.sideNav}>
+          <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 mb-2 tracking-wide uppercase">
+            <HardDrive size={15} className="text-sky-500" />
+            <span>路径导航</span>
+          </div>
+
+          <div className="flex flex-col gap-1 overflow-y-auto flex-1">
+            {breadcrumbs.map((crumb, idx) => (
+              <button
+                key={crumb.id}
+                onClick={() => onBreadcrumbClick && onBreadcrumbClick(crumb.id)}
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-left transition ${
+                  idx === breadcrumbs.length - 1
+                    ? 'bg-sky-50 text-sky-700 font-semibold'
+                    : 'text-slate-600 hover:bg-slate-200/60'
+                }`}
+              >
+                <FolderOpen size={14} className={idx === breadcrumbs.length - 1 ? 'text-sky-600' : 'text-slate-400'} />
+                <span className="truncate">{crumb.name}</span>
+              </button>
             ))}
           </div>
-        </div>
 
-        {/* 视图切换 */}
-        <div className={style[bem.e('actions')]}>
-          <button
-            className={`${style[bem.e('icon-btn')]} ${layout === 'list' ? style[bem.is('active', true)] : ''}`}
-            onClick={() => setLayout('list')}
-            title="列表视图"
-          >
-            <Icons.List />
-          </button>
-          <button
-            className={`${style[bem.e('icon-btn')]} ${layout === 'grid' ? style[bem.is('active', true)] : ''}`}
-            onClick={() => setLayout('grid')}
-            title="网格视图"
-          >
-            <Icons.Grid />
-          </button>
-        </div>
-      </div>
+          {selectedItem && (
+            <div className="mt-auto p-2.5 bg-white border border-slate-200/80 rounded-lg text-[11px] text-slate-500 flex flex-col gap-1">
+              <span className="font-semibold text-slate-700 truncate">{selectedItem.name}</span>
+              <span>大小: {formatBytes(selectedItem.size)}</span>
+              <span>修改: {formatDate(selectedItem.mtime).split(' ')[0]}</span>
+            </div>
+          )}
+        </aside>
+      )}
 
-      {/* 主体内容区域 */}
-      <div className={style[bem.e('body')]}>
-        {isLoading ? (
-          <div className={style[bem.e('empty')]}>加载中...</div>
-        ) : items.length === 0 ? (
-          <div className={style[bem.e('empty')]}>该文件夹为空</div>
-        ) : (
-          <div className={`${style[bem.e('content')]} ${style[bem.m(layout)]}`}>
+      <section className={style.mainPanel}>
+        <header className={style.toolbar}>
+          <div className={style.navGroup}>
+            <button
+              className={`${style.iconBtn} ${isRoot ? style.disabled : ''}`}
+              onClick={onBack}
+              disabled={isRoot}
+              title="返回上一级"
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <button className={style.iconBtn} onClick={onRefresh} title="刷新目录">
+              <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
+            </button>
 
-            {/* 列表视图专属的表头 */}
-            {layout === 'list' && (
-              <div className={style[bem.e('list-header')]}>
-                <div className={style[bem.em('col', 'name')]}>名称</div>
-                <div className={style[bem.em('col', 'mtime')]}>修改时间</div>
-                <div className={style[bem.em('col', 'size')]}>大小</div>
-              </div>
+            {orientation === 'vertical' && (
+              <nav className={style.breadcrumbBar}>
+                {breadcrumbs.map((crumb, index) => {
+                  const isCurrent = index === breadcrumbs.length - 1;
+                  return (
+                    <React.Fragment key={crumb.id}>
+                      <span
+                        className={`${style.crumbItem} ${isCurrent ? style.crumbCurrent : ''}`}
+                        onClick={() => !isCurrent && onBreadcrumbClick && onBreadcrumbClick(crumb.id)}
+                      >
+                        {crumb.name}
+                      </span>
+                      {!isCurrent && <span className={style.crumbSeparator}>/</span>}
+                    </React.Fragment>
+                  );
+                })}
+              </nav>
             )}
-
-            {/* 渲染项目列表 */}
-            {items.map(item => {
-              const isDir = item.type === FileType.DIRECTORY || item.type === 'directory';
-              const isSelected = selectedId === item.id;
-
-              return (
-                <div
-                  key={item.id}
-                  className={`${style[bem.e('item')]} ${isSelected ? style[bem.is('selected', true)] : ''}`}
-                  onClick={() => handleItemClick(item)}
-                  onDoubleClick={() => onItemDoubleClick && onItemDoubleClick(item)}
-                >
-                  <div className={style[bem.em('item', 'icon')]}>
-                    {isDir ? <Icons.Folder /> : <Icons.File />}
-                  </div>
-                  <div className={style[bem.em('item', 'name')]} title={item.name}>
-                    {item.name}
-                  </div>
-                  {/* 列表模式特有的列 */}
-                  {layout === 'list' && (
-                    <>
-                      <div className={style[bem.em('col', 'mtime')]}>{formatDate(item.mtime)}</div>
-                      <div className={style[bem.em('col', 'size')]}>{isDir ? '--' : formatBytes(item.size)}</div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
           </div>
-        )}
-      </div>
 
-      {/* 底部状态栏 */}
-      <div className={style[bem.e('statusbar')]}>
-        {items.length} 个项目
-      </div>
+          <div className={style.actionGroup}>
+            <button
+              className={`${style.iconBtn} ${layout === 'list' ? style.active : ''}`}
+              onClick={() => setLayout('list')}
+              title="列表展示"
+            >
+              <List size={16} />
+            </button>
+            <button
+              className={`${style.iconBtn} ${layout === 'grid' ? style.active : ''}`}
+              onClick={() => setLayout('grid')}
+              title="网格平铺"
+            >
+              <LayoutGrid size={15} />
+            </button>
+          </div>
+        </header>
+
+        <main className={style.bodyArea}>
+          {isLoading ? (
+            <div className={style.emptyNotice}>
+              <RefreshCw size={22} className="animate-spin text-sky-500" />
+              <span>载入目录中...</span>
+            </div>
+          ) : items.length === 0 ? (
+            <div className={style.emptyNotice}>
+              <FolderOpen size={36} className="text-slate-300 stroke-1" />
+              <span>此文件夹为空</span>
+            </div>
+          ) : (
+            <div className={layout === 'list' ? style.listView : style.gridView}>
+              {layout === 'list' && (
+                <div className={style.listHeader}>
+                  <div className={style.colName}>名称</div>
+                  <div className={style.colTime}>修改日期</div>
+                  <div className={style.colSize}>大小</div>
+                </div>
+              )}
+
+              {items.map((item) => {
+                const isDir = item.type === FileType.DIRECTORY || item.type === 'directory';
+                const isSelected = selectedId === item.id;
+
+                if (layout === 'list') {
+                  return (
+                    <div
+                      key={item.id}
+                      className={`${style.listItem} ${isSelected ? style.selected : ''}`}
+                      onClick={() => handleItemClick(item)}
+                      onDoubleClick={() => onItemDoubleClick && onItemDoubleClick(item)}
+                    >
+                      <div className={style.colName}>
+                        <FileTypeIcon item={item} isGrid={false} />
+                        <span className={style.textTruncate} title={item.name}>{item.name}</span>
+                      </div>
+                      <div className={style.colTime}>{formatDate(item.mtime)}</div>
+                      <div className={style.colSize}>{isDir ? '--' : formatBytes(item.size)}</div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div
+                    key={item.id}
+                    className={`${style.gridItem} ${isSelected ? style.selected : ''}`}
+                    onClick={() => handleItemClick(item)}
+                    onDoubleClick={() => onItemDoubleClick && onItemDoubleClick(item)}
+                    title={item.name}
+                  >
+                    <div className={style.gridIconBox}>
+                      <FileTypeIcon item={item} isGrid={true} />
+                    </div>
+                    <span className={style.gridName}>{item.name}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </main>
+
+        <footer className={style.statusBar}>
+          <span>{items.length} 个对象</span>
+          {selectedItem && (
+            <span>已选: {selectedItem.name} ({formatBytes(selectedItem.size)})</span>
+          )}
+        </footer>
+      </section>
     </div>
   );
 };

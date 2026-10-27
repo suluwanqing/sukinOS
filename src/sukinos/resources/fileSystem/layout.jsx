@@ -281,7 +281,7 @@ const FileSystem = ({ app }) => {
 
       <InteractiveAwakening
         visible={awakeningVisible}
-        type="editor"
+        type="file"
         title={`打开 - ${targetFileForOpen?.name || ''}`}
         description="选择一个程序来运行该文件"
         interactInfo={{

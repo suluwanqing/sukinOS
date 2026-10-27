@@ -1,12 +1,12 @@
-import fileIndexDb  from './fileIndexDb'
+import fileIndexDb from './fileIndexDb'
 // 根节点固定的 ID
 const ROOT_INODE_ID = 'root'
-import { FileType } from "@/sukinos/utils/config"
+import {FileType} from '@/sukinos/utils/config'
 class fileKernel {
   constructor() {
     this.driver = new fileIndexDb()
     this.inodeMap = new Map() // 内存镜像: id -Inode
-    this.treeMap = new Map()  // 目录树索引: parentId-Set<childId>
+    this.treeMap = new Map() // 目录树索引: parentId-Set<childId>
     this.events = new EventTarget()
     this.ready = false
   }
@@ -61,7 +61,7 @@ class fileKernel {
       size: 0,
       ctime: Date.now(),
       mtime: Date.now(),
-      content: null
+      content: null,
     }
     await this.driver.writeInode(root)
     this.#syncMemory(root)
@@ -94,7 +94,7 @@ class fileKernel {
     if (!node) throw new Error('文件不存在1')
     if (node.type === FileType.DIRECTORY) throw new Error('操作有无')
     // 内容就存在 inode 里，没有单独的扇区
-    return node.content || ''
+    return node.content !== undefined ? node.content : ''
   }
 
   /** 递归删除该节点及其全部子孙 */
@@ -106,7 +106,7 @@ class fileKernel {
     const parentId = target.parentId
 
     const batch = [id]
-    const collect = (pid) => {
+    const collect = pid => {
       const kids = this.treeMap.get(pid)
       if (kids) {
         kids.forEach(kidId => {
@@ -133,7 +133,7 @@ class fileKernel {
       throw new Error('File exists')
     }
 
-    const updates = { ...node, name: newName, mtime: Date.now() }
+    const updates = {...node, name: newName, mtime: Date.now()}
     await this.driver.writeInode(updates)
     this.#syncMemory(updates)
     this.#emitChange(node.parentId)
@@ -158,7 +158,7 @@ class fileKernel {
     }
     const oldParentId = node.parentId
     if (oldParentId && this.treeMap.has(oldParentId)) this.treeMap.get(oldParentId).delete(id)
-    const updates = { ...node, parentId: targetParentId, mtime: Date.now() }
+    const updates = {...node, parentId: targetParentId, mtime: Date.now()}
     await this.driver.writeInode(updates)
     this.#syncMemory(updates)
     this.#emitChange(oldParentId)
@@ -175,15 +175,24 @@ class fileKernel {
     if (siblings.some(s => s.name === name)) {
       throw new Error('文件已经存在')
     }
+    // 兼顾 Blob.size、字符串.length 与 ArrayBuffer.byteLength
+    const calcSize = c => {
+      if (!c) return 0
+      if (c instanceof Blob) return c.size
+      if (c instanceof ArrayBuffer) return c.byteLength
+      if (typeof c === 'string') return c.length
+      return 0
+    }
+
     const inode = {
       id: crypto.randomUUID(),
       parentId,
       name,
       type,
-      size: content ? content.length : 0,
+      size: calcSize(content),
       content,
       ctime: Date.now(),
-      mtime: Date.now()
+      mtime: Date.now(),
     }
     await this.driver.writeInode(inode)
     this.#syncMemory(inode)
@@ -195,7 +204,7 @@ class fileKernel {
   getPath(id) {
     const path = []
     let curr = this.inodeMap.get(id)
-    while(curr) {
+    while (curr) {
       path.unshift(curr)
       if (curr.id === ROOT_INODE_ID) break
       curr = this.inodeMap.get(curr.parentId)
@@ -207,11 +216,19 @@ class fileKernel {
     if (!node) throw new Error('文件未找到')
     if (node.type === FileType.DIRECTORY) throw new Error('非文件')
 
+    const calcSize = c => {
+      if (!c) return 0
+      if (c instanceof Blob) return c.size
+      if (c instanceof ArrayBuffer) return c.byteLength
+      if (typeof c === 'string') return c.length
+      return 0
+    }
+
     const updates = {
       ...node,
       content: content,
-      size: content.length,
-      mtime: Date.now()
+      size: calcSize(content),
+      mtime: Date.now(),
     }
 
     await this.driver.writeInode(updates)
@@ -224,12 +241,12 @@ class fileKernel {
   }
 
   watch(callback) {
-    const handler = (e) => callback(e.detail)
+    const handler = e => callback(e.detail)
     this.events.addEventListener('change', handler)
     return () => this.events.removeEventListener('change', handler)
   }
   #emitChange(dirId) {
-    this.events.dispatchEvent(new CustomEvent('change', { detail: { dirId } }))
+    this.events.dispatchEvent(new CustomEvent('change', {detail: {dirId}}))
   }
 }
 

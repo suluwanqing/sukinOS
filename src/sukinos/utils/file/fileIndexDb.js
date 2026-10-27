@@ -1,6 +1,12 @@
-import { DB_VFILE, preSystemFileData, preSystemConfigFiles, FileType, SAMPLE_APP_DIR } from "@/sukinos/utils/config"
-import { SAMPLE_APP_FILES } from "@/sukinos/resources/developer/template"
-import { alert } from "@/component/alert/layout"
+import {
+  DB_VFILE,
+  preSystemFileData,
+  preSystemConfigFiles,
+  FileType,
+  SAMPLE_APP_DIR,
+} from '@/sukinos/utils/config'
+import {SAMPLE_APP_FILES} from '@/sukinos/resources/developer/template'
+import {alert} from '@/component/alert/layout'
 
 class fileIndexDb {
   constructor() {
@@ -10,38 +16,38 @@ class fileIndexDb {
   /** Blob → data URL：与 App 图标的存储格式一致 */
   #blobToDataURL(blob) {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
   }
 
   /** 预设系统资源挂载：清单里缺哪条就 fetch 补哪条 */
   async #initSystemResources() {
     for (const file of preSystemFileData) {
       try {
-        const exists = await this.readInode(file.id);
-        if (exists) continue;
-        console.log(`[VFS] 正在挂载系统资源: ${file.path}`);
-        const response = await fetch(file.path);
-        if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
-        const blob = await response.blob();
-        const base64Data = await this.#blobToDataURL(blob);
+        const exists = await this.readInode(file.id)
+        if (exists) continue
+        console.log(`[VFS] 正在挂载系统资源: ${file.path}`)
+        const response = await fetch(file.path)
+        if (!response.ok) throw new Error(`Fetch failed: ${response.status}`)
+        const blob = await response.blob()
+        // 保留原始 Blob 存入
         const inode = {
           id: file.id,
           parentId: 'root',
           name: file.path.split('/').pop(),
           type: FileType.FILE,
           size: blob.size,
-          content: base64Data,
+          content: blob,
           ctime: Date.now(),
-          mtime: Date.now()
-        };
+          mtime: Date.now(),
+        }
 
-        await this.writeInode(inode);
+        await this.writeInode(inode)
       } catch (err) {
-        console.error(`[VFS] 挂载预设资源失败 (${file.path}):`, err);
+        console.error(`[VFS] 挂载预设资源失败 (${file.path}):`, err)
       }
     }
   }
@@ -50,8 +56,8 @@ class fileIndexDb {
   async #initSystemConfigFiles() {
     for (const file of preSystemConfigFiles) {
       try {
-        const exists = await this.readInode(file.id);
-        if (exists) continue;
+        const exists = await this.readInode(file.id)
+        if (exists) continue
         const inode = {
           id: file.id,
           parentId: 'root',
@@ -60,12 +66,12 @@ class fileIndexDb {
           size: file.content ? file.content.length : 0,
           content: file.content,
           ctime: Date.now(),
-          mtime: Date.now()
-        };
-        await this.writeInode(inode);
-        console.log(`[VFS] 已创建预设配置文件: ${file.name}`);
+          mtime: Date.now(),
+        }
+        await this.writeInode(inode)
+        console.log(`[VFS] 已创建预设配置文件: ${file.name}`)
       } catch (err) {
-        console.error(`[VFS] 创建预设配置文件失败 (${file.name}):`, err);
+        console.error(`[VFS] 创建预设配置文件失败 (${file.name}):`, err)
       }
     }
   }
@@ -104,7 +110,7 @@ class fileIndexDb {
           size: file.content.length,
           content: file.content,
           ctime: Date.now(),
-          mtime: Date.now()
+          mtime: Date.now(),
         })
       } catch (err) {
         // 撞 (parentId, name) 唯一索引时只跳过这一条
@@ -123,7 +129,7 @@ class fileIndexDb {
       size: 0,
       content: null,
       ctime: Date.now(),
-      mtime: Date.now()
+      mtime: Date.now(),
     })
   }
 
@@ -134,20 +140,20 @@ class fileIndexDb {
 
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(DB_VFILE.DB_NAME, DB_VFILE.VERSION)
-      request.onupgradeneeded = (event) => {
+      request.onupgradeneeded = event => {
         const db = event.target.result
         const tx = event.target.transaction
         let store
 
         if (!db.objectStoreNames.contains(DB_VFILE.STORE_NAME)) {
           console.log(`文件数据库创建成功: ${DB_VFILE.STORE_NAME}`)
-          store = db.createObjectStore(DB_VFILE.STORE_NAME, { keyPath: DB_VFILE.KEY_PATH })
+          store = db.createObjectStore(DB_VFILE.STORE_NAME, {keyPath: DB_VFILE.KEY_PATH})
         } else {
           store = tx.objectStore(DB_VFILE.STORE_NAME)
         }
 
         if (DB_VFILE.INDEXES && Array.isArray(DB_VFILE.INDEXES)) {
-          DB_VFILE.INDEXES.forEach((idxConfig) => {
+          DB_VFILE.INDEXES.forEach(idxConfig => {
             if (!store.indexNames.contains(idxConfig.name)) {
               store.createIndex(idxConfig.name, idxConfig.keyPath, idxConfig.options)
             }
@@ -155,19 +161,24 @@ class fileIndexDb {
         }
       }
 
-      request.onsuccess = async (event) => {
+      request.onsuccess = async event => {
         this.db = event.target.result
-        this.db.onclose = () => { this.db = null }
-        this.db.onversionchange = () => { this.db.close(); this.db = null }
+        this.db.onclose = () => {
+          this.db = null
+        }
+        this.db.onversionchange = () => {
+          this.db.close()
+          this.db = null
+        }
 
-        await this.#initSystemResources();
-        await this.#initSystemConfigFiles();
-        await this.#initSampleAppFiles();
+        await this.#initSystemResources()
+        await this.#initSystemConfigFiles()
+        await this.#initSampleAppFiles()
 
         resolve(true)
       }
 
-      request.onerror = (event) => {
+      request.onerror = event => {
         console.error('文件系统挂载失败:', event.target.error)
         reject(event.target.error)
       }
@@ -183,7 +194,7 @@ class fileIndexDb {
     return new Promise((resolve, reject) => {
       const req = this.#tx('readwrite').put(inode)
       req.onsuccess = () => resolve(inode[DB_VFILE.KEY_PATH])
-      req.onerror = (e) => reject(e.target.error)
+      req.onerror = e => reject(e.target.error)
     })
   }
 
@@ -191,7 +202,7 @@ class fileIndexDb {
     return new Promise((resolve, reject) => {
       const req = this.#tx('readonly').get(id)
       req.onsuccess = () => resolve(req.result)
-      req.onerror = (e) => reject(e.target.error)
+      req.onerror = e => reject(e.target.error)
     })
   }
 
@@ -199,7 +210,7 @@ class fileIndexDb {
     return new Promise((resolve, reject) => {
       const req = this.#tx('readwrite').delete(id)
       req.onsuccess = () => resolve(true)
-      req.onerror = (e) => reject(e.target.error)
+      req.onerror = e => reject(e.target.error)
     })
   }
 
@@ -207,7 +218,7 @@ class fileIndexDb {
     return new Promise((resolve, reject) => {
       const req = this.#tx('readonly').count()
       req.onsuccess = () => resolve(req.result)
-      req.onerror = (e) => reject(e.target.error)
+      req.onerror = e => reject(e.target.error)
     })
   }
 
@@ -219,8 +230,8 @@ class fileIndexDb {
         const indexName = 'parent_name_idx'
 
         if (!store.indexNames.contains(indexName)) {
-           reject(new Error(`丢失索引: ${indexName}`))
-           return
+          reject(new Error(`丢失索引: ${indexName}`))
+          return
         }
 
         const index = store.index(indexName)
@@ -229,7 +240,7 @@ class fileIndexDb {
         req.onsuccess = () => {
           resolve(!!req.result)
         }
-        req.onerror = (e) => reject(e.target.error)
+        req.onerror = e => reject(e.target.error)
       } catch (e) {
         reject(e)
       }
@@ -241,7 +252,7 @@ class fileIndexDb {
     return new Promise((resolve, reject) => {
       const req = this.#tx('readonly').getAll()
       req.onsuccess = () => resolve(req.result || [])
-      req.onerror = (e) => reject(e.target.error)
+      req.onerror = e => reject(e.target.error)
     })
   }
 }

@@ -17,13 +17,21 @@ const notifyAll = (event) => listeners.forEach(fn => fn(event));
 
 // 推断文件映射类型，供 dataToBase64Mapper 使用
 const getMapperTypeFromFile = (file) => {
-  const type = file.type.toLowerCase();
+  const name = file.name ? file.name.toLowerCase() : '';
+  const type = file.type ? file.type.toLowerCase() : '';
+
+  // 多媒体文件
   if (type.startsWith('image/')) return 'Image';
   if (type.startsWith('video/')) return 'Video';
   if (type.startsWith('audio/')) return 'Audio';
-  if (type === 'text/html') return 'Html';
-  if (file.name.endsWith('.json')) return 'Json';
-  return 'Txt'; // 兜底使用 Txt 模式进行文件读取
+
+  // 明确的代码与结构化纯文本
+  if (type === 'text/html' || name.endsWith('.html') || name.endsWith('.htm')) return 'Html';
+  if (name.endsWith('.json')) return 'Json';
+  if (name.endsWith('.txt') || name.endsWith('.log') || name.endsWith('.csv') || name.endsWith('.xml')) return 'Txt';
+
+  // PDF、Word(docx)、Excel(xlsx)、PPT、ZIP 等复杂格式必须作为 Binary 纯二进制对待，坚决禁止当 Txt 读成乱码！
+  return 'Binary';
 }
 
 /** 先剥掉沙箱外壳取最底层 ArrayBuffer：iframe 里 file instanceof File 为 false，直接喂给 dataToBase64Mapper 会读空 */
@@ -439,8 +447,14 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     }),
     handleOpenFile: async (item) => {
       try {
-          const content = mode === 'virtual' ? await fs.readFile(item.id) : await (await (globalHandleRegistry.get(item.id)?.handle || item.handle).getFile()).text();
-          return { ...item, content }
+        let content;
+        if (mode === 'virtual') {
+          content = await fs.readFile(item.id);
+        } else {
+          const record = globalHandleRegistry.get(item.id);
+          content = await (record?.handle || item.handle).getFile();
+        }
+        return { ...item, content };
       } catch (e) { return null }
     },
     handleExportFile: async (item) => {
@@ -450,72 +464,38 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
           return false;
         }
 
-        let content;
-        try {
-          content = mode === 'virtual'
-            ? await fs.readFile(item.id)
-            : await (await (globalHandleRegistry.get(item.id)?.handle || item.handle).getFile()).text();
-        } catch (e) {
-          alert.failure("读取文件内容失败");
-          return false;
+        let fileData;
+        if (mode === 'virtual') {
+          fileData = await fs.readFile(item.id);
+        } else {
+          const record = globalHandleRegistry.get(item.id);
+          fileData = await (record?.handle || item.handle).getFile();
         }
 
-        if (content === undefined || content === null) {
+        if (fileData === undefined || fileData === null) {
           alert.failure("文件无内容");
           return false;
         }
 
+        // 支持原生 Blob、对象及字符串导出，彻底避开 Base64 二次转码损毁
         let blob;
-        const ext = item.name.split('.').pop().toLowerCase();
-        let mimeType = 'application/octet-stream';
-
-        const mapperType = (() => {
-          if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp'].includes(ext)) return 'Image';
-          if (['mp4', 'webm', 'ogg', 'mov'].includes(ext)) return 'Video';
-          if (['mp3', 'wav', 'flac', 'aac'].includes(ext)) return 'Audio';
-          if (ext === 'html') return 'Html';
-          if (ext === 'json') return 'Json';
-          return 'Txt';
-        })();
-
-        if (mode === 'virtual') {
-          if (typeof content === 'string') {
-            try {
-              let pureBase64 = content;
-              if (content.startsWith('data:')) {
-                const match = content.match(/^data:([^;]+);base64,/);
-                if (match) mimeType = match[1];
-                pureBase64 = content.split(',')[1];
-              }
-              const decoded = await dataDeBase64Mapper(pureBase64, mapperType);
-              if (decoded) {
-                if (decoded instanceof ArrayBuffer) {
-                  blob = new Blob([decoded], { type: mimeType });
-                } else if (typeof decoded === 'object') {
-                  blob = new Blob([JSON.stringify(decoded, null, 2)], { type: 'application/json' });
-                } else {
-                  blob = new Blob([decoded], { type: mimeType || 'text/plain' });
-                }
-              }
-            } catch (e) {
-              console.warn("Base64解码失败，回退至原始文本下载:", e);
-              blob = new Blob([content], { type: 'text/plain' });
-            }
-          } else if (content instanceof ArrayBuffer) {
-            blob = new Blob([content], { type: 'application/octet-stream' });
-          } else if (content instanceof Blob) {
-            blob = content;
-          } else {
-            blob = new Blob([String(content)], { type: 'text/plain' });
-          }
+        if (fileData instanceof Blob) {
+          blob = fileData;
+        } else if (fileData instanceof ArrayBuffer) {
+          blob = new Blob([fileData]);
+        } else if (typeof fileData === 'object') {
+          blob = new Blob([JSON.stringify(fileData, null, 2)], { type: 'application/json' });
+        } else if (typeof fileData === 'string' && fileData.startsWith('data:')) {
+          // 兼容历史存入的 DataURL 字符串导出
+          const parts = fileData.split(',');
+          const mimeMatch = parts[0].match(/:(.*?);/);
+          const mime = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+          const bin = atob(parts[1].replace(/\s/g, ''));
+          const u8 = new Uint8Array(bin.length);
+          for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+          blob = new Blob([u8], { type: mime });
         } else {
-          // 本地/OPFS 磁盘下直接获取文件 Blob
-          const record = globalHandleRegistry.get(item.id);
-          if (record && record.handle) {
-            blob = await record.handle.getFile();
-          } else {
-            blob = new Blob([content], { type: 'application/octet-stream' });
-          }
+          blob = new Blob([String(fileData)], { type: 'text/plain;charset=utf-8' });
         }
 
         if (blob) {
@@ -567,9 +547,9 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
       const { currentId } = stateRef.current;
       if (mode !== 'virtual') return alert.warning("仅虚拟盘支持");
       for (const file of Array.from(files)) {
-        const mapperType = getMapperTypeFromFile(file); const safeBuffer = await extractSafeBuffer(file);
-        let content = await dataToBase64Mapper(safeBuffer, mapperType);
-        if (['Image', 'Video', 'Audio'].includes(mapperType)) content = `data:${file.type};base64,${content}`;
+        const mapperType = getMapperTypeFromFile(file);
+        //调用 mapper 规范化为原生 Blob 或文本写入虚拟盘
+        const content = await dataToBase64Mapper(file, mapperType);
         await fs.writeFile(currentId, file.name, content);
       }
       return true;

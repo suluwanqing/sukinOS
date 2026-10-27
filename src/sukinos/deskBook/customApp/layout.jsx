@@ -73,6 +73,7 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
   };
 
   useEffect(() => {
+    let currentObjectUrl = null;
     const loadPreview = async () => {
       const icon = config.icon;
       if (!icon) return setIconPreview(null);
@@ -81,10 +82,19 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
         setIconPreview(icon);
       } else {
         const data = await readFile(icon);
-        setIconPreview(data);
+        if (data instanceof Blob) {
+          currentObjectUrl = URL.createObjectURL(data);
+          setIconPreview(currentObjectUrl);
+        } else {
+          setIconPreview(data);
+        }
       }
     };
     loadPreview();
+
+    return () => {
+      if (currentObjectUrl) URL.revokeObjectURL(currentObjectUrl);
+    };
   }, [config.icon, readFile]);
 
   const update = (newConfig) => {
@@ -100,10 +110,8 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
     setIsUploading(true)
 
     try {
-      const buffer = await file.arrayBuffer()
-      const pureBase64 = await dataToBase64Mapper(buffer, 'Image')
-      const finalContent = `data:${file.type};base64,${pureBase64}`
 
+      const finalContent = await dataToBase64Mapper(file, 'Image')
       const fileName = `icon_${Date.now()}_${file.name}`;
       const newNode = await writeFile(fileName, finalContent)
 
@@ -206,7 +214,21 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
 
 const Thumb = ({ fileId, readFile }) => {
   const [s, setS] = useState(null)
-  useEffect(() => { readFile(fileId).then(setS) }, [fileId, readFile])
+  useEffect(() => {
+    let objectUrl = null;
+    readFile(fileId).then(res => {
+      if (res instanceof Blob) {
+        objectUrl = URL.createObjectURL(res);
+        setS(objectUrl);
+      } else {
+        setS(res);
+      }
+    });
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [fileId, readFile])
   return s ? <img src={s} alt="" /> : <div className={style[bem.e('skeleton')]} />
 }
 

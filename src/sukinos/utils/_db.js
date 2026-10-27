@@ -16,6 +16,20 @@ export const STORES = {
     keyPath: 'id',
     indexes: [],
   },
+  // --- 万能文件查看器专属表 ---
+  VIEWER_RECENTS: {
+    name: 'sys-universal-viewer_recents',
+    keyPath: 'id',
+    indexes: [
+      {name: 'lastOpenedAt', keyPath: 'lastOpenedAt', options: {unique: false}},
+      {name: 'mode', keyPath: 'mode', options: {unique: false}},
+    ],
+  },
+  VIEWER_SETTINGS: {
+    name: 'sys-universal-viewer_settings',
+    keyPath: 'id',
+    indexes: [],
+  },
   // 表名统一带 sys- 前缀：本库（sukin_system_app）与按用户隔离的 SukinOS_Sys_* / SukinOS_Res_* 库分开
 }
 
@@ -27,7 +41,13 @@ let dbInstance = null
 // 迁移按版本号逐格升级，只在新版本首次 open 时执行，数据保留。
 const migrations = {
   1: db => {
-    createStores(db, [STORES.BOARDS, STORES.MINDMAPS, STORES.SHEET])
+    createStores(db, [
+      STORES.BOARDS,
+      STORES.MINDMAPS,
+      STORES.SHEET,
+      STORES.VIEWER_RECENTS,
+      STORES.VIEWER_SETTINGS,
+    ])
   },
 
   // 以下为升级范例：按需取消注释，同时把 CURRENT_VERSION 与 STORES 配置改到对应版本。

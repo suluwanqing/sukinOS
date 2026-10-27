@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'sukin-cache'
-const CACHE_VERSION = 'v1.0.22'
+const CACHE_VERSION = 'v1.0.2'
 const CACHE_NAME = `${CACHE_PREFIX}-${CACHE_VERSION}`
 const OFFLINE_PAGE = '/index.html'
 const ORIGIN = 'sukin.top'

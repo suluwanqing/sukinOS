@@ -10,6 +10,7 @@ import LocalDev from "@/sukinos/resources/localDev/layout"
 import SystemDashboard from "@/sukinos/resources/systemManage/layout"
 import DrawBoard from "@/sukinos/resources/drawBoard/layout"
 import Sheet from "@/sukinos/resources/sheet/layout"
+import UniversalViewer from "@/sukinos/resources/universalViewer/layout"
 /*公共组件*/
 import  * as AllComponent from "@/component/main"
 import * as hooks from "@/sukinos/hooks/main"
@@ -69,6 +70,7 @@ export const adminAppSdk = {
     SystemDashboard,
     DrawBoard,
     Sheet,
+    UniversalViewer
   },
   hooks,
   kernel:_kernel //对于系统级别直接暴露全部

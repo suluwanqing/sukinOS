@@ -4,6 +4,7 @@ import { createNamespace } from '/utils/js/classcreate';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import { FileType } from "@/sukinos/utils/config";
 import { alert } from '@/component/alert/layout'
+import Select from '@/component/select/drowSelection/layout';
 // 引入 Base64 转换与解码工具
 import { dataToBase64Mapper, dataDeBase64Mapper } from "/utils/js/func/data/exChangeBase64";
 
@@ -97,36 +98,33 @@ const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, is
       />
 
       <div className={style[bem.e('panel-header')]}>
-        <select
-          className={style[bem.e('mode-select')]}
-          value={mode}
-          onChange={(e) => setMode(e.target.value)}
-        >
-          {ALL_MODES.map(m => (
-            <option key={m.value} value={m.value} disabled={m.value === otherPanelMode}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+        <div className={style[bem.e('select-wrapper')]}>
+          <Select
+            value={mode}
+            size="small"
+            options={ALL_MODES.filter(m => m.value !== otherPanelMode)}
+            onChange={setMode}
+          />
+        </div>
 
         <div className={style[bem.e('actions')]}>
            {/* 在虚拟盘模式，或 local 模式且为 OPFS (isPrivate=true) 时显示上传按钮 */}
            {(mode === 'virtual' || (mode === 'local' && isPrivate)) && (
              <>
                 <button onClick={() => fileInputRef.current.click()} title="上传文件">
-                    <UploadFileIcon size={16} />
+                    <UploadFileIcon size={15} />
                 </button>
                 <button onClick={() => folderInputRef.current.click()} title="上传文件夹">
-                    <DriveFolderUploadIcon size={16} />
+                    <DriveFolderUploadIcon size={15} />
                 </button>
                 <div className={style[bem.e('divider')]} />
              </>
            )}
-           <button onClick={handleBack} disabled={currentId === 'root'}>
-             <ArrowBackIcon size={16} />
+           <button onClick={handleBack} disabled={currentId === 'root'} title="返回上一级">
+             <ArrowBackIcon size={15} />
            </button>
-           <button onClick={handleRefresh}>
-             <RefreshIcon size={16} />
+           <button onClick={handleRefresh} title="刷新">
+             <RefreshIcon size={15} />
            </button>
         </div>
       </div>
@@ -149,8 +147,8 @@ const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, is
           >
             <div className={style[bem.e('icon')]}>
                {item.type === FileType.DIRECTORY ?
-                 <FolderIcon style={{ color: '#facc15' }} /> :
-                 <InsertDriveFileIcon style={{ color: '#7dd3fc' }} />
+                 <FolderIcon size={18} style={{ color: '#f59e0b', fill: '#fef3c7' }} /> :
+                 <InsertDriveFileIcon size={18} style={{ color: '#0891b2' }} />
                }
             </div>
             <span className={style[bem.e('name')]} title={item.name}>{item.name}</span>
@@ -200,23 +198,20 @@ function ExChange({ visible, onClose }) {
     // ---根据流动方向执行数据的深度编码或解码 ---
     if (sourceMode === 'local') {
       // 场景 A: 来源是 Local 磁盘
-      // 因为 hook 的 handleOpenFile 对于 local 文件一律调用了 .text()（导致图片文本化损坏）
+      // 因为 hook 的 handleOpenFile 已经优化为返回原生的 File (Blob)
       // 所以我们要绕过 content，直接从底层句柄拿出真正的二进制 Blob (File) 对象！
       const record = sourceFS.state.handleRegistry.get(item.id);
       let rawFile = null;
       if (record && record.handle) {
          rawFile = await record.handle.getFile();
+      } else if (finalContent instanceof Blob) {
+         rawFile = finalContent;
       }
 
       if (rawFile) {
          if (targetMode === 'virtual') {
-            // Local -> Virtual：需要转成安全的 Base64 入库
-            const pureBase64 = await dataToBase64Mapper(rawFile, mapperType);
-            if (['Image', 'Video', 'Audio'].includes(mapperType)) {
-                finalContent = `data:${rawFile.type || 'application/octet-stream'};base64,${pureBase64}`;
-            } else {
-                finalContent = pureBase64;
-            }
+            // Local -> Virtual：优化存储为纯正的 Blob 存入虚拟盘，彻底告别 Base64 膨胀
+            finalContent = await dataToBase64Mapper(rawFile, mapperType);
          } else if (targetMode === 'local') {
             // Local -> Local：直接传递真实的 File (Blob) 对象，绝对不会乱码
             finalContent = rawFile;
@@ -226,31 +221,37 @@ function ExChange({ visible, onClose }) {
     else if (sourceMode === 'virtual') {
       // 场景 B: 来源是 Virtual 虚拟盘
       if (targetMode === 'local') {
-        // Virtual -> Local: 虚拟盘中存储的已经是 Base64，但往真实电脑磁盘写文件需要真实的二进制或字符
-        if (typeof finalContent === 'string') {
+        // Virtual -> Local: 虚拟盘中存储的是原生的 Blob、对象或字符串，直接对齐写入本地真实磁盘
+        if (finalContent instanceof Blob) {
+          finalContent = finalContent;
+        } else if (typeof finalContent === 'object') {
+          finalContent = JSON.stringify(finalContent, null, 2);
+        } else if (typeof finalContent === 'string') {
+          // 兼容历史存入的 Base64 纯文本还原
           try {
-            // 如果带前缀，脱去前缀
             let pureBase64 = finalContent;
+            let mimeType = 'application/octet-stream';
             if (finalContent.startsWith('data:')) {
+              const match = finalContent.match(/^data:([^;]+);base64,/);
+              if (match) mimeType = match[1];
               pureBase64 = finalContent.split(',')[1];
             }
-            // 逆向解析！如果是图片视频，这里会转回 ArrayBuffer
             const decoded = await dataDeBase64Mapper(pureBase64, mapperType);
-            if (decoded) {
+            if (decoded instanceof Blob) {
               finalContent = decoded;
+            } else if (decoded instanceof ArrayBuffer) {
+              finalContent = new Blob([decoded], { type: mimeType });
+            } else if (typeof decoded === 'object') {
+              finalContent = JSON.stringify(decoded, null, 2);
+            } else {
+              finalContent = String(decoded);
             }
           } catch (e) {
             console.warn("Base64解码失败，作为普通文本写入本地:", e);
           }
         }
-        // 兼容处理：如果它读取出来刚好是旧版本写入的二进制格式
-        else if (finalContent instanceof ArrayBuffer) {
-          finalContent = new TextDecoder('utf-8').decode(finalContent);
-        } else if (finalContent instanceof Blob) {
-          finalContent = await finalContent.text();
-        }
       }
-      // Virtual -> Virtual: 两边都是 Base64 字符串，不用处理直接对拷即可
+      // Virtual -> Virtual: 两边都是原生对象/Blob，直接对拷即可
     }
 
     // --- 第二步：在目标位置执行创建占位  ---
@@ -301,10 +302,10 @@ function ExChange({ visible, onClose }) {
       <div className={style[bem.e('container')]}>
         <div className={style[bem.e('header')]}>
           <div className={style[bem.e('title')]}>
-            <SwapHorizIcon /> 文件交换中心 (Multi-Channel Exchange)
+            <SwapHorizIcon size={18} /> 文件交换中心 (Multi-Channel Exchange)
           </div>
           <button className={style[bem.e('close')]} onClick={onClose}>
-            <CloseIcon />
+            <CloseIcon size={18} />
           </button>
         </div>
 

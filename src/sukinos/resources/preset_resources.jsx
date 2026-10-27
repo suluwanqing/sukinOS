@@ -17,7 +17,7 @@ import localDevRegistry from './localDev/registry'
 import systemManageRegistry from './systemManage/registry'
 import drawBoardRegistry from './drawBoard/registry'
 import sheetRegistry from './sheet/registry'
-
+import usniversalViewer from "./universalViewer/registry"
 const keyMapping = {
   ENV_KEY_RESOURCE_ID,
   ENV_KEY_NAME,
@@ -44,6 +44,7 @@ const rawResources = [
   systemManageRegistry,
   drawBoardRegistry,
   sheetRegistry,
+  usniversalViewer
 ]
 
 export const PRESET_RESOURCES = rawResources.map(replaceKeys)

@@ -1,0 +1,45 @@
+.scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+.scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scroll::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.dotGrid {
+  background-color: #f8fafc;
+  background-image: radial-gradient(#cbd5e1 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+
+.spinAnimation {
+  animation: cleanSpin 12s linear infinite;
+}
+
+.spinPaused {
+  animation-play-state: paused;
+}
+
+@keyframes cleanSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

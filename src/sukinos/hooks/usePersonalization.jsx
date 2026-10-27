@@ -549,7 +549,7 @@ export const personalizationStore = {
 /* themeMode 的首屏引导与 <html> 上的 .dark 切换抽到了同目录的 themeMode.js：
    那个文件零依赖，src/main.jsx 需要它做首屏防闪，若从这里引会把整条 VFS 依赖链
    拖进入口 chunk。 */
-import { applyThemeMode } from './themeMode.js';
+import { applyThemeMode } from '../../themeMode.js';
 
 export const usePersonalization = () => {
   const [config, setConfig] = useState(() => personalizationStore.get());
