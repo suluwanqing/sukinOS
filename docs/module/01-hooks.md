@@ -138,7 +138,7 @@ import { useKernel, useAuth, useProcessBridge } from '@/sukinos/hooks'
 当 `backgroundSleep === true && isVisible === false` 时，`useProcessBridge` **完全跳过** `kernel.subscribeApp` 订阅：
 - Worker 状态变更完全不会进入 React 渲染管道
 - 零 RAF 调度、零 setState 调用、零 memo 比较
-- 适合未开启自适应挂载但希望降低后台窗口 CPU 开销的场景
+- 适合未保活但希望降低后台窗口 CPU 开销的场景
 
 **内部状态**:
 
@@ -308,11 +308,11 @@ const { state, navigation, operation } = useFileSystem('virtual', { pid: 'app-xx
 
 | 方法 | 说明 |
 |------|------|
-| `handleReadDir(dirId)` | 只读列目录、不触发广播；virtual 走 `fs.readdir`，local 遍历句柄 `values()` 并逐个 `transformLocalHandle`。供递归遍历使用（`useFileSystem.jsx:322-331`） |
-| `handleEnsureDir({parentId, name})` | 确保目录存在：virtual 先查同名目录项、没有才 `fs.mkdir`；local 用 `getDirectoryHandle(name, {create:true})`。失败返回 `null`（`:333-347`） |
+| `handleReadDir(dirId)` | 只读列目录、不触发广播；virtual 走 `fs.readdir`，local 遍历句柄 `values()` 并逐个 `transformLocalHandle`。供递归遍历使用（`useFileSystem.jsx:handleReadDir`） |
+| `handleEnsureDir({parentId, name})` | 确保目录存在：virtual 先查同名目录项、没有才 `fs.mkdir`；local 用 `getDirectoryHandle(name, {create:true})`。失败返回 `null`（`useFileSystem.jsx:handleEnsureDir`） |
 | `handleCreate({type})` | 创建文件或文件夹 → `fs.mkdir` / `fs.writeFile`；同名时读底层 readdir 分配表做"无后缀自增"（`新建文件.jsx` → `新建文件1.jsx`），规避重名崩溃 |
 | `handleRename({id, name, newName, parentId, type})` | 重命名，local 模式优先使用 `move` API，不支持时降级为读-写-删 |
-| `handleMove({id, name, parentId, targetParentId, type})` | 跨层级移动：virtual 直接 `fs.move(id, targetParentId)`；local 优先 `handle.move(destHandle)`，不支持时文件走复制+删、目录抛"当前浏览器不支持移动文件夹"，并清理 `globalFileIdMap`/`globalHandleRegistry` 旧映射。同父目录直接返回 `true`（`:409-440`） |
+| `handleMove({id, name, parentId, targetParentId, type})` | 跨层级移动：virtual 直接 `fs.move(id, targetParentId)`；local 优先 `handle.move(destHandle)`，不支持时文件走复制+删、目录抛"当前浏览器不支持移动文件夹"，并清理 `globalFileIdMap`/`globalHandleRegistry` 旧映射。同父目录直接返回 `true`（`useFileSystem.jsx:handleMove`） |
 | `handleDelete({id, name, parentId})` | 删除文件/文件夹 |
 | `handleOpenFile(item)` | 读取文件内容 |
 | `handleExportFile(item)` | 导出单个文件（读内容后触发下载）；目录直接 `alert.warning("不支持导出文件夹")` 并返回 `false`（`:465+`） |
@@ -338,7 +338,7 @@ const { state, navigation, operation } = useFileSystem('virtual', { pid: 'app-xx
 
 `operation` 的键按源码顺序：`handleReadDir`、`handleEnsureDir`、`handleCreate`、`handleRename`、`handleMove`、`handleDelete`、`handleOpenFile`、`handleExportFile`、`handleSave`、`handleUploadFiles`、`handleClearFiles`、`handleSearchBySuffix`。
 
-同文件还导出 `useSystemFileSystem(mode)`：系统级入口，不做 pid 前缀隔离、不校验 pid；`useFileSystem(mode, options)` 则强制要求 `options.pid`，缺失直接 `throw`（`useFileSystem.jsx:702-713`）。
+同文件还导出 `useSystemFileSystem(mode)`：系统级入口，不做 pid 前缀隔离、不校验 pid；`useFileSystem(mode, options)` 则强制要求 `options.pid`，缺失直接 `throw`（`useFileSystem.jsx:useFileSystem`）。
 
 ---
 
@@ -543,7 +543,7 @@ const store = {
 | `deskIconSize` | `50` | 桌面图标尺寸 |
 | `deskFontColor` | `'#ffffff'` | 桌面文字颜色 |
 | `windowOpacity` | `80` | 窗口背景透明度（%） |
-| `windowHeaderBg` | `'var(--su-gray-50)'` | 窗口头部背景色 |
+| `windowHeaderBg` | `'#f9fafb'` | 窗口头部背景色 |
 | `windowPadding` | `0` | 窗口内容内边距 |
 | `maxWindows` | `10` | 最大可见窗口数（超出 LRU 休眠） |
 | `maxWorkers` | `5` | 最大并发 Worker 数 |
@@ -563,7 +563,7 @@ const store = {
 | `updateCustomColor(target, baseColor, shade)` | 更新自定义颜色（映射到 CSS 变量） |
 | `getCurrentAccentColor()` | 获取当前主题强调色 |
 | `getFileBase64(fileId)` | 从 VFS 读取文件并转为 Base64 |
-| `refreshConfig()` | 从 VFS 重新加载配置 |
+| `refreshConfig()` | 从 VFS 重新加载配置（两处读档都会把老存档里的 `var(--su-*)` 值一次性归一成具体值，认不出的键连同它配对的 baseColor/shade 档位记忆一起删掉，交回默认值） |
 
 **自动持久化**:
 - `config` 变化 → 防抖 800ms → 写入 `sukin_config.json` 到 VFS
@@ -582,6 +582,8 @@ const store = {
 - `defaultPersonalization`: 默认配置对象
 - `colorSystem`: 色彩系统（yellow/apricot/cyan/red/black/primary）
 - `colorSystemRange`: 色阶范围（50/100/200/300/400/500/900）
+- `COLOR_SCALE`: 取色器色值表，`colorSystem` × `colorSystemRange` 的字面 hex（令牌层 `utils/css/color.css` 删除后由它供色，配置里存的直接是颜色值）
+- `scaleColor(custom, fallback)`: 按 `{ baseColor, shade }` 查 `COLOR_SCALE`，表外的旧档位退回 `fallback`
 
 **返回值**:
 
@@ -639,14 +641,14 @@ const store = {
 | `winSize` | `{x,y,w,h}` | — | 窗口初始位置和尺寸（内部改名 `initialState`） |
 | `allowResize` | `boolean` | `true` | 是否允许缩放 |
 | `SAFE_DRAG_AREA` | `number` | `40` | 安全拖拽区域阈值，防止窗口拖出屏幕 |
-| `isIframeMode` | `boolean` | `false` | 物理沙箱（iframe）模式；同时决定 `THROTTLE_MS`（`true`→8ms 约 125fps，`false`→0 不节流，`:23`） |
+| `isIframeMode` | `boolean` | `false` | 物理沙箱（iframe）模式；同时决定 `THROTTLE_MS`（`true`→8ms 约 125fps，`false`→0 不节流，`useWindowInteraction.jsx:THROTTLE_MS`） |
 | `onDragEnd` | `function` | `undefined` | 一次拖拽/缩放/编程式改位结束后的落盘回调，参数为最终矩形 `{x,y,w,h}`；ProcessWindow 用它写 `kernel.updateWindowRect` |
 
 **性能优化 — 全 Ref 架构**:
 - 完全弃用 `useState`，所有状态存储在 `useRef` 中（`rectRef`/`actionType`/`startPos`/`startRect`/`beforeMaximizeRect`）
 - DOM 更新直接操作 `element.style`，不触发 React 重渲染
 - 避免高频拖拽/缩放时的性能瓶颈
-- `handleMouseMove` / `handleMouseUp` 各自存一份 ref，卸载清理 effect 不依赖它们的身份，避免依赖数组变化导致重复注册（`:25-28`）
+- `handleMouseMove` / `handleMouseUp` 各自存一份 ref，卸载清理 effect 不依赖它们的身份，避免依赖数组变化导致重复注册（`useWindowInteraction.jsx:handleMouseMoveRef, handleMouseUpRef`）
 
 **iframe 模式优化**:
 - `requestAnimationFrame` 节流（8ms，约 125fps）
@@ -660,19 +662,19 @@ const store = {
 |------|------|
 | `handleMouseDown(e, type)` | 处理鼠标按下事件，type 可选值: `drag`/`e`/`w`/`s`/`n`/`se`/`sw`/`ne`/`nw` |
 | `setMaximized(isMaximizing)` | 最大化/还原切换，保存恢复前的矩形 |
-| `setRect(partialRect = {})` | 编程式改位（供 `AppSDK.API.window.setRect` 使用，`:358-389`）：允许只传部分字段，非法值回退当前矩形；`MIN_WIDTH/MIN_HEIGHT` 与 `SAFE_DRAG_AREA` 同样 clamp；先清掉拖拽残留的 `transform` 增量与 `data-real-left/top`，再直写 `left/top/width/height`；最后复用 `onDragEnd?.(next)` 落盘 |
+| `setRect(partialRect = {})` | 编程式改位（供 `AppSDK.API.window.setRect` 使用，`useWindowInteraction.jsx:setRect`）：允许只传部分字段，非法值回退当前矩形；`MIN_WIDTH/MIN_HEIGHT` 与 `SAFE_DRAG_AREA` 同样 clamp；先清掉拖拽残留的 `transform` 增量与 `data-real-left/top`，再直写 `left/top/width/height`；最后复用 `onDragEnd?.(next)` 落盘 |
 | `getCurrentRect()` | 获取当前窗口矩形 `{x, y, w, h}`（返回浅拷贝） |
 | `getIsDragging()` | 查询是否正在拖拽中 |
 
-**返回值**（`:394-401`，共 6 个成员）:
+**返回值**（`useWindowInteraction.jsx:useWindowInteraction`，共 6 个成员）:
 
 ```js
 { windowElRef, handleMouseDown, setMaximized, setRect, getCurrentRect, getIsDragging }
 ```
 
-> ProcessWindow 只解构了 `windowElRef, handleMouseDown, setMaximized, setRect, getCurrentRect` 五个（`deskBook/window/layout.jsx:91`），`getIsDragging` 目前无人使用。
+> ProcessWindow 只解构了 `windowElRef, handleMouseDown, setMaximized, setRect, getCurrentRect` 五个（`deskBook/window/layout.jsx:ProcessWindow`），`getIsDragging` 目前无人使用。
 >
-> 另外该调用点写的是 `allowResize: resource?.[ENV_KEY_META_INFO]?.custom?.allowResize || true`（`:93`）——`|| true` 让任何 falsy 值都回落到 `true`，所以"禁止缩放"的 custom 配置在这条链路上**当前不生效**；若要启用需改成 `?? true`。
+> 另外该调用点写的是 `allowResize: resource?.[ENV_KEY_META_INFO]?.custom?.allowResize || true`（`window/layout.jsx:ProcessWindow`）——`|| true` 让任何 falsy 值都回落到 `true`，所以"禁止缩放"的 custom 配置在这条链路上**当前不生效**；若要启用需改成 `?? true`。
 
 ---
 

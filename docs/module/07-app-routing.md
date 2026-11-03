@@ -132,7 +132,7 @@ if (SYS_CONFIG["${envKeyIsBundle}"] && !base.router) {
 
 环节二：`navigate()` 时自动拦截 `NAVIGATE` action（workerDrive.js dispatch）：
 ```js
-// SDK navigate 实现 (sdk.jsx:93)
+// SDK navigate 实现 (sdk.jsx:noopWindowControls)
 navigate: (path) => dispatch({ type: 'NAVIGATE', payload: path })
 
 // Worker dispatch 自动注入路由
@@ -182,6 +182,11 @@ const Layout = modules['layout']?.Component;
 const PageObj = modules[currentPath];  // currentPath = state.router?.path
 return <Layout {...commonProps} PageComponent={ConnectedPage} />;
 ```
+
+还有第三条分支：`entries.view` 以 `.html` 结尾时（文档档应用）不取 `Layout`/`PageComponent`，
+直接渲染 `HtmlAppFrame`，由子文档自己决定"页面"长什么样。这意味着宿主侧的
+`router.path` → `resolveModuleKey` 路由对该类应用不起作用——它的模块不是 React 组件，
+导航得由子文档内部完成（详见 [08-development.md](./08-development.md) §4.11）。
 
 ---
 
@@ -234,7 +239,7 @@ UI_ACTION → dispatch(action)
 
 ### 3.3 VirtualWorker 模式
 
-VirtualWorker 是 `lifecycle.js:41-269` 中定义的**虚拟轻量化沙箱**，采用 `with(sandbox) + Proxy + Shared Iframe` 方案。当 `kernel.useVirtualWorker = true` 时启用。
+VirtualWorker 是 `lifecycle.js:VirtualWorker` 中定义的**虚拟轻量化沙箱**，采用 `with(sandbox) + Proxy + Shared Iframe` 方案。当 `kernel.useVirtualWorker = true` 时启用。
 
 **核心设计**：不创建真实 Worker，而是在宿主主线程通过 `new Function('self', 'with(self) { code }')` 构造执行环境，`self` 指向一个 `Proxy` 代理对象（`sandboxSelfProxy`）。
 
@@ -243,7 +248,7 @@ VirtualWorker 是 `lifecycle.js:41-269` 中定义的**虚拟轻量化沙箱**，
 VirtualWorker 的 `postMessage`（sandboxSelf 中定义）对两类消息采取不同的投递策略：
 
 ```js
-// VirtualWorker sandboxSelf.postMessage (lifecycle.js:58-81)
+// VirtualWorker sandboxSelf.postMessage (lifecycle.js:VirtualWorker)
 postMessage: msg => {
   if (msg && msg.type === 'STATE_UPDATE') {
     // STATE_UPDATE：通过 requestAnimationFrame 帧对齐节流
@@ -281,7 +286,7 @@ VirtualWorker 拦截并托管了 4 类浏览器资源，在 `terminate()` 时强
 | `attachedEventListeners` (Array) | `addEventListener` | terminate 时遍历 `removeEventListener` |
 
 ```js
-// VirtualWorker.setTimeout 拦截 (lifecycle.js:84-93)
+// VirtualWorker.setTimeout 拦截 (lifecycle.js:VirtualWorker)
 setTimeout: (handler, timeout, ...args) => {
   const id = setTimeout(() => {
     this.activeTimeouts.delete(id);
@@ -294,7 +299,7 @@ setTimeout: (handler, timeout, ...args) => {
 
 #### 3.3.3 Proxy 代理层设计
 
-`sandboxSelfProxy`（lifecycle.js:164-205）是 VirtualWorker 的核心隔离机制：
+`sandboxSelfProxy`（`lifecycle.js:VirtualWorker`）是 VirtualWorker 的核心隔离机制：
 
 ```js
 const sandboxSelfProxy = new Proxy(iframeWin, {
@@ -336,7 +341,7 @@ const sandboxSelfProxy = new Proxy(iframeWin, {
 #### 3.3.4 terminate 清理流程
 
 ```js
-// VirtualWorker.terminate() (lifecycle.js:236-268)
+// VirtualWorker.terminate() (lifecycle.js:VirtualWorker)
 terminate() {
   this.terminated = true;
   this.appOnMessage = null;
@@ -366,15 +371,15 @@ terminate() {
 
 #### 3.3.5 消息监听器拦截
 
-`addEventListener('message', handler)` 在 VirtualWorker 中被拦截为 `this.appOnMessage = handler`（lifecycle.js:124-127），而非真正添加到 iframe 窗口。这确保沙箱内的 `onmessage` 只接收来自宿主的消息，不会与其他 VirtualWorker 的消息混杂。
+`addEventListener('message', handler)` 在 VirtualWorker 中被拦截为 `this.appOnMessage = handler`（`lifecycle.js:VirtualWorker`），而非真正添加到 iframe 窗口。这确保沙箱内的 `onmessage` 只接收来自宿主的消息，不会与其他 VirtualWorker 的消息混杂。
 
 ### 3.4 NoWorker 模式
 
-NoWorker = `worker: false`。没有真正的 Worker 沙箱，在宿主主线程中模拟 Worker 通信协议。定义在 `lifecycle.js:275-377`。
+NoWorker = `worker: false`。没有真正的 Worker 沙箱，在宿主主线程中模拟 Worker 通信协议。定义在 `lifecycle.js:NoWorker`。
 
 #### 3.4.1 sysConfig 构建与注入
 
-NoWorker 在构造时构建完全等价于 Worker 端 `SYS_CONFIG` 的 `sysConfig`（lifecycle.js:286-294）：
+NoWorker 在构造时构建完全等价于 Worker 端 `SYS_CONFIG` 的 `sysConfig`（`lifecycle.js:NoWorker`）：
 
 ```js
 constructor(pid, kernelInstance, initialState, isBundle) {
@@ -394,7 +399,7 @@ constructor(pid, kernelInstance, initialState, isBundle) {
 
 #### 3.4.2 initializeState 校准器
 
-NoWorker 使用 `initializeState(initialState, isBundle)`（workerDrive.js 导出）进行状态初始化校准（lifecycle.js:297）：
+NoWorker 使用 `initializeState(initialState, isBundle)`（workerDrive.js 导出）进行状态初始化校准（`lifecycle.js:NoWorker`）：
 
 ```js
 const calibratedState = initializeState(initialState, isBundle);
@@ -405,7 +410,7 @@ this.state = calibratedState;
 
 #### 3.4.3 初始化时状态广播
 
-NoWorker 构造后，如果存在历史持久化状态（calibratedState 不为 null），会立即广播给 CommHub（lifecycle.js:301-313）：
+NoWorker 构造后，如果存在历史持久化状态（calibratedState 不为 null），会立即广播给 CommHub（`lifecycle.js:NoWorker`）：
 
 ```js
 if (calibratedState) {
@@ -424,7 +429,7 @@ if (calibratedState) {
 
 #### 3.4.4 UI_ACTION 处理链路
 
-NoWorker 的 `postMessage` 拦截来自 UI 的 `UI_ACTION`（lifecycle.js:320-361），分三种处理路径：
+NoWorker 的 `postMessage` 拦截来自 UI 的 `UI_ACTION`（`lifecycle.js:NoWorker.postMessage`），分三种处理路径：
 
 ```
 NoWorker.postMessage({type: 'UI_ACTION', payload: action})
@@ -443,11 +448,11 @@ NoWorker.postMessage({type: 'UI_ACTION', payload: action})
         → getCachedState(pid) → commHub.saveState(pid, currentState)   ← 该方法不存在，命中即抛 TypeError
 ```
 
-> ⚠ 第 3 条分支目前是死代码：CommHub 并没有 `saveState` 方法（状态持久化走构造时注入的 `onSaveState` 回调，见 §5.2），因此 `lifecycle.js:368` 一旦命中就会抛 `TypeError`。没有任何调用方向 NoWorker 进程投递 `SAVE_STATE`，所以线上不显症；若将来要启用这条兼容路径，需要先补 CommHub 侧的实现。
+> ⚠ 第 3 条分支目前是死代码：CommHub 并没有 `saveState` 方法（状态持久化走构造时注入的 `onSaveState` 回调，见 §5.2），因此 `lifecycle.js:NoWorker` 一旦命中就会抛 `TypeError`。没有任何调用方向 NoWorker 进程投递 `SAVE_STATE`，所以线上不显症；若将来要启用这条兼容路径，需要先补 CommHub 侧的实现。
 
 #### 3.4.5 processStateAction 路由处理（仅 NoWorker 侧）
 
-`processStateAction`（workerDrive.js:9-22）与初始状态校准器 `initializeState`（workerDrive.js:27-33）虽然定义在 workerDrive 里，但**只有 NoWorker 分支 import 它们**（`lifecycle.js:2`，调用于 `:297` 与 `:342`）。真实 Worker 沙箱内没有这两个符号——同样的 Bundle 路由逻辑被直接内联进注入代码：`INIT` 里补 `router`（workerDrive.js:93-95），`dispatch` 里处理 `NAVIGATE`（workerDrive.js:66-72）。两者当前都只处理 Bundle + `NAVIGATE`：
+`processStateAction`（`workerDrive.js:processStateAction`）与初始状态校准器 `initializeState`（`workerDrive.js:initializeState`）虽然定义在 workerDrive 里，但**只有 NoWorker 分支 import 它们**（`lifecycle.js:NoWorker`）。真实 Worker 沙箱内没有这两个符号——同样的 Bundle 路由逻辑被直接内联进注入代码：`INIT` 里补 `router`（`workerDrive.js:getRunnerMessageRouter`），`dispatch` 里处理 `NAVIGATE`（`workerDrive.js:getRunnerWorkerDispatcher`）。两者当前都只处理 Bundle + `NAVIGATE`：
 
 ```js
 export const processStateAction = (state, action, isBundle) => {
@@ -462,7 +467,7 @@ export const processStateAction = (state, action, isBundle) => {
 
 #### 3.4.6 ACTION_ECHO 机制
 
-当 `processStateAction` 返回 `nextState === prevState`（即无状态变更），NoWorker 不会静默丢弃，而是产生 `ACTION_ECHO` 消息（lifecycle.js:353-360）：
+当 `processStateAction` 返回 `nextState === prevState`（即无状态变更），NoWorker 不会静默丢弃，而是产生 `ACTION_ECHO` 消息（`lifecycle.js:NoWorker`）：
 
 ```js
 if (nextState !== prevState) {
@@ -521,8 +526,8 @@ dispatch(pid, action)
 
 | 入口 | 谁在用 | 链路 |
 |------|--------|------|
-| 直调 `kernel.uploadResource(payload)` | 开发者中心上传/更新面板（`right/upload/layout.jsx:82,135,167`、`right/update/layout.jsx`、`developer/layout.jsx:480`）、本地开发（`localDev/layout.jsx:1035`）—— 它们运行在主文档上下文，拿得到完整 kernel | `kernel.uploadResource` → `generateApp.js:392-415` 写资源 → `:259-290` 注册 |
-| `KERNEL_CALL` → `systemSwitch` → `UPLOAD_RESOURCE` | 沙箱内应用（只能经消息通道请求内核） | `messaging.js:21-40` 内部同样是 `kernel.uploadResource(args)`，成功/失败再以 `UI_ACTION({type:'MSG'})` 回写 Worker |
+| 直调 `kernel.uploadResource(payload)` | 开发者中心上传/更新面板（`right/upload/layout.jsx:handleUploadFile, handleUploadBundle, handleUploadLogic`、`right/update/layout.jsx`、`developer/layout.jsx:Developer`）、本地开发（`localDev/layout.jsx:LocalDev`）—— 它们运行在主文档上下文，拿得到完整 kernel | `kernel.uploadResource` → `generateApp.js:extUploadResource` 写资源 → `generateApp.js:extUploadResource` 注册 |
+| `KERNEL_CALL` → `systemSwitch` → `UPLOAD_RESOURCE` | 沙箱内应用（只能经消息通道请求内核） | `messaging.js:Messaging.systemSwitch` 内部同样是 `kernel.uploadResource(args)`，成功/失败再以 `UI_ACTION({type:'MSG'})` 回写 Worker |
 
 即两条入口最终汇聚到同一个 `kernel.uploadResource`；差别只在调用方是否在沙箱内。
 
@@ -572,7 +577,7 @@ sequenceDiagram
 **stateCache**（每次 state 变化）：
 ```
 Worker: broadcast() → postMessage(STATE_UPDATE)
-  → commHub.handleMsg → stateCache.set(pid, payload)   ← commHub.js:41-45
+  → commHub.handleMsg → stateCache.set(pid, payload)   ← commHub.js:CommHub.handleMsg
 ```
 
 **app.savedState + IndexedDB —— 两条并存的写入路径**：
@@ -580,9 +585,9 @@ Worker: broadcast() → postMessage(STATE_UPDATE)
 ① 事件驱动（Worker 主动上报，经 CommHub 回调）：
 ```
 Worker.save() → postMessage({type:'SAVE_STATE', payload})
-  → commHub.handleMsg（commHub.js:47-52）
+  → commHub.handleMsg（commHub.js:CommHub.handleMsg）
     → this.onSaveState(pid, payload)      ← CommHub 构造时由 Kernel 注入
-      （kernel.js:79-88）
+      （kernel.js:Kernel.constructor）
         → app.savedState.app = payload    ← 所有 App 都写内存
         → if (!app.isSystemApp)           ← 仅用户 App 写 DB
             sysDb.updateData(appName, {savedState})
@@ -590,14 +595,14 @@ Worker.save() → postMessage({type:'SAVE_STATE', payload})
 
 ② 定时驱动（Kernel 自己从 stateCache 取，不经过 CommHub）：
 ```
-startAutoSaveState(pid) → #scheduleNextStateSave → autoSaveState(pid)   （kernel.js:273-284）
+startAutoSaveState(pid) → #scheduleNextStateSave → autoSaveState(pid)   （kernel.js:Kernel.startAutoSaveState, Kernel.#scheduleNextStateSave, Kernel.autoSaveState）
   → 脏检查（JSON 对比上次快照）→ 取 commHub.getCachedState(pid)
   → app.savedState.app = cached → sysDb.updateData(...)
 ```
 
-两条路径的门槛不同：① 只要 Worker 调 `save()` 就会落盘；② 需要 `metaInfo.saveState` 为真且间隔 > 0，且系统应用直接 `return`（`kernel.js:275`）。定时器细节见 [04-process-kernel.md](./04-process-kernel.md) 的"自动保存定时器"。
+两条路径的门槛不同：① 只要 Worker 调 `save()` 就会落盘；② 需要 `metaInfo.saveState` 为真且间隔 > 0，且系统应用直接 `return`（`kernel.js:Kernel.autoSaveState`）。定时器细节见 [04-process-kernel.md](./04-process-kernel.md) 的"自动保存定时器"。
 
-> CommHub 上没有 `saveState()` 方法，①的持久化入口是构造参数 `onSaveState` 回调（`commHub.js:7-8` ← `kernel.js:79-88`）。`hibernate()` 不在这条链上：它把状态直接写进 sysDb（`lifecycle.js:573-596`），不投递 `SAVE_STATE`。
+> CommHub 上没有 `saveState()` 方法，①的持久化入口是构造参数 `onSaveState` 回调（`commHub.js:CommHub` ← `kernel.js:Kernel.constructor`）。`hibernate()` 不在这条链上：它把状态直接写进 sysDb（`lifecycle.js:Lifecycle.hibernate`），不投递 `SAVE_STATE`。
 
 ### 5.3 恢复链路
 
@@ -621,7 +626,7 @@ startProcess({pid})
 
 ### 5.5 clearAppSavedState：全量清除
 
-`clearAppSavedState`（lifecycle.js:600-612）把整份 `savedState` 置空，不区分业务状态与窗口几何信息：
+`clearAppSavedState`（`lifecycle.js:Lifecycle.clearAppSavedState`）把整份 `savedState` 置空，不区分业务状态与窗口几何信息：
 
 ```js
 app.savedState = null            // app + window 一起清
@@ -636,11 +641,11 @@ this.#kernel.emitChange({type: 'APP_STATE_CLEARED', pid})
 | `savedState.app` | Worker state 快照（含 router.path） | 清除 ❌ |
 | `savedState.window` | 窗口几何信息（top, left, width, height） | 清除 ❌ |
 
-> 历史口径：这里曾经实现过"只置 `app: null`、保留 `window`"的分裂式清理，提交 `cb49e72` 已回退为整体置 null。窗口几何信息的增量维护发生在 `saveWindowState`（lifecycle.js:531-545），它用 `{...prevSavedState, window}` 的新引用只替换 `window` 分支。
+> 历史口径：这里曾经实现过"只置 `app: null`、保留 `window`"的分裂式清理，提交 `cb49e72` 已回退为整体置 null。窗口几何信息的增量维护发生在 `saveWindowState`（`lifecycle.js:Lifecycle.saveWindowState`），它用 `{...prevSavedState, window}` 的新引用只替换 `window` 分支。
 
 ### 5.6 forceSaveAllStates：页面刷新的紧急保存
 
-页面刷新触发 `forceSaveAllStates`（lifecycle.js:552-567），而非 `forceKillProcess`：
+页面刷新触发 `forceSaveAllStates`（`lifecycle.js:Lifecycle.forceSaveAllStates`），而非 `forceKillProcess`：
 
 ```js
 forceSaveAllStates() {
@@ -669,7 +674,7 @@ forceSaveAllStates() {
 
 ### 6.1 evokeApp 跨应用唤起
 
-`evokeApp({pid, from, interactInfo})`（lifecycle.js:722-734）允许一个应用唤起另一个应用，并注入 `from` 信息：
+`evokeApp({pid, from, interactInfo})`（`lifecycle.js:Lifecycle.evokeApp`）允许一个应用唤起另一个应用，并注入 `from` 信息：
 
 ```js
 async evokeApp({pid, from, interactInfo}) {
@@ -702,7 +707,7 @@ App A → evokeApp({pid: 'appB', from: 'appA', interactInfo: {type: 'OPEN_FILE',
 
 ### 6.2 restoreSession 会话恢复
 
-`restoreSession()`（lifecycle.js:700-719）在系统初始化时批量恢复之前运行/休眠的应用：
+`restoreSession()`（`lifecycle.js:Lifecycle.restoreSession`）在系统初始化时批量恢复之前运行/休眠的应用：
 
 ```js
 async restoreSession() {
@@ -726,7 +731,7 @@ async restoreSession() {
 
 ### 6.3 startProcess 会话恢复保护与 interactInfo 投递
 
-`startProcess` 在冷启动时有一个关键的会话恢复保护逻辑（lifecycle.js:509-511）：
+`startProcess` 在冷启动时有一个关键的会话恢复保护逻辑（`lifecycle.js:Lifecycle.startProcess`）：
 
 ```js
 // 如果该应用启动前的初始状态是 HIBERNATED（会话恢复），
@@ -737,7 +742,7 @@ app.status = targetStatus;
 
 **设计理由**：会话恢复时，休眠的应用应该先建立 Worker 实例（保持"热"状态），但不自动显示窗口。用户点击图标唤醒时才转为 RUNNING。如果强行转为 RUNNING，所有休眠应用会在系统启动时同时弹出窗口，造成混乱。
 
-`interactInfo` 在 `startProcess` 的三条路径上都会投递（lifecycle.js:433-437、504-506）：
+`interactInfo` 在 `startProcess` 的三条路径上都会投递（`lifecycle.js:Lifecycle.startProcess`、504-506）：
 
 | 进入路径 | 判定 | 投递方式 |
 |----------|------|----------|
@@ -749,7 +754,7 @@ app.status = targetStatus;
 
 ### 6.4 forceResetApp：无视配置的强制重置
 
-`forceResetApp(pid)`（lifecycle.js:618-639）无视 `saveState` 配置，强制清空所有状态并杀死进程：
+`forceResetApp(pid)`（`lifecycle.js:Lifecycle.forceResetApp`）无视 `saveState` 配置，强制清空所有状态并杀死进程：
 
 ```js
 async forceResetApp(pid) {

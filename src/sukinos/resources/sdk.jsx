@@ -1,18 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import Developer from '@/sukinos/resources/developer/layout';
 import _kernel  from "@/sukinos/utils/process/kernel";
-import FileSystem from "@/sukinos/resources/fileSystem/layout"
-import NoteBook from "@/sukinos/resources/notebook/layout"
-import Setting from '@/sukinos/resources/setting/layout';
-import Start from "@/sukinos/resources/start/layout"
-import Store from '@/sukinos/resources/store/layout';
-import LocalDev from "@/sukinos/resources/localDev/layout"
-import SystemDashboard from "@/sukinos/resources/systemManage/layout"
-import DrawBoard from "@/sukinos/resources/drawBoard/layout"
-import Sheet from "@/sukinos/resources/sheet/layout"
-import UniversalViewer from "@/sukinos/resources/universalViewer/layout"
 /*公共组件*/
-import  * as AllComponent from "@/component/main"
+import { publicSdkComponents } from "@/sukinos/resources/sdkComponents"
+import { systemSdkComponents } from "@/sukinos/resources/systemComponents"
 import * as hooks from "@/sukinos/hooks/main"
 
 
@@ -38,9 +28,7 @@ export const devAppSdk = {
   useCallback: useCallback,
   useMemo: useMemo,
   API: {},
-  Components: {
-    ...AllComponent
-  },
+  Components: publicSdkComponents,
   kernel: {
     // 这两个方法内部要用 this 取 lifecycle/registry，从对象字面量抄引用会脱绑，调用即 TypeError
     evokeApp: _kernel.evokeApp.bind(_kernel),
@@ -60,17 +48,7 @@ export const adminAppSdk = {
   },
   Components: {
     ...devAppSdk.Components,
-    Developer,
-    FileSystem,
-    NoteBook,
-    Setting,
-    Start,
-    Store,
-    LocalDev,
-    SystemDashboard,
-    DrawBoard,
-    Sheet,
-    UniversalViewer
+    ...systemSdkComponents
   },
   hooks,
   kernel:_kernel //对于系统级别直接暴露全部

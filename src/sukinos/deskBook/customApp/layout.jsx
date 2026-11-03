@@ -14,7 +14,8 @@ const DEFAULT_CUSTOM_FALLBACK = {
   hideHeaderHover: false,
   hasShortcut: true,
   backgroundSleep: false,
-  adaptiveMount: false,
+  adaptiveMount: true,
+  keepAlive: true,
 }
 
 const localAppCustomMapper = {
@@ -158,6 +159,9 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
                 </div>
               ))}
             </div>
+            <p className={style[bem.e('config-hint')]}>
+              关闭「后台常驻」后，后台会转为轻量占位以省内存，唤醒时临时状态丢失；关闭「后台自适应挂载」可始终保留完整窗口。
+            </p>
           </div>
 
           <div className={style[bem.e('right')]}>

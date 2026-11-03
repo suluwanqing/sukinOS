@@ -3,8 +3,8 @@ import { memo } from 'react'
 /**
  * AdaptiveWindowPlaceholder — 后台窗口的轻量占位组件
  *
- * 当应用的 custom.adaptiveMount 开启且窗口不可见（非焦点、非调度器显示）时，
- * 使用此组件替代完整的 ProcessWindow（包含 iframe/DynamicRenderer/header/8 个 resize handle）。
+ * 当窗口不可见且未保活时（keepAlive 未开且 adaptiveMount 未关），
+ * 用此组件替代完整的 ProcessWindow（包含 iframe/DynamicRenderer/header/8 个 resize handle）。
  *
  * 每个占位仅消耗一个绝对定位的 <div>（display: none），
  * 相比完整窗口节省约 10-30MB（物理沙箱 iframe）的大量内存和 GPU 层。

@@ -1,4 +1,4 @@
-import {ENV_KEY_META_INFO} from '@/sukinos/utils/config'
+import {ENV_KEY_META_INFO, mergeAppCustom} from '@/sukinos/utils/config'
 
 // custom 属于应用运行时的个性化配置，因此写回 sysDb [注册表实例] 比改 resource 更合理
 
@@ -21,10 +21,7 @@ export class Settings {
     const oldMeta = app[ENV_KEY_META_INFO] || {}
     const newMetaInfo = {
       ...oldMeta,
-      custom: {
-        ...(oldMeta.custom || {}),
-        ...custom,
-      },
+      custom: mergeAppCustom(oldMeta.custom, custom),
     }
     const updatedApp = {
       ...app,

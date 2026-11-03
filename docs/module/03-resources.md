@@ -49,7 +49,7 @@ SDK 提供两层模板，按应用权限分级交付：
 | 模块 | 内容 | 说明 |
 |------|------|------|
 | `React` | `React, useState, useEffect, useRef, useCallback, useMemo` | React 核心库 |
-| `Components` | `AllComponent`（`@/component/main` 全部导出） | 公共 UI 组件库 |
+| `Components` | `AllComponent`（`@/component/main` 全部导出）+ `KeepAlive` | 公共 UI 组件库与面板级保活容器 |
 | `kernel` | `evokeApp`, `getTypeApps` | 有限内核 API，仅允许唤起应用和查询类型 |
 | `hooks` | `useFileSystem` | 文件系统 Hook |
 | `middleware` | 全部中间件导出 | `InteractiveAwakening`, `VfsImage` |
@@ -74,7 +74,7 @@ SDK 提供两层模板，按应用权限分级交付：
 createSdkForInstance(dispatch, pid, isSystemApp, windowControls) → AppSDK
 ```
 
-`windowControls`（第 4 个形参，可省略）由宿主窗口外壳注入，提供 `close`/`hibernate`/`toggleMaximize`/`setRect`/`getRect`；无窗口外壳（预览、幽灵沙箱）时回落到 `noopWindowControls`（`sdk.jsx:80-86`），调用只打 `console.warn`、绝不抛错。
+`windowControls`（第 4 个形参，可省略）由宿主窗口外壳注入，提供 `close`/`hibernate`/`toggleMaximize`/`setRect`/`getRect`；无窗口外壳（预览、幽灵沙箱）时回落到 `noopWindowControls`（`sdk.jsx:noopWindowControls`），调用只打 `console.warn`、绝不抛错。
 
 **构建流程：**
 
@@ -130,7 +130,7 @@ flowchart TD
 | `ENV_KEY_CONTENT` | `content` | `string \| object` | UI 视图代码字符串（默认导出 React 组件） |
 | `ENV_KEY_CONTENT_PRECOMPILED` | `precompiledContent` | `string \| object` | 预编译后的界面视图源码（安装时由 Babel 预编译的 JS 产物），运行时优先使用以跳过 Babel 编译，缺失或失败时降级用原始 JSX 重新编译兜底；系统 APP 不生成此字段 |
 | `ENV_KEY_LOGIC` | `logic` | `string` | Worker 逻辑代码字符串（Reducer 模式）；主逻辑入口的原始源码，供编辑器、反解与写回本地盘 |
-| `ENV_KEY_LOGIC_PRECOMPILED` | `precompiledLogic` | `string \| null` | 主逻辑块经 Babel 转成 commonjs 后的产物（`import` 已变 `require`），供 worker 执行。`generateWorker` 按「本字段 → `ENV_KEY_LOGIC` → 兜底 reducer」取值（`generateWorker.js:60`），因此未预编译的存量应用与系统 APP 仍可运行；写入点见 `generateApp.js:246-251`（仅在原文非空且该字段为空时补编译）与 `renderProcess.jsx:504`。与 `precompiledContent` 是两套独立字段，双份存储策略见 [04-process-kernel.md](04-process-kernel.md) 的"安装期预编译 `precompileResourceContent`"一节 |
+| `ENV_KEY_LOGIC_PRECOMPILED` | `precompiledLogic` | `string \| null` | 主逻辑块经 Babel 转成 commonjs 后的产物（`import` 已变 `require`），供 worker 执行。`generateWorker` 按「本字段 → `ENV_KEY_LOGIC` → 兜底 reducer」取值（`generateWorker.js:generateWorker`），因此未预编译的存量应用与系统 APP 仍可运行；写入点见 `generateApp.js:precompileResourceContent`（仅在原文非空且该字段为空时补编译）与 `renderProcess.jsx:RenderProcess`。与 `precompiledContent` 是两套独立字段，双份存储策略见 [04-process-kernel.md](04-process-kernel.md) 的"安装期预编译 `precompileResourceContent`"一节 |
 | `ENV_KEY_META_INFO` | `metaInfo` | `object` | 元数据配置 |
 
 ### 2.2 Key 映射流程
@@ -319,10 +319,10 @@ flowchart LR
 | 管理概览 | `overview/` | 系统运行状态概览 |
 | 成员中心 | `users/` | 用户管理（CRUD、状态、编辑） |
 | 审计分析 | `behavior/` | 全平台活跃趋势图表 |
-| 系统配置 | `systemConfig/` | 日志配置、配置项管理器、系统APP放权 |
+| 系统配置 | `systemConfig/` | 日志审计配置、通用配置管理、系统APP放权、上传配额 |
 | 更新日志 | `systemUpdate/` | 系统更新日志 |
 | 系统日志 | `systemLog/` | 请求日志查询与导出 |
-| 应用管理 | `appManage/` | 应用审核与强制销毁 |
+| 应用管理 | `appManage/` | 应用审核、强制销毁与按 resourceId 取包下载（原始内联包 / 解析后的源文件 zip） |
 | **权限管理** | `permissionManage/` | **6 个子面板 + 中间件白名单** |
 
 **权限管理子模块**（`permissionManage/`）：
@@ -506,20 +506,21 @@ flowchart TD
 |------|------|------|
 | `version` | `string` | 应用版本号（如 `'v1'`, `'v5'`） |
 | `icon` | `string` | 图标（Base64 字符串或 VFS ID） |
-| `appType` | `string` | 应用类型（自由字符串）。`'system'` 有内核语义（`lifecycle.js:774` 据此走系统应用分支，各系统 registry 都写这个值）；用户应用从 `appTypes` 候选 `editor`/`game`/`tool`（`config.js:343-347`）中选，或在面板里填自定义值。不存在 `'user'` 这个取值 |
+| `appType` | `string` | 应用类型（自由字符串）。`'system'` 有内核语义（`lifecycle.js:clearAppSandboxData` 据此走系统应用分支，各系统 registry 都写这个值）；用户应用从 `appTypes` 候选 `editor`/`game`/`tool`（`config.js:appTypes`）中选，或在面板里填自定义值。不存在 `'user'` 这个取值 |
 | `worker` | `boolean` | 是否启用 Worker（独立 Reducer 线程处理状态） |
 | `exposeState` | `boolean` | 是否向外部暴露状态（其他应用可读取） |
 | `saveState` | `boolean` | 关闭时是否保存状态（重启后恢复） |
 | `isParasitism` | `boolean` | 是否为寄生应用（无独立窗口，嵌入宿主） |
-| `hideHeader` | `boolean` | 标题栏整块不渲染（DOM 都不生成），窗口操作交给应用经 `AppSDK.API.window` 完成；与 `custom.hideHeaderHover` 互斥，取值优先级 `app.metaInfo` → `resource.metaInfo` → `false`（`window/layout.jsx:36-47`） |
+| `hideHeader` | `boolean` | 标题栏整块不渲染（DOM 都不生成），窗口操作交给应用经 `AppSDK.API.window` 完成；与 `custom.hideHeaderHover` 互斥，取值优先级 `app.metaInfo` → `resource.metaInfo` → `false`（`window/layout.jsx:ProcessWindow`） |
 | `syncLocal` | `boolean` | 是否把应用包同步到本地目录（口径见 [04-process-kernel.md](04-process-kernel.md) 的 "syncLocal：三处读取点"） |
 | `entries` | `object` | 发布时固化的入口判定结果 `{ view, logicMain, logicAux }`，运行时唯一真源 |
 | `custom.hasShortcut` | `boolean` | 是否创建桌面快捷方式 |
 | `custom.blockEd` | `boolean` | 是否固定至状态栏 |
 | `custom.hideHeaderHover` | `boolean` | 标题栏保留 DOM、靠 CSS 上移隐藏，悬停唤回；`hideHeader` 为真时失效 |
-| `custom.allowResize` | `boolean` | 意图是"是否允许缩放"，**当前实现读不到它**（`window/layout.jsx:93` 的 `custom?.allowResize \|\| true` 恒为 `true`） |
+| `custom.allowResize` | `boolean` | 意图是"是否允许缩放"，**当前实现读不到它**（`window/layout.jsx:ProcessWindow` 的 `custom?.allowResize \|\| true` 恒为 `true`） |
 | `custom.backgroundSleep` | `boolean` | 后台静默（暂停订阅） |
-| `custom.adaptiveMount` | `boolean` | 后台自适应挂载（不保存 APP 内部状态）；判定是 `!== false`，**缺键等于开启** |
+| `custom.adaptiveMount` | `boolean` | 后台自适应挂载：`false` 禁用轻量占位、保留完整窗口；`true`/缺键允许占位（还需未保活才生效） |
+| `custom.keepAlive` | `boolean` | 应用后台常驻：`true` 保留完整窗口，优先级高于 `adaptiveMount`；缺键按未保活处理；系统应用与普通应用同一判定，预设登记时未写则按 `true` 补齐（`components/KeepAliveViewport/index.jsx:HostKeepAlive`） |
 | `custom.autoSaveStateInterval` | `number` | 自动保存状态间隔（秒），`0` 表示禁用 |
 | `custom.autoSaveWindowInterval` | `number` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
 
@@ -639,18 +640,19 @@ export default {
 | `AppSDK.React` | Y | Y | React 核心 |
 | `AppSDK.useState` 等 | Y | Y | 常用 Hooks |
 | `AppSDK.Components.AllComponent` | Y | Y | 公共组件 |
+| `AppSDK.Components.KeepAlive` | Y | Y | 面板级保活容器 |
 | `AppSDK.Components.Developer` 等 | N | Y | 系统组件（10个） |
 | `AppSDK.kernel.evokeApp` | Y | Y | 唤起应用 |
 | `AppSDK.kernel.getTypeApps` | Y | Y | 查询类型应用 |
 | `AppSDK.kernel`（完整） | N | Y | 全部内核 API |
-| `AppSDK.API.rootSeed` | N | Y | 种子生成（挂在 `API` 上，不是 `kernel`；`sdk.jsx:58`） |
+| `AppSDK.API.rootSeed` | N | Y | 种子生成（挂在 `API` 上，不是 `kernel`；`sdk.jsx:adminAppSdk`） |
 | `AppSDK.hooks.useFileSystem` | Y | Y | 文件系统 Hook |
 | `AppSDK.hooks`（全部） | N | Y | 全部 Hooks |
 | `AppSDK.middleware.*` | Y | Y | 全部中间件 |
 | `AppSDK.API.fetch` | Y | Y | PID 注入的安全 fetch |
 | `AppSDK.API.navigate` | Y | Y | 路由导航 |
 | `AppSDK.API.pid` | Y | Y | 当前进程 ID |
-| `AppSDK.API.window` | Y | Y | 窗口控制：`close`/`hibernate`/`toggleMaximize`/`setRect`/`getRect`。由宿主外壳注入，`hideHeader` 场景下应用自行绘制标题栏时用它操作窗口；无外壳时为 no-op 兜底（`sdk.jsx:80-86,108`） |
+| `AppSDK.API.window` | Y | Y | 窗口控制：`close`/`hibernate`/`toggleMaximize`/`setRect`/`getRect`。由宿主外壳注入，`hideHeader` 场景下应用自行绘制标题栏时用它操作窗口；无外壳时为 no-op 兜底（`sdk.jsx:noopWindowControls, createSdkForInstance`） |
 | `AppSDK.System.localStorage` | Y | Y | PID 隔离的 localStorage |
 | `AppSDK.System.sessionStorage` | Y | Y | PID 隔离的 sessionStorage |
 | `AppSDK.System.indexedDB` | Y | Y | PID 隔离的 indexedDB |

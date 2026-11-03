@@ -1,204 +1,198 @@
-import React from 'react';
+import { useMemo, useState } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import { Info as InfoIcon, LayoutGrid as AppsIcon, Puzzle as ExtensionIcon, Code as CodeIcon } from 'lucide-react';
+import {
+  Search as SearchIcon,
+  ChevronDown as ChevronDownIcon,
+  ChevronRight as ChevronRightIcon,
+  Code as CodeIcon,
+} from 'lucide-react';
+import { publicSdkComponents } from '@/sukinos/resources/sdkComponents';
+import { GROUPS, ENTRIES } from './catalog';
+import { DEMOS } from './demos';
 
 const bem = createNamespace('setting-about');
 
-const About = () => {
-  const PREBUILT_APPS = [
-    { name: "文件管理", version: "v1", desc: "基于多级 VFS 架构的资源管理器，支持文件增删改查及拖拽。" },
-    { name: "设置", version: "v1", desc: "内核级指令交互工具，支持模拟执行上下文与进程状态监控。" },
-    { name: "开发者中心", version: "v1", desc: "用于用户自主添加应用支持和共享服务" },
-    { name: "App Store", version: "v1", desc: "进程包管理中心，负责内核资源的动态分发和管理。" },
-    { name: "记事本", version: "v1", desc: "轻量化文本编辑器，支持实时持久化、多级缓存与快捷键响应。" },
-    { name: "开始", version: "v1", desc: "APP信息视图。" }
-  ];
-  const SYSTEM_COMPONENTS = [
-    {
-      name: "Alert",
-      desc: "命令式全局通知组件，支持多类型堆叠与自动关闭。",
-      props: [
-        { name: "info", type: "string", default: "-", options: "提示文本内容" },
-        { name: "duration", type: "number", default: "2500", options: "显示持续时间(ms)" },
-        { name: "multiLine", type: "boolean", default: "false", options: "是否支持多行文本" },
-        { name: "allowMultiple", type: "boolean", default: "false", options: "是否开启向下堆叠" }
-      ],
-      example: `\n\nalert.success('保存成功', { duration: 2000 });\nalert.failure('操作失败', { multiLine: true });`
-    },
-    {
-      name: "Confirm",
-      desc: "命令式全局确认对话框，支持输入模式与自定义内容。",
-      props: [
-        { name: "title", type: "string", default: "'提示'", options: "对话框标题" },
-        { name: "content", type: "string", default: "-", options: "正文描述文本" },
-        { name: "showInput", type: "boolean", default: "false", options: "是否开启输入框模式" },
-        { name: "onConfirm", type: "function", default: "-", options: "(val) => void" }
-      ],
-      example: `\n\nconfirm.show({\n  title: '重命名',\n  showInput: true,\n  onConfirm: (val) => console.log(val)\n});`
-    },
-    {
-      name: "Button",
-      desc: "系统标准交互按钮，支持多种状态与图标配置。",
-      props: [
-        { name: "type", type: "string", default: "'default'", options: "default|primary|success|warning|danger|info|dark" },
-        { name: "size", type: "string", default: "'medium'", options: "large|medium|small" },
-        { name: "loading", type: "boolean", default: "false", options: "显示加载动画" },
-        { name: "plain", type: "boolean", default: "false", options: "朴素/镂空模式" },
-        { name: "round", type: "boolean", default: "false", options: "全圆角（药丸）模式" }
-      ],
-      example: `<Button type="primary" size="small" loading={false}>\n  提交更改\n</Button>`
-    },
-    {
-      name: "Input",
-      desc: "组合式输入控件，集成密码显隐与一键清空。",
-      props: [
-        { name: "clearable", type: "boolean", default: "false", options: "一键清空功能" },
-        { name: "showPassword", type: "boolean", default: "false", options: "密码可见性切换" },
-        { name: "prefixIcon", type: "ReactNode", default: "-", options: "前置辅助图标" },
-        { name: "isRound", type: "boolean", default: "false", options: "全圆角样式" }
-      ],
-      example: `<Input \n  clearable \n  prefixIcon={<User size={16} />} \n  placeholder="请输入账号" \n/>`
-    },
-    {
-      name: "Check",
-      desc: "开关切换器，自绘轨道与滑块，role=switch / aria-checked 由组件自己挂，空格与回车可切换。",
-      props: [
-        { name: "checked", type: "boolean", default: "false", options: "当前开关状态" },
-        { name: "onChange", type: "function", default: "-", options: "(checked) => void" },
-        { name: "type", type: "string", default: "'default'", options: "default|primary|success|warning|danger|info|dark；配色只有两支：dark 走黑轨，其余一律紫" },
-        { name: "size", type: "string", default: "'medium'", options: "large|medium|small" },
-        { name: "dot", type: "boolean", default: "false", options: "圆点模式（更矮的轨道 + 大圆点）" },
-        { name: "round", type: "boolean", default: "false", options: "全圆角轨道" },
-        { name: "plain", type: "boolean", default: "false", options: "简约风格（透明轨道 + 带色边框）" },
-        { name: "disabled", type: "boolean", default: "false", options: "是否禁用交互" }
-      ],
-      example: `<Check checked={active} onChange={setActive} type="success" />`
-    },
-    {
-      name: "CheckGroup",
-      desc: "开关组合管理器，支持单选、多选及数量限制。",
-      props: [
-        { name: "mode", type: "string", default: "'multiple'", options: "single | multiple" },
-        { name: "min / max", type: "number", default: "-", options: "选择数量范围限制" },
-        { name: "options", type: "Array", default: "[]", options: "选项配置数据源" }
-      ],
-      example: `<CheckGroup \n  mode="single" \n  options={['A', 'B', 'C']} \n  value={[selected]} \n/>`
-    },
-    {
-      name: "CheckCardBar",
-      desc: "封装 Check 与 CheckGroup 的卡片式配置条。",
-      props: [
-        { name: "options", type: "Array", default: "-", options: "配置 Schema 数组" },
-        { name: "values", type: "Object", default: "{}", options: "当前状态映射对象" },
-        { name: "onUpdate", type: "function", default: "-", options: "(key, val) => void" }
-      ],
-      example: `<CheckCardBar \n  options={SCHEMA} \n  values={settings} \n  onUpdate={handleUpdate} \n/>`
-    },
-    {
-      name: "InfoListn",
-      desc: "综合平台资源分列渲染列表。",
-      props: [
-        { name: "menuData", type: "Array", default: "[]", options: "层级菜单数据结构" },
-        { name: "onItemClick", type: "function", default: "-", options: "项点击回调" }
-      ],
-      example: `<InfoList menuData={data} onItemClick={handleClick} />`
-    },
-    {
-      name: "BoardSelection",
-      desc: "通用的“选择打开方式”中央面板。",
-      props: [
-        { name: "visible", type: "boolean", default: "false", options: "控制弹窗显隐" },
-        { name: "options", type: "Array", default: "[]", options: "{ id, label, icon }" },
-        { name: "onSelect", type: "function", default: "-", options: "选中项回调" }
-      ],
-      example: `<BoardSelection \n  visible={show} \n  title="选择应用" \n  options={apps} \n/>`
-    }
-  ];
+const SDK_KEYS = Object.keys(publicSdkComponents);
+const coveredKeys = new Set(ENTRIES.flatMap((entry) => entry.keys));
+const uncoveredKeys = SDK_KEYS.filter((key) => !coveredKeys.has(key));
+const staleKeys = [...coveredKeys].filter((key) => !SDK_KEYS.includes(key));
 
+if (staleKeys.length > 0) {
+  console.warn('[setting/about] 组件文档声明了 SDK 上不存在的导出：', staleKeys.join(', '));
+}
+
+const ALL_ENTRIES = [
+  ...ENTRIES,
+  ...uncoveredKeys.map((key) => ({
+    id: `uncovered-${key}`,
+    name: key,
+    keys: [key],
+    group: 'misc',
+    kind: '待补',
+    desc: '该导出已经挂在 AppSDK.Components 上，但页面还没有对应的文档条目。',
+    props: [],
+    usage: '',
+  })),
+];
+
+// 这些组件 portal 或 fixed 到应用根节点，预览会覆盖整个应用窗口，而不是停在卡片里
+const PORTAL_NOTES = {
+  'board-selection': '面板会盖住整个应用窗口，而不是这张卡片。',
+  modal: '弹窗会盖住整个应用窗口，而不是这张卡片。',
+  'context-menu': '菜单面板挂到应用根节点；在虚线框内右键触发。',
+  alert: '提示条由宿主根节点渲染，出现在整个应用窗口的底部。',
+  confirm: '确认框由宿主根节点渲染，会盖住整个应用窗口。',
+};
+
+const EntryCard = ({ entry }) => {
+  const Demo = DEMOS[entry.id];
+  const note = PORTAL_NOTES[entry.id];
+
+  return (
+    <div className={style[bem.e('entry')]}>
+      <div className={style[bem.e('entry-head')]}>
+        <span className={style[bem.e('label-bold')]}>{entry.name}</span>
+        <span className={style[bem.e('badge')]}>{entry.kind}</span>
+      </div>
+
+      <p className={style[bem.e('description')]}>{entry.desc}</p>
+
+      {entry.keys.length > 1 && (
+        <p className={style[bem.e('entry-note')]}>
+          覆盖 {entry.keys.length} 个导出：{entry.keys.join(' / ')}
+        </p>
+      )}
+
+      <div className={style[bem.e('preview')]}>
+        {Demo ? <Demo /> : <span className={style[bem.e('entry-note')]}>该组件无内嵌预览</span>}
+      </div>
+
+      {note && <p className={style[bem.e('entry-note')]}>{note}</p>}
+
+      {entry.props.length > 0 && (
+        <div className={style[bem.e('table-container')]}>
+          <table className={style[bem.e('table')]}>
+            <thead>
+              <tr>
+                <th>参数</th>
+                <th>类型</th>
+                <th>默认值</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entry.props.map((item) => (
+                <tr key={item.name}>
+                  <td><code className={style[bem.e('code-inline')]}>{item.name}</code></td>
+                  <td className={style[bem.e('type-cell')]}>{item.type}</td>
+                  <td>{item.default}</td>
+                  <td className={style[bem.e('option-cell')]}>{item.desc}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {entry.usage && (
+        <>
+          <div className={style[bem.e('example-header')]}>
+            <CodeIcon size={14} style={{ marginRight: 6 }} /> SDK 示例
+          </div>
+          <div className={style[bem.e('code-block')]}>
+            <pre>{entry.usage}</pre>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
+const About = () => {
+  const [query, setQuery] = useState('');
+  const [collapsed, setCollapsed] = useState(() => new Set());
+
+  const keyword = query.trim().toLowerCase();
+
+  const groups = useMemo(() => GROUPS.map((group) => {
+    const items = ALL_ENTRIES.filter((entry) => {
+      if (entry.group !== group.id) return false;
+      if (!keyword) return true;
+      return [entry.name, entry.desc, ...entry.keys]
+        .some((text) => String(text).toLowerCase().includes(keyword));
+    });
+    return { ...group, items, folded: !keyword && collapsed.has(group.id) };
+  }).filter((group) => group.items.length > 0), [keyword, collapsed]);
+
+  const hitCount = groups.reduce((sum, group) => sum + group.items.length, 0);
+
+  const toggleGroup = (id) => {
+    // 搜索时分组强制展开，点击不改变折叠状态，避免清空搜索后分组意外收起
+    if (keyword) return;
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className={style[bem.b()]}>
-      <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><InfoIcon size={18} style={{ marginRight: 8 }} /> 系统概览</div>
-        <div className={style[bem.e('card')]}>
-          <div className={style[bem.e('hero')]}>
-            <div className={style[bem.e('logo-box')]}>S</div>
-            <div>
-              <h1 className={style[bem.e('os-name')]}>SukinOS</h1>
-              {/* <span className={style[bem.e('version-text')]}>ALPHA v1.0.0 </span> */}
-            </div>
-          </div>
-          <div className={style[bem.e('divider')]}></div>
-          <div className={style[bem.e('spec-row')]}>
-            <div className={style[bem.e('spec-item')]}>
-              <span className={style[bem.e('label')]}>KERNEL ENGINE</span>
-              <span className={style[bem.e('value')]}>React 19 + Redux + WebWorker</span>
-            </div>
-            <div className={style[bem.e('spec-item')]}>
-              <span className={style[bem.e('label')]}>STORAGE ARCH</span>
-              <span className={style[bem.e('value')]}>IndexedDB VFS Native</span>
-            </div>
-          </div>
+      <div className={style[bem.e('card')]}>
+        <h2 className={style[bem.e('doc-title')]}>内置组件 (AppSDK.Components)</h2>
+        <p className={style[bem.e('description')]}>
+          本页覆盖 {ALL_ENTRIES.length} 个条目、{SDK_KEYS.length} 个导出，示例一律按应用侧真实取用方式书写。
+        </p>
+        <div className={style[bem.e('code-block')]} style={{ marginTop: 12 }}>
+          <pre>{`const { Button, Input, Modal } = AppSDK.Components;`}</pre>
         </div>
+        <div className={style[bem.e('divider')]} />
+        <ul className={style[bem.e('notes')]}>
+          <li>应用沙箱里没有 ES import，组件只能从 <code className={style[bem.e('code-inline')]}>AppSDK.Components</code> 取。</li>
+          <li>宿主已经把 <code className={style[bem.e('code-inline')]}>React</code> 与 <code className={style[bem.e('code-inline')]}>useState / useEffect / useRef / useCallback / useMemo</code> 解构到模块顶层，直接用，不要重复声明。</li>
+          <li><code className={style[bem.e('code-inline')]}>alert</code> 与 <code className={style[bem.e('code-inline')]}>confirm</code> 是命令式对象，不是 JSX 组件。</li>
+          <li>系统应用另有 11 个专属面板（Developer、FileSystem 等），不在这一档公开。</li>
+        </ul>
       </div>
 
-      <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><AppsIcon size={18} style={{ marginRight: 8 }} /> 预制应用</div>
-        <div className={style[bem.e('grid')]}>
-          {PREBUILT_APPS.map((app, index) => (
-            <div key={index} className={style[bem.e('app-card')]}>
-              <div className={style[bem.e('app-header')]}>
-                <span className={style[bem.e('label-bold')]}>{app.name}</span>
-                <span className={style[bem.e('tag')]}>{app.version}</span>
-              </div>
-              <p className={style[bem.e('description')]}>{app.desc}</p>
-            </div>
+      <div className={style[bem.e('toolbar')]}>
+        <div className={style[bem.e('search')]}>
+          <SearchIcon size={14} className={style[bem.e('search-icon')]} />
+          <input
+            className={style[bem.e('search-input')]}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="搜索组件名、导出名或说明"
+            spellCheck={false}
+          />
+        </div>
+        <span className={style[bem.e('group-count')]}>{hitCount} / {ALL_ENTRIES.length}</span>
+      </div>
+
+      {groups.map((group) => (
+        <section key={group.id} className={style[bem.e('group')]}>
+          <button
+            type="button"
+            className={style[bem.e('group-header')]}
+            onClick={() => toggleGroup(group.id)}
+            aria-expanded={!group.folded}
+          >
+            {group.folded ? <ChevronRightIcon size={14} /> : <ChevronDownIcon size={14} />}
+            <span className={style[bem.e('group-title')]}>{group.label}</span>
+            <span className={style[bem.e('group-count')]}>{group.items.length}</span>
+          </button>
+
+          {!group.folded && group.items.map((entry) => (
+            <EntryCard key={entry.id} entry={entry} />
           ))}
-        </div>
-      </div>
+        </section>
+      ))}
 
-      <div className={style[bem.e('section')]}>
-        <div className={style[bem.e('section-title')]}><ExtensionIcon size={18} style={{ marginRight: 8 }} /> 内部组件库 (SDK UI)</div>
-        {SYSTEM_COMPONENTS.map((comp, index) => (
-          <div key={index} className={style[bem.e('card')]} style={{ marginBottom: 16 }}>
-            <div className={style[bem.e('comp-info')]}>
-              <span className={style[bem.e('label-bold')]}>{comp.name}</span>
-              <p className={style[bem.e('description')]} style={{ marginTop: 4 }}>{comp.desc}</p>
-            </div>
-
-            <div className={style[bem.e('table-container')]}>
-              <table className={style[bem.e('table')]}>
-                <thead>
-                  <tr>
-                    <th>参数</th>
-                    <th>类型</th>
-                    <th>默认值</th>
-                    <th>说明</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {comp.props.map((p, pIdx) => (
-                    <tr key={pIdx}>
-                      <td><code className={style[bem.e('code-inline')]}>{p.name}</code></td>
-                      <td className={style[bem.e('type-cell')]}>{p.type}</td>
-                      <td>{p.default}</td>
-                      <td className={style[bem.e('option-cell')]}>{p.options}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className={style[bem.e('example-header')]}>
-              <CodeIcon size={14} style={{ marginRight: 6 }} /> 使用示例
-            </div>
-            <div className={style[bem.e('code-block')]}>
-              <pre>{comp.example}</pre>
-            </div>
-          </div>
-        ))}
-      </div>
+      {groups.length === 0 && (
+        <div className={style[bem.e('empty')]}>没有匹配「{query.trim()}」的组件</div>
+      )}
     </div>
   );
 };

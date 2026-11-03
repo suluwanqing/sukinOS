@@ -8,7 +8,8 @@ import {
   ENV_KEY_LOGIC_PRECOMPILED,
   ENV_KEY_CONTENT,
   ENV_KEY_CONTENT_PRECOMPILED,
-  ENV_KEY_META_INFO
+  ENV_KEY_META_INFO,
+  mergeAppCustom
 } from '@/sukinos/utils/config'
 import { clearAppSandboxData } from '@/sukinos/utils/process/kernelParts/lifecycle'
 import { generateWorker, parseWorkerCode } from './generateWorker'
@@ -280,10 +281,7 @@ export async function extInstallResource(kernel, args) {
     appSys[ENV_KEY_META_INFO] = {
       ...currentAppMeta,
       ...newResourceMeta,
-      custom: {
-        ...(newResourceMeta.custom || {}),
-        ...(currentAppMeta.custom || {})
-      }
+      custom: mergeAppCustom(newResourceMeta.custom, currentAppMeta.custom)
     };
     appSys[ENV_KEY_NAME] = name;
   } else {
@@ -514,10 +512,7 @@ export async function extSyncRegistryByRes(kernel) {
           const finalMeta = {
             ...currentAppMeta,
             ...resourceMeta,
-            custom: {
-              ...(resourceMeta.custom || {}),
-              ...(currentAppMeta.custom || {})
-            }
+            custom: mergeAppCustom(resourceMeta.custom, currentAppMeta.custom)
           };
 
           appInfo[ENV_KEY_META_INFO] = finalMeta;

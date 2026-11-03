@@ -6,6 +6,7 @@ import StatusBar from "./statusBar/layout"
 import Shortcut from "./shortcut/layout"
 import ProcessWindow from "./window/layout"
 import AdaptiveWindowPlaceholder from "./AdaptivePlaceholder"
+import { HostKeepAlive } from "@/sukinos/components/KeepAliveViewport"
 import useKernel from "@/sukinos/hooks/useKernel"
 import { WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_META_INFO, ENV_KEY_NAME, ENV_KEY_RESOURCE_ID, DEFAULT_USER_ID } from "@/sukinos/utils/config"
 import Boot from "./boot/layout"
@@ -117,6 +118,15 @@ function DeskBook() {
   // --- Ubuntu 调度中心 (Window Switcher) 相关状态 ---
   const [showWindowSwitcher, setShowWindowSwitcher] = useState(false); // 切换器显示隐藏
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);    // 切换器中选中的索引
+
+  // 保活容器的集合：调度中心打开期间所有运行窗口都算可见，与旧渲染分支一致
+  const activeWindowPids = useMemo(() => {
+    const pids = new Set();
+    isRunningApps.forEach((app) => {
+      if (showDisplay[app.pid] || showWindowSwitcher) pids.add(app.pid);
+    });
+    return pids;
+  }, [isRunningApps, showDisplay, showWindowSwitcher]);
 
   // ---对应用进行层级排序，确保最高层级（即当前正在使用）的应用在 Switcher 中排在最前面 ---
   const sortedRunningApps = useMemo(() => {
@@ -727,56 +737,52 @@ function DeskBook() {
             </div>
           </ContextMenu>
 
-          {/* 渲染正在运行的窗口进程 — 支持自适应挂载优化 */}
-          {isRunningApps.map((app, index) => {
-            // 判断当前窗口是否在调度器中被选中 [通过pid比对避免DOM循序错乱]
-            const isSelected = sortedRunningApps[selectedWindowIndex]?.pid === app.pid;
-            const isVisible = showDisplay[app.pid] || showWindowSwitcher;
-            const custom = app?.[ENV_KEY_META_INFO]?.custom || {};
-            // adaptiveMount 默认 true：后台非焦点窗口仅渲染轻量占位
-            const useAdaptive = custom.adaptiveMount !== false;
-
-            // 非可见窗口且开启了自适应挂载 → 使用轻量占位组件
-            if (!isVisible && useAdaptive && !showWindowSwitcher) {
-              return (
-                <AdaptiveWindowPlaceholder
-                  key={app.pid}
-                  pid={app.pid}
-                  app={app}
-                  zIndex={deferredZOrders[app.pid] || 10}
-                />
-              );
-            }
-
-            // 完整窗口渲染
-            return (
-              <ProcessWindow
+          {/* 渲染正在运行的窗口进程 — 宿主进程级视口保活 */}
+          <HostKeepAlive
+            apps={isRunningApps}
+            activePids={activeWindowPids}
+            renderPlaceholder={(app) => (
+              <AdaptiveWindowPlaceholder
                 key={app.pid}
-                ref={setWindowRef(app.pid)} // 绑定 Ref 到 Map 中
-                kernel={kernel}
                 pid={app.pid}
-                fileName={app?.[ENV_KEY_NAME] || ''}
-                initialIndex={index}
-                zIndex={deferredZOrders[app.pid] || 10}
-                onFocus={handleFocus}
-                onClose={handleColseApp}
-                onKill={handleForceKill}
-                initialRect={app.savedState?.window || app?.[ENV_KEY_META_INFO]?.initialSize || WindowSize}
-                windowSize={WindowSize}
-                isDisplay={setting?.isDisplay || false}
-                isShow={showDisplay[app.pid]}
-                isFocused={deferredCurrentFocus === app.pid}
-                exposeState={app?.[ENV_KEY_META_INFO]?.exposeState}
-                reStartApp={reStartApp}
-                forceReStartApp={forceReStartApp}
-                generateAppSetting={generateAppSetting}
                 app={app}
-                /* 传递切换器状态给窗口以应用 sukin-ubuntu 预览样式 */
-                showWindowSwitcher={showWindowSwitcher}
-                isSelected={isSelected}
+                zIndex={deferredZOrders[app.pid] || 10}
               />
-            )
-          })}
+            )}
+            renderWindow={(app) => {
+              // 判断当前窗口是否在调度器中被选中 [通过pid比对避免DOM循序错乱]
+              const isSelected = sortedRunningApps[selectedWindowIndex]?.pid === app.pid;
+              const index = isRunningApps.findIndex(a => a.pid === app.pid);
+
+              return (
+                <ProcessWindow
+                  key={app.pid}
+                  ref={setWindowRef(app.pid)} // 绑定 Ref 到 Map 中
+                  kernel={kernel}
+                  pid={app.pid}
+                  fileName={app?.[ENV_KEY_NAME] || ''}
+                  initialIndex={index}
+                  zIndex={deferredZOrders[app.pid] || 10}
+                  onFocus={handleFocus}
+                  onClose={handleColseApp}
+                  onKill={handleForceKill}
+                  initialRect={app.savedState?.window || app?.[ENV_KEY_META_INFO]?.initialSize || WindowSize}
+                  windowSize={WindowSize}
+                  isDisplay={setting?.isDisplay || false}
+                  isShow={showDisplay[app.pid]}
+                  isFocused={deferredCurrentFocus === app.pid}
+                  exposeState={app?.[ENV_KEY_META_INFO]?.exposeState}
+                  reStartApp={reStartApp}
+                  forceReStartApp={forceReStartApp}
+                  generateAppSetting={generateAppSetting}
+                  app={app}
+                  /* 传递切换器状态给窗口以应用 sukin-ubuntu 预览样式 */
+                  showWindowSwitcher={showWindowSwitcher}
+                  isSelected={isSelected}
+                />
+              )
+            }}
+          />
 
 
           {/* 编辑 App 配置的 Overlay */}
@@ -784,7 +790,12 @@ function DeskBook() {
             <div className={style[bem.e('overlay')]} onClick={() => setEditingApp(null)}>
               <div onClick={(e) => e.stopPropagation()}>
                 <CustomApp
-                    initialCustom={editingApp?.[ENV_KEY_META_INFO]?.custom}
+                    // 缺键应用运行时是“允许占位、未保活”，面板按有效值回填，避免显示种子值误导
+                    initialCustom={editingApp ? {
+                      ...editingApp?.[ENV_KEY_META_INFO]?.custom,
+                      adaptiveMount: editingApp?.[ENV_KEY_META_INFO]?.custom?.adaptiveMount !== false,
+                      keepAlive: editingApp?.[ENV_KEY_META_INFO]?.custom?.keepAlive === true,
+                    } : undefined}
                     onUpdateConfig={handleCustomUpdate}
                     onClose={() => setEditingApp(null)}
                     editingAppName={editingApp?.[ENV_KEY_NAME]?.replace(SUKIN_EXT, '').replace(SUKIN_PRE, '')}

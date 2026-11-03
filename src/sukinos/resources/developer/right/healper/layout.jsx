@@ -97,8 +97,8 @@ const {
   React,          // React 19 核心对象，含 createElement / Fragment / createContext 等
   useState, useEffect, useMemo, useCallback, useRef,   // 已解构到顶层
 
-  Components: {   // 内置 UI 组件库（24 个具名导出，见「内置组件」章节）
-    Button, Input, /* ... */
+  Components: {   // 内置 UI 组件库（38 个具名导出 + KeepAlive，见「内置组件」章节）
+    Button, Input, KeepAlive, /* ... */
   },
 
   System: {       // 按进程隔离的存储 API，普通应用同样可用
@@ -368,19 +368,27 @@ export default ({ state }) => {
 };`}
     </pre>
 
-    <h4 className={style[bem.e('subtitle')]}>普通应用可用组件（全量 24 个具名导出）</h4>
+    <h4 className={style[bem.e('subtitle')]}>普通应用可用组件（全量 38 个公共导出 + KeepAlive）</h4>
     <p className={style[bem.e('text')]}>
-      <code>AppSDK.Components</code> 就是宿主 <code>src/component/main.jsx</code> 的具名导出集合，不多不少这 24 个：
+      <code>AppSDK.Components</code> 是宿主 <code>src/component/main.jsx</code> 的 38 个具名导出，外加面板级保活容器 <code>KeepAlive</code>：
     </p>
     <pre className={style[bem.e('code')]}>
 {`交互控件   Button, Input, Check, CheckGroup, CheckCardBar,
            Select（下拉）, BoardSelection（面板选择）, DateGoogle（日期选择）
 容器布局   Page, GeneralPurposePage, InfoList, PageList, Nav, RoolWrapper
-反馈浮层   alert, confirm, AlertConfirm, Notification, OverPlay, ContextMenu, Loading
-其他       Logo, getLogoBase64Url, Code`}
+反馈浮层   alert, confirm, AlertConfirm, Notification, OverPlay, Loading,
+           Modal（弹窗外壳）
+右键菜单   ContextMenu 与 13 个子部件（Trigger / Content / Item / CheckboxItem /
+           RadioItem / RadioGroup / Label / Separator / Shortcut /
+           Sub / SubTrigger / SubContent / Portal）
+其他       Logo, getLogoBase64Url, Code
+保活       KeepAlive（按 tabKey 保留面板状态）`}
     </pre>
     <ul className={style[bem.e('list')]}>
       <li><code>RoolWrapper</code> 与 <code>Code</code> 只透传 <code>children</code> 与 <code>className</code>，没有内建样式和行为，占位保住导出名。</li>
+      <li><code>ContextMenu</code> 只导出 Root 时应用组不出菜单，因此 14 个部件一并公开；
+        <code>Modal</code> 是成品弹窗外壳，底层 <code>Dialog*</code> 原语不在公开档。</li>
+      <li><code>KeepAlive</code>：面板级保活。给每个面板加 <code>tabKey</code>，外层 <code>{'<KeepAlive activeKey={tab}>'}</code> 只挂载访问过的面板，切换时用 <code>display</code> 隐藏，滚动位置与表单输入原地保留。</li>
       <li><code>Button</code>：通用按钮，支持 <code>type="danger"</code> 等变体。<code>Input</code>：<code>forwardRef</code> 组件，支持受控/非受控。</li>
       <li><code>alert</code> 与 <code>confirm</code> 是<strong>命令式对象</strong>而不是组件：
         <code>alert.success(info)</code> / <code>alert.failure</code> / <code>alert.warning</code> / <code>alert.dark</code>，
@@ -1397,7 +1405,8 @@ blockEd                       固定至状态栏              生效
 isFullScreen                  默认全屏启动              生效，但仅当首次启动且无历史窗口存档
 autoStart                     开机/会话恢复自动运行      生效
 backgroundSleep               后台暂停状态订阅          生效
-adaptiveMount                 后台只渲染轻量占位          生效，外壳按 !== false 判定，未配置即为开
+adaptiveMount                 后台自适应挂载(轻量占位)   生效：false 保留完整窗口，缺键允许占位
+keepAlive                     后台常驻保活              生效：优先级高于 adaptiveMount；系统应用同一判定，预设默认开
 hideHeaderHover               无悬浮时隐藏标题栏        生效，但被 metaInfo.hideHeader 压制
 autoSaveStateInterval         自动保存状态间隔(秒)      生效，还需 saveState 打开
 autoSaveWindowInterval        自动保存窗口位置间隔(秒)   生效，不看 saveState
@@ -1434,6 +1443,10 @@ const PatternSection = () => (
     <p className={style[bem.e('text')]}>
       在单个 .jsx 文件内，可定义多个组件并用 <code>useState</code> 实现视觉上的二级路由。
       内部组件可直接从父组件接收 <code>state</code>、<code>dispatch</code>、<code>fetch</code> 等 Props。
+    </p>
+    <p className={style[bem.e('text')]}>
+      切换页签时若要保留滚动位置或表单输入，用 <code>AppSDK.Components.KeepAlive</code> 包住各面板并给每个面板加 <code>tabKey</code>，
+      不要用条件渲染直接卸载非当前面板。
     </p>
 
     <h4 className={style[bem.e('subtitle')]}>多组件 + 二级路由 + fetch</h4>
@@ -2179,7 +2192,7 @@ export default defineConfig({
 const AIPromptSection = () => {
   const [copied, setCopied] = useState(false);
 
-  const promptText =`你现在是 SukinOS (基于 React 19 的沙箱操作系统) 的高级应用开发助手。
+  const promptText = `你现在是 SukinOS (基于 React 19 的沙箱操作系统) 的高级应用开发助手。
 请严格按照以下规范生成代码。这里只列规则，入口解析 / 内容包 / 两套 require / 分层校验的完整解释见开发手册「解析与分层」一节，
 运行开关（worker / saveState / exposeState 等）的语义见「应用选项 (metaInfo)」一节。
 
@@ -2312,10 +2325,10 @@ const AIPromptSection = () => {
   const { System } = AppSDK
 
   // 样式三种写法（均自动 Scope，推荐 CSS Modules）：
-  // 写法一：export const style = `/* 组件作用域 CSS，系统自动 Scope */`（类名不改名，照原样写进 className）
+  // 写法一：export const style = \x60/* 组件作用域 CSS，系统自动 Scope */\x60（类名不改名，照原样写进 className）
   // 写法二：import './style.css'（副作用导入，类名不改名，直接使用）
   // 写法三：import styles from './style.module.css'（CSS Modules，类名按所在文件加后缀，只能用 styles.xxx 取值，写死 className="btn" 命不中）
-  export const style = \`/* 组件作用域 CSS，系统自动 Scope */\`;
+  export const style = \x60/* 组件作用域 CSS，系统自动 Scope */\x60;
 
   export default ({
     state, // 全局状态（结构化克隆的快照，改了会被下次广播覆盖）
@@ -2400,14 +2413,14 @@ const AIPromptSection = () => {
 
 ■ 2. layout.jsx
 ─────────────────────────────────────────────────────────────────────────────
-  export const style = \`
+  export const style = \x60
     .layout { display: flex; height: 100%; }
     .nav { width: 160px; padding: 12px; background: #f5f5f5; }
     .main { flex: 1; padding: 20px; overflow-y: auto; }
     .nav-btn { display: block; width: 100%; padding: 8px; margin-bottom: 4px; border: none; background: none; cursor: pointer; text-align: left; border-radius: 4px; }
     .nav-btn:hover { background: #e0e0e0; }
     .nav-btn.active { background: #1677ff; color: #fff; }
-  \`;
+  \x60;
 
   export default ({ PageComponent, navigate, state, dispatch, fetch }) => {
     const path = state.router?.path || 'home'
@@ -2416,13 +2429,13 @@ const AIPromptSection = () => {
       <div className='layout'>
         <nav className='nav'>
           <button
-            className={\`nav-btn \${path === 'home' ? 'active' : ''}\`}
+            className={\x60nav-btn \x24{path === 'home' ? 'active' : ''}\x60}
             onClick={() => navigate('home')}
           >
             首页
           </button>
           <button
-            className={\`nav-btn \${path === 'detail' ? 'active' : ''}\`}
+            className={\x60nav-btn \x24{path === 'detail' ? 'active' : ''}\x60}
             onClick={() => navigate('detail')}
           >
             详情
@@ -2440,9 +2453,9 @@ const AIPromptSection = () => {
   const { Button } = AppSDK.Components
   const { System, useEffect } = AppSDK
 
-  export const style = \`
+  export const style = \x60
     .home { padding: 20px; }
-  \`;
+  \x60;
 
   export default ({ state, dispatch, navigate, fetch }) => {
     const load = async () => {
@@ -2488,9 +2501,9 @@ const AIPromptSection = () => {
 
 ■ 4. detail.jsx
 ─────────────────────────────────────────────────────────────────────────────
-  export const style = \`
+  export const style = \x60
     .detail { padding: 20px; }
-  \`;
+  \x60;
 
   export default ({ state, dispatch, navigate, fetch, pid }) => {
     return (

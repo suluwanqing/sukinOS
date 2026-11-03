@@ -116,6 +116,15 @@
 }
 
 
+.su-customapp__config-hint {
+  margin-top: 16px;
+  padding: 0 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: #aaa;
+}
+
+
 .su-customapp__toggle {
   width: 44px;
   height: 22px;

@@ -139,21 +139,22 @@ registry 使用**字符串键名**（如 `"ENV_KEY_RESOURCE_ID"`），由 `prese
 | `isParasitism` | `boolean` | `false` | 是否寄生模式（共用宿主窗口） |
 | `saveState` | `boolean` | `false` | `true` 为热启动（保留上次状态），`false` 为冷启动。同时是自动保存定时器的开关（见 [04-process-kernel.md](04-process-kernel.md) 的自动保存一节：`autoSaveState` 在 `saveState` 为假时直接返回，但窗口位置定时器**不看这个开关**） |
 | `exposeState` | `boolean` | `true` | 是否向 React 暴露状态 |
-| `worker` | `boolean` | `true` | 是否使用 Worker（`false` 使用 NoWorker 模式）。设置面板对 `undefined` 特判为"开启"（`setting/layout.jsx:102-104`） |
-| `hideHeader` | `boolean` | `false` | 标题栏整块不渲染（连 DOM 都没有），窗口操作交给应用经 `AppSDK.API.window` 完成。与 `custom.hideHeaderHover` 互斥：它为真时 hover 被强制关闭（`window/layout.jsx:36-47`）。渲染细节见 [02-deskbook.md](02-deskbook.md) §9.4 |
+| `worker` | `boolean` | `true` | 是否使用 Worker（`false` 使用 NoWorker 模式）。设置面板对 `undefined` 特判为"开启"（`setting/layout.jsx:handleToggle`） |
+| `hideHeader` | `boolean` | `false` | 标题栏整块不渲染（连 DOM 都没有），窗口操作交给应用经 `AppSDK.API.window` 完成。与 `custom.hideHeaderHover` 互斥：它为真时 hover 被强制关闭（`window/layout.jsx:ProcessWindow`）。渲染细节见 [02-deskbook.md](02-deskbook.md) §9.4 |
 | `syncLocal` | `boolean` | `false` | 是否把应用包同步到本地目录。**三处读取点口径不一致**，见 [04-process-kernel.md](04-process-kernel.md) 的 "syncLocal：三处读取点" |
 | `entries` | `object` | — | 发布时由 `buildAppEntries` 固化的入口判定结果 `{ view, logicMain, logicAux }`（模块 key 形式），运行时唯一真源；不要手工编辑 |
 | `appType` | `string` | `'editor'` | 见 §2.2；只有 `'system'` 有内核语义 |
-| `custom.*` | — | 见下 | 用户个性化配置，由 `appCustomMapper`（`config.js:317-328`）提供中文标签、`appCustom`（`:330-341`）提供种子值 |
+| `custom.*` | — | 见下 | 用户个性化配置，由 `appCustomMapper`（`config.js:appCustomMapper`）提供中文标签、`appCustom`（`config.js:appCustom`）提供种子值 |
 
 `custom` 里的键与生效方式：
 
 | 键 | 种子值 | 生效说明 |
 |----|--------|----------|
 | `hasShortcut` / `blockEd` / `isFullScreen` / `autoStart` / `showInLauncher` | `true` / `false` / `true` / `false` / `false` | 注意 `appCustom` 种子值与上表的"资源默认"并不一致（`isFullScreen`、`showInLauncher` 两处），新建应用取种子值 |
-| `allowResize` | `true` | **当前无效**：`window/layout.jsx:93` 写的是 `custom?.allowResize || true`，任何值（含 `false`）都会短路成 `true`，因此窗口始终可缩放 |
-| `backgroundSleep` | `false` | `true` 且窗口不可见时，`useProcessBridge` 停止状态订阅（`useProcessBridge.jsx:24`） |
-| `adaptiveMount` | `false`（种子） | 判定是 `custom.adaptiveMount !== false`（`deskBook/layout.jsx:737`）⇒ **缺键等于开启**：后台非焦点窗口只渲染 `AdaptivePlaceholder` 轻量占位。要真正关掉必须显式写 `false` |
+| `allowResize` | `true` | **当前无效**：`window/layout.jsx:ProcessWindow` 写的是 `custom?.allowResize || true`，任何值（含 `false`）都会短路成 `true`，因此窗口始终可缩放 |
+| `backgroundSleep` | `false` | `true` 且窗口不可见时，`useProcessBridge` 停止状态订阅（`useProcessBridge.jsx:useProcessBridge`） |
+| `adaptiveMount` | `true` | 后台自适应挂载：`false` 禁用轻量占位、保留完整窗口；缺键按允许占位处理 |
+| `keepAlive` | `true` | 应用后台常驻：`true` 保留完整窗口，优先级高于 `adaptiveMount`；缺键按未保活处理；系统应用与普通应用同一判定，预设登记时未写则按 `true` 补齐（`KeepAliveViewport/index.jsx:HostKeepAlive`） |
 | `autoSaveStateInterval` / `autoSaveWindowInterval` | `0` | 秒；`0` 不启动定时器。应用级优先于全局个人化配置 |
 | `hideHeaderHover` | `false` | 标题栏保留 DOM、靠 CSS 上移隐藏，悬停 `.su-window__hover-trigger` 唤回；`hideHeader` 为真时被强制失效 |
 
@@ -653,7 +654,7 @@ const { System } = AppSDK
 
 #### 运行时注入的 API（`AppSDK.API`）
 
-`createSdkForInstance(dispatch, pid, isSystemApp, windowControls)`（`resources/sdk.jsx:96`）把 `privateScope` 摊进 `API`，
+`createSdkForInstance(dispatch, pid, isSystemApp, windowControls)`（`resources/sdk.jsx:createSdkForInstance`）把 `privateScope` 摊进 `API`，
 所以应用侧看到的 `AppSDK.API` = 静态模板的 `API` + 下面四个成员：
 
 | 成员 | 来源 | 说明 |
@@ -661,7 +662,7 @@ const { System } = AppSDK
 | `fetch` | `createSecureFetch(window.fetch, pid)` 后再 `Object.freeze` | 自动带 PID 的网络入口，不可被覆写 |
 | `navigate` | `(path) => dispatch({ type: 'NAVIGATE', payload: path })` | Bundle 路由跳转，走的是本实例的 dispatch |
 | `pid` | 工厂入参 | 当前进程 ID |
-| `window` | 第 4 个入参 `windowControls`，缺省时回落到 `noopWindowControls`（`:80-86`） | 窗口控制：`close` / `hibernate` / `toggleMaximize` / `setRect` / `getRect` |
+| `window` | 第 4 个入参 `windowControls`，缺省时回落到 `noopWindowControls`（`sdk.jsx:noopWindowControls`） | 窗口控制：`close` / `hibernate` / `toggleMaximize` / `setRect` / `getRect` |
 
 `window` 是给 `hideHeader` 场景准备的：标题栏整块不渲染后，应用要自己画操作区并靠它关窗/休眠/改位。
 宿主侧的注入链是 `ProcessWindow` 的 `controlsRef` → `windowControls` → `DynamicRenderer` → 工厂第 4 参
@@ -669,7 +670,7 @@ const { System } = AppSDK
 此时调用只打 `console.warn` 且 `getRect()` 返回 `null`——所以使用前先判 `AppSDK.API.window.getRect()` 是否有值，
 不要让按钮在预览里静默失效。`setRect` 允许只传部分字段（`{x}` 或 `{width,height}`），越界会被 clamp。
 
-系统 APP 还额外在静态模板上挂 `API.rootSeed`（`adminAppSdk`，`:58`，指向 `generateShortSeed`）——
+系统 APP 还额外在静态模板上挂 `API.rootSeed`（`adminAppSdk`，`sdk.jsx:adminAppSdk`，指向 `generateShortSeed`）——
 注意它的位置是 `AppSDK.API.rootSeed`，不是 `AppSDK.kernel.rootSeed`。
 
 #### 可用 Components 列表
@@ -735,10 +736,46 @@ export default ({ state, dispatch, fetch }) => (
 
 #### 文件扩展名规范
 
-| 扩展名 | 使用场景 | 说明 |
-|--------|---------|------|
-| `.jsx` | **系统 APP 推荐**。组件文件 | 系统 APP 使用 `.jsx` 以区分组件类型 |
-| `.js` | 纯逻辑 / 工具模块 | `logic.js`（非系统 APP）/ `logic.jsx`（系统 APP）/ `utils/format.js`（工具模块） |
+**采集口默认全收**：扩展名清单只决定「怎么读」，不决定「收不收」（`payloadCollect.js`）。因此内容包里的载荷分五档，
+判定看 key 与值两者（`sourceMapper.js` 的 `isCssKey` / `isHtmlKey` / `isCodeKey(key, value)` / `isCompiledKey` / `isDataUrlValue`），
+没有额外的标记字段：
+
+| 档位 | 文件名 | 走哪条路径 | 采集期怎么读 |
+|------|--------|-----------|-------------|
+| 代码档 | `.jsx` `.js` | Babel（`env` + `react`）→ 内核注入的 `require` 链 | 读文本 |
+| 样式档 | `.css`（含 `.module.css`） | `createCssModule`，不进 Babel | 读文本 |
+| 文档档 | `.html` `.htm` | 不编译，由 `HtmlAppFrame` 合成自包含子文档（§4.11） | 读文本 |
+| 资源档 | 图片 / 字体 / 媒体 | 不编译，只被子文档引用 | 读成 `data:<mime>;base64,` 字符串 |
+| 数据文本档 | `.json` `.md` `.csv` `.txt` `.xml` `.webmanifest` `.map` … | 进内容包但不进模块图，也不可 `import` | 读文本 |
+
+两份清单（`ASSET_EXT_SOURCE` 强制折 `data:`、`TEXT_EXT_HINT_SOURCE` 直接按文本读）都不认的后缀走字节嗅探：
+头部含 NUL、或控制字符（去掉 `\t\n\r`）占比 ≥ 2% 判二进制转 `data:` 串（MIME 再按文件头猜，`sniffMime`），
+否则按 utf-8 严格解码，解得动就是文本。所以 `dist` 产物里非常见后缀的字体与数据文件都会随包走，
+`html-ref-missing` 报的确实是路径或大小写写错。
+
+三条边界值得记住：
+
+- **代码档判定兼容裸 key**：JSX 内容包的 key 在发布期就去了后缀（`pages/home/index`、`layout`、`logic`），
+  `isCodeKey` 对"末段不含点"的 key 返回 true。写成严格后缀白名单会静默停掉整条编译管线（现象是白屏而不是报错）。
+- **进包 ≠ 可 `import`**：编译管线只收代码档与样式档，`.json` 不会送进 Babel（`detectSourceFormat` 仍按后缀回落，
+  但闸门在 `isCompiledKey`），逻辑层引它报 `logic-import-missing`。
+- **`svg` 必须留在资源清单里**：它是文本，但 `<img src>` 与 `@font-face` 只吃 `data:` 串。
+
+采集侧不设体积闸：整个目录一律读全，`formatPayloadSize` 只把合计报给界面（按 UTF-16 码元长度算，中文文本档会低估）。
+这条链的产物有两条根本不出网——本地开发同步（`performSync` 终点是组件状态）与开发者中心工作区，所以界面上那个合计
+只是本机读数，同步与预览不受任何体积判定。
+
+天花板只在真正出网时出现：系统配置 `sukinos_upload_settings` 由后端内存态 `upload_quota_cache`
+（`Func/system/uploadQuotaManager.py` 载入，`Api/SukinOS/appManage.py` 的 `get_upload_max_size(db, user)` 读取，
+不查库）按 指定用户 > 角色 > 全局默认 > `APP_FILE_MAX_SIZE` 兜底值 逐级求值；root 归一成 `"root"` 档，
+某一档填 0 或负数只让那一档无效、落到下一档。配置入口是专属面板「系统管理 → 系统配置 → 上传配额」，
+通用配置项编辑器改这个键之后也会即时重载内存态。生效点只有 `/sukinos/app/upload` 与 `/sukinos/app/update` 两处；
+`/sukinos/localdev/*` 只走 SSE 信令（`trigger_sse` 的 payload 是 `{userId, dir, timestamp}`），载荷不过后端。
+超限时服务端在提示里报出命中的档位与该档上限。
+注意后端量的 `file_size` 是出网的 worker 包（`generateWorker` 把载荷以原文与预编译双份内联，base64 又让资源档
+比原文件大约三分之一），比前端的「载荷合计」大得多，两个数不能互相换算。
+目录黑名单 `SKIP_DIR_NAMES`（`node_modules` / `dist` / `build` 与点开头目录）同步与本地开发 SDK 同一份，
+且相对被同步目录的层级判定——同步目录本身常常就叫 `dist`。
 
 #### 模块 vs 组件划分
 
@@ -775,13 +812,17 @@ export default ({ state, dispatch, fetch }) => (
 7. **路由跳转** — 通过 `navigate(路径字符串)` 实现，文件名即为路由名
 8. **状态分发** — `dispatch` 的 action 必须对应 reducer 的处理
 9. **组件导出** — 至少要有一个 `export default ({}) => {}` 作为视图入口
-10. **程序入口** — 必须要有视图框架入口（默认 `layout.jsx`），多页面应用缺它会在发布时被拦下
+10. **程序入口** — 必须要有视图框架入口（默认 `layout.jsx`），多页面应用缺它会在发布时被拦下。
+    外部打包产物不必补一个假 `layout.jsx`：把视图入口设成 `index.html` 即改走文档档通道（§4.11），
+    缺入口时的提示文案也会点名这条写法
 11. **分层约束** — 页面不得 import 辅逻辑模块（它只在 worker 侧求值，页面引入会让副作用双跑，
     且 worker 注入的 `api` 在 UI 侧取不到）；逻辑层不得 import `.css`；主逻辑块不得 `export`。
     发布时 `inspectEntryLayering` 会拦下同名 key 冲突、逻辑引样式、逻辑依赖缺失、主逻辑块 export
-    与页面反向 import 辅逻辑，预览只拦前四类硬故障。
+    与页面反向 import 辅逻辑，预览只拦硬故障。
     校验对象是**这次真正会被发出去的载荷**：单页发布的载荷只有一个视图字符串 + 主逻辑块，所以主逻辑块
     里的相对 `import` 在单页形态下必然缺失（文件在本地工作区不代表它随资源走），要带依赖请用多页面发布
+12. **文档档的引用约束另算** — 视图入口是 `.html` 时，合成器只认随包的 key：`<base>` 会被剥掉，样式/脚本/图片
+    全部内联或换成 `data:`，外链报软约束 `html-ref-external`、包里没有的相对引用报硬故障 `html-ref-missing`
 
 ### 4.5 Props 注入系统
 
@@ -1054,8 +1095,12 @@ bundleApp/               # 目录名即为应用名
 （模块 key 形式），运行时读的是资源里的 entries，而不是本机的入口约定配置——换设备、换账号安装的应用行为不随
 开发者的本机配置漂移。缺 `entries` 的旧资源回落到 `view: 'layout'`、无逻辑入口。
 
-**内容包 key 口径**：`.jsx/.js` 去后缀保留相对路径（`pages/home/index`），`.css` 保留后缀（`styles/global.css`）；
-全链（发布、预览、worker、路由解析）使用同一口径。
+**内容包 key 口径**（`entryConfig.js` 的 `contentKeyOf`）：两套寻址口径，选哪套由视图入口的后缀决定，一次发布只会有一套。
+
+- **JSX 包**（视图入口是 `.jsx` / `.js`）：按导入路径寻址，`.jsx/.js` 去后缀保留相对路径（`pages/home/index`），
+  `.css` 保留后缀（`styles/global.css`）；全链（发布、预览、worker、路由解析）使用同一口径
+- **文档包**（视图入口是 `.html`）：按文件路径寻址，**所有 key 保留完整相对路径**（`assets/index-a1b2c3.js`），
+  因为文档里的 `<script src>` 引的就是路径，去后缀会让合成器永远解析不中
 
 **Bundle 路由机制**：
 - 组件通过 `state.router.path` 获取当前路由
@@ -1154,6 +1199,49 @@ SUKINOS_STORE_REMOTE_AUTHORIZED     = '/sukinos/app/appList/authorized'
 ```
 
 应用商店中仅展示当前用户有权限安装的 APP。
+
+---
+
+### 4.11 文档档应用：外部打包产物（dist）
+
+把视图入口设成 `index.html`（「设置 → 入口约定」，带后缀才命中），这份多页载荷就走**文档档**通道：内容不进 Babel，
+宿主把 `index.html` 合成成一份自包含文档，塞进**同源** `<iframe srcdoc>` 里自治渲染。作者不需要按
+`export default 组件 + props 契约` 写入口，所以 `vite build` 之类的外部产物可以原样装进来。
+
+链路（`utils/process/htmlDocument.js` 合成 + `htmlAppFrame.jsx` 挂载，运行时窗口与开发者中心预览共用同一份）：
+
+```
+内容包（key 保留完整相对路径）
+   │  buildAppDocument(htmlKey, files, pid)          纯字符串改写，不建 DOM
+   ├─ 剥掉 <base>                                    留着它，未内联的相对引用会指向宿主 origin
+   ├─ <link rel=stylesheet> → <style> 内联；它自己的 url() 按该 css 文件的目录再解析
+   ├─ <link rel=modulepreload|preload as=style> → 整条丢弃（脚本已内联，留着只会去网络要 404）
+   ├─ <script src> → 就地换成内联块，保持原文档顺序与 type="module"
+   ├─ <img|audio|video|source|... > 的 src/href → 内容包里的 data: 串
+   └─ <head> 首位插引导脚本                          禁直连存储 + 挂 AppSDK + 吞 pushState
+   ↓
+<iframe srcDoc=...>（不加 sandbox 属性 ⇒ 与宿主同源）
+```
+
+三个要点：
+
+- **`AppSDK` 是 getter**：引导脚本把子文档的 `window.AppSDK` 定义成按 pid 惰性读 `window.parent.__SUKIN_APPSDK__[pid]`，
+  登记表由宿主侧 `HtmlAppFrame` 在 `useLayoutEffect` 里写入（早于子文档的解析任务）。挂的就是 `createSdkForInstance`
+  那份实例 SDK，不新造投影、不加权限门。
+- **禁直连存储**：`RESTRICTED_STORAGE_APIS`（`utils/security.js`，与宿主沙箱同一份名单）里的五个名字在子文档里
+  被定义成读写即抛，把应用逼回 `AppSDK.System`。
+- **样式不进宿主通道**：文档包的 `combinedCss` / `scopedCssString` 直接置空，因此 `scopeCss` 那条"给每条选择器加
+  `#proc-<pid>` 前缀"的改写完全不参与——JSX 应用里会整块失效的 `@media` / `@keyframes`，在文档档里是正常的。
+
+发布前置条件（`inspectEntryLayering` 会扫文档的子资源引用）：`base: './'`、单 entry chunk（动态 import 需
+`inlineDynamicImports` 或 `vite-plugin-singlefile`）、资源已内联或随包（采集口默认全收，图片/字体/数据文件都会进包，
+采集侧不设体积闸、界面只报合计，能否出网由后端按用户/角色档位上限判）。引用解析不到报硬故障 `html-ref-missing`，引跨源外链报软约束 `html-ref-external`（开发环境的 COEP 会拦）。
+
+这条通道的边界：只吃单 entry chunk；子文档运行期自己拼 URL 取的资源不在内容包里就是 404；系统主题与
+`runtime-css-进程ID` 不同步进子文档；宿主路由（`state.router.path` / `navigate`）对文档包没有意义；
+logic 可以完全不提供（内核注入恒等 reducer），建议把 `metaInfo.worker` 关掉。跨源档
+（`sandbox="allow-scripts"` 不给 same-origin）没有实现——引导脚本与 SDK 登记表都依赖同源，换档位等于改造成
+postMessage 协议。
 
 ---
 
@@ -2218,15 +2306,15 @@ useEffect(() => {
 
 | 面板 | 文件 | 发布前分层校验 | 载荷构造 |
 |------|------|----------------|----------|
-| 上传 | `resources/developer/right/upload/layout.jsx` | `assertLayering`（`:94-97`），在 `handleUploadBundle`（`:124`）与单页发布（`:165`）两处调用 | 目录递归收集 `.jsx/.js/.css` → `buildAppEntries(allFiles, entryConfig)` → 主逻辑文件从内容包剔除（`:129`） |
-| 更新 | `resources/developer/right/update/layout.jsx` | `assertLayering`（`:88-91`），文件夹选择（`:302`）、单页（`:334`）、预览确认（`:394`、`:399`）三处调用 | 同上；预览分支直接把 `source.content` / 单页视图字符串喂给校验器 |
-| 开发者中心主面板 | `resources/developer/layout.jsx` | `inspectEntryLayering`（按工作区文件集） | VFS 工作区目录 → 内容包 |
-| 本地开发 | `resources/localDev/layout.jsx` | 同上（SSE/HTTP 同步来的文件集） | 同步载荷 + 入口配置 |
+| 上传 | `resources/developer/right/upload/layout.jsx` | 本地函数 `assertLayering`，调三处：单文件 html（`handleUploadFile`）、`handleUploadBundle`、单页发布（`handleUploadLogic`） | `collectPayloadFiles` 在 `collectAll` 里递归收集整个目录（默认全收、不设体积闸）→ 未采集条目与载荷合计一起经 `setMessage` 落到界面（同在 `collectAll`）→ `buildAppEntries(allFiles, entryConfig)` 与主逻辑剔除、key 走 `contentKeyOf` 都在 `handleUploadBundle` |
+| 更新 | `resources/developer/right/update/layout.jsx` | 本地函数 `assertLayering`，调五处：`pickUploadSource` 的三个分支（单文件 html、文件夹、单页）与 `runUpdate` 的预览确认（map 与字符串两种形态） | `collectPayloadFiles` 同样不设闸，未采集与合计一起 `setMessage`（`pickUploadSource`）；单文件 `.html` 与文件夹一样走 map + `isBundle`，单页仍折成一个视图字符串 |
+| 开发者中心主面板 | `resources/developer/layout.jsx` | `inspectEntryLayering` + `splitLayeringErrors`（按工作区文件集，`layeringErrors`、`blockByLayering`） | VFS 工作区目录 → 内容包（key 同样按 `contentKeyOf` 分两套口径，`cleanFiles`）；视图入口是 `.html` 时强制 map 形态（`handleDevCenterCreate`） |
+| 本地开发 | `resources/localDev/layout.jsx` | 同上（SSE/HTTP 同步来的文件集） | 句柄递归 `collectPayloadFiles`（`collectFilesRecursively`）或 HTTP 回传的服务端文件集，两条通道都不设体积闸；未采集条目与载荷合计经 `formatSkipped` + `formatPayloadSize` 显示在状态面板（folder `collectFilesRecursively`、http `performSync`） |
 
 `assertLayering` 只是这两个面板里的**本地小函数**（不是共享工具），职责是把 `inspectEntryLayering` 返回的错误数组转成一次 `throw`：
 
 ```javascript
-// upload/layout.jsx:94-97
+// upload/layout.jsx:assertLayering
 const assertLayering = (allFiles, resolved, logicMainCode = '') => {
   const errors = inspectEntryLayering({ files: allFiles, entries: resolved.entries, logicMainCode });
   if (errors.length) throw new Error(`分层校验未通过：${formatLayeringErrors(errors)}`);
@@ -2260,11 +2348,11 @@ sequenceDiagram
     Note over Vite: 插件 protocol=2 时 logic 恒为空串，入口判定全在桌面侧
 ```
 
-细节（`vite.config.js:9,120,259`、`myfastapi_/Api/SukinOS/localDev.py:317-352`、`localDev/layout.jsx:902-961,975-995`）：
+细节（`sukinOsLocalDevSDK/vite.config.js:PROTOCOL_VERSION`、`sukinOsLocalDevSDK/vite.config.js:sukinLocalDriverPlugin`、`myfastapi_/Api/SukinOS/localDev.py:317-352`、`localDev/layout.jsx:performSync`）：
 
 - 中间件 `/__sukin_local_sync` 返回 `{status, protocol, files, logic, v, dir}`；`PROTOCOL_VERSION = 2`，`logic` 恒为 `''`（入口判定完全交给桌面侧的 `entryConfig`）。
 - `POST /trigger` 不做用户认证（本地插件调用），但校验 `userId` 存在、系统繁忙时返回 503；SSE 侧发的是裸 `data:` 帧，没有事件名。
-- 桌面侧 `syncMode` 三选一，取文件的方式**不同**（`performSync` 在 `:905` 分叉）：
+- 桌面侧 `syncMode` 三选一，取文件的方式**不同**（`performSync` 在 `localDev/layout.jsx:performSync` 分叉）：
   - `http`：轮询 `GET /__sukin_local_sync`，按 `config.pollInterval` 定时；
   - `folder`：用 File System Access 句柄直读本地目录（`collectFilesRecursively`），按 `folderPollInterval` 轮询；
   - `sse_folder`：仍是句柄直读，但由 SSE 的 `reload` 事件驱动同步（外加可选健康检查），不靠定时器。
@@ -2331,7 +2419,7 @@ JSX/ES6+ 源码 → babelLoader.js 编译 → Blob URL → Worker 加载执行
 |------|------|---------|
 | **内部写 CSS** | `export const style = \`...\`` | 组件内联样式，兼容旧写法 |
 | **副作用导入** | `import './styles/global.css'` | 全局样式，自动 Scope（`#proc-{pid}` 前缀） |
-| **CSS Modules** | `import styles from './Button.module.css'` | 组件级样式，`styles.btn` 返回类名 |
+| **CSS Modules** | `import styles from './Button.module.css'` | 组件级样式，类名按所在文件加后缀，`styles.btn` 取到实际类名 |
 
 ```javascript
 // 方式一：export const style（组件内联）
@@ -2345,10 +2433,10 @@ import styles from './Button.module.css';
 <button className={styles.btnPrimary}>按钮</button>
 ```
 
-> **作用域隔离**：所有 CSS 都会通过 `scopeCss` 自动加上 `#proc-{pid}` 前缀，不同 APP 的样式互不干扰。CSS Modules 的类名保持原样（无需哈希），隔离完全依赖前缀。
+> **作用域隔离**分两层：`.module.css` 的类名先按所在文件加后缀（后缀由模块 key 哈希得到，同名类在不同文件里不再互相污染，取值只能通过 `styles.xxx` 映射），随后 `scopeCss` 再给每条选择器加上 `#proc-{pid}` 进程根前缀（不同 APP 互不干扰）。副作用导入的普通 `.css` 与 `export const style` 不改类名，只走前缀那一层。
 
 其他样式规范：
-- 使用 `--su-*` CSS 变量保持主题一致性
+- 宿主不再提供 `--su-*` 变量层，颜色与字号直接写具体值；只有个性化面板运行时注入的 `--su-os-*`（`--su-os-accent-color`、`--su-os-border-color` 等）仍然可用
 - 避免渐变色和霓虹色，保持简洁现代风格
 - 推荐圆角：小元素 4px，卡片 8px，弹窗 12px
 
@@ -2370,8 +2458,8 @@ import styles from './Button.module.css';
 
 | 维度 | 建议 |
 |------|------|
-| 配色 | 使用系统主题色 `--su-accent` / `--su-bg`，避免硬编码颜色 |
-| 字体 | 使用系统字体变量，不引入外部字体（除非 CDN 白名单允许） |
+| 配色 | 写具体色值；需要跟随主题时取个性化注入的 `--su-os-accent-color` 等 `--su-os-*`，不要引用已不存在的 `--su-*` |
+| 字体 | 沿用系统字体栈（写死的 `font-family` 串），不引入外部字体（除非 CDN 白名单允许） |
 | 图标 | 使用系统图标库，或通过 base64 data URL 嵌入 |
 | 布局 | 适配窗口缩放，设置最小尺寸（建议 300×200） |
 | 动画 | 使用 CSS transition 而非 JS 动画，减少主线程压力 |

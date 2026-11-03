@@ -1,5 +1,6 @@
 .su-setting-about {
   width: 100%;
+  padding-bottom: 40px;
 }
 
 .su-setting-about__section {
@@ -22,88 +23,133 @@
   background: #ffffff;
   border: 1px solid #dcdfe6;
   border-radius: 12px;
-  overflow: hidden;
 }
 
-.su-setting-about__hero {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.su-setting-about__logo-box {
-  width: 60px;
-  height: 60px;
-  background: #303133;
-  color: #ffffff;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 32px;
+.su-setting-about__doc-title {
+  margin: 0 0 8px 0;
+  font-size: 20px;
   font-weight: 800;
-}
-
-.su-setting-about__os-name {
-  font-size: 24px;
-  font-weight: 800;
-  margin: 0;
   color: #303133;
-}
-
-.su-setting-about__version-text {
-  font-size: 12px;
-  color: #909399;
 }
 
 .su-setting-about__divider {
   height: 1px;
   background: #f2f6fc;
-  margin: 20px 0;
+  margin: 20px 0 16px 0;
 }
 
-.su-setting-about__spec-row {
+.su-setting-about__notes {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #606266;
+  line-height: 1.8;
+}
+
+.su-setting-about__notes li + li {
+  margin-top: 4px;
+}
+
+.su-setting-about__toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
   display: flex;
-  gap: 48px;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  background: #ffffff;
 }
 
-.su-setting-about__spec-item {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.su-setting-about__search {
+  position: relative;
+  flex: 1;
+  max-width: 360px;
 }
 
-.su-setting-about__label {
-  font-size: 11px;
+.su-setting-about__search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
   color: #909399;
-  text-transform: uppercase;
-  font-weight: 600;
+  pointer-events: none;
 }
 
-.su-setting-about__value {
+.su-setting-about__search-input {
+  width: 100%;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 12px 0 30px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #303133;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.su-setting-about__search-input:focus {
+  border-color: #409eff;
+}
+
+.su-setting-about__search-input::placeholder {
+  color: #b1b3b8;
+}
+
+.su-setting-about__group {
+  margin-bottom: 24px;
+}
+
+.su-setting-about__group-header {
+  position: sticky;
+  top: 66px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 0;
+  margin-bottom: 12px;
+  border: 0;
+  border-bottom: 1px solid #f2f6fc;
+  background: #ffffff;
+  color: #606266;
+  text-align: left;
+  cursor: pointer;
+}
+
+.su-setting-about__group-title {
+  flex: 1;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   color: #303133;
 }
 
-.su-setting-about__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
+.su-setting-about__group-count {
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #f5f7fa;
+  color: #909399;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
 }
 
-.su-setting-about__app-card {
+.su-setting-about__entry {
+  position: relative;
   padding: 20px;
+  margin-bottom: 16px;
   background: #ffffff;
   border: 1px solid #dcdfe6;
   border-radius: 12px;
 }
 
-.su-setting-about__app-header {
+.su-setting-about__entry-head {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
 .su-setting-about__label-bold {
@@ -112,18 +158,104 @@
   color: #303133;
 }
 
-.su-setting-about__tag {
+.su-setting-about__badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(64, 158, 255, 0.1);
+  color: #409eff;
   font-size: 10px;
-  padding: 2px 6px;
-  background: #f5f7fa;
-  border-radius: 4px;
-  color: #909399;
+  font-weight: 600;
 }
 
 .su-setting-about__description {
+  margin: 0;
   font-size: 12px;
   color: #909399;
   line-height: 1.6;
+}
+
+.su-setting-about__entry-note {
+  margin: 8px 0 0 0;
+  font-size: 11px;
+  color: #909399;
+  line-height: 1.6;
+}
+
+.su-setting-about__preview {
+  position: relative;
+  z-index: 1;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 10px;
+  background: #fafcff;
+  overflow: visible;
+}
+
+.su-setting-about__preview-shell {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #ffffff;
+  transform: translateZ(0);
+}
+
+.su-setting-about__demo-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.su-setting-about__demo-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.su-setting-about__demo-hint {
+  font-size: 11px;
+  color: #909399;
+}
+
+.su-setting-about__demo-box {
+  display: block;
+  padding: 14px 16px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #606266;
+  font-size: 12px;
+}
+
+.su-setting-about__demo-code {
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #f2f6fc;
+  color: #303133;
+  font-family: monospace;
+}
+
+.su-setting-about__demo-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.su-setting-about__demo-target {
+  display: block;
+  padding: 28px 20px;
+  border: 1px dashed #dcdfe6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #606266;
+  font-size: 12px;
+  text-align: center;
+  cursor: context-menu;
+  user-select: none;
 }
 
 .su-setting-about__table-container {
@@ -192,4 +324,13 @@
   font-family: 'Fira Code', monospace;
   font-size: 12px;
   line-height: 1.5;
+}
+
+.su-setting-about__empty {
+  padding: 60px 0;
+  border: 1px dashed #dcdfe6;
+  border-radius: 12px;
+  color: #909399;
+  font-size: 13px;
+  text-align: center;
 }

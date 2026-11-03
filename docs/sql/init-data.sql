@@ -57,9 +57,9 @@ VALUES (2, NULL,
 -- 5. 插入系统默认配置
 -- ============================================================
 INSERT INTO `system_configs` (`config_key`, `config_value`) VALUES
-('app.upload.max_size', '{"value": 10485760, "unit": "bytes", "description": "应用上传最大文件大小 10MB"}'),
+('sukinos_upload_settings', '{"defaultMaxSizeBytes": 10485760, "roleMaxSizeBytes": {}, "userMaxSizeBytes": {}}'),
 ('app.review.auto_approve', '{"value": false, "description": "是否自动审核通过"}'),
-('disk.safety_threshold', '{"value": 21474836480, "unit": "bytes", "description": "磁盘安全阈值 20GB"}'),
+('disk.safety_threshold', '{"value": 2147483648, "unit": "bytes", "description": "磁盘剩余空间安全阈值 2GB（与 appManage.check_system_resources 的常量同值，改这里不会生效）"}'),
 ('session.timeout', '{"value": 30, "unit": "minutes", "description": "会话超时时间"}'),
 ('websocket.heartbeat_interval', '{"value": 35, "unit": "seconds", "description": "WebSocket 心跳间隔"}');
 

@@ -274,7 +274,8 @@ export const appCustomMapper = {
   allowResize: '允许调整窗口大小',
   showInLauncher: '在启动器中显示',
   backgroundSleep: '后台静默(暂停订阅)',
-  adaptiveMount: '后台自适应挂载(不保存APP内部状态)',
+  adaptiveMount: '后台自适应挂载(轻量占位)',
+  keepAlive: '后台常驻(保留窗口)',
   autoSaveStateInterval: '自动保存状态间隔(秒)',
   autoSaveWindowInterval: '自动保存窗口位置间隔(秒)'
 }
@@ -287,9 +288,22 @@ export const appCustom = {
     allowResize: true,
     showInLauncher: false,
     backgroundSleep: false,
-    adaptiveMount: false,
+    adaptiveMount: true,
+    keepAlive: true,
     autoSaveStateInterval: 0,
     autoSaveWindowInterval: 0,
+}
+
+export const mergeAppCustom = (baseCustom, overrideCustom) => ({
+    ...(baseCustom || {}),
+    ...(overrideCustom || {}),
+})
+
+// 后台窗口是否保活(保留完整窗口)：keepAlive 优先，adaptiveMount=false 同样保留；
+// 只有允许占位且未保活才退居占位
+export const shouldAppKeepAlive = (app) => {
+    const custom = app?.[ENV_KEY_META_INFO]?.custom
+    return custom?.keepAlive === true || custom?.adaptiveMount === false
 }
 //应用类似
 export const appTypes = [

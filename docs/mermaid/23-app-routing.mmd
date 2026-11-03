@@ -149,7 +149,7 @@ graph TB
             direction TB
             WL1["Worker dispatch → save()"]
             WL2["postMessage(SAVE_STATE)"]
-            WL3["commHub.handleMsg → onSaveState 回调<br/>（kernel.js:79-88 注入，CommHub 无 saveState 方法）"]
+            WL3["commHub.handleMsg → onSaveState 回调<br/>（kernel.js:onSaveState 注入，CommHub 无 saveState 方法）"]
             WL4["app.savedState.app = payload"]
             WL5{"isSystemApp?"}
             WL6["✅ 仅内存"]

@@ -60,10 +60,10 @@
 
 ## 已知缺陷（文档按实现真相记录，尚未修码）
 
-- `lifecycle.js:368` 调用 `commHub.saveState(...)`，而 CommHub 并无该方法（SAVE_STATE 实际走注入的 `onSaveState`）⇒ NoWorker 分支的状态保存静默丢失。详见 `module/07` §5.1
-- `renderWindow.js:114-122` 的 JSDoc 仍是位置参数口径，真实签名是单对象入参（同文件 `:124-127`）。详见 `module/04`
+- `lifecycle.js:NoWorker` 调用 `commHub.saveState(...)`，而 CommHub 并无该方法（SAVE_STATE 实际走注入的 `onSaveState`）⇒ NoWorker 分支的状态保存静默丢失。详见 `module/07` §5.1
+- `renderWindow.js:compileSourceAsync` 的 JSDoc 仍是位置参数口径，真实签名是单对象入参。详见 `module/04`
 - `developer/right/healper/` 目录名拼写为 `healper`，文档按真实路径引用
-- `custom.allowResize` 无实际门控（`window/layout.jsx:93` 被 `|| true` 短路）；`fileIndexDb` 的 `parent_name_idx` 配了 `unique: true` 但创建索引时未透传该选项，实际不唯一
+- `custom.allowResize` 无实际门控（`window/layout.jsx:ProcessWindow` 被 `|| true` 短路）；`fileIndexDb` 的 `parent_name_idx` 配了 `unique: true` 但创建索引时未透传该选项，实际不唯一
 
 ## 维护约定
 

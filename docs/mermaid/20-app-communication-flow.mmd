@@ -7,7 +7,7 @@ sequenceDiagram
     participant OtherApp as Other APP
 
     %% STATE_UPDATE: Worker -> UI
-    Note over AppA,CommHub: 仅 NoWorker/虚拟沙箱路径下 STATE_UPDATE 先经 requestAnimationFrame 帧对齐节流<br/>（lifecycle.js:58-71 的 sandboxSelf.postMessage）；真实 Worker 直接 onmessage
+    Note over AppA,CommHub: 仅 NoWorker/虚拟沙箱路径下 STATE_UPDATE 先经 requestAnimationFrame 帧对齐节流<br/>（lifecycle.js:sandboxSelf.postMessage）；真实 Worker 直接 onmessage
     AppA->>CommHub: handleMsg(pid, {type:'STATE_UPDATE', payload:state})
     CommHub->>CommHub: stateCache.set(pid, state)
     CommHub->>KernelUI: notify(subscribers, {type:'STATE', payload:state})
@@ -29,7 +29,7 @@ sequenceDiagram
     else APP 未运行（冷启动）
         Kernel->>Kernel: startProcess({pid, interactInfo:newInteractInfo})
         Kernel->>AppA: postMessage({type:'RESTORE'|'INIT', payload:保存的 state})
-        Note over Kernel,AppA: interactInfo 不搭 INIT/RESTORE 的车：<br/>建好进程后另发一条 APP_INTERACT（lifecycle.js:504-506）
+        Note over Kernel,AppA: interactInfo 不搭 INIT/RESTORE 的车：<br/>建好进程后另发一条 APP_INTERACT（lifecycle.js:startProcess 建好进程后的分支）
         Kernel->>AppA: postMessage({type:'APP_INTERACT', payload:newInteractInfo})
     end
 

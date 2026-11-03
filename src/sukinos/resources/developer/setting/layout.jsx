@@ -219,15 +219,16 @@ const BasicSettings = ({ appMeta, onUpdateAppMeta, appTypes, appCustomMapper = {
         <div className={style[bem.e('setting-group')]} style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
           <div className={style[bem.e('config-sub-group')]}>
             <div className={style[bem.e('sub-title')]}>扩展特性 (Custom)</div>
-            {Object.entries(appMeta.custom).map(([key, value]) => (
-              <div key={key} className={style[bem.e('label-row')]}>
-                <label className={style[bem.e('label')]}>{appCustomMapper[key] || key}</label>
-                <Check
-                  checked={!!value}
-                  onChange={() => handleCustomChange(key)}
-                />
-              </div>
-            ))}
+            {Object.entries(appMeta.custom)
+              .map(([key, value]) => (
+                <div key={key} className={style[bem.e('label-row')]}>
+                  <label className={style[bem.e('label')]}>{appCustomMapper[key] || key}</label>
+                  <Check
+                    checked={!!value}
+                    onChange={() => handleCustomChange(key)}
+                  />
+                </div>
+              ))}
           </div>
         </div>
       )}

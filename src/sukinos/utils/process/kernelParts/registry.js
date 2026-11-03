@@ -34,19 +34,20 @@ export class Registry {
     const appName = preset?.[ENV_KEY_NAME]
     // 获取从 sysDb 加载的覆盖记录
     const dbOverride = this.#kernel.userApps.get(pid)
-    let finalMeta = preset?.[ENV_KEY_META_INFO]
+    // 系统应用与普通应用同一判定：预设未写这两个键时按默认开补齐，sysDb 覆盖优先
+    const finalMeta = {
+      ...preset?.[ENV_KEY_META_INFO],
+      custom: {
+        keepAlive: true,
+        adaptiveMount: true,
+        ...(preset?.[ENV_KEY_META_INFO]?.custom || {}),
+        ...(dbOverride?.[ENV_KEY_META_INFO]?.custom || {}),
+      },
+    }
     // 系统应用刷新后，默认状态永远是 INSTALLED，savedState 永远是 null
     let status = 'INSTALLED'
     let savedState = null
     if (dbOverride) {
-      // 仅合并 metaInfo 中的 custom 部分
-      finalMeta = {
-        ...preset?.[ENV_KEY_META_INFO],
-        custom: {
-          ...(preset?.[ENV_KEY_META_INFO]?.custom || {}),
-          ...(dbOverride?.[ENV_KEY_META_INFO]?.custom || {}),
-        },
-      }
       // 配了开机自启时状态仍留 INSTALLED，由 restoreSession 按 finalMeta.custom.autoStart 拉起
       this.#kernel.userApps.delete(pid)
     }

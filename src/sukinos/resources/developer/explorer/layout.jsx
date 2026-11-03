@@ -48,7 +48,7 @@ const buildTree = (files) => {
 // 取相对路径的父目录（根级返回 ''）
 const parentOf = (p) => p.includes('/') ? p.split('/').slice(0, -1).join('/') : '';
 
-function TreeNode({ node, depth, expanded, onToggleExpand, activeFile, setActiveFile, unsavedFiles, onDelete, onAdd, onRename, dropHint, isEntry }) {
+function TreeNode({ node, depth, expanded, onToggleExpand, activeFile, openFile, unsavedFiles, onDelete, onAdd, onRename, dropHint, isEntry }) {
   const isDir = node.type === 'dir';
   const isExpanded = expanded.has(node.path);
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: node.path });
@@ -58,7 +58,7 @@ function TreeNode({ node, depth, expanded, onToggleExpand, activeFile, setActive
   const hint = dropHint && dropHint.id === node.path ? dropHint.position : null;
 
   const fileMenu = [
-    { id: 'open', label: '打开', onClick: () => setActiveFile(node.path) },
+    { id: 'open', label: '打开', onClick: () => openFile(node.path) },
     { type: 'divider' },
     { id: 'rename', label: '重命名', onClick: () => onRename(node) },
     // 入口文件按配置命中，删除会让应用失去状态机/视图入口，故不提供删除项
@@ -93,7 +93,7 @@ function TreeNode({ node, depth, expanded, onToggleExpand, activeFile, setActive
         <div
           className={rowClass}
           style={{ paddingLeft: indent }}
-          onClick={() => isDir ? onToggleExpand(node.path) : setActiveFile(node.path)}
+          onClick={() => isDir ? onToggleExpand(node.path) : openFile(node.path)}
           {...attributes}
           {...listeners}
         >
@@ -123,7 +123,7 @@ function DragChip({ path, isDir }) {
 }
 
 function Explorer({
-  files, setFiles, activeFile, setActiveFile, isMapped, unsavedFiles, triggerVfsSave,
+  files, setFiles, activeFile, setActiveFile, openFile, setOpenFiles, isMapped, unsavedFiles, triggerVfsSave,
   physicalFiles, setPhysicalFiles,
   vfs, workspaceDirId, setWorkspaceDirId, workspacePathStr, setWorkspacePathStr,
   isAutoSave, setIsAutoSave, showWorkspaceModal, setShowWorkspaceModal, showImportModal, setShowImportModal,
@@ -291,6 +291,10 @@ function Explorer({
           return next;
         });
         if (activeFile === node.path || activeFile.startsWith(node.path + '/')) setActiveFile(activeFile.replace(node.path, newPath));
+        // 已打开的标签跟随新路径
+        setOpenFiles?.(prev => prev.map(p =>
+          (p === node.path || p.startsWith(node.path + '/')) ? p.replace(node.path, newPath) : p
+        ));
         // 物理重命名
         const target = physicalFiles.get(node.path.toLowerCase());
         if (target) await runWithWriteLock(node.path, async () => {
@@ -366,6 +370,11 @@ function Explorer({
     if (activeFile === srcPath || activeFile.startsWith(srcPath + '/')) {
       setActiveFile(activeFile === srcPath ? base : base + activeFile.slice(srcPath.length));
     }
+    // 已打开的标签跟随新路径
+    setOpenFiles?.(prev => prev.map(p => {
+      const hit = mapping.find(([ok]) => p === ok || p.startsWith(ok + '/'));
+      return hit ? hit[1] + p.slice(hit[0].length) : p;
+    }));
     // 展开目标目录链，移动结果立即可见
     expandTo(base);
 
@@ -540,7 +549,7 @@ function Explorer({
               >
                 <SortableContext items={flatItems.map(i => i.node.path)} strategy={verticalListSortingStrategy}>
                   {flatItems.map(({ node, depth }) => (
-                    <TreeNode key={node.path} node={node} depth={depth} expanded={expanded} onToggleExpand={onToggleExpand} activeFile={activeFile} setActiveFile={setActiveFile} unsavedFiles={unsavedFiles} onDelete={handleDelete} onAdd={handleAddFile} onRename={handleRename} dropHint={dropHint} isEntry={node.type === 'file' && entrySet.has(node.path)} />
+                    <TreeNode key={node.path} node={node} depth={depth} expanded={expanded} onToggleExpand={onToggleExpand} activeFile={activeFile} openFile={openFile} unsavedFiles={unsavedFiles} onDelete={handleDelete} onAdd={handleAddFile} onRename={handleRename} dropHint={dropHint} isEntry={node.type === 'file' && entrySet.has(node.path)} />
                   ))}
                 </SortableContext>
                 <DragOverlay dropAnimation={null}>

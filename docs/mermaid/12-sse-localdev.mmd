@@ -20,7 +20,7 @@ sequenceDiagram
 
     Note over FS,Vite: === 变更检测（方向：Vite 主动打后端） ===
 
-    FS-->>Vite: server.watcher.on('all') 命中 .jsx/.js/.css
+    FS-->>Vite: server.watcher.on('all') 相对被监听目录的路径里不含跳过的目录<br/>（默认全收：内部的 node_modules/dist/build 与点开头目录不触发，不再按扩展名丢弃）
     Vite->>Vite: 按 dirStates 匹配目录 + debounceMs 防抖<br/>命中则更新 state.v = Date.now()
     Vite->>BE: POST /trigger {userId, dir, timestamp}<br/>（无需用户认证，:120）
     BE->>BE: 查 clients[userId]，向每条连接的 queue put<br/>{action:'reload', dir, timestamp}
@@ -31,15 +31,15 @@ sequenceDiagram
     BE-->>LD: 裸 data 帧：data: {"action":"reload",...}\n\n<br/>（无 event: 名称，走 onmessage）
     LD->>LD: 空 data 忽略；action==='reload' 才继续<br/>再经 fetchDebounce 防抖
     LD->>FS: 用已选择的 File System Access 句柄递归 collectFilesRecursively<br/>（sse_folder 与 folder 同源，不经过网络）
-    FS-->>LD: {相对路径: 源码}（跳过 node_modules/隐藏/dist，只收 .jsx/.js/.css）
+    FS-->>LD: {相对路径: 载荷}（collectPayloadFiles 默认全收，不再按扩展名丢弃：<br/>已知资源后缀与嗅探出的二进制读字节转 data: URL，其余按文本读；<br/>不设体积闸，未采集条目与载荷合计一起进状态面板）
     LD->>LD: 全部文件长度之和与 lastVRef 相同则跳过；<br/>buildAppEntries(files, entryCfg) 定入口，命中 logicMainFile 的抽为 logic
     LD->>Kernel: 更新资源（logic 由桌面侧按入口配置抽出）
     Kernel->>Worker: terminate 旧 Worker → generateWorker 重建
-    Kernel->>UI: 重新编译 View 并渲染
+    Kernel->>UI: 重新编译 View 并渲染<br/>（视图入口是 .html 时不编译，重合成 srcdoc 子文档）
 
     Note over FS,UI: === 另外两种模式 ===
 
-    Note over LD,Kernel: http：无 SSE，前端 setInterval(pollInterval) 轮询 GET /__sukin_local_sync?dir=..&watchDebounce=..<br/>（首次访问顺带把目录注册进 chokidar），按服务端返回的 data.v 去重
+    Note over LD,Kernel: http：无 SSE，前端 setInterval(pollInterval) 轮询 GET /__sukin_local_sync?dir=..&watchDebounce=..<br/>（首次访问顺带把目录注册进 chokidar），按服务端返回的 data.v 去重<br/>服务端扫描同样跳 node_modules/dist/build 与点开头目录，<br/>同样不设体积闸（合计只报一行，同步链不出网）
     Note over LD,Kernel: folder：完全不碰网络（也没有 reload 通知），setInterval(folderPollInterval) 轮询句柄目录
     Note over LD,Kernel: Vite 插件的 POST /trigger 只在有 SSE 连接时才有意义；<br/>插件本身不判定入口，protocol=2 时 logic 恒为空串
 

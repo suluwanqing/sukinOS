@@ -380,14 +380,15 @@ const AppPanel = ({
         <Divider />
         <Cap>扩展标志</Cap>
         <div className={style[bem.e('flag-grid')]}>
-          {Object.entries(appMeta.custom).map(([key, value]) => (
-            <Toggle
-              key={key}
-              label={appCustomMapper[key] || key}
-              checked={!!value}
-              onChange={() => updateAppMeta({ custom: { ...appMeta.custom, [key]: !value } })}
-            />
-          ))}
+          {Object.entries(appMeta.custom)
+            .map(([key, value]) => (
+              <Toggle
+                key={key}
+                label={appCustomMapper[key] || key}
+                checked={!!value}
+                onChange={() => updateAppMeta({ custom: { ...appMeta.custom, [key]: !value } })}
+              />
+            ))}
         </div>
       </>
     )}

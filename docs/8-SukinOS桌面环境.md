@@ -196,7 +196,7 @@ SukinOS 实现了多层安全沙箱：PID 命名空间隔离（Storage/IndexedDB
 
 SukinOS 用 5 类 IndexedDB 数据库实现全量本地持久化。其中三类**按用户加后缀**（未登录/游客回落到 `DEFAULT_USER_ID`，登录态变化时 Kernel 整体换库）：`SukinOS_Sys_${userId}`（用户应用注册表）、`SukinOS_Res_${userId}`（应用资源库）、`SUKIN_STATE_INSTANCE_${userId}`（有状态实例，如文件句柄）；另外两类是固定名：`SUKIN_OS_VFS`（虚拟文件系统，全局唯一，不带用户后缀）和 `sukin_system_app`（系统应用自己的业务数据，如 boards/mindmaps/sheet，见 `utils/_db.js`）。
 
-旧文档里写作 `SukinOS_Sys` / `SukinOS_Res` / `SUKIN_STATE_INSTANCE` 的裸名已不存在——它们只是工厂函数 `createSysDbConfig(userId)` / `createResDbConfig(userId)` / `createInstanceDbConfig(userId)` 产出名字时的前缀（`config.js:102-137`）。
+旧文档里写作 `SukinOS_Sys` / `SukinOS_Res` / `SUKIN_STATE_INSTANCE` 的裸名已不存在——它们只是工厂函数 `createSysDbConfig(userId)` / `createResDbConfig(userId)` / `createInstanceDbConfig(userId)` 产出名字时的前缀（`config.js:createInstanceDbConfig`）。
 
 > 数据库配置表（§3.2）、VFS Inode 数据模型（§1.2）、模块关系总览图（§6）详见 [05-file-system-tools.md](./module/05-file-system-tools.md)
 

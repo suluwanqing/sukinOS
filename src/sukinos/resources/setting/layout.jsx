@@ -53,7 +53,7 @@ function Setting() {
     },
     {
       id: 'about',
-      label: '系统信息',
+      label: '组件',
       icon: <InfoIcon width="1em" height="1em" />,
       render: <SystemInfo />
     }

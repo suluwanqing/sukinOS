@@ -466,7 +466,7 @@ graph TD
 
 #### VirtualWorker
 
-`VirtualWorker` 是 Web Worker 的轻量化替代方案，使用 `with(sandbox) + Proxy + Shared Iframe` 实现 JS 沙箱隔离。定义在 `lifecycle.js:41-269`。
+`VirtualWorker` 是 Web Worker 的轻量化替代方案，使用 `with(sandbox) + Proxy + Shared Iframe` 实现 JS 沙箱隔离。定义在 `lifecycle.js:VirtualWorker`。
 
 特性：
 - 通过 `new Function('self', 'with(self) { code }')` 执行代码
@@ -477,7 +477,7 @@ graph TD
 - 支持 `importScripts` 同步脚本加载（通过 XHR 同步请求）
 - `addEventListener('message', handler)` 被拦截为 `this.appOnMessage = handler`，确保沙箱内只接收宿主消息
 
-**资源追踪注册表**（lifecycle.js:49-53）：
+**资源追踪注册表**（`lifecycle.js:VirtualWorker`）：
 
 | 注册表 | 拦截的 API | terminate 清理方式 |
 |--------|-----------|-------------------|
@@ -486,14 +486,14 @@ graph TD
 | `activeRAFFrames` (Set) | `requestAnimationFrame` | 遍历 `cancelAnimationFrame` |
 | `attachedEventListeners` (Array) | `addEventListener` (非 message) | 遍历 `removeEventListener` |
 
-**消息分流机制**（lifecycle.js:58-81）：
+**消息分流机制**（`lifecycle.js:sandboxSelf.postMessage`）：
 
 | 消息类型 | 投递方式 | 设计理由 |
 |----------|---------|---------|
 | `STATE_UPDATE` | `requestAnimationFrame` 帧对齐节流 | 高频状态更新，确保每帧最多投递一次最新的状态 |
 | 其他控制流事件 | `setTimeout(0)` 微任务 | 低频事件，需要尽快投递 |
 
-**Proxy 代理层**（lifecycle.js:164-205）：
+**Proxy 代理层**（`lifecycle.js:sandboxSelfProxy`）：
 - `sandboxSelfProxy` 基于 `iframe.contentWindow` 创建 Proxy
 - `has: () => true` 确保 `with(sandbox)` 下所有变量查找被拦截
 - 所有写操作进入 `localStore`（每个 VirtualWorker 独立内存）
@@ -505,9 +505,9 @@ graph TD
 
 #### NoWorker
 
-`NoWorker` 针对纯前端应用（`worker: false`），在宿主线程模拟 Worker 通信协议。定义在 `lifecycle.js:275-377`。
+`NoWorker` 针对纯前端应用（`worker: false`），在宿主线程模拟 Worker 通信协议。定义在 `lifecycle.js:NoWorker`。
 
-**sysConfig 构建与注入**（lifecycle.js:286-294）：
+**sysConfig 构建与注入**（`lifecycle.js:NoWorker`）：
 NoWorker 在构造时构建完全等价于 Worker 端 `SYS_CONFIG` 的 `sysConfig`，确保广播的 `STATE_UPDATE` payload 格式一致：
 ```js
 this.sysConfig = {
@@ -517,10 +517,10 @@ this.sysConfig = {
 };
 ```
 
-**initializeState 校准器**（lifecycle.js:297）：
+**initializeState 校准器**（`lifecycle.js:NoWorker`）：
 使用 `initializeState(initialState, isBundle)` 与 Worker 端 INIT handler 完全一致的逻辑初始化状态。Bundle App 的 NoWorker 实例也获得 `{router: {path: 'home'}}` 初始路由。
 
-**初始化时状态广播**（lifecycle.js:301-313）：
+**初始化时状态广播**（`lifecycle.js:NoWorker`）：
 构造后，如果存在历史持久化状态（calibratedState 不为 null），立即通过 `setTimeout(0)` 广播给 CommHub 填充 `stateCache`。
 
 **UI_ACTION 处理三种路径**：
@@ -531,10 +531,10 @@ this.sysConfig = {
 | `NAVIGATE`（Bundle） | `processStateAction` 注入 `router.path` | ✅ 是 | ❌ |
 | 其他 action | `processStateAction` 返回同引用 | ❌ 否 | ✅ ACTION_ECHO |
 
-**ACTION_ECHO 机制**（lifecycle.js:353-360）：
+**ACTION_ECHO 机制**（`lifecycle.js:NoWorker.postMessage`）：
 当 `processStateAction` 返回 `nextState === prevState`（无状态变更），NoWorker 产生 `ACTION_ECHO` 消息回调到应用监听器，确保副作用型 action 不被静默跳过。
 
-**SAVE_STATE 兼容分支**（lifecycle.js:364-370）：NoWorker 的 `postMessage` 识别 `SAVE_STATE`，取 `getCachedState(pid)` 后调用 `commHub.saveState(...)` —— 而 CommHub 并没有这个方法（持久化入口是构造时注入的 `onSaveState` 回调），所以这条分支一旦被命中就抛 `TypeError`。当前没有任何调用方会走到它，属已知的死代码；细节见 [07-app-routing.md](./07-app-routing.md) §3.4.4。
+**SAVE_STATE 兼容分支**（`lifecycle.js:NoWorker.postMessage`）：NoWorker 的 `postMessage` 识别 `SAVE_STATE`，取 `getCachedState(pid)` 后调用 `commHub.saveState(...)` —— 而 CommHub 并没有这个方法（持久化入口是构造时注入的 `onSaveState` 回调），所以这条分支一旦被命中就抛 `TypeError`。当前没有任何调用方会走到它，属已知的死代码；细节见 [07-app-routing.md](./07-app-routing.md) §3.4.4。
 
 > NoWorker sysConfig 注入、processStateAction、ACTION_ECHO 的完整代码分析详见 [07-app-routing.md](./07-app-routing.md) §3.4
 
@@ -555,7 +555,7 @@ this.sysConfig = {
 
 #### startProcess 会话恢复保护
 
-`startProcess` 在冷启动时有会话恢复保护逻辑（lifecycle.js:509-511）：
+`startProcess` 在冷启动时有会话恢复保护逻辑（`lifecycle.js:Lifecycle.startProcess`）：
 
 ```js
 const targetStatus = originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING';
@@ -565,17 +565,17 @@ const targetStatus = originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING';
 
 #### clearAppSavedState 全量清除
 
-`clearAppSavedState`（lifecycle.js:600-612）直接把 `app.savedState` 置为 `null`，业务状态与窗口几何信息一起清除：
+`clearAppSavedState`（`lifecycle.js:Lifecycle.clearAppSavedState`）直接把 `app.savedState` 置为 `null`，业务状态与窗口几何信息一起清除：
 
 ```js
 app.savedState = null;  // app + window 一起清
 ```
 
-窗口几何信息想保留时靠的是 `saveWindowState`（lifecycle.js:531-545）的增量写入：它用 `{...prevSavedState, window}` 的新引用只替换 `window` 分支。
+窗口几何信息想保留时靠的是 `saveWindowState`（`lifecycle.js:Lifecycle.saveWindowState`）的增量写入：它用 `{...prevSavedState, window}` 的新引用只替换 `window` 分支。
 
 #### forceSaveAllStates 紧急保存
 
-页面卸载前触发 `forceSaveAllStates`（lifecycle.js:552-566）。它对每个进程做两件事，实际持久化只由第二件事完成：
+页面卸载前触发 `forceSaveAllStates`（`lifecycle.js:Lifecycle.forceSaveAllStates`）。它对每个进程做两件事，实际持久化只由第二件事完成：
 
 ```js
 p.worker.postMessage({type: 'SAVE_STATE'})   // ① 即发即忘
@@ -583,12 +583,12 @@ this.#kernel.autoSaveState(pid)              // ② 直接从 stateCache 落盘
 this.#kernel.autoSaveWindow(pid)
 ```
 
-- ① 对**真实 Worker 是空操作**：消息路由器没有 `SAVE_STATE` 分支（`workerDrive.js:86-131`，`default: break`）。NoWorker 有兼容分支，但那条分支调的是不存在的 `commHub.saveState`（见 §3.4 的告警），因此同样不产生保存。
+- ① 对**真实 Worker 是空操作**：消息路由器没有 `SAVE_STATE` 分支（`workerDrive.js:getRunnerMessageRouter`，`default: break`）。NoWorker 有兼容分支，但那条分支调的是不存在的 `commHub.saveState`（见 §3.4 的告警），因此同样不产生保存。
 - ② 才是生效路径，且**不检查 `saveState` 配置**——无论应用怎么配置都会保存一次，这是"无论配置如何都强制保存"这句话的真实含义。
 
 #### 自动保存定时器（autoSave）
 
-定时器不在 Lifecycle 里，在 Kernel 的 Auto-Save 段（kernel.js:210-270），由 `startAutoSaveState`/`startAutoSaveWindow` 以 `setTimeout` 链式排程（防漂移：每次执行后按当时的最新间隔重排）：
+定时器不在 Lifecycle 里，在 Kernel 的 Auto-Save 段（`kernel.js:Kernel.startAutoSaveWindow`），由 `startAutoSaveState`/`startAutoSaveWindow` 以 `setTimeout` 链式排程（防漂移：每次执行后按当时的最新间隔重排）：
 
 | 条件 | 状态定时器 `startAutoSaveState`（:233-240） | 窗口定时器 `startAutoSaveWindow`（:254-259） |
 |------|-------------------------------------------|--------------------------------------------|
@@ -599,15 +599,15 @@ this.#kernel.autoSaveWindow(pid)
 
 #### restoreSession 会话恢复
 
-`restoreSession()`（lifecycle.js:700-719）批量恢复 `RUNNING`/`HIBERNATED`/`autoStart` 应用，异步启动不阻塞主流程。
+`restoreSession()`（`lifecycle.js:Lifecycle.restoreSession`）批量恢复 `RUNNING`/`HIBERNATED`/`autoStart` 应用，异步启动不阻塞主流程。
 
 #### evokeApp 跨应用唤起
 
-`evokeApp({pid, from, interactInfo})`（lifecycle.js:722-734）注入 `from` 信息，目标 App 已运行则直接发送 `APP_INTERACT`，未运行则冷启动+交互。
+`evokeApp({pid, from, interactInfo})`（`lifecycle.js:Lifecycle.evokeApp`）注入 `from` 信息，目标 App 已运行则直接发送 `APP_INTERACT`，未运行则冷启动+交互。
 
 #### forceResetApp 无条件重置
 
-`forceResetApp(pid)`（lifecycle.js:618-639）**无视 saveState 配置**强制清空所有状态并杀死进程，用于用户主动发起的彻底重置操作。
+`forceResetApp(pid)`（`lifecycle.js:Lifecycle.forceResetApp`）**无视 saveState 配置**强制清空所有状态并杀死进程，用于用户主动发起的彻底重置操作。
 
 > 以上所有 Lifecycle API 的完整调用链与代码分析详见 [07-app-routing.md](./07-app-routing.md) §5-6
 
@@ -682,7 +682,7 @@ CommHub 通过 `sendToWorker` 向订阅进程转发 `TOPIC_MESSAGE`，Worker 消
 
 | 方法 | 说明 |
 |------|------|
-| `updateResourceCustom(data)` | 更新应用 custom 配置（合并到 metaInfo.custom） |
+| `updateResourceCustom(data)` | 更新应用 custom 配置（经 `mergeAppCustom` 合并到 metaInfo.custom） |
 
 ---
 
@@ -739,7 +739,26 @@ CommHub 通过 `sendToWorker` 向订阅进程转发 `TOPIC_MESSAGE`，Worker 消
 | 函数 | 说明 |
 |------|------|
 | `generateWorker(args)` | 生成完整 Worker 代码字符串 |
-| `parseWorkerCode(workerCode)` | 反解析 Worker 代码，提取配置/逻辑/状态 |
+| `parseWorkerCode(workerCode)` | 按标记位取回各块并解 JSON。`ENV_KEY_LOGIC` 优先回填 `LOGIC_SOURCE` 原文，缺该块的旧包才回落到执行块（等于「再生成一次不会二次编译」）；`ENV_KEY_LOGIC_PRECOMPILED` 只在存在原文时另存执行块 |
+
+标记位字面量只有 `getMarkers` 这一份真源（Python 与手工脚本都不镜像）。把取回的块还原成
+"源文件视图"的规则住在共用的 `workerFiles.js`，两个出口共用同一棵树：
+
+| 出口 | 消费方 |
+|------|--------|
+| `buildPreviewFromWorker(workerCode)` | 开发者中心 →「更新」面板的变更前预览 |
+| `buildWorkerFileTree(workerCode)` | 系统管理 → 应用管理 →「下载文件 · 解析后的源文件」（打 zip） |
+
+补 `.jsx` 只按 key 自带不带扩展名判断（`hasPayloadExt`）：内容包里只有 JS 档在发布期被去掉后缀，
+CSS/HTML/资源保留完整后缀。预编译产物不进导出树——它是派生物，要双份请用「下载文件 · 原始内联包」。
+
+两个出口对 key 的处理不同，这是刻意的：`buildPreviewFromWorker` 原样保留块内 key（面板要显示作者
+写的那个名字，"喂回再生成"也要求 key 与 worker 内 `require` 的解析口径一致）；`buildWorkerFileTree`
+是写盘那条路，每个落地名先过同文件里的 `normalizeRelPath`（`safeNameSegment` 是它的单段版，用于
+zip 根目录名与下载文件名）——只按 `/` 分层，`..` 向上弹并夹在根内，Windows 非法字符与段尾点空格
+折成 `_`，净化后撞到一起的两份内容按 `-2` 让位。原因：JSZip 逐字存名，不净化就等于把内容包里
+自报的 `../x.js` 原样写进归档，能不能逃出自定目录取决于对端用哪个解压器。被改名的条目数在返回体的
+`pathAdjusted` 里，弹窗会如实标注；要逐字节那份，用「原始内联包」。
 
 ### 4.2 workerDrive - Worker 运行时引擎
 
@@ -751,8 +770,8 @@ CommHub 通过 `sendToWorker` 向订阅进程转发 `TOPIC_MESSAGE`，Worker 消
 
 | 组件 | 说明 |
 |------|------|
-| `processStateAction(state, action, isBundle)` | 状态路由处理器（处理 Bundle 的 NAVIGATE）。**只有 NoWorker 分支 import**（`lifecycle.js:2`，用于 `:297,342`）；Worker 沙箱内不注入此符号，等价逻辑内联在 `getRunnerWorkerDispatcher`（`:66-72`） |
-| `initializeState(baseState, isBundle)` | 初始状态校准器（自动注入 router.home）。同上，仅 NoWorker 使用；Worker 侧的 `INIT` 分支自己补 `router`（`:93-95`） |
+| `processStateAction(state, action, isBundle)` | 状态路由处理器（处理 Bundle 的 NAVIGATE）。**只有 NoWorker 分支 import**，调用点在 `lifecycle.js:NoWorker.postMessage`；Worker 沙箱内不注入此符号，等价逻辑内联在 `workerDrive.js:getRunnerWorkerDispatcher` |
+| `initializeState(baseState, isBundle)` | 初始状态校准器（自动注入 router.home）。同上，仅 NoWorker 使用，调用点在 `lifecycle.js:NoWorker.constructor`；Worker 侧的 `INIT` 分支自己补 `router`（`workerDrive.js:getRunnerMessageRouter`） |
 | `RUNNER_SANDBOX_PRIVILEGES` | 沙箱特权边界绑定器（块内 `eval`/XHR/importScripts 封禁；`Function` 仅在 worker 环境放行，UI 沙箱仍禁，见下文「沙箱对 `Function` 的放行边界」） |
 | `getRunnerWorkerDispatcher(ENV_KEY_IS_BUNDLE)` | 状态分发器工厂源码（创建 dispatch/broadcast/save） |
 | `getRunnerMessageRouter(ENV_KEY_IS_BUNDLE)` | 消息协议路由器源码（处理 `INIT`/`RESTORE`/`UI_ACTION`/`APP_INTERACT`/`TOPIC_MESSAGE` 共 5 种入站） |
@@ -760,14 +779,14 @@ CommHub 通过 `sendToWorker` 向订阅进程转发 `TOPIC_MESSAGE`，Worker 消
 
 #### 块内可见的自由标识符（`RUNNER_SANDBOX_PRIVILEGES`）
 
-这段以原样字符串注入块级作用域顶部，决定用户逻辑裸标识符解析到什么（`workerDrive.js:38-49`）：
+这段以原样字符串注入块级作用域顶部，决定用户逻辑裸标识符解析到什么（`workerDrive.js:RUNNER_SANDBOX_PRIVILEGES`）：
 
 | 绑定 | 来源 |
 |------|------|
 | `eval`、`Function`、`setTimeout`、`setInterval`、`fetch`、`indexedDB`、`navigator`、`URL`、`Blob` | `_safeGlobalProxy.<同名>`，即经 `_createSafeProxyHandler(envType)` 过滤后的值（`Function` 的按环境放行见下一节；`eval` 两侧都是 `_forbidden`） |
 | `XMLHttpRequest`、`importScripts` | 显式 `undefined`，块内一引用即 `undefined`，不走代理 |
 
-注意两点：这只是**标识符影子**，不封锁属性路径（`globalThis.fetch`、`({}).constructor.constructor` 仍通向真实全局）；未列出的标识符不经这一层，直接落到执行环境自身的全局——真 Worker 里 `clearTimeout` 等解析到 worker global，而 `localStorage`/`requestAnimationFrame` 在 Worker 全局本就不存在；VirtualWorker 里 `globalThis` 解析到 `sandboxSelfProxy`，由它决定给什么。`security.js:432` 的 `blockedProps` 列表（`fetch`/`eval`/`Function`/`XMLHttpRequest`/`importScripts`/`window`/`document`/`self`/`globalThis`/`navigator`）是**代理 `set` 陷阱**侧的覆写封禁，与这张读取绑定表是两套东西。
+注意两点：这只是**标识符影子**，不封锁属性路径（`globalThis.fetch`、`({}).constructor.constructor` 仍通向真实全局）；未列出的标识符不经这一层，直接落到执行环境自身的全局——真 Worker 里 `clearTimeout` 等解析到 worker global，而 `localStorage`/`requestAnimationFrame` 在 Worker 全局本就不存在；VirtualWorker 里 `globalThis` 解析到 `sandboxSelfProxy`，由它决定给什么。`security.js:blockedProps` 的 `blockedProps` 列表（`fetch`/`eval`/`Function`/`XMLHttpRequest`/`importScripts`/`window`/`document`/`self`/`globalThis`/`navigator`）是**代理 `set` 陷阱**侧的覆写封禁，与这张读取绑定表是两套东西。
 
 #### 逻辑块模块运行时（`__requireLogic`）
 
@@ -833,7 +852,7 @@ sequenceDiagram
     Worker-->>Kernel: STATE_UPDATE {newState, config}
 ```
 
-入站类型共 5 种（`INIT` / `RESTORE` / `UI_ACTION` / `APP_INTERACT` / `TOPIC_MESSAGE`，`workerDrive.js:86-131`），未列出的 `type` 落到 `default: break` 被忽略——**`SAVE_STATE` 不在其中**，它是 Worker→Kernel 的出站消息。
+入站类型共 5 种（`INIT` / `RESTORE` / `UI_ACTION` / `APP_INTERACT` / `TOPIC_MESSAGE`，`workerDrive.js:getRunnerMessageRouter`），未列出的 `type` 落到 `default: break` 被忽略——**`SAVE_STATE` 不在其中**，它是 Worker→Kernel 的出站消息。
 
 ### 4.3 generateApp - 应用安装/注册/删除
 
@@ -887,8 +906,10 @@ sequenceDiagram
 `ENV_KEY_LOGIC_PRECOMPILED` 存产物，`generateWorker` 按「产物 → 原文 → 兜底 reducer」取值，
 因此未预编译的存量应用与系统 APP 行为不变。
 
-- 跳过项：系统 APP（强制走 JSX 编译保证可审计）、`.css` key（交给 `createCssModule`，
-  当 JSX 编译必报错）、已有产物的资源（幂等）。
+- 跳过项：系统 APP（强制走 JSX 编译保证可审计）、非代码档 key（`compileOne` 的 `isCodeKey`
+  守卫，`generateApp.js:precompileResourceContent`——CSS 交给 `createCssModule`、文档档由 `HtmlAppFrame` 合成子文档、
+  资源档是 base64 串，送进 Babel 只会得到一条假编译错误并盖进 `precompileIssues`）、
+  视图入口是 html 的整份载荷（`generateApp.js:precompileResourceContent` 直接返回）、已有产物的资源（幂等）。
 - 失败降级：单模块编译失败不阻断安装，保留原始源码运行时兜底，并把失败清单写进
   `metaInfo.precompileIssues = { reason: 'failed', keys }`，随资源固化到 `APP_METAINFO`，
   供 worker 侧 `require` 报错时指认真因（否则只会被说成路径写错）。
@@ -902,25 +923,36 @@ sequenceDiagram
 `resolveAppEntries(metaInfo)` 读取，缺失回落到 `view:'layout' / logicMain:null / logicAux:[]`。
 运行时不读 localStorage，因此换设备、换账号安装的已发布应用行为不随本机配置漂移。
 
-`utils/entryConfig.js` 的 8 个导出（其余为模块私有）：
+`utils/entryConfig.js` 的 10 个导出（其余为模块私有）：
 
 | 导出 | 位置 | 作用 |
 |------|------|------|
-| `DEFAULT_ENTRY_CONFIG` | `:12` | `{ logicEntries: ['logic.jsx'], viewEntry: 'layout.jsx', mainEntry: 'main.jsx' }`；`logicEntries` 是**列表**，命中集合的第一个即主逻辑入口 |
-| `loadEntryConfig(uid)` | `:27` | 读 `su:dev:entry:<uid>`；uid 缺失/解析失败/字段为空时逐项回落默认值，**不落盘** |
-| `saveEntryConfig(uid, config)` | `:45` | 写同一条 key；uid 缺失直接返回 `false`（不报错，UI 需自行提示"请先登录"） |
-| `moduleKeyOf(path)` | `:56` | 相对路径 → 内容包模块 key（去 `.jsx/.js` 后缀；`.css` 因不匹配正则而保留后缀） |
-| `matchEntryPattern(pattern, path)` | `:64` | 模式匹配：无 `*`/`?` 时走全等；`*` 段内不通配 `/`，`**` 跨段（并吞掉紧随的 `/`），`?` 单字符；其余正则元字符逐个转义 |
-| `detectLogicEntryFiles(files, config)` | `:85` | 按**模式声明顺序**收集命中文件（同模式内路径字母序），跳过 `files[k] === null` 的占位项，保证主入口选取稳定 |
-| `findEntryFile(files, spec)` | `:97` | 按入口名定位实际文件，先比 `moduleKeyOf` 再比全等 ⇒ 配置里写 `layout` 或 `layout.jsx` 都能命中 |
-| `buildAppEntries(files, config)` | `:108` | 汇总：`{ logicFiles, logicMainFile, logicAuxFiles, viewFile, mainFile, entries }`——带扩展名的**文件路径**给开发面板用，`entries` 是去后缀的**模块 key**，发布时写进 `metaInfo` |
+| `DEFAULT_ENTRY_CONFIG` | `entryConfig.js:DEFAULT_ENTRY_CONFIG` | `{ logicEntries: ['logic.jsx'], viewEntry: 'layout.jsx', mainEntry: 'main.jsx' }`；`logicEntries` 是**列表**，命中集合的第一个即主逻辑入口 |
+| `loadEntryConfig(uid)` | `entryConfig.js:loadEntryConfig` | 读 `su:dev:entry:<uid>`；uid 缺失/解析失败/字段为空时逐项回落默认值，**不落盘** |
+| `saveEntryConfig(uid, config)` | `entryConfig.js:saveEntryConfig` | 写同一条 key；uid 缺失直接返回 `false`（不报错，UI 需自行提示"请先登录"） |
+| `moduleKeyOf(path)` | `entryConfig.js:moduleKeyOf` | 相对路径 → JSX 包模块 key（只剥 `.jsx/.js`；`.css`/`.html`/资源因不匹配正则而保留后缀） |
+| `contentKeyOf(path, isDocument)` | `entryConfig.js:contentKeyOf` | 内容包 key 的**两套口径开关**：JSX 包走 `moduleKeyOf`，文档包原样保留路径（见下段） |
+| `matchEntryPattern(pattern, path)` | `entryConfig.js:matchEntryPattern` | 模式匹配：无 `*`/`?` 时走全等；`*` 段内不通配 `/`，`**` 跨段（并吞掉紧随的 `/`），`?` 单字符；其余正则元字符逐个转义 |
+| `detectLogicEntryFiles(files, config)` | `entryConfig.js:detectLogicEntryFiles` | 按**模式声明顺序**收集命中文件（同模式内路径字母序），跳过 `files[k] === null` 的占位项，保证主入口选取稳定 |
+| `findEntryFile(files, spec)` | `entryConfig.js:findEntryFile` | 按入口名定位实际文件。spec 以 `.html`/`.htm` 结尾时按路径**精确匹配**（html 的 key 带后缀，走 `moduleKeyOf` 比对永远命不中）；否则维持 jsx/js 互认语义，写 `layout` 或 `layout.jsx` 都能命中 |
+| `formatMissingViewHint(viewEntry)` | `entryConfig.js:formatMissingViewHint` | 缺视图入口的统一文案（上传 / 更新 / 本地开发 / 开发者中心共用）；视图入口不是 html 时点名"dist 作为应用发布时把视图入口设为其中的 `index.html`"，免得作者去补一个假的 `layout.jsx` |
+| `buildAppEntries(files, config)` | `entryConfig.js:buildAppEntries` | 汇总：`{ logicFiles, logicMainFile, logicAuxFiles, viewFile, mainFile, entries }`——带扩展名的**文件路径**给开发面板用，`entries` 是 `moduleKeyOf` 后的 key，发布时写进 `metaInfo`；视图入口是 `index.html` 时 `entries.view` 就是 `index.html`，后缀自带类型信息 |
 
-模块 key 规则全链统一：`.jsx/.js` 去后缀、`.css` 保留后缀（内容与 entries 同一口径）。
-依赖扫描（`collectRelativeImports`）把 `from './x'` 与 `require('./x')` 同等对待，且整行注释
-（`//`、`/*`、块注释续行 `*`）不参与匹配——教学注释里写的 `require('./xxx')` 不是真依赖。
+内容包有两套 key 寻址口径，由视图入口的后缀决定（`contentKeyOf`），没有额外的标记字段：
+
+- **JSX 包**按**导入路径**寻址——`require` 的候选规则会自动补 `.jsx/.js`，所以 key 去后缀；
+  `.css` 不匹配该正则因而保留后缀。依赖扫描（`collectRelativeImports`）把 `from './x'`
+  与 `require('./x')` 同等对待，且整行注释（`//`、`/*`、块注释续行 `*`）不参与匹配——
+  教学注释里写的 `require('./xxx')` 不是真依赖。
+- **文档包**按**文件路径**寻址——html 里的 `<script src="./assets/x.js">` 引的就是相对路径，
+  去后缀会让合成器（`htmlDocument.js`）永远解析不中，所以 key 完整保留。
+  运行时用 `isHtmlKey(entries.view)` 判定当前是文档包。
+
 发布前的分层校验（`inspectEntryLayering`）即以此口径检查 key-conflict / 逻辑引样式 /
-逻辑依赖缺失 / 主逻辑块写 export / 页面反向 import 辅逻辑，其中前四类是 worker 必炸的硬故障，预览也拦；
-最后一条降级为提示，发布仍拦。
+逻辑依赖缺失 / 主逻辑块写 export / 页面反向 import 辅逻辑 / 文档档引用缺失与外链。返回值按
+`SOFT_LAYERING_CODES`（`sourceMapper.js:SOFT_LAYERING_CODES`）分成两组：`page-imports-aux` 与 `html-ref-external`
+是软约束（只提示，发布仍拦），其余（key-conflict / logic-imports-css / logic-import-missing /
+logic-exports / html-ref-missing）都是 worker 或运行期必炸的硬故障，预览也拦。
 
 #### syncLocal：三处读取点，读的不是同一个字段
 
@@ -929,9 +961,9 @@ sequenceDiagram
 
 | # | 位置 | 读什么 | 生效条件 | 实际做的事 |
 |---|------|--------|----------|------------|
-| ① | `extInstallResource`（`generateApp.js:324`） | **`args.syncLocal`**（安装入参的顶层字段，**不是** `metaInfo.syncLocal`） | 调用方显式传 `syncLocal: true` | `kernel.writeAppFile({...newRes, content})` 写盘，再 `dirHandle.getFileHandle()` 把句柄挂到 `appSys.handle`；取句柄失败只 `console.warn` |
-| ② | `extSyncResourcesToFiles`（`:367-378`） | `res[ENV_KEY_META_INFO].syncLocal` | `kernel.dirHandle` 存在；跳过 preset 资源 | 逐条比对：本地已有同名 `${SUKIN_PRE}${name}${SUKIN_EXT}` 就跳过，否则 `writeAppFile`。**当前没有启动期调用方**——`core.js:68` 那行 `await this.syncResourcesToFiles()` 是注释状态，只有外部手动调 `kernel.syncResourcesToFiles()` 才会跑 |
-| ③ | `extSyncRegistryByRes`（`:547-562`） | `appSys[ENV_KEY_META_INFO].syncLocal`（值来自资源 metaInfo） | `kernel.dirHandle` 存在，且该资源尚未注册 | 启动扫描补注册时顺手关联本地句柄；取不到句柄就 `writeAppFile(res)` 再取一次，仍失败只 warn。这是**唯一在开机链上真正生效**的一处（`core.js:62`） |
+| ① | `extInstallResource`（`generateApp.js:extInstallResource`） | **`args.syncLocal`**（安装入参的顶层字段，**不是** `metaInfo.syncLocal`） | 调用方显式传 `syncLocal: true` | `kernel.writeAppFile({...newRes, content})` 写盘，再 `dirHandle.getFileHandle()` 把句柄挂到 `appSys.handle`；取句柄失败只 `console.warn` |
+| ② | `extSyncResourcesToFiles`（`generateApp.js:extSyncResourcesToFiles`） | `res[ENV_KEY_META_INFO].syncLocal` | `kernel.dirHandle` 存在；跳过 preset 资源 | 逐条比对：本地已有同名 `${SUKIN_PRE}${name}${SUKIN_EXT}` 就跳过，否则 `writeAppFile`。**当前没有启动期调用方**——`core.js:Core.init` 那行 `await this.syncResourcesToFiles()` 是注释状态，只有外部手动调 `kernel.syncResourcesToFiles()` 才会跑 |
+| ③ | `extSyncRegistryByRes`（`generateApp.js:extSyncRegistryByRes`） | `appSys[ENV_KEY_META_INFO].syncLocal`（值来自资源 metaInfo） | `kernel.dirHandle` 存在，且该资源尚未注册 | 启动扫描补注册时顺手关联本地句柄；取不到句柄就 `writeAppFile(res)` 再取一次，仍失败只 warn。这是**唯一在开机链上真正生效**的一处（`core.js:Core.init`） |
 
 因此实际口径是：面板里勾"本地同步"→ 只有 ③ 会在下次启动扫描时把包写到本地目录并绑定句柄；
 ①（安装当场写）需要调用方额外传顶层 `args.syncLocal`，目前开发者中心/上传/更新/本地开发四条
@@ -983,7 +1015,7 @@ sequenceDiagram
 
 | 函数 | 说明 |
 |------|------|
-| `compileSourceAsync({sourceCode, pid, targetFunctionConstructor, module, precompiled, moduleRegistry, currentModuleKey}, options)` | 编译源码为可执行 factory 函数（**单一对象入参**，`renderWindow.js:124-127`；`module` 默认 `'component'`、`precompiled` 默认 `false`） |
+| `compileSourceAsync({sourceCode, pid, targetFunctionConstructor, module, precompiled, moduleRegistry, currentModuleKey}, options)` | 编译源码为可执行 factory 函数（**单一对象入参**，`renderWindow.js:compileSourceAsync`；`module` 默认 `'component'`、`precompiled` 默认 `false`） |
 | `scopeCss(css, pid)` | CSS 作用域隔离（添加 `#proc-${pid}` 前缀） |
 
 `compileSourceAsync` 流程：
@@ -994,7 +1026,7 @@ sequenceDiagram
 5. 多模块场景注入模块解析上下文 `__moduleRegistry`/`__currentModuleKey`/`__moduleKeys`，模块内 `require` 经 `__resolveModulePath` 解析后 `factory.call` 求值（:238-249,286-289）
 6. `targetFunctionConstructor` 可传 iframe realm 的 Function 构造器，使 factory 的 `globalThis` 落在该文档内
 
-> `renderWindow.js:116-122` 的 JSDoc 仍写作 `@param sourceCode / pid / targetFunctionConstructor` 三个位置参数，与 `:124-127` 的真实对象入参不一致 —— 以代码签名为准，注释待修。
+> `renderWindow.js:compileSourceAsync` 的 JSDoc 仍写作 `@param sourceCode / pid / targetFunctionConstructor` 三个位置参数，与真实签名的单对象入参不一致 —— 以代码签名为准，注释待修。
 
 ### 4.7 indexDb - 通用数据库封装
 
@@ -1166,7 +1198,7 @@ sequenceDiagram
     initialSize: { w: 500, h: 400 },
     version: '0.1',
     createdAt: 'ISO date',
-    appType: 'system',              // 自由字符串；'system' 有语义（lifecycle.js:774 据此走系统应用路径），用户应用取 editor/game/tool 或自定义值
+    appType: 'system',              // 自由字符串；'system' 有语义（lifecycle.js:clearAppSandboxData 据此走系统应用路径），用户应用取 editor/game/tool 或自定义值
     worker: true,                   // 是否使用Worker（false=纯前端）
     saveState: true,                // 关闭时是否保存状态
     syncLocal: true,               // 是否同步到本地文件

@@ -270,7 +270,7 @@ SDK 是应用与系统交互的唯一接口，通过工厂函数 `createSdkForIn
 
 ### 7.2 安全沙箱
 
-多层安全沙箱确保每个应用进程在隔离环境中运行：PID 命名空间隔离（Storage/IndexedDB）、Fetch 注入（`x-kernel-process-id` Header）、CDN 白名单、Blob 递归沙箱化、敏感 API 代理（`eval`/`XMLHttpRequest`/`importScripts` 两种环境都禁；`Function` 按 `envType` 分档——worker 放行真实构造器用于包装预编译逻辑模块，UI 侧仍禁，`security.js:406-413`）、受保护属性不可覆写（`set` trap 的 `blockedProps` 清单）、设备屏蔽（USB/Bluetooth/HID）、SDK 冻结（Proxy 拦截写操作）、清理机制（`clearSandboxStorageByPid`/`clearAppSandboxData`）。
+多层安全沙箱确保每个应用进程在隔离环境中运行：PID 命名空间隔离（Storage/IndexedDB）、Fetch 注入（`x-kernel-process-id` Header）、CDN 白名单、Blob 递归沙箱化、敏感 API 代理（`eval`/`XMLHttpRequest`/`importScripts` 两种环境都禁；`Function` 按 `envType` 分档——worker 放行真实构造器用于包装预编译逻辑模块，UI 侧仍禁，`security.js:clearSandboxStorageByPid`）、受保护属性不可覆写（`set` trap 的 `blockedProps` 清单）、设备屏蔽（USB/Bluetooth/HID）、SDK 冻结（Proxy 拦截写操作）、清理机制（`clearSandboxStorageByPid`/`clearAppSandboxData`）。
 
 > 沙箱策略完整表格、CDN 白名单列表、Worker 沙箱前导代码、VirtualWorker 资源追踪与清理详见 [05-file-system-tools.md](./05-file-system-tools.md)
 
@@ -411,7 +411,8 @@ graph TD
 | `allowResize` | `true` | 允许调整窗口大小 |
 | `showInLauncher` | `false` | 在启动器中显示 |
 | `backgroundSleep` | `false` | 后台静默（暂停订阅） |
-| `adaptiveMount` | `false` | 后台自适应挂载（不保存 APP 内部状态） |
+| `adaptiveMount` | `true` | 后台自适应挂载（轻量占位）：`false` 禁用占位优化、保留完整窗口；缺键按允许占位处理 |
+| `keepAlive` | `true` | 应用后台常驻（保活模式）：`true` 保留完整窗口，优先级高于 `adaptiveMount`；缺键按未保活处理；系统应用与普通应用同一判定，预设登记时未写这两个键则按 `true` 补齐 |
 | `autoSaveStateInterval` | `0` | 自动保存状态间隔（秒），`0` 表示禁用 |
 | `autoSaveWindowInterval` | `0` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
 

@@ -29,7 +29,8 @@ DeskBook 是 SukinOS 的桌面环境核心模块，负责模拟操作系统的�
 | `deskBook/statusBar/layout.jsx` | 底部状态栏，展示运行中应用图标，支持鼠标拖拽横向滚动 |
 | `deskBook/statusBar/style.module.css` | 状态栏样式 |
 | `deskBook/window/layout.jsx` | 应用窗口容器，管理窗口标题栏、缩放/拖拽、最大化、进程状态面板 |
-| `deskBook/AdaptivePlaceholder.jsx` | 后台窗口轻量占位组件（自适应挂载优化），非可见窗口仅渲染 `<div style="display:none">` 而非完整 ProcessWindow；由 `deskBook/layout.jsx:8` 引入 |
+| `deskBook/AdaptivePlaceholder.jsx` | 后台窗口轻量占位组件（未保活窗口的后台占位优化），非可见窗口仅渲染 `<div style="display:none">` 而非完整 ProcessWindow；由 `deskBook/layout.jsx:DeskBook` 引入 |
+| `components/KeepAliveViewport/index.jsx` | `HostKeepAlive`（宿主窗口保活调度）与 `KeepAlive`（`AppSDK.Components.KeepAlive` 面板级保活） |
 | `deskBook/window/style.module.css` | 窗口容器样式 |
 | `deskBook/window/process/layout.jsx` | 进程动态渲染引擎，包含 ErrorBoundary、Iframe 沙箱、代码编译与 SDK 注入 |
 | `component/fileSystemView/layout.jsx` | 通用文件系统浏览视图组件（列表/网格布局），供应用内部使用 |
@@ -61,7 +62,7 @@ graph TD
     Shortcut --> VfsImage_S
 
     DeskBook -->|"可见/焦点窗口"| ProcessWindow
-    DeskBook -->|"非可见窗口<br/>(adaptiveMount !== false)"| AdaptivePH
+    DeskBook -->|"非可见且未保活窗口"| AdaptivePH
 
     DeskBook -->|"editingApp"| CustomApp
     DeskBook -->|"Portal"| Switcher
@@ -135,7 +136,7 @@ graph TD
 | `autoArrangeApps(apps, positions, rows, cols)` | 自动排列未分配位置的快捷方式图标 |
 | `handleDragStart / Over / Leave / Drop` | 桌面图标拖拽事件处理（支持位置交换） |
 | `handleCustomUpdate(newConfig)` | 调用内核更新资源自定义配置 |
-| `handleUnload()` | `pagehide` 兜底处理器：先 `kernel.forceSaveAllStates()`，再把 `appPositionsRef` 里的图标位置交给 `setLayout` 写入 VFS 布局文件（`deskBook/layout.jsx:538-545`，系统未就绪或布局为空时不写） |
+| `handleUnload()` | `pagehide` 兜底处理器：先 `kernel.forceSaveAllStates()`，再把 `appPositionsRef` 里的图标位置交给 `setLayout` 写入 VFS 布局文件（`deskBook/layout.jsx:handleUnload`，系统未就绪或布局为空时不写） |
 
 #### Props 传递给子组件
 
@@ -254,7 +255,7 @@ graph TD
 | `isDisplay` | `boolean` | 是否参与显示规则 |
 | `isShow` | `boolean` | 是否可见 |
 | `isFocused` | `boolean` | 是否为当前焦点窗口（`is-focused` 类名与 GPU 合成层分配依据；缩放手柄的门控已停用，见 §9.2） |
-| `renderRef` | `Ref` | 转发给内部 `DynamicRenderer` 的 ref（`window/layout.jsx:291`） |
+| `renderRef` | `Ref` | 转发给内部 `DynamicRenderer` 的 ref（`window/layout.jsx:ProcessWindow`） |
 | `ref` | `Ref` | 组件自身 DOM 引用回传（`setWindowRef(pid)`） |
 | `reStartApp` | `function` | 软重启回调 |
 | `forceReStartApp` | `function` | 硬重启回调 |
@@ -262,9 +263,9 @@ graph TD
 | `showWindowSwitcher` | `boolean` | 调度中心是否开启 |
 | `isSelected` | `boolean` | 在调度中心是否被选中 |
 
-> 调用方还会传 `initialIndex`（`deskBook/layout.jsx:759`），但组件签名（`window/layout.jsx:26-29`）并未接收它，属无害冗余入参。
+> 调用方还会传 `initialIndex`（`deskBook/layout.jsx:DeskBook`），但组件签名（`window/layout.jsx:ProcessWindow`）并未接收它，属无害冗余入参。
 
-> 标题栏相关配置在 `customConfig`（`window/layout.jsx:36-47`）里解析：`hideHeader` 取 `app.metaInfo.hideHeader ?? resource.metaInfo.hideHeader ?? false`；`hideHeaderHover` 取 `app.metaInfo.custom.hideHeaderHover ?? resource.metaInfo.custom.hideHeaderHover ?? false`，且一旦 `hideHeader` 为真就被强制置回 `false`（两者互斥，隐藏优先）。
+> 标题栏相关配置在 `customConfig`（`window/layout.jsx:ProcessWindow`）里解析：`hideHeader` 取 `app.metaInfo.hideHeader ?? resource.metaInfo.hideHeader ?? false`；`hideHeaderHover` 取 `app.metaInfo.custom.hideHeaderHover ?? resource.metaInfo.custom.hideHeaderHover ?? false`，且一旦 `hideHeader` 为真就被强制置回 `false`（两者互斥，隐藏优先）。
 
 #### State
 
@@ -283,15 +284,15 @@ graph TD
 
 #### 子组件：DynamicRenderer
 
-- 由 `process/layout.jsx` 导出，在 ProcessWindow 的 content 区域渲染（`window/layout.jsx:278-293`）
-- 接收 `resource, state, dispatch, pid, isSystemApp, onFocus, forceReStartApp, reStartApp, onKill, generateAppSetting, windowControls, isVisible` 以及 `ref`（在组件内改名 `renderRef`，`process/layout.jsx:705-707`）
-- `windowControls` 由 ProcessWindow 的 `controlsRef` 适配而来（`window/layout.jsx:185-191`），含 `close / hibernate / toggleMaximize / setRect / getRect` 五个方法，透传给 `AppSDK.API.window` 供无标题栏应用自行实现窗口操作
+- 由 `process/layout.jsx` 导出，在 ProcessWindow 的 content 区域渲染（`window/layout.jsx:ProcessWindow`）
+- 接收 `resource, state, dispatch, pid, isSystemApp, onFocus, forceReStartApp, reStartApp, onKill, generateAppSetting, windowControls, isVisible` 以及 `ref`（在组件内改名 `renderRef`，`process/layout.jsx:DynamicRenderer`）
+- `windowControls` 由 ProcessWindow 的 `controlsRef` 适配而来（`window/layout.jsx:ProcessWindow`），含 `close / hibernate / toggleMaximize / setRect / getRect` 五个方法，透传给 `AppSDK.API.window` 供无标题栏应用自行实现窗口操作
 - `isVisible` 传 `isShow`，用于 iframe 可见性解绑（见 §9.11）
 - 负责代码编译、SDK 注入和沙箱渲染
 
 #### 自定义 memo 比较
 
-`memoEqual`（`window/layout.jsx:316-327`）对 8 个关键 props 进行浅比较：`pid, zIndex, isShow, isDisplay, exposeState, showWindowSwitcher, isSelected, isFocused`。父组件用 `useRef`/`useCallback` 稳定化的回调（`onFocus`、`onClose`、`onKill` 等）不参与比较，因此引用变化不会触发重渲染。注意：**缩放手柄的焦点门控目前已停用**（见 §9.2），窗口数量仍是后台窗口的 DOM 开销主要来源，真正省掉节点的是自适应挂载占位（§9.5）。
+`memoEqual`（`window/layout.jsx:memoEqual`）对 8 个关键 props 进行浅比较：`pid, zIndex, isShow, isDisplay, exposeState, showWindowSwitcher, isSelected, isFocused`。父组件用 `useRef`/`useCallback` 稳定化的回调（`onFocus`、`onClose`、`onKill` 等）不参与比较，因此引用变化不会触发重渲染。注意：**缩放手柄的焦点门控目前已停用**（见 §9.2），窗口数量仍是后台窗口的 DOM 开销主要来源，真正省掉节点的是未保活窗口的后台占位（§9.5）。
 
 ---
 
@@ -307,6 +308,7 @@ graph TD
 | `IframeStyleProvider` | 为 iframe 内部创建独立 Emotion Cache 上下文 |
 | `IframeSandbox` | 物理隔离 iframe，拦截敏感 API，同步系统样式，转发键盘/鼠标事件 |
 | `AppInternalRenderer` | 根据资源类型（单文件/bundle）渲染对应的 Layout + Page 组件 |
+| `HtmlAppFrame` | 文档档分支（`entries.view` 以 `.html` 结尾）：不走 `IframeSandbox` 也不走 portal，把内容包合成成自包含文档塞进同源 `<iframe srcDoc>`，并在 `useLayoutEffect` 里把实例 SDK 登记到 `__SUKIN_APPSDK__[pid]`（`utils/process/htmlAppFrame.jsx`，链路见 [08-development.md](./08-development.md) §4.11） |
 
 #### Props
 
@@ -378,7 +380,7 @@ useBridgeMode = (singleIframe || useVirtualWorker) && !isParasitism
 
 #### 功能
 
-- 左侧：偏好设置开关列表（通过 `appCustomMapper` 配置），包括 `hasShortcut`, `blockEd`, `isFullScreen`, `autoStart`, `allowResize`, `showInLauncher`, `backgroundSleep`, `adaptiveMount`
+- 左侧：偏好设置开关列表（通过 `appCustomMapper` 配置），包括 `hasShortcut`, `blockEd`, `isFullScreen`, `autoStart`, `allowResize`, `showInLauncher`, `backgroundSleep`, `adaptiveMount`, `keepAlive`；系统应用与普通应用同样可切换，预设登记时这两个键默认补齐为开，修改经 `updateResourceCustom` 写回 sysDb
 - 右侧：图标预览与资源库管理（本地上传 / 资源库选择 / 删除）
 - 使用 `useFileKernel('root')` 管理文件读写
 
@@ -496,10 +498,10 @@ DynamicRenderer.effect (依赖 resource + iframeMountNode)
   -> 判定沙箱模式 (isParasitism / useBridgeMode)
   -> 确定 JS 执行上下文 (window / ghostSandbox / iframeContentWindow)
   -> compileAndRun(code)
-    -> compileSourceAsync({sourceCode, pid, targetFunctionConstructor, module, precompiled, …}, options)   // 单一对象入参，见 renderWindow.js:124-127
+    -> compileSourceAsync({sourceCode, pid, targetFunctionConstructor, module, precompiled, …}, options)   // 单一对象入参，见 renderWindow.js:compileSourceAsync
     -> factory.call(sandboxWin, mod, exports, instanceSDK, moduleRegistry, key, moduleKeys)  // 在沙箱中执行；mod 先登记再求值，循环依赖拿半成品导出
   -> setModules(resultMap)
-  -> combinedCss = scopeCss(modules.style, pid)   // CSS 作用域隔离
+  -> combinedCss = scopeCss(modules.style, pid)   // CSS 作用域隔离；文档档应用直接置空（样式只在子文档内）
   -> 渲染 AppInternalRenderer (通过 createPortal 或直接渲染)
 ```
 
@@ -541,7 +543,7 @@ deskBook/layout.jsx
 | `/utils/js/func/data/exChangeBase64` | `dataToBase64Mapper` | CustomApp |
 | `react-redux` | `useDispatch, useSelector` | DeskBook |
 | `@emotion/cache, @emotion/react` | `createCache, CacheProvider` | DynamicRenderer (IframeStyleProvider) |
-| `@mui/icons-material` | `CloseIcon, CodeIcon, FullscreenIcon`, `FullscreenExitIcon`, `HorizontalRuleIcon`, `SearchIcon`, `FileUploadIcon`, `DeleteIcon`, `PhotoLibraryIcon` | StatusBar, ProcessWindow, CustomApp |
+| `lucide-react` | ProcessWindow 用 `X as CloseIcon, Code as CodeIcon, Maximize as FullscreenIcon, Minimize as FullscreenExitIcon, Minus as HorizontalRuleIcon`；CustomApp 用 `X as CloseIcon, Upload as FileUploadIcon, Images as PhotoLibraryIcon` | ProcessWindow, CustomApp |
 
 ### 6.3 外部引用 deskBook 的模块
 
@@ -588,7 +590,7 @@ graph LR
     subgraph 外部库
         RR["react-redux"]
         EM["@emotion"]
-        MUI["@mui/icons"]
+        LUCIDE["lucide-react"]
     end
 
     DB --> BT
@@ -622,9 +624,8 @@ graph LR
     CA --> CL
     DB --> RR
     DR --> EM
-    SB --> MUI
-    PW --> MUI
-    CA --> MUI
+    PW --> LUCIDE
+    CA --> LUCIDE
 ```
 
 ---
@@ -652,18 +653,18 @@ graph LR
 | 数据 | 存储位置 | 键/结构 | 写入时机 |
 |------|---------|---------|---------|
 | 桌面图标位置 | **VFS 文件 `deskbook-layout.json`**（底层是 `SUKIN_OS_VFS` IndexedDB），根目录下由系统预置 | `{ [userId]: { [pid]: "row-col" } }`，所有用户共用一个文件 | `appPositions` 变化时 + 页面卸载时，经防抖 800ms 落盘 |
-| 状态栏显隐 | `localStorage` | `deskbook-show-status`（字符串化的布尔值） | 切换时立即写（`deskBook/layout.jsx:343`），启动时读（`:571`） |
+| 状态栏显隐 | `localStorage` | `deskbook-show-status`（字符串化的布尔值） | 切换时立即写（`deskBook/layout.jsx:handleGlobalKeyDown`），启动时读（`deskBook/layout.jsx:DeskBook`） |
 
 布局读写集中在 `useDeskLayout`（`src/sukinos/hooks/useDeskLayout.js`）：
 
-- 文件名常量 `DESK_LAYOUT_FILENAME = 'deskbook-layout.json'`（`config.js:401`），并在 `preSystemConfigFiles`（`config.js:402-408`）里登记，挂载时若不存在自动写入默认 `{}`
-- 模块级缓存 `layoutCache` + `layoutFileId`，所有 Hook 实例共享，避免重复读盘与重复查找文件 id（`useDeskLayout.js:9-11`）
-- `getLayout(userId)` 只返回该用户那一层；`setLayout(userId, positions)` 先合并进全量对象再 `setTimeout(..., 800)` 写盘（`:53-72`），文件已被误删时走 `fs.writeFile` 重建
-- 读盘走 `fs.readdir('root')` + `fs.readFile`，写盘走 `fs.updateContent`；文件系统未就绪时先 `fs.boot()`（`:13-15`）
+- 文件名常量 `DESK_LAYOUT_FILENAME = 'deskbook-layout.json'`（`config.js:DESK_LAYOUT_FILENAME`），并在 `preSystemConfigFiles`（`config.js:preSystemConfigFiles`）里登记，挂载时若不存在自动写入默认 `{}`
+- 模块级缓存 `layoutCache` + `layoutFileId`，所有 Hook 实例共享，避免重复读盘与重复查找文件 id（`useDeskLayout.js:layoutCache, layoutFileId`）
+- `getLayout(userId)` 只返回该用户那一层；`setLayout(userId, positions)` 先合并进全量对象再 `setTimeout(..., 800)` 写盘（`useDeskLayout.js:setLayout`），文件已被误删时走 `fs.writeFile` 重建
+- 读盘走 `fs.readdir('root')` + `fs.readFile`，写盘走 `fs.updateContent`；文件系统未就绪时先 `fs.boot()`（`useDeskLayout.js:ensureReady`）
 
-双重保障仍然成立：`useEffect` 监听 `appPositions` 变化实时调用 `setLayout`（`deskBook/layout.jsx:463-467`），`beforeunload` / `pagehide` 兜底用 `appPositionsRef` 再写一次（`:541-545`、`:583-585`，用 `pagehide` 替代已弃用的 `unload`）。
+双重保障仍然成立：`useEffect` 监听 `appPositions` 变化实时调用 `setLayout`（`deskBook/layout.jsx:DeskBook`），`beforeunload` / `pagehide` 兜底用 `appPositionsRef` 再写一次（`deskBook/layout.jsx:handleUnload`、`deskBook/layout.jsx:DeskBook`，用 `pagehide` 替代已弃用的 `unload`）。
 
-> 一个已知取舍：`setLayout` 的落盘是 800ms 防抖，卸载时那次调用只保证把最新值合进 `layoutCache`（同步），磁盘写入仍要等定时器。连续拖拽后立刻刷新，理论上存在最后一次写入不生效的窗口；`beforeunload` 的确认弹窗（`:547-549`）在实践中给了定时器留出时间。
+> 一个已知取舍：`setLayout` 的落盘是 800ms 防抖，卸载时那次调用只保证把最新值合进 `layoutCache`（同步），磁盘写入仍要等定时器。连续拖拽后立刻刷新，理论上存在最后一次写入不生效的窗口；`beforeunload` 的确认弹窗（`deskBook/layout.jsx:handleBeforeUnload`）在实践中给了定时器留出时间。
 
 ## 9. GPU/渲染性能优化措施
 
@@ -674,17 +675,17 @@ graph LR
 | 隐藏窗口移出渲染树 | `.su-window:not(.is-active)` 同时给 `display: none !important` 与 `contain: strict`，既防样式重算穿透隐藏子树，也防隐形盒子在 body 上拦截悬停（`:24-28`） |
 | `backdrop-filter` 仅焦点窗口 | `.is-focused` 才带 `backdrop-filter: var(--su-os-backdrop, none)`，非焦点窗口不触发 GPU 密集型模糊滤镜（`:30-36`） |
 | GPU 层仅焦点窗口 | `transform: translateZ(0)` 写在 `.is-focused` 内而非 `.su-window` 基类，非焦点窗口无合成层 |
-| `containIntrinsicSize` | 隐藏窗口内联 `content-visibility: hidden` + `containIntrinsicSize: 500px 400px`（`window/layout.jsx:246-247`），恢复时避免 Layout 重算 |
+| `containIntrinsicSize` | 隐藏窗口内联 `content-visibility: hidden` + `containIntrinsicSize: 500px 400px`（`window/layout.jsx:ProcessWindow`），恢复时避免 Layout 重算 |
 | 非焦点阴影简化 | `.is-active:not(.is-focused)` 仅 `box-shadow: 0 1px 4px`，焦点窗口保留完整双层阴影（`:38-41`） |
 
 > 这里没有 `isolation: isolate`。基类 `.su-window` 只设 `overflow: hidden` 与背景/边框，层叠上下文由 `.is-focused` 的 `translateZ(0)` 创建。
 
 ### 9.2 Resize Handle 聚焦门控（已停用）
 
-- 8 个 resize handle 由 `renderResizeHandles()` 生成，渲染条件是 **`!showWindowSwitcher`**（`window/layout.jsx:302`），即调度中心开启时整批不渲染，平时全部渲染
-- 曾经的"仅焦点窗口渲染"门控（`if (!isFocused) return null`）已被注释回退（`:203-208`）。原因写在注释里：保持全显示与 focus→显示两种做法都会出现判断问题——focus 切换时会出现多窗口交互串扰，需要对事件监听补 DOM 确定性比较，因此暂时回调
-- 因此**不要再按"非焦点窗口省 140 个 DOM 节点"理解当前实现**；后台窗口的节点节省来自 §9.5 的自适应挂载占位
-- 非焦点窗口点击边缘依旧可用：容器 `onMouseDown` 先跑 `handleEdgeMouseDown(e)` 计算方向并聚焦，未被 `preventDefault` 才继续 `onFocus(pid)`（`:231-235`）
+- 8 个 resize handle 由 `renderResizeHandles()` 生成，渲染条件是 **`!showWindowSwitcher`**（`window/layout.jsx:renderResizeHandles`），即调度中心开启时整批不渲染，平时全部渲染
+- 曾经的"仅焦点窗口渲染"门控（`if (!isFocused) return null`）已被注释回退（`window/layout.jsx:renderResizeHandles`）。原因写在注释里：保持全显示与 focus→显示两种做法都会出现判断问题——focus 切换时会出现多窗口交互串扰，需要对事件监听补 DOM 确定性比较，因此暂时回调
+- 因此**不要再按"非焦点窗口省 140 个 DOM 节点"理解当前实现**；后台窗口的节点节省来自 §9.5 的未保活窗口后台占位
+- 非焦点窗口点击边缘依旧可用：容器 `onMouseDown` 先跑 `handleEdgeMouseDown(e)` 计算方向并聚焦，未被 `preventDefault` 才继续 `onFocus(pid)`（`window/layout.jsx:handleEdgeMouseDown`）
 
 ### 9.3 useProcessBridge 条件订阅（hooks/useProcessBridge.jsx）
 
@@ -692,47 +693,54 @@ graph LR
 useProcessBridge(pid, { isVisible, backgroundSleep })
 ```
 
-- 当 `backgroundSleep === true && !isVisible` 时完全跳过 `kernel.subscribeApp`，零开销（`useProcessBridge.jsx:24-26`）
+- 当 `backgroundSleep === true && !isVisible` 时完全跳过 `kernel.subscribeApp`，零开销（`useProcessBridge.jsx:useProcessBridge`）
 - 后台静默窗口的 worker 状态变更完全跳过：反序列化 → RAF 调度 → setState → memo 比较链条
-- 首次挂载与恢复订阅时都从 `kernel.getCachedState(pid)` 拉最新缓存状态（`:6-11` 初始化、`:29-32` 订阅前补一帧），该 accessor 内部读的正是 `commHub.stateCache`
-- `backgroundSleep` 取自 `app.metaInfo.custom.backgroundSleep === true`（严格等于 true 才生效，`window/layout.jsx:30-33`）
+- 首次挂载与恢复订阅时都从 `kernel.getCachedState(pid)` 拉最新缓存状态（`useProcessBridge.jsx:useProcessBridge` 初始化、`useProcessBridge.jsx:useProcessBridge` 订阅前补一帧），该 accessor 内部读的正是 `commHub.stateCache`
+- `backgroundSleep` 取自 `app.metaInfo.custom.backgroundSleep === true`（严格等于 true 才生效，`window/layout.jsx:ProcessWindow`）
 
 ### 9.4 标题栏渲染与 hideHeader（window/layout.jsx）
 
-标题栏不再按焦点与否裁剪图标：`headerFuncs`（`:194-199`）只有一处条件——`exposeState` 决定是否加 CodeIcon，其余三个（`HorizontalRuleIcon` 最小化、`ScreenIcon` 最大化/还原、`CloseIcon` 强杀）无条件渲染。过去"非焦点窗口仅渲染 CloseIcon"的做法已不存在。
+标题栏不再按焦点与否裁剪图标：`headerFuncs`（`window/layout.jsx:headerFuncs`）只有一处条件——`exposeState` 决定是否加 CodeIcon，其余三个（`HorizontalRuleIcon` 最小化、`ScreenIcon` 最大化/还原、`CloseIcon` 强杀）无条件渲染。过去"非焦点窗口仅渲染 CloseIcon"的做法已不存在。
 
 真正的节省来自整条标题栏的条件渲染：
 
 | 配置 | 效果 | 代码位置 |
 |------|------|---------|
-| `metaInfo.hideHeader = true` | header 整块不渲染（连 DOM 都没有），窗口操作交给应用自己 | `:256`（渲染守卫）、`:251`（hover 触发条也随之不渲染）、`:223`（`is-hide-header` 类名） |
-| `metaInfo.custom.hideHeaderHover = true` | header 仍在 DOM，靠 CSS 上移隐藏，鼠标悬停经 `.su-window__hover-trigger` 唤回 | `:223`、`:251-253` |
-| 调度中心开启（`showWindowSwitcher`） | header 内联 `display: none`，避免调度模式下抢交互 | `:262` |
+| `metaInfo.hideHeader = true` | header 整块不渲染（连 DOM 都没有），窗口操作交给应用自己 | `window/layout.jsx:ProcessWindow`（渲染守卫）、`window/layout.jsx:ProcessWindow`（hover 触发条也随之不渲染）、`window/layout.jsx:ProcessWindow`（`is-hide-header` 类名） |
+| `metaInfo.custom.hideHeaderHover = true` | header 仍在 DOM，靠 CSS 上移隐藏，鼠标悬停经 `.su-window__hover-trigger` 唤回 | `window/layout.jsx:ProcessWindow`、`window/layout.jsx:ProcessWindow` |
+| 调度中心开启（`showWindowSwitcher`） | header 内联 `display: none`，避免调度模式下抢交互 | `window/layout.jsx:ProcessWindow` |
 
-`hideHeader` 与 `hideHeaderHover` 互斥：`customConfig` 解析时只要 `hideHeader` 为真，`hideHeaderHover` 被强制为 `false`（`:36-47`）。应用要能自己关窗口，必须拿到 `AppSDK.API.window`（由 `windowControls` 透传，见 §4.5 与 `03-resources.md` 的 SDK 章节）。
+`hideHeader` 与 `hideHeaderHover` 互斥：`customConfig` 解析时只要 `hideHeader` 为真，`hideHeaderHover` 被强制为 `false`（`window/layout.jsx:customConfig`）。应用要能自己关窗口，必须拿到 `AppSDK.API.window`（由 `windowControls` 透传，见 §4.5 与 `03-resources.md` 的 SDK 章节）。
 
-### 9.5 自适应挂载（AdaptiveWindowPlaceholder）
+### 9.5 宿主视口保活与后台占位（HostKeepAlive / AdaptiveWindowPlaceholder）
 
-- 组件位置：`src/sukinos/deskBook/AdaptivePlaceholder.jsx`（不在 `window/` 下），渲染体只有一个 `<div style="position:absolute; display:none; pointerEvents:none" data-placeholder="true">`，零 iframe / 零 header / 零 resize handles
-- **`adaptiveMount` 默认为开**：判定式是 `custom.adaptiveMount !== false`（`deskBook/layout.jsx:737`），只有显式写 `false` 才关闭
-- 启用条件三连：`!isVisible && useAdaptive && !showWindowSwitcher`（`:740`）——调度中心开启期间一律渲染完整窗口，避免预览丢失
+- 组件位置：调度核心 `src/sukinos/components/KeepAliveViewport/index.jsx`（`HostKeepAlive`），占位组件仍是 `src/sukinos/deskBook/AdaptivePlaceholder.jsx`
+- 保活判定唯一入口 `shouldAppKeepAlive(app)`（`utils/config.js:shouldAppKeepAlive`）：`custom.keepAlive === true` 或 `custom.adaptiveMount === false` 保留完整窗口，只有"允许占位且未保活"才退居占位；系统应用与普通应用同一判定
+- 两键同维度、`keepAlive` 优先：`keepAlive=true` 覆盖占位；`adaptiveMount=false` 同样保留完整窗口；缺失键分别按"允许占位""未保活"处理
+- 非保活且不可见：一律渲染 `<div data-placeholder="true">`（零 iframe / 零 header / 零 resize handles），会话恢复后从未可见的 `HIBERNATED` 应用同样走占位
+- 可见性口径：`showDisplay[pid] || showWindowSwitcher`（`deskBook/layout.jsx:activeWindowPids`）——调度中心开启期间一律渲染完整窗口，避免预览丢失
+- 保活窗口靠 `.su-window:not(.is-active)` 的 `display:none` 与 `content-visibility:hidden` 隐藏，iframe 与内部状态原地保留
 - 唤醒时序：`onFocus(pid)` → 父组件状态更新 → 占位移除、完整 `ProcessWindow` 挂载 → `useProcessBridge` 从 `kernel.getCachedState(pid)` 恢复状态 → 窗口出现在上次位置
+
+#### AppSDK.Components.KeepAlive（面板级保活）
+
+与 `HostKeepAlive` 同文件导出的 `KeepAlive` 交给应用开发者控制窗口内部页签：面板标识优先取 `tabKey`，未提供时回退 React key；只挂载访问过的面板，切换时用 `display:none` 隐藏而非卸载，滚动位置与表单输入原地保留。
 
 ### 9.6 useDeferredValue 优先渲染（deskBook/layout.jsx）
 
-- 对 `zOrders` 与 `currentFocus` 使用 `useDeferredValue`（`:137-138`），传给窗口的 `zIndex` 与 `isFocused` 都取 deferred 值（`:760`、`:768`）
+- 对 `zOrders` 与 `currentFocus` 使用 `useDeferredValue`（`deskBook/layout.jsx:DeskBook`），传给窗口的 `zIndex` 与 `isFocused` 都取 deferred 值（`deskBook/layout.jsx:DeskBook`、`deskBook/layout.jsx:DeskBook`）
 - 焦点窗口渲染优先级高于非焦点窗口，非焦点窗口更新可被高优先级交互打断
 
-### 9.7 memoEqual 精简（window/layout.jsx:316-327）
+### 9.7 memoEqual 精简（`window/layout.jsx:memoEqual`）
 
 - 从 17 个 prop 比较精简至 8 个（pid, zIndex, isShow, isDisplay, exposeState, showWindowSwitcher, isSelected, isFocused）
 - 父组件通过 `useRef`/`useCallback` 稳定化的回调引用（onFocus, onClose, onKill 等）不再参与比较
 
 ### 9.8 LRU 自动休眠（deskBook/layout.jsx）
 
-- 配置源：`generateAppSetting.maxWindows`（Redux）?? `personalConfig.maxWindows`（Personalization）?? `10`（`:201`）
-- 开关：`generateAppSetting.workerLRU !== false && personalConfig.workerLRU !== false`（`:202`）——两处任意一处显式设为 `false` 即关闭，默认开
-- 超出上限时按 `zOrders` 升序淘汰最旧的非焦点窗口，且要求已有 `currentFocus`（`:203`）
+- 配置源：`generateAppSetting.maxWindows`（Redux）?? `personalConfig.maxWindows`（Personalization）?? `10`（`deskBook/layout.jsx:DeskBook`）
+- 开关：`generateAppSetting.workerLRU !== false && personalConfig.workerLRU !== false`（`deskBook/layout.jsx:DeskBook`）——两处任意一处显式设为 `false` 即关闭，默认开
+- 超出上限时按 `zOrders` 升序淘汰最旧的非焦点窗口，且要求已有 `currentFocus`（`deskBook/layout.jsx:DeskBook`）
 - 配 `backgroundSleep` 的应用额外停止 `useProcessBridge` 订阅（见 §9.3）
 
 ### 9.9 StyleSyncHub 样式同步（utils/process/styleSyncHub.js）
@@ -742,26 +750,26 @@ useProcessBridge(pid, { isVisible, backgroundSleep })
 | 同步范围 | 所有已注册的 iframe doc 统一接收实时样式写入 |
 | 写入策略 | 每次 `flushAll` 都读取最新 CSS 规则并通过 `el.textContent !== css` 比对后写入 |
 | 注册 API | `registerSandboxDoc(doc)` — 注册后立即同步并持续跟踪 |
-| 节流 | `flushAll` 经 `requestAnimationFrame` 调度（`styleSyncHub.js:75`） |
+| 节流 | `flushAll` 经 `requestAnimationFrame` 调度（`styleSyncHub.js:StyleSyncHub.flushAll`） |
 | ThemeObserver 同步范围 | 同步所有 `targetDocs` 的 `<html>` 类名 |
 
 ### 9.10 桌面 Filter 过渡（deskBook/layout.jsx）
 
-- 调度中心开启时网格容器内联 `filter: blur(8px) brightness(0.65)`，关闭时为 `none`（`:719-724`）
+- 调度中心开启时网格容器内联 `filter: blur(8px) brightness(0.65)`，关闭时为 `none`（`deskBook/layout.jsx:DeskBook`）
 - 该内联 filter **没有配套 transition**，是硬切换；`deskBook/style.module.css` 里的 `transition` 属于快捷方式容器与背景色等其他选择器
 
 ### 9.11 Iframe 可见性解绑（deskBook/window/process/layout.jsx）
 
-- `IframeSandbox` 接收 `isVisible` prop（默认 `true`，`:499`），非可见时 `return isVisible ? (...) : null`（`:640`）——iframe 从 DOM 完全移除
-- 自身的 memo 比较把 `isVisible` 纳入（`:649`），因此显隐变化一定会重新求值
+- `IframeSandbox` 接收 `isVisible` prop（默认 `true`，`deskBook/window/process/layout.jsx:IframeSandbox`），非可见时 `return isVisible ? (...) : null`（`deskBook/window/process/layout.jsx:IframeSandbox`）——iframe 从 DOM 完全移除
+- 自身的 memo 比较把 `isVisible` 纳入（`deskBook/window/process/layout.jsx:IframeSandbox`），因此显隐变化一定会重新求值
 - 恢复可见时通过 `handleIframeMount` 重建 iframe → `iframeMountNode` 变更触发重新编译 → 从 `kernel.getCachedState(pid)` 恢复状态
 - 物理沙箱模式下，隐藏窗口的 iframe 不再占用渲染管线内存
 
 ### 9.12 非焦点 State 跳帧节流（hooks/useProcessBridge.jsx）
 
-- 非可见且未开后台静默的窗口（`!isVisible && !backgroundSleep`）每 3 帧才处理一次 Worker state 更新（`:39-42`），跳过中间帧
+- 非可见且未开后台静默的窗口（`!isVisible && !backgroundSleep`）每 3 帧才处理一次 Worker state 更新（`useProcessBridge.jsx:useProcessBridge`），跳过中间帧
 - `backgroundSleep` 窗口完全不订阅（零开销），非可见普通窗口降低主线程压力约 2/3
-- 每次订阅内的更新仍经 `requestAnimationFrame` 对齐再 `setState`（`:43-48`），卸载时取消挂起的帧（`:54-56`）
+- 每次订阅内的更新仍经 `requestAnimationFrame` 对齐再 `setState`（`useProcessBridge.jsx:useProcessBridge`），卸载时取消挂起的帧（`useProcessBridge.jsx:useProcessBridge`）
 
 ### 9.13 性能监控指南
 
@@ -775,7 +783,8 @@ useProcessBridge(pid, { isVisible, backgroundSleep })
 // - 内存：20 窗口场景下 iframe 是否回落至 maxWindows 上限
 // - LRU：打开 15 窗口，观察最旧的 5 个非焦点窗口是否自动休眠
 // - backgroundSleep：隐藏窗口的 Worker 线程是否停止状态推送
-// - adaptiveMount：非可见窗口 DOM 里是否只剩 data-placeholder 占位 div
+// - 后台占位：非可见且未保活窗口 DOM 里是否只剩 data-placeholder 占位 div
+// - keepAlive：开启后休眠窗口仍保留完整 ProcessWindow DOM（.su-window:not(.is-active) 隐藏）
 // - hideHeader：无标题栏应用能否经 AppSDK.API.window 关窗/休眠
 // - styleSyncHub：样式同步覆盖所有 iframe
 ```

@@ -23,6 +23,7 @@ import { appCustomMapper, appCustom, appTypes } from '@/sukinos/utils/config';
 import fs from '@/sukinos/utils/file/fileKernel';
 import { loadEntryConfig, saveEntryConfig, buildAppEntries, moduleKeyOf, contentKeyOf, formatMissingViewHint, formatDocEntryUnsupported } from '@/sukinos/utils/entryConfig';
 import { inspectEntryLayering, splitLayeringErrors, formatLayeringErrors, isHtmlKey } from '@/sukinos/utils/process/sourceMapper';
+import { canEditContent, isEditorTextFile } from './editorSupport';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import { FileType } from "@/sukinos/utils/config";
 import permissionManageAPI from "@/apis/system/permissionManage";
@@ -60,6 +61,7 @@ function Developer({ app }) {
   // 文件系统状态
   const [files, setFiles] = useState({});
   const [activeFile, setActiveFile] = useState('');
+  const [openFiles, setOpenFiles] = useState([]);
   const [isMapped, setIsMapped] = useState(false);
   const [unsavedFiles, setUnsavedFiles] = useState(new Set());
   const [physicalFiles, setPhysicalFiles] = useState(new Map());
@@ -155,6 +157,60 @@ function Developer({ app }) {
     vfsRef.current = vfs;
   }, [vfs]);
 
+  // 标签栏状态：openFiles 与 activeFile 同层，资源管理器的重命名/移动/删除才能同步到标签
+  const openFilesRef = useRef(openFiles);
+  const activeFileRef = useRef(activeFile);
+  useEffect(() => { openFilesRef.current = openFiles; }, [openFiles]);
+  useEffect(() => { activeFileRef.current = activeFile; }, [activeFile]);
+
+  // 资源管理器与标签点击的唯一打开入口：二进制/媒体内容不进入编辑器
+  const openFile = useCallback((path) => {
+    if (!path) return;
+    if (!canEditContent(filesRef.current[path])) {
+      alert.warning('暂不支持打开该文件，编辑器仅支持代码与文本文件');
+      return;
+    }
+    setOpenFiles(prev => prev.includes(path) ? prev : [...prev, path]);
+    setActiveFile(path);
+  }, []);
+
+  const closeFile = useCallback((path) => {
+    const list = openFilesRef.current;
+    const idx = list.indexOf(path);
+    if (idx === -1) return;
+    const next = list.filter(p => p !== path);
+    openFilesRef.current = next; // 连续关闭时避免读到旧快照
+    setOpenFiles(next);
+    if (activeFileRef.current === path) setActiveFile(next[idx] ?? next[idx - 1] ?? '');
+  }, []);
+
+  // 拖拽改变标签顺序
+  const reorderOpenFiles = useCallback((from, to) => {
+    const list = openFilesRef.current;
+    const fromIdx = list.indexOf(from);
+    const toIdx = list.indexOf(to);
+    if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
+    const next = [...list];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    openFilesRef.current = next;
+    setOpenFiles(next);
+  }, []);
+
+  // 文件被删除或结构回读后，清掉已不存在的标签；无变化时返回原数组，避免每次按键触发重渲染
+  useEffect(() => {
+    setOpenFiles(prev => {
+      const next = prev.filter(p => canEditContent(files[p]));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [files]);
+
+  // 默认选择、重命名回退、删除回退等直接 setActiveFile 的来源统一补进标签栏
+  useEffect(() => {
+    if (!activeFile || !canEditContent(files[activeFile])) return;
+    setOpenFiles(prev => prev.includes(activeFile) ? prev : [...prev, activeFile]);
+  }, [activeFile, files]);
+
   // 回读锚点目录的物理介质并解析进内存。全类型读取（不再限制 JS/JSX）。
   // 递归解析工作区目录树，key 用相对路径（如 pages/about/index.jsx），支持嵌套文件夹。
   // 目录以 null 占位写入 files（与空内容文件 '' 区分）。
@@ -227,7 +283,11 @@ function Developer({ app }) {
         }
         const fileData = await currentVfs.operation.handleOpenFile(item);
         if (!fileData) continue;
-        newFiles[relPath] = fileData.content ?? '';
+        // 本地模式返回 File：文本类按 UTF-8 解码；二进制原样保留，编辑器据此提示“暂不支持打开”
+        const raw = fileData.content;
+        newFiles[relPath] = typeof raw?.text === 'function' && isEditorTextFile(item.name)
+          ? await raw.text()
+          : (raw ?? '');
         hasViewFile = true;
       }
       // 空工作区按入口约定播种视图文件
@@ -236,7 +296,9 @@ function Developer({ app }) {
 
       setPhysicalFiles(newPhysicalFiles);
       setFiles(newFiles);
-      setActiveFile(prev => (newFiles[prev] !== undefined && newFiles[prev] !== null ? prev : (Object.keys(newFiles).find(k => newFiles[k] !== null) || viewEntryName)));
+      setActiveFile(prev => canEditContent(newFiles[prev])
+        ? prev
+        : (Object.keys(newFiles).find(k => canEditContent(newFiles[k])) || ''));
 
     } catch (e) { console.error("[Developer] 物理文件同步内存失败", e); }
   }, []); // 零依赖项，永远保持引用绝对恒定
@@ -285,6 +347,8 @@ function Developer({ app }) {
     setPhysicalFiles(new Map());
     setUnsavedFiles(new Set());
     setActiveFile('');
+    setOpenFiles([]);
+    openFilesRef.current = [];
     Object.values(saveTimeoutRef.current).forEach(clearTimeout);
     saveTimeoutRef.current = {};
     pendingWritesRef.current.clear();
@@ -571,6 +635,7 @@ function Developer({ app }) {
                   loadWorkspaceFiles={loadWorkspaceFiles} fsMode={fsMode} setFsMode={setFsMode}
                   setIsMapped={setIsMapped} runWithWriteLock={runWithWriteLock}
                   setUnsavedFiles={setUnsavedFiles} cancelPendingSave={cancelPendingSave}
+                  openFile={openFile} setOpenFiles={setOpenFiles}
                   entryFiles={appEntries}
                />
             )}
@@ -585,7 +650,7 @@ function Developer({ app }) {
       <div className={style[bem.e('main-wrapper')]}>
         <Suspense fallback={<div style={{ padding: '40px', color: '#999', textAlign: 'center' }}>工作区加载中...</div>}>
           {activeMain === 'editor' && (
-            <DevCenter files={files} activeFile={activeFile} handleContentChange={handleContentChange} triggerVfsSave={triggerVfsSave} isMapped={isMapped} unsavedFiles={unsavedFiles} />
+            <DevCenter files={files} activeFile={activeFile} openFiles={openFiles} openFile={openFile} closeFile={closeFile} reorderOpenFiles={reorderOpenFiles} handleContentChange={handleContentChange} triggerVfsSave={triggerVfsSave} isMapped={isMapped} unsavedFiles={unsavedFiles} />
           )}
           {activeMain === 'preview' && <AppView app={previewApp} />}
           {activeMain === 'upload' && <Uploader appMeta={appMeta} uploadType={uploadType} entryConfig={entryConfig} />}
