@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSystemFileSystem } from '@/sukinos/hooks/useFileSystem';
 import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 import { FileType } from "@/sukinos/utils/config";
-import FileSystemView from '@/sukinos/component/fileSystemView/layout';
+import FileSystemView from '@/sukinos/components/fileSystemView/layout';
 import { HardDrive, Monitor, X, FolderSync } from 'lucide-react';
 
 const isDirectory = (item) => {
