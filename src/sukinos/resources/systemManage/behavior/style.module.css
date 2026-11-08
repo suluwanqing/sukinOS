@@ -83,3 +83,9 @@
   font-size: 13px;
   gap: 8px;
 }
+
+@media (max-width: 767px) {
+  .su-behavior__split {
+    grid-template-columns: 1fr;
+  }
+}

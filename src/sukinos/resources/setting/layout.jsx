@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
+import Drawer from '@/component/drawer/layout';
+import { Button } from '@/component/button/layout';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 
 /* 导入图标 */
-import { User as PersonIcon, ShieldCheck as SecurityIcon, CircleHelp as HelpIcon, Palette as ColorLensIcon, Info as InfoIcon, Settings as SettingsIcon } from 'lucide-react';
+import { User as PersonIcon, ShieldCheck as SecurityIcon, CircleHelp as HelpIcon, Palette as ColorLensIcon, Info as InfoIcon, Settings as SettingsIcon, Menu as MenuIcon } from 'lucide-react';
 
 /* 导入提取后的独立组件 */
 import Sidebar from './sidebar/layout';
@@ -18,6 +21,13 @@ const bem = createNamespace('setting');
 
 function Setting() {
   const [activeRouteId, setActiveRouteId] = useState('personalization');
+  const [navOpen, setNavOpen] = useState(false);
+  const { isMobile } = useViewportMode();
+
+  const selectRoute = (id) => {
+    setActiveRouteId(id);
+    setNavOpen(false);
+  };
 
   /* SETTINGS_ROUTES 现在全部指向组件化的 render */
   const SETTINGS_ROUTES = [
@@ -63,14 +73,27 @@ function Setting() {
 
   return (
     <div className={style[bem.b()]}>
-      <Sidebar
-        items={SETTINGS_ROUTES}
-        activeId={activeRouteId}
-        onSelect={setActiveRouteId}
-      />
+      {!isMobile && (
+        <Sidebar
+          items={SETTINGS_ROUTES}
+          activeId={activeRouteId}
+          onSelect={setActiveRouteId}
+        />
+      )}
 
       <div className={style[bem.e('content')]}>
         <div className={style[bem.e('breadcrumbs')]}>
+            {isMobile && (
+              <Button
+                variant="outline"
+                size="icon-lg"
+                className={style[bem.e('menu-btn')]}
+                onClick={() => setNavOpen(true)}
+                aria-label="打开设置导航"
+              >
+                <MenuIcon size={20} />
+              </Button>
+            )}
             <span className={style[bem.e('breadcrumb-item')]}>SYSTEM</span>
             <span className={style[bem.e('breadcrumb-sep')]}>/</span>
             <span className={style[bem.e('breadcrumb-item')]}>{activeRoute.label.toUpperCase()}</span>
@@ -82,6 +105,16 @@ function Setting() {
           </div>
         </div>
       </div>
+
+      {isMobile && (
+        <Drawer open={navOpen} onClose={() => setNavOpen(false)} label="设置导航">
+          <Sidebar
+            items={SETTINGS_ROUTES}
+            activeId={activeRouteId}
+            onSelect={selectRoute}
+          />
+        </Drawer>
+      )}
     </div>
   );
 }

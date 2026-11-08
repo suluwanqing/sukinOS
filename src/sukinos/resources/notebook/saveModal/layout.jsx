@@ -4,6 +4,8 @@ import { createNamespace } from '/utils/js/classcreate'
 import fs from '@/sukinos/utils/file/fileKernel'
 import { FileType} from "@/sukinos/utils/config"
 import { Folder as FolderIcon, ArrowLeft as ArrowBackIcon, Home as HomeIcon } from 'lucide-react'
+import { Button } from '@/component/button/layout'
+import { Input } from '@/component/input/layout'
 const bem = createNamespace('save-modal')
 const SaveModal = ({ visible, onClose, onConfirm }) => {
   const [fileName, setFileName] = useState('file.txt')
@@ -75,14 +77,15 @@ const SaveModal = ({ visible, onClose, onConfirm }) => {
 
         {/* 导航栏：后退按钮 + 面包屑 */}
         <div className={style[bem.e('nav-bar')]}>
-          <button
-            className={style[bem.e('back-btn')]}
+          <Button
+            variant="ghost"
+            size="icon-sm"
             onClick={handleBack}
             disabled={history.length <= 1}
             title="返回上一级"
           >
             <ArrowBackIcon size={20} />
-          </button>
+          </Button>
 
           <div className={style[bem.e('breadcrumbs')]}>
             {breadcrumbs.map((crumb, index) => (
@@ -128,7 +131,9 @@ const SaveModal = ({ visible, onClose, onConfirm }) => {
         <div className={style[bem.e('footer-input-area')]}>
             <div className={style[bem.e('input-group')]}>
               <label>文件名:</label>
-              <input
+              <Input
+                className={style[bem.e('file-input')]}
+                size="small"
                 type="text"
                 value={fileName}
                 onChange={(e) => setFileName(e.target.value)}
@@ -140,8 +145,8 @@ const SaveModal = ({ visible, onClose, onConfirm }) => {
 
         {/* 按钮区域 */}
         <div className={style[bem.e('footer-actions')]}>
-          <button className={style[bem.e('btn-cancel')]} onClick={onClose}>取消</button>
-          <button className={style[bem.e('btn-confirm')]} onClick={handleSave}>保存</button>
+          <Button variant="outline" onClick={onClose}>取消</Button>
+          <Button onClick={handleSave}>保存</Button>
         </div>
       </div>
     </div>

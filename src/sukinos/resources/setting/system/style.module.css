@@ -76,3 +76,22 @@
   background: #f2f6fc;
   margin: 20px 0;
 }
+
+@media (max-width: 767px) {
+  .su-setting-system {
+    padding: 4px;
+  }
+  .su-setting-system__card {
+    padding: 14px;
+  }
+  .su-setting-system__toggle-row {
+    gap: 12px;
+    padding: 10px 0;
+  }
+  .su-setting-system__description {
+    padding-left: 0;
+  }
+  .su-setting-system__divider {
+    margin: 14px 0;
+  }
+}

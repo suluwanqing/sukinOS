@@ -4,6 +4,7 @@ import { createNamespace } from "/utils/js/classcreate";
 import permissionManageAPI from "@/apis/system/permissionManage";
 import systemAPI from "@/apis/system/main";
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
@@ -220,12 +221,9 @@ function MenuPermissionPanel() {
       prop: "_actions", label: "操作", width: 120,
       render: (r) => (
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <button className={style[bem.e("action-btn")]} onClick={() => openEditModal(r.id)} title="编辑">
-            <EditIcon size={16} style={{ color: "#171717" }} />
-            <span style={{ marginLeft: 2, fontSize: 12 }}>编辑</span>
-          </button>
+          <Button variant="ghost" size="xs" icon={<EditIcon />} onClick={() => openEditModal(r.id)} title="编辑">编辑</Button>
           {!isNavItem(r.id) && (
-            <button className={style[bem.e("action-btn")]} onClick={() => {
+            <Button variant="destructive" plain size="xs" icon={<DeleteIcon />} onClick={() => {
               confirm.show({
                 title: "删除菜单",
                 content: `确定删除菜单"${getMenuLabel(r.id)}"及其权限配置吗？`,
@@ -240,10 +238,7 @@ function MenuPermissionPanel() {
                   }).catch(e => alert.failure(e?.message || "删除失败"));
                 },
               });
-            }} title="删除" style={{ color: "#f43f5e" }}>
-              <DeleteIcon size={16} />
-              <span style={{ marginLeft: 2, fontSize: 12 }}>删除</span>
-            </button>
+            }} title="删除">删除</Button>
           )}
         </div>
       ),
@@ -257,8 +252,8 @@ function MenuPermissionPanel() {
       <div className={style[bem.e("section-header")]}>
         <h3>菜单权限管理</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={() => { setNewMenuId(""); setNewMenuLabel(""); setAddMenuModal(true); }}>添加菜单</Button>
-          <Button type="default" size="small" onClick={fetchConfig} loading={loading}>刷新</Button>
+          <Button variant="default" size="sm" onClick={() => { setNewMenuId(""); setNewMenuLabel(""); setAddMenuModal(true); }}>添加菜单</Button>
+          <Button variant="outline" size="sm" onClick={fetchConfig} loading={loading}>刷新</Button>
         </div>
       </div>
       <p className={style[bem.e("desc")]}>
@@ -301,7 +296,7 @@ function MenuPermissionPanel() {
                   <button className={style[bem.e("tag-remove")]} onClick={() => removeFromLocalEdit("default_roles", v)}>&times;</button>
                 </span>
               ))}
-              <Button type="default" size="small" onClick={() => setPickerModal({ visible: true, field: 'default_roles' })}>+ 添加角色</Button>
+              <Button variant="outline" size="sm" onClick={() => setPickerModal({ visible: true, field: 'default_roles' })}>+ 添加角色</Button>
             </div>
           </div>
           <div className={style[bem.e("form-group")]}>
@@ -313,7 +308,7 @@ function MenuPermissionPanel() {
                   <button className={style[bem.e("tag-remove")]} onClick={() => removeFromLocalEdit("allowed_users", v)}>&times;</button>
                 </span>
               ))}
-              <Button type="default" size="small" onClick={() => setPickerModal({ visible: true, field: 'allowed_users' })}>+ 添加用户</Button>
+              <Button variant="outline" size="sm" onClick={() => setPickerModal({ visible: true, field: 'allowed_users' })}>+ 添加用户</Button>
             </div>
           </div>
           <div className={style[bem.e("form-group")]}>
@@ -325,12 +320,12 @@ function MenuPermissionPanel() {
                   <button className={style[bem.e("tag-remove")]} onClick={() => removeFromLocalEdit("allowed_roles", v)}>&times;</button>
                 </span>
               ))}
-              <Button type="default" size="small" onClick={() => setPickerModal({ visible: true, field: 'allowed_roles' })}>+ 添加角色</Button>
+              <Button variant="outline" size="sm" onClick={() => setPickerModal({ visible: true, field: 'allowed_roles' })}>+ 添加角色</Button>
             </div>
           </div>
           <div className={style[bem.e("form-actions")]}>
-            <Button type="default" size="small" onClick={handleModalCancel}>取消</Button>
-            <Button type="default" size="small" onClick={handleModalSave} style={{ background: "#222", borderColor: "#222", color: "#fff" }}>保存</Button>
+            <Button variant="outline" size="sm" onClick={handleModalCancel}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleModalSave}>保存</Button>
           </div>
         </div>
       </Modal>
@@ -370,7 +365,7 @@ function MenuPermissionPanel() {
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}>
-            <Button type="primary" size="small" onClick={() => setPickerModal({ visible: false, field: '' })} style={{ background: "#222", borderColor: "#222" }}>完成</Button>
+            <Button variant="default" size="sm" onClick={() => setPickerModal({ visible: false, field: '' })}>完成</Button>
           </div>
         </div>
       </Modal>
@@ -383,27 +378,23 @@ function MenuPermissionPanel() {
         <div>
           <div className={style[bem.e("form-group")]}>
             <label>菜单标识</label>
-            <input
-              type="text"
+            <Input
               value={newMenuId}
               onChange={e => setNewMenuId(e.target.value)}
-              className={style[bem.e("input")]}
               placeholder="如: custom-settings"
             />
           </div>
           <div className={style[bem.e("form-group")]}>
             <label>显示名</label>
-            <input
-              type="text"
+            <Input
               value={newMenuLabel}
               onChange={e => setNewMenuLabel(e.target.value)}
-              className={style[bem.e("input")]}
               placeholder="如: 自定义设置"
             />
           </div>
           <div className={style[bem.e("form-actions")]}>
-            <Button type="default" size="small" onClick={() => setAddMenuModal(false)}>取消</Button>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleAddMenu}>确认添加</Button>
+            <Button variant="outline" size="sm" onClick={() => setAddMenuModal(false)}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleAddMenu}>确认添加</Button>
           </div>
         </div>
       </Modal>

@@ -9,6 +9,7 @@
     sans-serif;
   overflow: hidden;
   color: #000;
+  position: relative;
 }
 
 .su-setting__content {
@@ -27,6 +28,12 @@
   font-weight: 800;
   letter-spacing: 2px;
   color: #000;
+  display: flex;
+  align-items: center;
+}
+
+.su-setting__menu-btn {
+  margin-right: 10px;
 }
 
 .su-setting__breadcrumb-sep {
@@ -42,4 +49,31 @@
 
 .su-setting__content-inner {
   margin-top: 10px;
+}
+
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .su-setting__breadcrumbs {
+    padding: 24px 24px 8px 24px;
+  }
+
+  .su-setting__content-scroll {
+    padding: 0 24px 24px 24px;
+  }
+}
+
+
+@media (max-width: 767px) {
+  .su-setting__content {
+    border-left: none;
+  }
+
+  .su-setting__breadcrumbs {
+    padding: 12px 16px 8px 16px;
+    letter-spacing: 1px;
+  }
+
+  .su-setting__content-scroll {
+    padding: 0 16px 16px 16px;
+  }
 }

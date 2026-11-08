@@ -22,10 +22,10 @@ const iconVariants = cva('flex items-center justify-center text-base shrink-0', 
 });
 
 const rowVariants = cva(
-  'flex cursor-pointer select-none items-center justify-between px-4 py-3 outline-none transition-colors duration-150',
+  'flex cursor-pointer select-none items-center justify-between px-4 py-3 outline-none transition-colors duration-150 max-[767px]:px-3',
   {
     variants: {
-      isSubItem: { true: 'bg-muted/40 py-2.5 pl-10', false: '' },
+      isSubItem: { true: 'bg-muted/40 py-2.5 pl-10 max-[767px]:pl-7', false: '' },
       disabled: { true: 'cursor-not-allowed opacity-50', false: '' },
     },
     compoundVariants: [

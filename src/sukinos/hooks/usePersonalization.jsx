@@ -421,39 +421,25 @@ export const defaultPersonalization = {
   windowOpacity: 80,
   windowHeaderOpacity: 100,
   windowPadding: 0,
-  customColor: {
-    baseColor: 'primary',
-    shade: 500
-  },
-  customBgColor: {
-    baseColor: 'dark',
-    shade: 900
-  },
-  customDeskFontColor: {
-    baseColor: 'dark',
-    shade: 50
-  },
-  customWindowHeaderBg: {
-    baseColor: 'dark',
-    shade: 50
-  },
-  customWindowHeaderColor: {
-    baseColor: 'dark',
-    shade: 800
-  },
-  maxWindows: 10,    // 最大可见窗口
-  maxWorkers: 5,     // 最大并发 Worker
-  workerLRU: true,   // 启用 LRU 淘汰
-  autoHideStatusBar: false, // 启动/聚焦APP时自动关闭状态栏
-  autoSaveStateInterval: 0,  // 自动保存状态间隔(秒), 0=禁用
-  autoSaveWindowInterval: 0, // 自动保存窗口位置间隔(秒), 0=禁用
+  customColor: { baseColor: 'primary', shade: 500 },
+  customBgColor: { baseColor: 'dark', shade: 900 },
+  customDeskFontColor: { baseColor: 'dark', shade: 50 },
+  customWindowHeaderBg: { baseColor: 'dark', shade: 50 },
+  customWindowHeaderColor: { baseColor: 'dark', shade: 800 },
+  maxWindows: 10,
+  maxWorkers: 5,
+  workerLRU: true,
+  autoHideStatusBar: false,
+  bgFitMobile: 'cover',
+  bgCropMobile: { x: 50, y: 50, scale: 1 },
+  mobileWallpaperScroll: false, // 移动端壁纸随页横向平移
+  autoSaveStateInterval: 0,
+  autoSaveWindowInterval: 0,
 };
 
 export const colorSystem = ['yellow', 'apricot', 'cyan', 'red', 'black', 'primary'];
 export const colorSystemRange = [50, 100, 200, 300, 400, 500, 900];
 
-// 令牌层（utils/css/color.css）删除后，再拼 var(--su-<base>-<shade>) 会解析为空，
-// 所以把取色器用的 6 基色 × 7 档按旧表原值搬成字面 hex，配置里存的直接是可用颜色。
 export const COLOR_SCALE = {
   yellow: { 50: '#fefce8', 100: '#fef9c3', 200: '#fef08a', 300: '#fde047', 400: '#facc15', 500: '#eab308', 900: '#713f12' },
   apricot: { 50: '#fefaf6', 100: '#fdf2e6', 200: '#fbe4cd', 300: '#f8d5b0', 400: '#f4b884', 500: '#f19e5c', 900: '#7d3f26' },
@@ -463,7 +449,6 @@ export const COLOR_SCALE = {
   primary: { 50: '#f0f9ff', 100: '#e0f2fe', 200: '#bae6fd', 300: '#7dd3fc', 400: '#38bdf8', 500: '#0ea5e9', 900: '#0c4a6e' },
 };
 
-// 老存档的 baseColor 可能在表外（出厂默认里就写着 dark），查不到时退回调用方给的兜底色
 export const scaleColor = (custom, fallback) => COLOR_SCALE[custom.baseColor]?.[custom.shade] ?? fallback;
 
 export const PRESET_FONTS = [
@@ -477,9 +462,6 @@ export const PRESET_FONTS = [
   { name: '圆润幼圆', value: '"YouYuan", "幼圆", sans-serif' },
 ];
 
-// 读档归一：老存档里 fontValue / windowHeaderBg 这类配置项存的是 var(--su-*) 串，
-// 令牌层删除后这些引用解析为空。--custom-* 与 --su-os-* 仍是活的运行时变量，原样保留；
-// 认不出的 --su-* 直接丢掉，让 defaultPersonalization 接手。
 const LEGACY_VAR_VALUES = {
   '--su-font-family-yahei': `"Microsoft YaHei", "微软雅黑", sans-serif`,
   '--su-font-family-hei': `"SimHei", "黑体", sans-serif`,
@@ -489,11 +471,6 @@ const LEGACY_VAR_VALUES = {
   '--su-font-family-lishu': `"LiSu", "隶书", serif`,
   '--su-font-family-youyuan': `"YouYuan", "幼圆", sans-serif`,
   '--su-font-family-applesystem': `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`,
-  '--su-font-family-xingkai': `'STXingkai', '华文行楷', 'Xingkai SC', '楷体', cursive`,
-  '--su-font-family-xinwei': `'STXinwei', '华文新魏', 'KaiTi', serif`,
-  '--su-font-family-hupo': `'STHupo', '华文琥珀', 'YouYuan', sans-serif`,
-  '--su-font-family-caiyun': `'STCaiyun', '华文彩云', 'YouYuan', sans-serif`,
-  '--su-font-family-libian': `'STLibian', '华文隶变', 'LiSu', serif`,
   '--su-gray-50': '#f9fafb',
   '--su-gray-800': '#1f2937',
   ...Object.fromEntries(
@@ -502,8 +479,6 @@ const LEGACY_VAR_VALUES = {
   ),
 };
 
-// 配置项 → 记 baseColor/shade 的那半个字段，丢掉色值串时要把档位记忆一起丢，
-// 否则会出现"颜色回到出厂、取色器还停在自定义档"的错位
 const LEGACY_COLOR_PAIRS = {
   accentColor: 'customColor',
   bgValue: 'customBgColor',
@@ -522,14 +497,12 @@ const normalizeLegacyConfig = (parsed) => {
       out[key] = LEGACY_VAR_VALUES[m[1]];
       continue;
     }
-    console.warn(`[Personalization] 配置项 ${key} 的值 ${value} 无法解析，改用出厂值`);
     delete out[key];
     if (LEGACY_COLOR_PAIRS[key]) delete out[LEGACY_COLOR_PAIRS[key]];
   }
   return out;
 };
 
-// 模块级单例：所有 usePersonalization 实例共享同一份 config 状态
 export const personalizationStore = {
   config: { ...defaultPersonalization },
   listeners: new Set(),
@@ -546,9 +519,6 @@ export const personalizationStore = {
   }
 };
 
-/* themeMode 的首屏引导与 <html> 上的 .dark 切换抽到了同目录的 themeMode.js：
-   那个文件零依赖，src/main.jsx 需要它做首屏防闪，若从这里引会把整条 VFS 依赖链
-   拖进入口 chunk。 */
 import { applyThemeMode } from '../../themeMode.js';
 
 export const usePersonalization = () => {
@@ -556,32 +526,17 @@ export const usePersonalization = () => {
   useEffect(() => personalizationStore.subscribe(setConfig), []);
   const [localAssets, setLocalAssets] = useState({ images: [], videos: [], fonts: [] });
   const configIdRef = useRef(null);
+  const configRef = useRef(config);
+  useEffect(() => { configRef.current = config; }, [config]);
   const activeResourceId = useRef({ bg: null, font: null });
   const base64Cache = useRef({ bg: null, font: null });
   const saveTimerRef = useRef(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  /* ===== 深色模式接线 =====
-     global.css 里 @custom-variant dark (&:is(.dark *)) 把 dark: 工具类绑到了 .dark class 上，
-     :root / .dark 两套语义令牌也据此二选一。所以只要在 <html> 上挂/摘 .dark，
-     整棵文档树里的 bg-popover / text-foreground / border-border 就会自动取到对应的一套值。
-
-     挂 documentElement 而不是 #sukin-os：本项目有一批浮层是 portal 到 document.body 的
-     （toast、confirm、右键菜单、PageList 列设置面板），它们在 #sukin-os 的 DOM 子树之外。
-     只挂 #sukin-os 的话，深色模式下这些浮层仍是浅色，在深色桌面上非常扎眼。
-     它们用的都是语义令牌，.dark 下有配套的深色值，翻过去是正确的。
-
-     顺带说明：body 的 bg-background 会跟着翻，但 #sukin-os 是 100dvw×100dvh 且自带
-     个性化背景色，视觉上看不到 body，无副作用。
-
-     <html> 不属于 React 树，不能用受控 className，所以走 classList。
-     首屏的那一次挂载由 main.jsx 里的 bootstrapThemeMode() 提前做完（同步、防闪），
-     这里负责配置变化后的持续同步与回写镜像。 */
   useEffect(() => {
     applyThemeMode(config.themeMode);
   }, [config.themeMode]);
 
-  // 区分配置是来自外部加载，还是来自本组件实例的用户修改，防止刷新等外部副作用触发误重写
   const hasPendingChangesRef = useRef(false);
 
   const getMimeType = useCallback((filename) => {
@@ -660,7 +615,7 @@ export const usePersonalization = () => {
               }
               const parsed = JSON.parse(jsonStr);
               personalizationStore.set(prev => ({ ...prev, ...normalizeLegacyConfig(parsed) }));
-            } catch { console.error("配置解析失败，使用默认"); }
+            } catch { console.error("配置解析失败"); }
           }
         } else {
           const newFile = await fs.writeFile('root', CONFIG_FILENAME, JSON.stringify(defaultPersonalization));
@@ -722,7 +677,6 @@ export const usePersonalization = () => {
     return scaleColor(customColor, defaultPersonalization.accentColor);
   }, [config]);
 
-  // 刷新时主动从 VFS (虚拟文件系统) 读取最新的存储内容，防止由于 Hook 状态孤立引起的配置回滚
   const refreshConfig = useCallback(async () => {
     if (configIdRef.current) {
       try {
@@ -737,32 +691,23 @@ export const usePersonalization = () => {
           const parsed = JSON.parse(jsonStr);
           personalizationStore.set(prev => ({ ...prev, ...normalizeLegacyConfig(parsed) }));
         }
-      } catch (e) {
-        console.error("重新加载配置失败:", e);
-      }
+      } catch (e) {}
     }
     setRefreshTrigger(prev => prev + 1);
   }, []);
 
-  // 仅在用户主动修改配置时触发持久化写入
   useEffect(() => {
     if (!hasPendingChangesRef.current) return;
-
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       if (configIdRef.current && hasPendingChangesRef.current) {
         try {
           await fs.updateContent(configIdRef.current, JSON.stringify(config));
-          hasPendingChangesRef.current = false; // 保存成功后重置标记
-        } catch (e) {
-          console.error("[Personalization] 保存配置失败:", e);
-        }
+          hasPendingChangesRef.current = false;
+        } catch (e) {}
       }
     }, 800);
-
-    return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    };
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
   }, [config]);
 
   useEffect(() => {
@@ -789,17 +734,12 @@ export const usePersonalization = () => {
       }
 
       const currentAccentColor = getCurrentAccentColor();
-
       const wOpacity = (config.windowOpacity ?? 80) / 100;
-
       const surfaceLight = `rgba(255, 255, 255, ${wOpacity})`;
       const surfaceDark = `rgba(30, 30, 30, ${wOpacity})`;
       const finalSurfaceBg = config.themeMode === 'dark' ? surfaceDark : surfaceLight;
-
       const headerOpacityStr = `${config.windowHeaderOpacity ?? 100}%`;
-      const finalHeaderBg = config.windowHeaderBg === 'transparent'
-        ? 'transparent'
-        : `color-mix(in srgb, ${config.windowHeaderBg} ${headerOpacityStr}, transparent)`;
+      const finalHeaderBg = config.windowHeaderBg === 'transparent' ? 'transparent' : `color-mix(in srgb, ${config.windowHeaderBg} ${headerOpacityStr}, transparent)`;
 
       let styleTag = document.getElementById('su-os-variables');
       if (!styleTag) {
@@ -808,53 +748,83 @@ export const usePersonalization = () => {
         document.head.appendChild(styleTag);
       }
 
-      // 所有样式变量统一注入到 #sukin-os
+      const cropX = config.bgCropMobile?.x ?? 50;
+      const cropY = config.bgCropMobile?.y ?? 50;
+      const cropScale = config.bgCropMobile?.scale ?? 1;
+      const isMobileContain = config.bgFitMobile === 'contain';
+      const isMobileScroll = config.mobileWallpaperScroll;
+
+      const mobileBgSize = isMobileContain ? 'contain' : (
+        isMobileScroll ? `auto ${cropScale * 100}%` : (cropScale === 1 ? 'cover' : `${cropScale * 100}% auto`)
+      );
+
+      // 开启滚动后 X 轴位置交给 --su-os-bg-scroll-ratio
+      const mobileBgPosition = isMobileContain ? 'center center' : (
+        isMobileScroll ? `var(--su-os-bg-scroll-ratio, 0%) ${cropY}%` : `${cropX}% ${cropY}%`
+      );
+      const mobileVideoFit = isMobileContain ? 'contain' : 'cover';
+      // 视频壁纸与图片走同一套取景语义：裁切位置、缩放、滚动视差都作用在视频画面上
+      const mobileVideoPosition = isMobileContain ? 'center center' : (
+        isMobileScroll ? `var(--su-os-bg-scroll-ratio, 0%) ${cropY}%` : `${cropX}% ${cropY}%`
+      );
+      const mobileVideoSize = isMobileContain ? '100%' : `${cropScale * 100}%`;
+
       styleTag.innerHTML = `
         #sukin-os {
-          /* 字体相关变量 */
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
           --su-os-font-family: ${appliedFont};
           --su-os-font-size: ${config.fontSize}px;
-
-          /* 主题相关变量 */
           --su-os-theme-mode: ${config.themeMode};
           --su-os-accent-color: ${currentAccentColor};
           --su-os-border-radius: ${config.borderRadius}px;
           --su-os-glass-effect: ${config.glassEffect};
-
-          /* 主题模式颜色变量 */
           --su-os-text-color: ${config.themeMode === 'dark' ? '#f1f5f9' : '#1e293b'};
-
-
-          /* 动态计算的带透明度的表面主背景色 (应用于 Window 等主体) */
           --su-os-surface-bg: ${finalSurfaceBg};
-
-          /* 保留用于纯色底板等无需透明度的组件部分 */
           --su-os-surface-bg-solid: ${config.themeMode === 'dark' ? '#1e1e1e' : '#ffffff'};
-
-          /* 窗口内边距调节变量 */
           --su-os-window-padding: ${config.windowPadding ?? 0}px;
-
-          /* 窗口头部背景采用 color-mix 叠加透明度 */
           --custom-window-header-bg: ${finalHeaderBg};
-
-          /* 动态计算的边框色 */
           --su-os-border-color: ${config.themeMode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'};
-
-          /* 动态计算的阴影和毛玻璃特效 */
           --su-os-shadow: ${config.glassEffect ? '0 8px 32px rgba(0,0,0,0.15)' : 'none'};
           --su-os-backdrop: ${config.glassEffect ? 'blur(20px) saturate(160%)' : 'none'};
-
-          /* 桌面图标相关变量 */
           --custom-deskbook-icon-size: ${config.deskIconSize}px;
           --custom-deskbook-icon-radius: ${config.deskIconRadius}px;
           --custom-deskbook-grid-gap: ${config.deskGridGap}px;
           --custom-deskbook-padding: ${config.deskPadding}px;
           --custom-deskbook-font-color: ${config.deskFontColor};
           --custom-deskbook-icon-shadow: ${config.deskIconShadow === 0 ? 'none' : `drop-shadow(0 ${config.deskIconShadow * 4}px ${config.deskIconShadow * 8}px rgba(0,0,0,0.5))`};
-
-          /* 窗口其他头部变量 */
           --custom-window-header-color: ${config.windowHeaderColor};
           --custom-window-border-radius: ${config.borderRadius}px;
+        }
+
+        #su-os-bg-video {
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 100%;
+          height: 100%;
+          transform: translate(-50%, -50%);
+          object-fit: cover;
+          object-position: center;
+          z-index: -1;
+          pointer-events: none;
+        }
+
+        @media (max-width: 767px) {
+          #sukin-os {
+            background-size: ${mobileBgSize};
+            background-position: ${mobileBgPosition};
+            transition: background-position 0.15s ease-out;
+          }
+
+          #su-os-bg-video {
+            object-fit: ${mobileVideoFit};
+            object-position: ${mobileVideoPosition};
+            width: ${mobileVideoSize};
+            height: ${mobileVideoSize};
+            transition: object-position 0.15s ease-out;
+          }
         }
       `;
 
@@ -872,8 +842,6 @@ export const usePersonalization = () => {
             base64Cache.current.bg = imgBase64;
             activeResourceId.current.bg = config.bgValue;
             osContainer.style.backgroundImage = `url('${imgBase64}')`;
-            osContainer.style.backgroundSize = 'cover';
-            osContainer.style.backgroundPosition = 'center';
             osContainer.style.backgroundColor = 'transparent';
           }
         } else if (base64Cache.current.bg) {
@@ -881,13 +849,9 @@ export const usePersonalization = () => {
         }
       } else if (config.bgType === 'video') {
         osContainer.style.backgroundImage = 'none';
-
-        // 查找专门的隔离背景层，如果没有则降级使用 osContainer
         const targetContainer = document.getElementById('su-os-bg-layer') || osContainer;
-        // 不仅检查文件是否变更，还要检查视频元素是不是被 React 给删除了
         const videoElExists = document.getElementById('su-os-bg-video');
         if (activeResourceId.current.bg !== config.bgValue || !videoElExists) {
-          // 如果只是 DOM 丢失（资源没变且缓存还在），直接复用 base64 缓存，不消耗性能重新读取
           let videoBase64 = base64Cache.current.bg;
           if (activeResourceId.current.bg !== config.bgValue || !videoBase64) {
              videoBase64 = await generateBase64FromFs(config.bgValue);
@@ -902,10 +866,9 @@ export const usePersonalization = () => {
             videoEl.loop = true;
             videoEl.muted = true;
             videoEl.setAttribute('playsinline', 'true');
-            videoEl.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:-1;pointer-events:none;';
             targetContainer.appendChild(videoEl);
             videoEl.src = videoBase64;
-            videoEl.play().catch(e => console.warn("Video autoplay blocked", e));
+            videoEl.play().catch(e => {});
           }
         }
         osContainer.style.backgroundColor = 'transparent';
@@ -931,6 +894,6 @@ export const usePersonalization = () => {
     applyPresetStyle,
     getAllPresetStyles
   };
-}
+};
 
 export default usePersonalization;

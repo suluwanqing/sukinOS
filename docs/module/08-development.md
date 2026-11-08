@@ -687,6 +687,10 @@ const { System } = AppSDK
 | `CheckCardBar` | `@/component/checkCardBar/layout` | 配置卡片条，适用于系统设置面板 |
 | `Nav` | `@/component/nav/layout` | 导航菜单，支持 vertical/horizontal |
 | `BoardSelection` | `@/component/select/boardSelection/layout` | 面板选择器，用于选择打开方式等 |
+| `Drawer` | `@/component/drawer/layout` | 贴边抽屉，`side` 取 left/right/top/bottom；含 Header / Title / Description / Body / Footer 五个子部件 |
+
+全量名单以 `src/component/main.jsx` 的具名导出为准，运行时可在应用里 `Object.keys(AppSDK.Components)` 直接读出；
+逐个组件的属性表与可跑示例见系统设置「组件」页（数据源同一份 `publicSdkComponents`，两边不会漂移）。
 
 #### System 隔离存储
 

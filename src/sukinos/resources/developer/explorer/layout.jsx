@@ -6,6 +6,8 @@ import { FileType } from "@/sukinos/utils/config";
 import { alert } from '@/component/alert/layout'
 import { confirm } from '@/component/confirm/layout';
 import ContextMenu from '@/component/contextMenu/layout';
+import Check from '@/component/check/layout';
+import Button from '@/component/button/layout';
 import { DndContext, PointerSensor, closestCenter, pointerWithin, DragOverlay, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -225,12 +227,22 @@ function Explorer({
       return;
     }
     let shouldDeleteSource = false;
-    const CustomConfirmContent = () => (
-      <div>
-        <p>移除 <strong>{node.path}</strong> 映射？</p>
-        <label><input type="checkbox" onChange={(e) => { shouldDeleteSource = e.target.checked; }} /> 同时删除物理介质文件</label>
-      </div>
-    );
+    const CustomConfirmContent = () => {
+      const [deleteSource, setDeleteSource] = useState(false);
+      return (
+        <div>
+          <p>移除 <strong>{node.path}</strong> 映射？</p>
+          <label>
+            <Check
+              size="small"
+              checked={deleteSource}
+              onChange={(val) => { setDeleteSource(val); shouldDeleteSource = val; }}
+            />{' '}
+            同时删除物理介质文件
+          </label>
+        </div>
+      );
+    };
     confirm.show({
       title: '移除文件',
       children: <CustomConfirmContent />,
@@ -497,18 +509,18 @@ function Explorer({
       <div className={style[bem.e('header')]}>
         <span className={style[bem.e('title')]}>资源管理器</span>
         <div className={style[bem.e('actions')]}>
-          <button className={style[bem.e('icon-btn')]} onClick={handleToggleFsMode} title={fsMode === 'local' ? '本地模式' : '虚拟模式'}>
-            {fsMode === 'local' ? <ComputerIcon size={16} style={{ color: '#409eff' }} /> : <SyncIcon size={16} />}
-          </button>
+          <Button variant="ghost" size="icon-sm" onClick={handleToggleFsMode} title={fsMode === 'local' ? '本地模式' : '虚拟模式'}>
+            {fsMode === 'local' ? <ComputerIcon style={{ color: '#409eff' }} /> : <SyncIcon />}
+          </Button>
         </div>
       </div>
 
       {!isMapped ? (
         <div className={style[bem.e('unmapped-state')]}>
           <FolderOpenIcon size={48} style={{ color: '#d1d5db', marginBottom: 8 }} />
-          <button className={style[bem.e('modal-action-btn')]} onClick={openWorkspaceModal} style={{ margin: '0 auto' }}>
+          <Button variant="outline" onClick={openWorkspaceModal} style={{ margin: '0 auto' }}>
             {fsMode === 'local' ? '选择本地目录' : '选择工作区目录'}
-          </button>
+          </Button>
         </div>
       ) : (
         <>
@@ -516,10 +528,10 @@ function Explorer({
             <div className={style[bem.e('mapping-header')]}>
               <span style={{ fontSize: '10px' }}>WORKSPACE ({fsMode.toUpperCase()})</span>
               <div className={style[bem.e('actions')]}>
-                <button className={style[bem.e('icon-btn')]} onClick={openWorkspaceModal} title="重选"><SettingsIcon size={20} /></button>
+                <Button variant="ghost" size="icon-sm" onClick={openWorkspaceModal} title="重选"><SettingsIcon /></Button>
                  {/* <button className={style[bem.e('icon-btn')]} onClick={() => setShowImportModal(true)} title="导入"><FileDownloadIcon fontSize="small" /></button> */}
-                 <button className={style[bem.e('icon-btn')]} onClick={() => handleAddFile('', 'file')} title="新建文件"><AddIcon size={20} /></button>
-                 <button className={style[bem.e('icon-btn')]} onClick={() => handleAddFile('', 'dir')} title="新建文件夹"><CreateNewFolderIcon size={20} /></button>
+                 <Button variant="ghost" size="icon-sm" onClick={() => handleAddFile('', 'file')} title="新建文件"><AddIcon /></Button>
+                 <Button variant="ghost" size="icon-sm" onClick={() => handleAddFile('', 'dir')} title="新建文件夹"><CreateNewFolderIcon /></Button>
               </div>
             </div>
             <div className={style[bem.e('mapping-body')]}>
@@ -528,7 +540,11 @@ function Explorer({
                 <span className={style[bem.e('mapping-path-text')]}>{workspacePathStr}</span>
               </div>
               <label className={style[bem.e('mapping-toggle')]}>
-                <input type="checkbox" checked={isAutoSave} onChange={e => setIsAutoSave(e.target.checked)} />
+                <Check
+                  size="small"
+                  checked={isAutoSave}
+                  onChange={(val) => setIsAutoSave(val)}
+                />
                 <SyncIcon size={14} style={{ color: isAutoSave ? '#409eff' : '#9ca3af' }} />
                 实时自动保存
               </label>
@@ -566,10 +582,10 @@ function Explorer({
           <div className={style[bem.e('modal')]} onClick={e => e.stopPropagation()}>
             <div className={style[bem.e('modal-header')]}>
               <span className={style[bem.e('modal-title')]}>选择工作区目录</span>
-              <button className={style[bem.e('modal-close')]} onClick={() => setShowWorkspaceModal(false)}><CloseIcon size={20} /></button>
+              <Button variant="ghost" size="icon-sm" onClick={() => setShowWorkspaceModal(false)} title="关闭" aria-label="关闭"><CloseIcon /></Button>
             </div>
             <div className={style[bem.e('modal-toolbar')]}>
-              <button className={style[bem.e('modal-action-btn')]} onClick={vfs.navigation.handleBack} disabled={vfs.state.history.length <= 1}><ArrowBackIcon size={14} /> 返回</button>
+              <Button variant="outline" size="sm" icon={<ArrowBackIcon />} onClick={vfs.navigation.handleBack} disabled={vfs.state.history.length <= 1}>返回</Button>
               <div className={style[bem.e('modal-path-container')]}>
                 <span className={style[bem.e('modal-path')]}>{vfs.state.breadcrumbs.map(b => b.name === 'root' ? '' : b.name).join(' / ') || '/'}</span>
               </div>
@@ -583,7 +599,7 @@ function Explorer({
               ))}
             </div>
             <div className={style[bem.e('modal-footer')]}>
-              <button className={style[bem.e('btn-confirm')]} onClick={confirmWorkspace}>确认关联此目录</button>
+              <Button variant="default" onClick={confirmWorkspace}>确认关联此目录</Button>
             </div>
           </div>
         </div>

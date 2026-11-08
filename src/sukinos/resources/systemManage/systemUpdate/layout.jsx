@@ -4,6 +4,8 @@ import { createNamespace } from '/utils/js/classcreate'
 import * as echarts from 'echarts'
 
 import Button from '@/component/button/layout'
+import { Input } from '@/component/input/layout'
+import Check from '@/component/check/layout'
 import { alert } from '@/component/alert/layout'
 import { confirm } from '@/component/confirm/layout'
 import Select from '@/component/select/drowSelection/layout'
@@ -16,6 +18,7 @@ import {
 } from '@/apis/system/updateLog'
 
 import { updateTypes } from '/utils/js/logInfo'
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode'
 
 import { Plus as AddIcon, Pencil as EditIcon, Clock as AccessTimeIcon, X as CloseIcon } from 'lucide-react'
 
@@ -121,9 +124,9 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
           <span className={style[formBem.e('title')]}>
             {initialData ? '修改版本历史' : '提交系统更新'}
           </span>
-          <button className={style[formBem.e('close-btn')]} onClick={onClose}>
+          <Button variant="ghost" size="icon" aria-label="关闭" onClick={onClose}>
             <CloseIcon size={20} />
-          </button>
+          </Button>
         </div>
 
         <div className={style[formBem.e('body')]}>
@@ -131,11 +134,9 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
             <>
               <div className={style[formBem.e('form-item')]}>
                 <label className={style[formBem.e('checkbox-label')]}>
-                  <input
-                    type="checkbox"
-                    className={style[formBem.e('checkbox')]}
+                  <Check
                     checked={newVersion}
-                    onChange={(e) => setNewVersion(e.target.checked)}
+                    onChange={(val) => setNewVersion(val)}
                   />
                   作为新版本发布
                 </label>
@@ -144,9 +145,7 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
               {newVersion && (
                 <div className={style[formBem.e('form-item')]}>
                   <label className={style[formBem.e('label')]}>版本标题</label>
-                  <input
-                    type="text"
-                    className={style[formBem.e('input')]}
+                  <Input
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="例如：主控台基础功能升级"
@@ -180,20 +179,16 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
             <>
               <div className={style[formBem.e('form-item')]}>
                 <label className={style[formBem.e('label')]}>版本号</label>
-                <input
-                  type="text"
-                  className={style[formBem.e('input')]}
+                <Input
                   value={version}
-                  disabled={true}
+                  disabled
                   onChange={(e) => setVersion(e.target.value)}
                 />
               </div>
 
               <div className={style[formBem.e('form-item')]}>
                 <label className={style[formBem.e('label')]}>版本标题</label>
-                <input
-                  type="text"
-                  className={style[formBem.e('input')]}
+                <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -202,9 +197,9 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
               <div className={style[formBem.e('sub-items')]}>
                 <div className={style[formBem.e('sub-header')]}>
                   <span className={style[formBem.e('label')]}>改动细节管理</span>
-                  <button className={style[formBem.e('add-btn')]} onClick={handleAddItem}>
-                    <AddIcon width="1em" height="1em" /> 增加明细条目
-                  </button>
+                  <Button variant="outline" size="sm" icon={<AddIcon size={16} />} onClick={handleAddItem}>
+                    增加明细条目
+                  </Button>
                 </div>
 
                 {items.map((item) => (
@@ -219,13 +214,15 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
                           direction="bottom"
                         />
                       </div>
-                      <button
-                        className={style[formBem.e('close-btn')]}
-                        style={{ color: '#ef4444' }}
+                      <Button
+                        variant="destructive"
+                        plain
+                        size="icon-sm"
+                        aria-label="删除该条明细"
                         onClick={() => handleRemoveItem(item.id)}
                       >
                         <SvgTrashIcon />
-                      </button>
+                      </Button>
                     </div>
                     <textarea
                       className={style[formBem.e('textarea')]}
@@ -242,10 +239,10 @@ function UpdateForm({ visible, onClose, onSubmit, initialData }) {
         </div>
 
         <div className={style[formBem.e('footer')]}>
-          <Button type="default" size="medium" onClick={onClose}>
+          <Button variant="outline" size="default" onClick={onClose}>
             取消
           </Button>
-          <Button type="primary" size="medium" onClick={handleConfirm}>
+          <Button variant="default" size="default" onClick={handleConfirm}>
             保存
           </Button>
         </div>
@@ -261,6 +258,7 @@ function SystemUpdate({ user }) {
   const [editingItem, setEditingItem] = useState(null)
   const chartRefType = useRef(null)
   const isRoot = user?.root || false
+  const { isMobile } = useViewportMode()
 
   const fetchUpdates = async () => {
     setLoading(true)
@@ -283,6 +281,7 @@ function SystemUpdate({ user }) {
   }, [])
 
   useEffect(() => {
+    if (isMobile) return
     if (!updates || updates.length === 0 || !chartRefType.current) return
 
     const countMap = {}
@@ -341,7 +340,7 @@ function SystemUpdate({ user }) {
       chartType.dispose()
       window.removeEventListener('resize', handleResize)
     }
-  }, [updates])
+  }, [updates, isMobile])
 
   const handleFormSubmit = async (formData) => {
     try {
@@ -441,7 +440,7 @@ function SystemUpdate({ user }) {
           style[bem.e('toolbar')],
           style[bem.is('hidden', !isRoot)]
         ].filter(Boolean).join(' ')}>
-          <Button type="primary" size="small" onClick={openCreateModal}>
+          <Button variant="default" size="sm" onClick={openCreateModal}>
             <div className={style[bem.e('btn-inner')]}>
               <AddIcon width="1em" height="1em" style={{ marginRight: 4 }} />
               新增版本状态
@@ -478,12 +477,12 @@ function SystemUpdate({ user }) {
 
                     {isRoot && (
                       <div className={style[bem.e('operations')]}>
-                        <button className={style[bem.e('op-btn')]} onClick={() => openEditModal(group)}>
-                          <EditIcon width="1em" height="1em" />
-                        </button>
-                        <button className={[style[bem.e('op-btn')], style[bem.e('op-btn-danger')]].join(' ')} onClick={() => handleDelete(group.id)}>
+                        <Button variant="ghost" size="icon-xs" aria-label="编辑该版本" onClick={() => openEditModal(group)}>
+                          <EditIcon size={14} />
+                        </Button>
+                        <Button variant="ghost" size="icon-xs" aria-label="删除该版本" onClick={() => handleDelete(group.id)}>
                           <SvgTrashIcon />
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </div>

@@ -3,7 +3,11 @@ import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 import { FileType} from "@/sukinos/utils/config"
 import ContextMenu from "@/component/contextMenu/layout";
-import { Folder as FolderIcon, File as InsertDriveFileIcon, ArrowLeft as ArrowBackIcon, RefreshCw as RefreshIcon, LayoutGrid as GridViewIcon, List as FormatListBulletedIcon, FolderPlus as CreateNewFolderIcon, FilePlus as NoteAddIcon, Home as HomeIcon, Monitor as ComputerIcon, ArrowLeftRight as SwapHorizIcon } from 'lucide-react';
+import Drawer from '@/component/drawer/layout';
+import { Button } from '@/component/button/layout';
+import { Input } from '@/component/input/layout';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
+import { Folder as FolderIcon, File as InsertDriveFileIcon, ArrowLeft as ArrowBackIcon, RefreshCw as RefreshIcon, LayoutGrid as GridViewIcon, List as FormatListBulletedIcon, FolderPlus as CreateNewFolderIcon, FilePlus as NoteAddIcon, Home as HomeIcon, Monitor as ComputerIcon, ArrowLeftRight as SwapHorizIcon, Menu as MenuIcon } from 'lucide-react';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import ExChange from "./exchange/layout";
 import InteractiveAwakening from '@/sukinos/middleware/InteractiveAwakening/main';
@@ -39,6 +43,8 @@ const Sidebar = React.memo(({ mode, setMode }) => {
 
 const FileSystem = ({ app }) => {
   const [mode, setMode] = useState('virtual')
+  const [navOpen, setNavOpen] = useState(false);
+  const { isMobile, isTouch } = useViewportMode();
   const {
     state: { currentId, items, history, breadcrumbs, isReady },
     navigation: { loadDir, handleBack, handleRefresh },
@@ -167,16 +173,26 @@ const FileSystem = ({ app }) => {
 
   return (
     <div className={style[bem.b()]}>
-      <Sidebar mode={mode} setMode={setMode} />
+      {!isMobile && <Sidebar mode={mode} setMode={setMode} />}
       <div className={style[bem.e('main')]}>
         <div className={style[bem.e('header')]}>
+          {isMobile && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setNavOpen(true)}
+              aria-label="打开文件导航"
+            >
+              <MenuIcon size={20} />
+            </Button>
+          )}
           <div className={style[bem.e('nav-controls')]}>
-            <button className={style[bem.e('icon-btn')]} onClick={handleBack} disabled={history.length <= 1}>
+            <Button variant="ghost" size="icon" onClick={handleBack} disabled={history.length <= 1} aria-label="返回上一级">
               <ArrowBackIcon size={20} />
-            </button>
-            <button className={style[bem.e('icon-btn')]} onClick={handleRefresh}>
+            </Button>
+            <Button variant="ghost" size="icon" onClick={handleRefresh} aria-label="刷新">
               <RefreshIcon size={20} />
-            </button>
+            </Button>
           </div>
 
           <div className={style[bem.e('breadcrumbs')]}>
@@ -190,30 +206,36 @@ const FileSystem = ({ app }) => {
 
           <div className={style[bem.e('actions')]}>
 
-            <button className={style[bem.e('icon-btn')]} onClick={() => setExchangeVisible(true)} title="文件交换/传输">
+            <Button variant="ghost" size="icon" onClick={() => setExchangeVisible(true)} title="文件交换/传输" aria-label="文件交换/传输">
               <SwapHorizIcon size={20} />
-            </button>
+            </Button>
             <div className={style[bem.e('divider')]}></div>
 
-            <button className={style[bem.e('icon-btn')]} onClick={() => onCreate(FileType.DIRECTORY)} title="新建文件夹">
+            <Button variant="ghost" size="icon" onClick={() => onCreate(FileType.DIRECTORY)} title="新建文件夹" aria-label="新建文件夹">
               <CreateNewFolderIcon size={20} />
-            </button>
-            <button className={style[bem.e('icon-btn')]} onClick={() => onCreate(FileType.FILE )} title="新建文件">
+            </Button>
+            <Button variant="ghost" size="icon" onClick={() => onCreate(FileType.FILE )} title="新建文件" aria-label="新建文件">
               <NoteAddIcon size={20} />
-            </button>
+            </Button>
             <div className={style[bem.e('divider')]}></div>
-            <button
-              className={[style[bem.e('icon-btn')],style[bem.is('active', viewMode === 'grid')]].join(' ')}
+            <Button
+              variant={viewMode === 'grid' ? 'secondary' : 'ghost'}
+              size="icon"
               onClick={() => setViewMode('grid')}
+              title="网格视图"
+              aria-label="网格视图"
             >
               <GridViewIcon size={20} />
-            </button>
-            <button
-              className={[style[bem.e('icon-btn')],style[bem.is('active', viewMode === 'list')]].join(' ')}
+            </Button>
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="icon"
               onClick={() => setViewMode('list')}
+              title="列表视图"
+              aria-label="列表视图"
             >
               <FormatListBulletedIcon size={20} />
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -228,7 +250,13 @@ const FileSystem = ({ app }) => {
                 <ContextMenu key={item.id} menuItems={itemMenu} metaInfo={item}>
                     <div
                     className={[style[bem.e('item')],style[bem.is('selected', selectedId === item.id)]].join(' ')}
-                    onClick={(e) => handleItemClick(e, item.id)}
+                    onClick={(e) => {
+                      if (isTouch) {
+                        handleItemDbClick(item);
+                        return;
+                      }
+                      handleItemClick(e, item.id);
+                    }}
                     onDoubleClick={() => handleItemDbClick(item)}
                     >
                     <div className={style[bem.e('item-icon')]}>
@@ -240,13 +268,14 @@ const FileSystem = ({ app }) => {
 
                     <div className={style[bem.e('item-name')]}>
                         {renamingId === item.id ? (
-                        <input
-                            type="text"
+                        <Input
+                            className={style[bem.e('rename-input')]}
+                            size="xsmall"
                             value={renameValue}
                             autoFocus
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            onBlur={()=>submitRename(item)}
+                            onBlur={() => submitRename(item)}
                             onKeyDown={(e) => {
                             if (e.key === 'Enter') submitRename(item);
                             if (e.key === 'Escape') setRenamingId(null);
@@ -299,6 +328,18 @@ const FileSystem = ({ app }) => {
         visible={exchangeVisible}
         onClose={() => setExchangeVisible(false)}
       />
+
+      {isMobile && (
+        <Drawer open={navOpen} onClose={() => setNavOpen(false)} label="文件导航">
+          <Sidebar
+            mode={mode}
+            setMode={(next) => {
+              setMode(next);
+              setNavOpen(false);
+            }}
+          />
+        </Drawer>
+      )}
     </div>
 
   );

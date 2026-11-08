@@ -6,9 +6,11 @@ import Header from './header/layout';
 import GridView from './grid/layout';
 import ManualView from './manual/layout';
 import PresetColumnsView from './presets/layout';
-import { X as CloseIcon } from 'lucide-react';
+import { X as CloseIcon, Menu as MenuIcon } from 'lucide-react';
 import { getSheetState, putSheetState } from './db';
 import useWheelToHorizontalScroll from '@/sukinos/hooks/useWheelToHorizontalScroll';
+import Drawer from '@/component/drawer/layout';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 
 const bem = createNamespace('br-app');
 
@@ -73,6 +75,8 @@ export function ConfirmModal({ visible, title, content, onConfirm, onCancel }) {
 function BaserowApp({ state, dispatch }) {
   const [dbLoaded, setDbLoaded] = useState(false);
   const [draggedIdx, setDraggedIdx] = useState(null);
+  const [navOpen, setNavOpen] = useState(false);
+  const { isMobile } = useViewportMode();
   const tabsScrollRef = useRef(null);
 
   useWheelToHorizontalScroll(tabsScrollRef, {
@@ -277,9 +281,19 @@ function BaserowApp({ state, dispatch }) {
 
   return (
     <div className={style[bem.b()]}>
-      <Sidebar store={store} />
+      {!isMobile && <Sidebar store={store} />}
       <div className={style[bem.e('main')]}>
         <div ref={tabsScrollRef} className={style[bem.e('tabs-bar')]}>
+          {isMobile && (
+            <button
+              type="button"
+              className={style[bem.e('tabs-menu')]}
+              onClick={() => setNavOpen(true)}
+              aria-label="打开数据表导航"
+            >
+              <MenuIcon size={18} />
+            </button>
+          )}
           {(state.openTabs || []).map((tabId, idx) => {
             const isTable = tabId.startsWith('tbl_');
             const tabName = isTable ? (state.tables.find(t => t.id === tabId)?.name || '新表格') : (tabId === 'presets' ? '预制列管理' : '使用手册');
@@ -338,6 +352,12 @@ function BaserowApp({ state, dispatch }) {
           setConfirmState({ ...confirmState, visible: false });
         }}
       />
+
+      {isMobile && (
+        <Drawer open={navOpen} onClose={() => setNavOpen(false)} label="数据表导航">
+          <Sidebar store={store} onNavigate={() => setNavOpen(false)} />
+        </Drawer>
+      )}
     </div>
   );
 }

@@ -6,6 +6,24 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   color: #111827;
   overflow: hidden;
+  position: relative;
+}
+
+.su-store__mobile-bar {
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 10px;
+  border-bottom: 1px solid #f3f4f6;
+  background-color: #ffffff;
+}
+
+.su-store__mobile-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .su-store__sidebar {
@@ -85,4 +103,54 @@
   background-color: #ffffff;
   overflow-y: auto;
   box-sizing: border-box;
+}
+
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .su-store__sidebar {
+    width: 176px;
+    padding: 20px 10px;
+  }
+}
+
+
+@media (max-width: 767px) {
+  .su-store {
+    flex-direction: column;
+  }
+
+  .su-store__content {
+    height: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .su-store__sidebar {
+    width: 100%;
+    height: 100%;
+    flex-direction: column;
+    padding: 16px 12px;
+    border-right: none;
+    border-bottom: none;
+    overflow: hidden;
+  }
+
+  .su-store__sidebar-header {
+    padding: 0 12px 20px 12px;
+    margin-bottom: 8px;
+  }
+
+  .su-store__nav {
+    flex-direction: column;
+    gap: 4px;
+    width: auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .su-store__nav-item {
+    min-height: 44px;
+    padding: 12px 14px;
+    white-space: normal;
+  }
 }

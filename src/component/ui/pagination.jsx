@@ -38,13 +38,13 @@ const Elevator = ({ current, totalPages, onPageChange }) => {
   };
 
   return (
-    <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap max-[767px]:hidden">
       <span>跳转至</span>
       <input
         type="text"
         inputMode="numeric"
         aria-label="跳转至指定页"
-        className="h-8 w-11 box-border rounded-md border border-input bg-transparent text-center text-xs font-semibold text-foreground outline-none transition-colors focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="h-8 w-11 box-border rounded-md border border-input bg-transparent text-center text-xs font-semibold text-foreground outline-none transition-colors focus-visible:border-ring max-[767px]:h-9 max-[767px]:text-[13px]"
         value={val}
         onChange={handleChange}
         onKeyDown={handleKey}
@@ -114,7 +114,7 @@ export const Page = ({
     return pages;
   };
 
-  const cellCls = 'flex h-8 min-w-8 box-border items-center justify-center rounded-md border text-xs font-medium transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none select-none';
+  const cellCls = 'flex h-8 min-w-8 box-border items-center justify-center rounded-md border text-xs font-medium transition-colors focus-visible:border-ring focus-visible:outline-none select-none max-[767px]:h-9 max-[767px]:min-w-9 max-[767px]:text-[13px]';
   const cellIdle = 'cursor-pointer border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground';
   const cellActive = 'cursor-pointer border-primary bg-primary text-primary-foreground shadow-xs font-semibold';
   const cellEllipsis = 'cursor-default border-none bg-transparent text-muted-foreground';
@@ -122,15 +122,15 @@ export const Page = ({
 
   return (
     <div className={cn(
-      'flex select-none flex-wrap items-center gap-2.5 text-xs',
+      'flex select-none flex-wrap items-center gap-2.5 text-xs max-[767px]:grid max-[767px]:w-full max-[767px]:grid-cols-[1fr_auto] max-[767px]:gap-2',
       className
     )}>
       {showTotal && (
-        <div className="whitespace-nowrap text-xs text-muted-foreground">
+        <div className="whitespace-nowrap text-xs text-muted-foreground max-[767px]:col-start-1 max-[767px]:row-start-1">
           共 <span className="font-semibold text-foreground">{total}</span> 条
         </div>
       )}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5 max-[767px]:col-span-2 max-[767px]:row-start-2 max-[767px]:justify-center">
         <button
           type="button"
           aria-label="上一页"
@@ -140,7 +140,10 @@ export const Page = ({
         >
           <ChevronLeft size={16} />
         </button>
-        <div className="flex items-center gap-1">
+        <div className="hidden min-w-[72px] items-center justify-center text-xs text-muted-foreground max-[767px]:flex">
+          第 <span className="mx-1 font-semibold text-foreground">{current}</span> / {totalPages} 页
+        </div>
+        <div className="flex items-center gap-1 max-[767px]:hidden">
           {generatePageNumbers().map((p, i) => {
             const isActive = p === current;
             const isEllipsis = p === '...';
@@ -176,7 +179,7 @@ export const Page = ({
           <ChevronRight size={16} />
         </button>
       </div>
-      <div className="min-w-[96px]">
+      <div className="min-w-[96px] max-[767px]:col-start-2 max-[767px]:row-start-1 max-[767px]:justify-self-end">
         <Select
           size="small"
           value={parsedPageSize}

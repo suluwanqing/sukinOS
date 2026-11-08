@@ -1,4 +1,5 @@
-import ContextMenu, {
+import ContextMenuHost, {
+  ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuCheckboxItem,
@@ -31,4 +32,4 @@ export {
   ContextMenuTrigger,
 }
 
-export default ContextMenu
+export default ContextMenuHost

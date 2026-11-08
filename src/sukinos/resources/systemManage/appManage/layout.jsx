@@ -9,12 +9,13 @@ import { createNamespace } from "/utils/js/classcreate";
 import sukinosAppManageAPI from "@/apis/system/sukinosAppManage";
 import PageList from "@/component/list/pageList/layout";
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Modal from "@/component/modal/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
 
-import { Search as SearchIcon, Eye as VisibilityIcon, Trash2 as DeleteIcon, CircleCheck as CheckCircleOutlineIcon, CircleAlert as ErrorOutlineIcon, MessageSquareText as RateReviewIcon, Settings2 as AppSettingsAltIcon, RefreshCw as RefreshIcon, FileDown as FileDownloadIcon } from 'lucide-react';
+import { Search as SearchIcon, X as CloseIcon, Eye as VisibilityIcon, Trash2 as DeleteIcon, CircleCheck as CheckCircleOutlineIcon, CircleAlert as ErrorOutlineIcon, MessageSquareText as RateReviewIcon, Settings2 as AppSettingsAltIcon, RefreshCw as RefreshIcon, FileDown as FileDownloadIcon } from 'lucide-react';
 
 import useDebounce from "@/sukinos/hooks/useDebounce";
 import useThrottle from "@/sukinos/hooks/useThrottle";
@@ -151,7 +152,9 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
           <div className={style[bem.e("modal-title")]}>
             应用管理与状态审计中心
           </div>
-          <button className={style[bem.e("modal-close")]} onClick={onClose}>×</button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} title="关闭" aria-label="关闭">
+            <CloseIcon />
+          </Button>
         </div>
         <div className={style[bem.e("modal-body")]}>
           {loading ? (
@@ -193,15 +196,16 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
 
               <div className={style[bem.e("detail-block")]}>
                 <label>元数据 (MetaInfo)
-                  <button
-                    className={style[bem.e("btn-edit-meta")]}
+                  <Button
+                    variant="outline"
+                    size="xs"
                     onClick={() => {
                       setMetaEditValue(JSON.stringify(detail.metaInfo || {}, null, 2));
                       setMetaEditVisible(true);
                     }}
                   >
                     编辑
-                  </button>
+                  </Button>
                 </label>
                 <pre>{detail.metaInfo ? JSON.stringify(detail.metaInfo, null, 2) : "无元数据描述"}</pre>
               </div>
@@ -223,8 +227,8 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
                   />
                 </div>
                 <div className={style[bem.e("audit-actions")]} style={{ marginTop: 16 }}>
-                  <Button type="default" size="small" onClick={() => setMetaEditVisible(false)}>取消</Button>
-                  <Button type="primary" size="small" onClick={() => {
+                  <Button variant="outline" size="sm" onClick={() => setMetaEditVisible(false)}>取消</Button>
+                  <Button variant="default" size="sm" onClick={() => {
                     try {
                       const parsed = JSON.parse(metaEditValue);
                       sukinosAppManageAPI.updateAppStatus({
@@ -269,8 +273,8 @@ function AppDetailAndAuditModal({ resourceId, onClose, onRefresh }) {
                   />
                 </div>
                 <div className={style[bem.e("audit-actions")]}>
-                  <Button type="default" size="small" onClick={onClose}>取消</Button>
-                  <Button type="primary" size="small" loading={submitLoading} onClick={handleAuditSubmit}>
+                  <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
+                  <Button variant="default" size="sm" loading={submitLoading} onClick={handleAuditSubmit}>
                     应用并更新变更
                   </Button>
                 </div>
@@ -434,10 +438,10 @@ function AppDownloadModal({ row, onClose }) {
       )}
 
       <div className={style[bem.e("audit-actions")]} style={{ marginTop: 16 }}>
-        <Button type="default" size="small" onClick={onClose}>取消</Button>
+        <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
         <Button
-          type="primary"
-          size="small"
+          variant="default"
+          size="sm"
           loading={packing}
           disabled={loading || Boolean(error) || !cacheRef.current || (mode === "parsed" && !parsedUsable)}
           onClick={handleDownload}
@@ -727,14 +731,14 @@ function AppManage() {
         <div className={style[bem.e("right-pane")]}>
           <div className={style[bem.e("toolbar")]}>
             <div className={style[bem.e("toolbar-left")]}>
-              <div className={style[bem.e("search-bar")]}>
-                <SearchIcon size={20} style={{ color: "#9ca3af" }} />
-                <input
-                  placeholder="搜索应用名称、资源标识..."
-                  value={keywordInput}
-                  onChange={handleKeywordChange}
-                />
-              </div>
+              <Input
+                className={style[bem.e("search-bar")]}
+                size="small"
+                prefixIcon={<SearchIcon size={16} />}
+                placeholder="搜索应用名称、资源标识..."
+                value={keywordInput}
+                onChange={handleKeywordChange}
+              />
               <div className={style[bem.e("filter")]}>
                 <label>应用状态</label>
                 <Select
@@ -746,8 +750,9 @@ function AppManage() {
               </div>
               <div className={style[bem.e("filter")]}>
                 <label>开发者ID</label>
-                <input
+                <Input
                   className={style[bem.e("input")]}
+                  size="small"
                   value={userIdInput}
                   onChange={handleUserIdChange}
                   placeholder="用户 ID"
@@ -756,15 +761,14 @@ function AppManage() {
             </div>
 
             <div className={style[bem.e("toolbar-right")]}>
-              <button
-                className={[style[bem.e("btn-refresh")], refreshing ? style[bem.em("btn-refresh", "loading")] : ""].join(" ")}
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<RefreshIcon />}
+                loading={refreshing}
                 onClick={throttledRefresh}
                 title="同步并刷新数据"
-                disabled={refreshing}
-              >
-                <RefreshIcon size={20} />
-                <span>同步数据</span>
-              </button>
+              >同步数据</Button>
             </div>
           </div>
 

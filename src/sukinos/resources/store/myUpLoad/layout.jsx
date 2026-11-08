@@ -101,21 +101,21 @@ function MyUpLoad({ onInstall, myUploadList, installedApps, onDeleteUpload }) {
                 <>
                   {app.hasUpdate ? (
                     <Button
-                      type="primary"
+                      variant="default"
                       disabled={app.status !== 'active'}
                       onClick={app.status === 'active' ? () => onInstall(app) : undefined}
                     >
                       {app.status === 'active' ? '更新' : '暂不可更新'}
                     </Button>
                   ) : (
-                    <Button type="primary" onClick={() => startApp({ resourceId: app.resourceId })}>
+                    <Button variant="default" onClick={() => startApp({ resourceId: app.resourceId })}>
                       打开
                     </Button>
                   )}
                 </>
               ) : (
                 <Button
-                  type="primary"
+                  variant="default"
                   disabled={app.status !== 'active'}
                   onClick={app.status === 'active' ? () => onInstall(app) : undefined}
                 >
@@ -123,7 +123,7 @@ function MyUpLoad({ onInstall, myUploadList, installedApps, onDeleteUpload }) {
                 </Button>
               )}
 
-              <Button type="warning" onClick={() => handleDeleteUpload(app)}>
+              <Button variant="warning" onClick={() => handleDeleteUpload(app)}>
                 删除
               </Button>
             </div>

@@ -9,10 +9,11 @@ import { createNamespace } from "/utils/js/classcreate";
 import requestLogAPI from "@/apis/system/requestLog";
 import PageList from "@/component/list/pageList/layout";
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
-import { Search as SearchIcon, Eye as VisibilityIcon, Trash2 as DeleteIcon, CircleCheck as CheckCircleOutlineIcon, CircleAlert as ErrorOutlineIcon, ChartGantt as TimelineIcon, Gauge as SpeedIcon, RefreshCw as RefreshIcon } from 'lucide-react';
+import { Search as SearchIcon, X as CloseIcon, Eye as VisibilityIcon, Trash2 as DeleteIcon, CircleCheck as CheckCircleOutlineIcon, CircleAlert as ErrorOutlineIcon, ChartGantt as TimelineIcon, Gauge as SpeedIcon, RefreshCw as RefreshIcon } from 'lucide-react';
 
 import useDebounce from "@/sukinos/hooks/useDebounce";
 import useThrottle from "@/sukinos/hooks/useThrottle";
@@ -117,7 +118,9 @@ function LogDetailModal({ logId, onClose }) {
           <div className={style[bem.e("modal-title")]}>
             请求日志详情
           </div>
-          <button className={style[bem.e("modal-close")]} onClick={onClose}>×</button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} title="关闭" aria-label="关闭">
+            <CloseIcon />
+          </Button>
         </div>
         <div className={style[bem.e("modal-body")]}>
           {loading ? (
@@ -581,14 +584,14 @@ function SystemLog() {
 
           <div className={style[bem.e("toolbar")]}>
             <div className={style[bem.e("toolbar-left")]}>
-              <div className={style[bem.e("search-bar")]}>
-                <SearchIcon size={20} style={{ color: "#9ca3af" }} />
-                <input
-                  placeholder="搜索接口、操作者..."
-                  value={keywordInput}
-                  onChange={handleKeywordChange}
-                />
-              </div>
+              <Input
+                className={style[bem.e("search-bar")]}
+                size="small"
+                prefixIcon={<SearchIcon size={16} />}
+                placeholder="搜索接口、操作者..."
+                value={keywordInput}
+                onChange={handleKeywordChange}
+              />
               <div className={style[bem.e("filter")]}>
                 <label>方法</label>
                 <Select
@@ -609,47 +612,49 @@ function SystemLog() {
               </div>
               <div className={style[bem.e("filter")]}>
                 <label>操作者</label>
-                <input
+                <Input
                   className={style[bem.e("input")]}
+                  size="small"
                   value={operatorInput}
                   onChange={handleOperatorChange}
                   placeholder="账号/昵称"
                 />
               </div>
               <div className={style[bem.e("date-group")]}>
-                <input
+                <Input
+                  className={style[bem.e("date-input")]}
+                  size="small"
                   type="date"
                   value={startDate}
                   onChange={e => { setStartDate(e.target.value); setPage(1); }}
                 />
-                <span>—</span>
-                <input
+                <span className={style[bem.e("date-sep")]}>—</span>
+                <Input
+                  className={style[bem.e("date-input")]}
+                  size="small"
                   type="date"
                   value={endDate}
                   onChange={e => { setEndDate(e.target.value); setPage(1); }}
                 />
               </div>
 
-              <button className={style[bem.e("btn-reset")]} onClick={handleReset}>
-                重置
-              </button>
+              <Button variant="outline" size="sm" onClick={handleReset}>重置</Button>
             </div>
 
             <div className={style[bem.e("toolbar-right")]}>
-              <button
-                className={`${style[bem.e("btn-refresh")]} ${refreshing ? style[bem.em("btn-refresh", "loading")] : ""}`}
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<RefreshIcon />}
+                loading={refreshing}
                 onClick={throttledRefresh}
                 title="刷新数据"
-                disabled={refreshing}
-              >
-                <RefreshIcon size={20} />
-                <span>刷新</span>
-              </button>
-              <Button type="primary" plain size="small" onClick={handleExport}>导出CSV</Button>
+              >刷新</Button>
+              <Button variant="default" plain size="sm" onClick={handleExport}>导出CSV</Button>
               {selected.length > 0 && (
                 <div className={style[bem.e("batch-bar")]}>
                   <span>已选 {selected.length} 条</span>
-                  <Button type="danger" plain size="small" onClick={handleBatchDelete}>批量删除</Button>
+                  <Button variant="destructive" plain size="sm" onClick={handleBatchDelete}>批量删除</Button>
                 </div>
               )}
             </div>

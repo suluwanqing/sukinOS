@@ -4,17 +4,19 @@ import { Eye, EyeOff, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // 统一尺寸体系映射，兼容 sm / small, default / medium, lg / large
+// xsmall 是给移动端工具条用的一档：不做 ≤767px 抬高，保持 28px
 const normalizeSize = (size) => {
+  if (size === 'xs' || size === 'xsmall' || size === 'mini') return 'xsmall'
   if (size === 'sm' || size === 'small') return 'small'
   if (size === 'lg' || size === 'large') return 'large'
   return 'medium'
 }
 
 const inputVariants = cva(
-  'inline-flex w-full min-w-0 items-center rounded-md border border-input bg-transparent text-sm shadow-xs outline-none transition-[color,box-shadow,border-color] selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground dark:bg-input/30 dark:hover:bg-input/50 has-[input:focus-visible]:border-ring has-[input:focus-visible]:ring-[3px] has-[input:focus-visible]:ring-ring/50 has-[input[aria-invalid=true]]:border-destructive has-[input[aria-invalid=true]]:ring-destructive/20 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50',
+  'inline-flex w-full min-w-0 items-center rounded-md border border-input bg-transparent text-sm shadow-xs outline-none transition-[color,box-shadow,border-color] selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground dark:bg-input/30 has-[input[aria-invalid=true]]:border-destructive has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50',
   {
     variants: {
-      size: { small: 'h-8 text-xs', medium: 'h-9 text-sm', large: 'h-10 text-base' },
+      size: { xsmall: 'h-7 text-xs', small: 'h-8 text-xs max-[767px]:h-9', medium: 'h-9 text-sm', large: 'h-10 text-base' },
       disabled: {
         true: 'cursor-not-allowed opacity-50',
         false: '',
@@ -28,7 +30,7 @@ const innerVariants = cva(
   'h-full w-full min-w-0 appearance-none bg-transparent text-inherit outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed',
   {
     variants: {
-      size: { small: 'px-2.5', medium: 'px-3', large: 'px-3.5' },
+      size: { xsmall: 'px-2', small: 'px-2.5', medium: 'px-3', large: 'px-3.5' },
       hasPrefix: { true: 'pl-1', false: '' },
       hasSuffix: { true: 'pr-1', false: '' },
     },
@@ -47,6 +49,8 @@ export const Input = forwardRef((
     disabled = false,
     clearable = false,
     showPassword = false,
+    focus = true,
+    hover = true,
     prefixIcon,
     suffixIcon,
     maxLength,
@@ -137,7 +141,7 @@ export const Input = forwardRef((
           aria-label="清空内容"
           tabIndex={disabled ? -1 : 0}
         >
-          <XCircle className="size-4 fill-muted-foreground/30 hover:fill-muted-foreground/60 transition-colors" />
+          <XCircle className="size-4 transition-colors" />
         </button>
       )
     }
@@ -151,6 +155,8 @@ export const Input = forwardRef((
       style={style}
       className={cn(
         inputVariants({ size: actualSize, disabled }),
+        hover !== false && 'hover:border-foreground/25 dark:hover:bg-input/50',
+        focus !== false && 'has-[input:focus-visible]:border-ring',
         isRound && 'rounded-full',
         className
       )}

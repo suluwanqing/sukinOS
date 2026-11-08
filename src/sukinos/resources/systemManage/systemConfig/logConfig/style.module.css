@@ -73,42 +73,8 @@
   max-width: 480px;
 }
 
-.su-system-log-config__prefix-input-container {
-  display: flex;
-  align-items: center;
-  height: 32px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  border-radius: 6px;
-  overflow: hidden;
-  max-width: 260px;
-  padding: 0 10px;
-  transition: border-color 0.12s ease;
-  box-sizing: border-box;
-}
-
-.su-system-log-config__prefix-input-container:focus-within {
-  border-color: #111827;
-}
-
-.su-system-log-config__input-prefix-slash {
-  font-size: 13px;
-  color: #9ca3af;
-  margin-right: 6px;
-  user-select: none;
-}
-
 .su-system-log-config__prefix-input {
-  flex: 1;
-  border: none !important;
-  background: transparent !important;
-  outline: none !important;
-  font-size: 13px;
-  color: #111827;
-  height: 100%;
-  padding: 0 !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
+  max-width: 260px;
 }
 
 .su-system-log-config__form-item-help {
@@ -124,22 +90,8 @@
 }
 
 .su-system-log-config__input-text {
-  box-sizing: border-box;
   flex: 1;
-  width: 100%;
-  height: 32px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  padding: 0 10px;
-  font-size: 12.5px;
-  color: #111827;
-  background: #ffffff;
-  outline: none;
-  transition: border-color 0.12s ease;
-}
-
-.su-system-log-config__input-text:focus {
-  border-color: #111827;
+  min-width: 0;
 }
 
 .su-system-log-config__ignore-list {
@@ -166,27 +118,6 @@
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-size: 12.5px;
   color: #111827;
-}
-
-.su-system-log-config__ignore-btn-remove {
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  padding: 4px;
-  border-radius: 4px;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-
-.su-system-log-config__ignore-btn-remove:hover {
-  background: #fef2f2;
-  color: #dc2626;
 }
 
 .su-system-log-config__rule-creator {
@@ -312,24 +243,6 @@
   pointer-events: none;
 }
 
-.su-system-log-config__rule-btn-delete {
-  border: none;
-  background: transparent;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
-  display: flex;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-
-.su-system-log-config__rule-btn-delete:hover {
-  background: #fef2f2;
-  color: #dc2626;
-}
-
 .su-system-log-config__method-badge {
   display: inline-block;
   padding: 2px 6px;
@@ -382,4 +295,48 @@
   justify-content: flex-end;
   border-top: 1px solid #f0f0f3;
   padding-top: 14px;
+}
+
+@media (max-width: 767px) {
+  .su-system-log-config {
+    padding: 12px;
+    gap: 14px;
+  }
+  .su-system-log-config__strategy-form {
+    padding: 12px;
+  }
+  .su-system-log-config__select-mode-wrapper {
+    max-width: none;
+  }
+  .su-system-log-config__prefix-input {
+    max-width: none;
+  }
+  .su-system-log-config__ignore-controls {
+    flex-wrap: wrap;
+  }
+  .su-system-log-config__ignore-controls > *:first-child {
+    flex-basis: 100%;
+  }
+  .su-system-log-config__select-wrapper,
+  .su-system-log-config__input-wrapper,
+  .su-system-log-config__method-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+  .su-system-log-config__rule-row-item {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .su-system-log-config__rule-row-controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .su-system-log-config__rules-list {
+    max-height: none;
+  }
+  .su-system-log-config__footer > * {
+    flex: 1;
+    min-height: 44px;
+  }
 }

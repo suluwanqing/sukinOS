@@ -184,37 +184,11 @@
   background: #ffffff;
 }
 
+
 .su-setting__preview-btn,
 .su-setting__create-btn {
   flex: 1;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all 0.2s;
 }
-
-.su-setting__register-label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #374151;
-  cursor: pointer;
-  user-select: none;
-  white-space: nowrap;
-}
-
-.su-setting__register-label input[type="checkbox"] {
-  cursor: pointer;
-}
-
 
 .su-setting__pool-section {
   margin: 8px 16px;
@@ -234,51 +208,11 @@
   margin-bottom: 8px;
 }
 
-.su-setting__pool-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 13px;
-  color: #1f2937;
-  cursor: pointer;
-  user-select: none;
-}
-
-.su-setting__pool-check input[type="checkbox"] {
-  cursor: pointer;
-}
-
 .su-setting__pool-hint {
   margin-top: 6px;
   font-size: 11px;
   color: #6b7280;
   line-height: 1.4;
-}
-
-.su-setting__preview-btn {
-  background: #ffffff;
-  color: #606266;
-  border: 1px solid #d1d5db;
-}
-
-.su-setting__preview-btn:hover {
-  background: #f9fafb;
-  border-color: #9ca3af;
-}
-
-.su-setting__create-btn {
-  background: #1f2937;
-  color: #ffffff;
-}
-
-.su-setting__create-btn:hover:not(:disabled) {
-  background: #000;
-}
-
-.su-setting__create-btn:disabled {
-  background: #e5e7eb;
-  color: #6b7280;
-  cursor: not-allowed;
 }
 
 /* 入口约定配置 */
@@ -301,44 +235,13 @@
   gap: 6px;
 }
 
+
 .su-setting__pattern-remove {
   flex: none;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.su-setting__pattern-remove:hover {
-  background: #e5e7eb;
-  color: #f56c6c;
 }
 
 .su-setting__pattern-add {
   margin-top: 8px;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: 11px;
-  border: 1px dashed #d1d5db;
-  border-radius: 4px;
-  background: transparent;
-  color: #606266;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.su-setting__pattern-add:hover {
-  border-color: #409eff;
-  color: #409eff;
 }
 
 .su-setting__match-list {
@@ -380,4 +283,14 @@
 .su-setting__match-empty {
   font-size: 11px;
   color: #9ca3af;
+}
+
+@media (max-width: 767px) {
+  .su-setting__label-row {
+    height: auto;
+    min-height: 32px;
+  }
+  .su-setting__mode-toggle {
+    padding: 8px;
+  }
 }

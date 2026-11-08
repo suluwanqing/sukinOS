@@ -54,3 +54,21 @@
   margin-right: 8px;
   flex-shrink: 0;
 }
+
+
+@media (max-width: 767px) {
+  .su-br-select__search {
+    padding: 12px 10px;
+    font-size: 16px;
+  }
+
+  .su-br-select__list {
+    max-height: 42vh;
+    padding: 6px;
+  }
+
+  .su-br-select__item {
+    padding: 12px 10px;
+    font-size: 14px;
+  }
+}

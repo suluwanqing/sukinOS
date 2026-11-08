@@ -3,6 +3,7 @@ import style from "../style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import permissionManageAPI from "@/apis/system/permissionManage";
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
@@ -109,23 +110,13 @@ function RolePanel() {
       prop: "_actions", label: "操作", width: 120,
       render: (r) => (
         <div style={{ display: "flex", gap: 4 }}>
-          <button
-            className={style[bem.e("action-btn")]}
-            onClick={() => openEditModal(r)}
-            title="编辑"
-            style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 6px", borderRadius: 6, display: "inline-flex", alignItems: "center" }}
-          >
-            <EditIcon size={18} style={{ color: "#171717" }} />
-          </button>
+          <Button variant="ghost" size="icon-xs" onClick={() => openEditModal(r)} title="编辑" aria-label="编辑">
+            <EditIcon />
+          </Button>
           {!r.is_system && (
-            <button
-              className={style[bem.e("action-btn")]}
-              onClick={() => handleDelete(r)}
-              title="删除"
-              style={{ border: "none", background: "none", cursor: "pointer", padding: "4px 6px", borderRadius: 6, display: "inline-flex", alignItems: "center" }}
-            >
-              <DeleteIcon size={18} style={{ color: "#ef4444" }} />
-            </button>
+            <Button variant="destructive" plain size="icon-xs" onClick={() => handleDelete(r)} title="删除" aria-label="删除">
+              <DeleteIcon />
+            </Button>
           )}
         </div>
       ),
@@ -137,8 +128,8 @@ function RolePanel() {
       <div className={style[bem.e("section-header")]}>
         <h3>角色管理</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button type="default" size="small" onClick={fetchRoles} loading={loading}>刷新</Button>
-          <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={() => setCreateModal(true)}>添加角色</Button>
+          <Button variant="outline" size="sm" onClick={fetchRoles} loading={loading}>刷新</Button>
+          <Button variant="default" size="sm" onClick={() => setCreateModal(true)}>添加角色</Button>
         </div>
       </div>
       <p className={style[bem.e("desc")]}>
@@ -169,11 +160,9 @@ function RolePanel() {
             <div className={style[bem.e("info-section-title")]}>编辑信息</div>
             <div className={style[bem.e("form-group")]} style={{ marginTop: 8 }}>
               <label>显示名</label>
-              <input
-                type="text"
+              <Input
                 value={localEdit.label}
                 onChange={e => setLocalEdit(prev => ({ ...prev, label: e.target.value }))}
-                className={style[bem.e("input")]}
                 placeholder="输入显示名"
               />
             </div>
@@ -189,8 +178,8 @@ function RolePanel() {
             </div>
           </div>
           <div className={style[bem.e("form-actions")]}>
-            <Button type="default" size="small" onClick={() => setEditModal({ visible: false, role: null })}>取消</Button>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleEditSave}>保存</Button>
+            <Button variant="outline" size="sm" onClick={() => setEditModal({ visible: false, role: null })}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleEditSave}>保存</Button>
           </div>
         </div>
       </Modal>
@@ -205,22 +194,18 @@ function RolePanel() {
             <div className={style[bem.e("info-section-title")]}>角色信息</div>
             <div className={style[bem.e("form-group")]} style={{ marginTop: 8 }}>
               <label>角色标识 *</label>
-              <input
-                type="text"
+              <Input
                 value={createForm.name}
                 onChange={e => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
-                className={style[bem.e("input")]}
                 placeholder="如: manager"
               />
               <div className={style[bem.e("desc")]}>唯一标识，创建后不可修改</div>
             </div>
             <div className={style[bem.e("form-group")]}>
               <label>显示名 *</label>
-              <input
-                type="text"
+              <Input
                 value={createForm.label}
                 onChange={e => setCreateForm(prev => ({ ...prev, label: e.target.value }))}
-                className={style[bem.e("input")]}
                 placeholder="如: 经理"
               />
             </div>
@@ -236,8 +221,8 @@ function RolePanel() {
             </div>
           </div>
           <div className={style[bem.e("form-actions")]}>
-            <Button type="default" size="small" onClick={() => { setCreateModal(false); setCreateForm({ name: "", label: "", description: "" }); }}>取消</Button>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleCreate}>创建</Button>
+            <Button variant="outline" size="sm" onClick={() => { setCreateModal(false); setCreateForm({ name: "", label: "", description: "" }); }}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleCreate}>创建</Button>
           </div>
         </div>
       </Modal>

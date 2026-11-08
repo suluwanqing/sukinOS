@@ -4,6 +4,7 @@ import { createNamespace } from "/utils/js/classcreate";
 import permissionManageAPI from "@/apis/system/permissionManage";
 import systemAPI from "@/apis/system/main";
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
@@ -340,10 +341,10 @@ function SystemAppsAccess() {
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          <Button type="dark" size="small" onClick={() => setAddModal(true)}>
+          <Button variant="dark" size="sm" onClick={() => setAddModal(true)}>
             <AddIcon size={15} style={{ marginRight: 2 }} />添加 APP
           </Button>
-          <Button type="default" size="small" onClick={fetchData} loading={loading}>刷新</Button>
+          <Button variant="outline" size="sm" onClick={fetchData} loading={loading}>刷新</Button>
         </div>
       </div>
 
@@ -416,7 +417,7 @@ function SystemAppsAccess() {
               </div>
             </div>
             <div className={style[bem.e("form-actions")]}>
-              <Button type="default" size="small" onClick={() => setViewModal({ visible: false, app: null })}>关闭</Button>
+              <Button variant="outline" size="sm" onClick={() => setViewModal({ visible: false, app: null })}>关闭</Button>
             </div>
           </div>
         )}
@@ -514,8 +515,8 @@ function SystemAppsAccess() {
           </div>
 
           <div className={style[bem.e("form-actions")]}>
-            <Button type="default" size="small" onClick={handleModalCancel}>取消</Button>
-            <Button type="dark" size="small" onClick={handleModalSave}>保存更改</Button>
+            <Button variant="outline" size="sm" onClick={handleModalCancel}>取消</Button>
+            <Button variant="dark" size="sm" onClick={handleModalSave}>保存更改</Button>
           </div>
         </div>
       </Modal>
@@ -524,37 +525,34 @@ function SystemAppsAccess() {
         <div className="flex flex-col gap-3.5">
           <div className={style[bem.e("form-group")]}>
             <label>APP 标识</label>
-            <input
-              type="text"
+            <Input
+              size="small"
               value={newAppId}
               onChange={e => setNewAppId(e.target.value)}
-              className={style[bem.e("input")]}
               placeholder="如: sys-my-app"
             />
           </div>
           <div className={style[bem.e("form-group")]}>
             <label>显示名</label>
-            <input
-              type="text"
+            <Input
+              size="small"
               value={newAppLabel}
               onChange={e => setNewAppLabel(e.target.value)}
-              className={style[bem.e("input")]}
               placeholder="如: 我的应用"
             />
           </div>
           <div className={style[bem.e("form-group")]}>
             <label>描述（可选）</label>
-            <input
-              type="text"
+            <Input
+              size="small"
               value={newAppDesc}
               onChange={e => setNewAppDesc(e.target.value)}
-              className={style[bem.e("input")]}
               placeholder="简短描述"
             />
           </div>
           <div className={style[bem.e("form-actions")]}>
-            <Button type="default" size="small" onClick={() => setAddModal(false)}>取消</Button>
-            <Button type="dark" size="small" onClick={handleAddApp}>确认添加</Button>
+            <Button variant="outline" size="sm" onClick={() => setAddModal(false)}>取消</Button>
+            <Button variant="dark" size="sm" onClick={handleAddApp}>确认添加</Button>
           </div>
         </div>
       </Modal>

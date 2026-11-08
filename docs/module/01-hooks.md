@@ -548,7 +548,10 @@ const store = {
 | `maxWindows` | `10` | 最大可见窗口数（超出 LRU 休眠） |
 | `maxWorkers` | `5` | 最大并发 Worker 数 |
 | `workerLRU` | `true` | 启用 LRU 自动淘汰 |
-| `autoHideStatusBar` | `false` | 启动/聚焦 APP 时自动隐藏状态栏 |
+| `autoHideStatusBar` | `false` | 桌面档启动/聚焦 APP 时收起状态栏；移动端有应用在前台时收起，靠贴底细条上滑唤出 |
+| `bgFitMobile` | `'cover'` | 移动端壁纸取景（`cover` 铺满裁切 / `contain` 完整显示） |
+| `bgCropMobile` | `{ x: 50, y: 50, scale: 1 }` | 移动端取景构图与视野缩放 |
+| `mobileWallpaperScroll` | `false` | 移动端壁纸随翻页横向视差 |
 | `autoSaveStateInterval` | `0` | 自动保存状态间隔（秒），`0` 表示禁用 |
 | `autoSaveWindowInterval` | `0` | 自动保存窗口位置间隔（秒），`0` 表示禁用 |
 
@@ -571,6 +574,7 @@ const store = {
 **自动应用（CSS 注入）**:
 - `config` 变化 → 注入 CSS 变量到 `#sukin-os` 容器
 - 处理背景：纯色（`bgType: 'color'`）、图片（`bgType: 'image'`）、视频（`bgType: 'video'`）
+- 视频壁纸与图片共用一套取景：桌面恒为 `cover` 居中；移动端由 `bgFitMobile`、`bgCropMobile` 与 `mobileWallpaperScroll` 决定 `object-fit` / `object-position` / 尺寸，翻页进度经 `--su-os-bg-scroll-ratio` 驱动视差
 - 处理字体：支持预设字体和自定义字体文件
 - 处理窗口透明度：使用 `color-mix` 混合透明度
 - 处理毛玻璃效果：`blur(20px) saturate(160%)`

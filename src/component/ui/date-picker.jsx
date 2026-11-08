@@ -15,9 +15,9 @@ import {
 import { zhCN } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-const navButtonCls = 'flex size-8 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none';
+const navButtonCls = 'flex size-8 cursor-pointer items-center justify-center rounded-full border-none bg-transparent text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-2 max-[767px]:size-9';
 
-const dayCellCls = 'relative mx-auto flex aspect-square w-full max-w-[48px] cursor-pointer items-center justify-center rounded-md border text-[15px] transition-[background-color,border-color,color] duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none';
+const dayCellCls = 'relative mx-auto flex aspect-square w-full max-w-[48px] cursor-pointer items-center justify-center rounded-md border text-[15px] transition-[background-color,border-color,color] duration-200 focus-visible:border-ring focus-visible:outline-none';
 const dayCellHover = 'hover:bg-accent hover:text-accent-foreground';
 const dayTone = ({ inMonth, isToday, selected }) => {
   if (!inMonth) return 'border-transparent bg-transparent text-muted-foreground/40';
@@ -60,9 +60,9 @@ export const DateGoogle = ({ onDateChange, className: classname = '', initialDat
 
   const renderHeader = () => {
     return (
-      <div className="mb-5 flex flex-shrink-0 items-center justify-between">
+      <div className="mb-5 flex flex-shrink-0 items-center justify-between max-[767px]:mb-2">
         <div className="flex items-center gap-2">
-          <span className="text-xl font-bold tracking-[-0.5px] text-foreground">
+          <span className="text-xl font-bold tracking-[-0.5px] text-foreground max-[767px]:text-base">
             {format(currentMonth, 'yyyy年MM月', { locale: zhCN })}
           </span>
           <div className="ml-1 flex items-center gap-0.5">
@@ -77,7 +77,7 @@ export const DateGoogle = ({ onDateChange, className: classname = '', initialDat
         {!isToday(selectedDate) && (
           <button
             type="button"
-            className="cursor-pointer rounded-md border border-input bg-background px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="cursor-pointer rounded-md border border-input bg-background px-3.5 py-1.5 text-[13px] font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:outline-none max-[767px]:px-3 max-[767px]:py-2"
             onClick={handleBackToToday}
           >
             回到今天
@@ -134,7 +134,7 @@ export const DateGoogle = ({ onDateChange, className: classname = '', initialDat
 
   return (
     <div className={cn('relative flex h-full w-full items-center justify-center', classname)}>
-      <div className="flex h-full w-full min-h-[380px] min-w-[320px] select-none flex-col rounded-lg border border-border bg-popover p-6 text-popover-foreground shadow-lg">
+      <div className="flex h-full w-full min-h-[380px] min-w-[320px] select-none flex-col rounded-lg border border-border bg-popover p-6 text-popover-foreground shadow-lg max-[767px]:min-h-0 max-[767px]:min-w-0 max-[767px]:p-3">
         {renderHeader()}
         {renderDays()}
         {renderCells()}

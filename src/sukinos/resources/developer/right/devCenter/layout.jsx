@@ -5,13 +5,14 @@ import { FileText as DescriptionIcon, X as CloseIcon } from 'lucide-react';
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, horizontalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 import { canEditContent, toEditorValue, getEditorLanguage } from '../../editorSupport';
 
 const bem = createNamespace('dev-center');
 
-// 标签项：整项可拖拽（阈值 6px 保证单击仍切换），激活项自动滚入可视区
-function EditorTab({ path, isActive, unsaved, onSelect, onClose }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: path });
+// 标签项：桌面整项可拖拽（阈值 6px 保证单击仍切换），移动端只保留单击与横向滚动
+function EditorTab({ path, isActive, unsaved, onSelect, onClose, draggable = true }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: path, disabled: !draggable });
   const nodeRef = useRef(null);
 
   useEffect(() => {
@@ -35,7 +36,7 @@ function EditorTab({ path, isActive, unsaved, onSelect, onClose }) {
       className={tabClass}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       onClick={() => onSelect(path)}
-      {...attributes}
+      {...(draggable ? attributes : null)}
       {...listeners}
     >
       <DescriptionIcon size={14} style={{ color: isActive ? '#0ea5e9' : '#909399', flex: '0 0 auto' }} />
@@ -64,7 +65,18 @@ const editorOptions = {
   jsx: 'react'
 };
 
+
+const mobileEditorOptions = {
+  ...editorOptions,
+  fontSize: 15,
+  lineHeight: 22,
+  folding: false,
+  lineNumbersMinChars: 3,
+  padding: { top: 8, bottom: 8 }
+};
+
 function DevCenter({ files, activeFile, openFiles = [], openFile, closeFile, reorderOpenFiles, handleContentChange, triggerVfsSave, isMapped, unsavedFiles }) {
+  const { isMobile } = useViewportMode();
   // 动态存储 Editor 组件和加载状态
   const [EditorComponent, setEditorComponent] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -188,6 +200,7 @@ function DevCenter({ files, activeFile, openFiles = [], openFile, closeFile, reo
               path={path}
               isActive={path === activeFile}
               unsaved={unsavedFiles.has(path)}
+              draggable={!isMobile}
               onSelect={openFile}
               onClose={closeFile}
             />
@@ -226,7 +239,7 @@ function DevCenter({ files, activeFile, openFiles = [], openFile, closeFile, reo
                 path={activeFile}
                 language={getEditorLanguage(activeFile)}
                 value={editorValue}
-                options={editorOptions}
+                options={isMobile ? mobileEditorOptions : editorOptions}
                 theme="light"
                 onChange={onEditorChange}
                 loading={<div style={{ padding: '12px', color: '#999' }}>编辑器加载中...</div>}

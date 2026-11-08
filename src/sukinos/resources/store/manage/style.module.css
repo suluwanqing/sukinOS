@@ -63,30 +63,9 @@
   gap: 8px;
 }
 
-.su-manage__btn-primary {
-  padding: 6px 16px;
-  background-color: #000000;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-}
 
-.su-manage__btn-danger {
-  padding: 6px 16px;
-  background-color: transparent;
-  color: #909399;
-  border: 1px solid #dcdfe6;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.su-manage__btn-danger:hover {
-  color: #f56c6c;
-  border-color: #f56c6c;
-  background-color: rgba(239, 68, 68, 0.1);
+@media (max-width: 767px) {
+  .su-manage {
+    padding: 16px;
+  }
 }

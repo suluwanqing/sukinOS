@@ -173,7 +173,7 @@ export const CheckGroup = (props) => {
           <div
             key={key}
             className={cn(
-              'flex select-none items-center gap-2 py-0.5 text-sm outline-none transition-colors duration-150',
+              'flex select-none items-center gap-2 py-0.5 text-sm outline-none transition-colors duration-150 max-[767px]:min-h-9 max-[767px]:py-1',
               optionDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
               checked ? 'text-primary' : 'text-muted-foreground',
               !optionDisabled && 'hover:text-foreground focus-visible:text-foreground'

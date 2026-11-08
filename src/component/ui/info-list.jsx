@@ -3,7 +3,7 @@ import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const navItemVariants = cva(
-  'flex cursor-pointer items-center justify-between px-5 py-2 text-sm transition-colors hover:text-primary max-md:m-0 max-md:flex-none max-md:whitespace-nowrap max-md:rounded-md max-md:bg-muted max-md:px-3 max-md:py-1.5 max-md:text-sm',
+  'flex cursor-pointer items-center justify-between px-5 py-2 text-sm transition-colors hover:text-primary max-[767px]:m-0 max-[767px]:flex-none max-[767px]:whitespace-nowrap max-[767px]:rounded-md max-[767px]:bg-muted max-[767px]:px-2.5 max-[767px]:py-1.5 max-[767px]:text-[13px]',
   {
     variants: {
       active: { true: 'bg-accent font-bold text-primary', false: '' },
@@ -12,7 +12,7 @@ const navItemVariants = cva(
 );
 
 const rowVariants = cva(
-  'mb-3 flex cursor-pointer items-center text-sm transition-colors hover:text-primary max-md:min-h-7 max-md:text-sm max-md:mb-0',
+  'mb-3 flex cursor-pointer items-center text-sm transition-colors hover:text-primary max-[767px]:min-h-7 max-[767px]:text-sm max-[767px]:mb-0',
   {
     variants: {
       tone: { body: 'text-foreground', muted: 'text-muted-foreground' },
@@ -22,7 +22,7 @@ const rowVariants = cva(
 );
 
 const badgeCls = 'ml-2 inline-flex items-center justify-center rounded-sm border border-destructive px-1 py-0.5 text-xs leading-none font-normal text-destructive';
-const groupTitleCls = 'mb-4 text-base font-bold text-foreground max-md:mb-1 max-md:border-b max-md:border-border max-md:pb-0.5 max-md:text-sm';
+const groupTitleCls = 'mb-4 text-base font-bold text-foreground max-[767px]:mb-1 max-[767px]:border-b max-[767px]:border-border max-[767px]:pb-0.5 max-[767px]:text-sm';
 
 export const InfoList = ({
   menuData = [],
@@ -50,13 +50,13 @@ export const InfoList = ({
   return (
     <div
       className={cn(
-        'flex max-h-screen items-start overflow-y-auto bg-muted text-foreground max-md:max-h-none max-md:flex-col',
+        'flex max-h-screen items-start overflow-y-auto bg-muted text-foreground max-[767px]:max-h-none max-[767px]:flex-col',
         className
       )}
       style={{ ...customStyle }}
       onMouseLeave={onMouseLeave}
     >
-      <div className="w-[200px] shrink-0 py-3 max-md:flex max-md:w-full max-md:flex-nowrap max-md:gap-1 max-md:overflow-x-auto max-md:border-b max-md:border-border max-md:p-2">
+      <div className="w-[200px] shrink-0 py-3 max-[767px]:flex max-[767px]:w-full max-[767px]:flex-wrap max-[767px]:gap-1.5 max-[767px]:border-b max-[767px]:border-border max-[767px]:p-2">
         {leftNavItems.map((item, index) => (
           <div
             key={index}
@@ -68,9 +68,9 @@ export const InfoList = ({
           </div>
         ))}
       </div>
-      <div className="flex w-full grow gap-10 bg-card px-8 py-5 max-md:flex-col max-md:gap-6 max-md:p-4">
+      <div className="flex w-full grow gap-10 bg-card px-8 py-5 max-[767px]:flex-col max-[767px]:gap-4 max-[767px]:p-3">
         {activeRightContent && activeRightContent.map((group, groupIndex) => (
-          <div key={groupIndex} className="flex flex-col max-md:p-0">
+          <div key={groupIndex} className="flex flex-col max-[767px]:p-0">
             <div className={groupTitleCls}>{group.title}</div>
             {group.items.map((item, itemIndex) => (
               <div

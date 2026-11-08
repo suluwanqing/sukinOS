@@ -20,8 +20,21 @@ DeskBook 是 SukinOS 的桌面环境核心模块，负责模拟操作系统的�
 
 | 文件路径 | 职责说明 |
 |---------|---------|
-| `deskBook/layout.jsx` | 桌面主容器，编排所有子模块，管理全局状态（窗口层级、网格布局、快捷键、应用排序） |
+| `deskBook/layout.jsx` | 桌面主容器，只做 Hook 装配与子模块组装 |
+| `deskBook/constants.js` | 桌面/移动端网格常量（格子尺寸、间距、内边距） |
+| `deskBook/hooks/useDeskWindows.js` | 运行应用顺序、窗口层级与焦点、LRU 休眠、调度中心选择 |
+| `deskBook/hooks/useDeskGrid.js` | 网格行列计算、图标位置持久化、拖拽交换、卸载兜底保存 |
+| `deskBook/hooks/useWindowSlots.js` | 窗口挂载槽的创建、释放与卡片搬迁回收 |
+| `deskBook/hooks/useDeskShortcuts.js` | 全局快捷键与 iframe 键盘消息桥 |
+| `deskBook/hooks/useEdgeGestures.js` | 移动端底部手势判定 |
+| `deskBook/hooks/useBeforeUnload.js` | 退出确认与 pagehide 保存绑定 |
+| `deskBook/views/DesktopGrid.jsx` | 桌面图标网格（含空格拖放目标） |
+| `deskBook/views/MobilePagingGrid.jsx` | 移动端横向分页网格与壁纸视差 |
+| `deskBook/views/WindowLayer.jsx` | `HostKeepAlive` + Portal 窗口层 |
+| `deskBook/views/AppEditOverlay.jsx` | 应用配置编辑浮层 |
 | `deskBook/style.module.css` | 桌面主容器样式 |
+| `deskBook/switcher/layout.jsx` | 窗口调度中心：桌面顶部图标栏与移动端任务卡列表，Portal 到 `document.body` |
+| `deskBook/switcher/MobileTaskCard.jsx` | 移动端任务卡：承载上滑收起手势，并把真实窗口的挂载槽搬进预览位 |
 | `deskBook/boot/layout.jsx` | 系统启动引导界面，展示 SukinOS 品牌信息和启动按钮 |
 | `deskBook/boot/style.module.css` | 启动界面样式 |
 | `deskBook/shortcut/layout.jsx` | 桌面快捷方式图标组件，展示应用图标与名称 |
@@ -29,7 +42,7 @@ DeskBook 是 SukinOS 的桌面环境核心模块，负责模拟操作系统的�
 | `deskBook/statusBar/layout.jsx` | 底部状态栏，展示运行中应用图标，支持鼠标拖拽横向滚动 |
 | `deskBook/statusBar/style.module.css` | 状态栏样式 |
 | `deskBook/window/layout.jsx` | 应用窗口容器，管理窗口标题栏、缩放/拖拽、最大化、进程状态面板 |
-| `deskBook/AdaptivePlaceholder.jsx` | 后台窗口轻量占位组件（未保活窗口的后台占位优化），非可见窗口仅渲染 `<div style="display:none">` 而非完整 ProcessWindow；由 `deskBook/layout.jsx:DeskBook` 引入 |
+| `deskBook/AdaptivePlaceholder.jsx` | 后台窗口轻量占位组件（未保活窗口的后台占位优化），非可见窗口仅渲染 `<div style="display:none">` 而非完整 ProcessWindow；由 `deskBook/views/WindowLayer.jsx` 引入 |
 | `components/KeepAliveViewport/index.jsx` | `HostKeepAlive`（宿主窗口保活调度）与 `KeepAlive`（`AppSDK.Components.KeepAlive` 面板级保活） |
 | `deskBook/window/style.module.css` | 窗口容器样式 |
 | `deskBook/window/process/layout.jsx` | 进程动态渲染引擎，包含 ErrorBoundary、Iframe 沙箱、代码编译与 SDK 注入 |
@@ -43,6 +56,10 @@ DeskBook 是 SukinOS 的桌面环境核心模块，负责模拟操作系统的�
 graph TD
     DeskBook["DeskBook<br/>(deskBook/layout.jsx)"]
     Boot["Boot<br/>(boot/layout.jsx)"]
+    DesktopGrid["DesktopGrid<br/>(views/DesktopGrid.jsx)"]
+    MobileGrid["MobilePagingGrid<br/>(views/MobilePagingGrid.jsx)"]
+    WindowLayer["WindowLayer<br/>(views/WindowLayer.jsx)"]
+    EditOverlay["AppEditOverlay<br/>(views/AppEditOverlay.jsx)"]
     CM_Desktop["ContextMenu<br/>(桌面右键菜单)"]
     GridCell["GridCell<br/>(网格单元格 x N)"]
     CM_Shortcut["ContextMenu<br/>(图标右键菜单)"]
@@ -51,20 +68,27 @@ graph TD
     ProcessWindow["ProcessWindow<br/>(window/layout.jsx) x N"]
     AdaptivePH["AdaptiveWindowPlaceholder<br/>(非可见窗口占位) x N"]
     CustomApp["CustomApp<br/>(customApp/layout.jsx)"]
-    Switcher["WindowSwitcher<br/>(调度中心 Portal)"]
+    Switcher["WindowSwitcher<br/>(switcher/layout.jsx)"]
+    MobileCard["MobileTaskCard<br/>(switcher/MobileTaskCard.jsx) x N"]
     StatusBar["StatusBar<br/>(statusBar/layout.jsx)"]
 
     DeskBook -->|"未就绪"| Boot
+    DeskBook -->|"桌面"| DesktopGrid
+    DeskBook -->|"移动端"| MobileGrid
     DeskBook --> CM_Desktop
-    CM_Desktop --> GridCell
+    CM_Desktop --> DesktopGrid
+    DesktopGrid --> GridCell
     GridCell --> CM_Shortcut
+    MobileGrid --> CM_Shortcut
     CM_Shortcut --> Shortcut
     Shortcut --> VfsImage_S
 
-    DeskBook -->|"可见/焦点窗口"| ProcessWindow
-    DeskBook -->|"非可见且未保活窗口"| AdaptivePH
+    DeskBook --> WindowLayer
+    WindowLayer -->|"可见或保活窗口"| ProcessWindow
+    WindowLayer -->|"非可见且未保活窗口"| AdaptivePH
 
-    DeskBook -->|"editingApp"| CustomApp
+    DeskBook -->|"editingApp"| EditOverlay
+    EditOverlay --> CustomApp
     DeskBook -->|"Portal"| Switcher
     DeskBook -->|"statusBarOpen"| StatusBar
 
@@ -80,6 +104,7 @@ graph TD
 
     StatusBar --> VfsImage_SB["VfsImage x N"]
     Switcher --> VfsImage_SW["VfsImage x N"]
+    Switcher -->|"移动端"| MobileCard
 ```
 
 ---
@@ -90,53 +115,51 @@ graph TD
 
 **组件类型**：`React.memo(DeskBook)`，顶层桌面容器。
 
-#### State
+#### 状态归属
 
-| 状态变量 | 类型 | 用途 |
-|---------|------|------|
-| `zOrders` | `Record<string, number>` | PID 到 z-index 的映射，控制窗口层级 |
-| `maxZ` | `number` | 当前最大 z-index 值，初始 10 |
-| `statusBarOpen` | `boolean` | 状态栏显隐状态（持久化到 localStorage） |
-| `currentFocus` | `string \| null` | 当前焦点窗口的 PID |
-| `gridSize` | `{ rows, cols }` | 桌面网格的行列数 |
-| `appPositions` | `Record<string, string>` | PID 到 "row-col" 的坐标映射 |
-| `dragOverCell` | `string \| null` | 当前拖拽悬停的格子坐标 |
-| `editingApp` | `object \| null` | 正在编辑配置的应用对象 |
-| `showWindowSwitcher` | `boolean` | 窗口调度中心显隐 |
-| `selectedWindowIndex` | `number` | 调度中心选中索引 |
+`layout.jsx` 自身只保留 `statusBarOpen` 与 `editingApp`，其余按功能块落在 Hook 内：
+
+| 状态 | 归属 | 用途 |
+|------|------|------|
+| `zOrders` / `maxZ` / `currentFocus` | `useDeskWindows` | 窗口层级与焦点 |
+| `showWindowSwitcher` / `selectedWindowIndex` | `useDeskWindows` | 调度中心显隐与选中索引 |
+| `gridSize` / `appPositions` / `mobileOrderPositions` / `dragOverCell` | `useDeskGrid` | 网格行列、持久化坐标与拖拽悬停 |
+| `statusBarOpen` | `layout.jsx` | 状态栏显隐（持久化到 localStorage） |
+| `editingApp` | `layout.jsx` | 正在编辑配置的应用对象 |
 
 #### 关键 Refs
 
-| Ref | 用途 |
+| Ref | 归属 / 用途 |
 |-----|------|
-| `mainContainerRef` | 主容器 DOM 引用，用于网格计算和焦点管理 |
-| `viewRef` | 桌面视图 DOM 引用，用于空白区域焦点抢夺 |
-| `runningOrderRef` | 维护应用先来后到的 PID 顺序 |
-| `windowRefsMap` | 收集每个 ProcessWindow 的 DOM 引用，用于 Switcher 动画 |
-| `stateRef` | 缓存最新状态引用，避免全局键盘监听器的闭包陷阱 |
-| `appPositionsRef` | 最新位置引用，用于 pagehide 事件安全保存 |
+| `mainContainerRef` / `viewRef` | `layout.jsx`：主容器与桌面视图 DOM，网格计算和空白区焦点抢夺 |
+| `windowLayerRef` / `windowSlotsRef` | `useWindowSlots`：窗口挂载层与 PID 槽位 |
+| `stateRef` | `useDeskShortcuts`：缓存最新状态，避免键盘监听器闭包陷阱 |
+| `appPositionsRef` / `isReadyRef` / `currentUserIdRef` | `useDeskGrid`：pagehide 兜底保存的最新区位与用户 |
+| `runningOrderRef` | `useDeskWindows`：维护应用先来后到的 PID 顺序 |
 
 #### 计算属性（useMemo）
 
-| 名称 | 用途 |
-|------|------|
-| `isRunningApps` | 从 `apps` 中过滤出非 INSTALLED 状态的应用，按 PID 先来后到排序 |
-| `showDisplay` | PID 到 `boolean` 的映射（`status === 'RUNNING'`），控制窗口显示 |
-| `sortedRunningApps` | 按 `currentFocus` 优先、然后 z-index 降序排列，用于 Switcher 展示 |
+| 名称 | 归属 | 用途 |
+|------|------|------|
+| `isRunningApps` | `useDeskWindows` | 过滤非 INSTALLED 应用，按 PID 先来后到排序 |
+| `showDisplay` | `useDeskWindows` | PID 到 `boolean` 的映射（`status === 'RUNNING'`） |
+| `activeWindowPids` | `useDeskWindows` | 可见窗口集合，调度中心开启时全部计入 |
+| `sortedRunningApps` | `useDeskWindows` | 焦点优先、再按 z-index 降序，供 Switcher 使用 |
+| `displayPositions` | `useDeskGrid` | 桌面用持久化坐标，移动端只读重排 |
 
 #### 关键方法
 
-| 方法 | 说明 |
-|------|------|
-| `handleFocus(pid)` | 提升 PID 的 z-index 到最高，设置 `currentFocus` |
-| `handleStartApp(pid)` | 先聚焦再调用 `startApp({ pid })` |
-| `handleColseApp(pid)` | 休眠应用、清理 z-index 和焦点 |
-| `handleForceKill(pid)` | 强制终止进程、清理 z-index 和焦点 |
-| `handleGlobalKeyDown(event)` | 全局快捷键处理：Ctrl+R（软刷新）、Ctrl+Alt+C（Switcher）、Ctrl+Alt+O（状态栏） |
-| `autoArrangeApps(apps, positions, rows, cols)` | 自动排列未分配位置的快捷方式图标 |
-| `handleDragStart / Over / Leave / Drop` | 桌面图标拖拽事件处理（支持位置交换） |
-| `handleCustomUpdate(newConfig)` | 调用内核更新资源自定义配置 |
-| `handleUnload()` | `pagehide` 兜底处理器：先 `kernel.forceSaveAllStates()`，再把 `appPositionsRef` 里的图标位置交给 `setLayout` 写入 VFS 布局文件（`deskBook/layout.jsx:handleUnload`，系统未就绪或布局为空时不写） |
+| 方法 | 归属 | 说明 |
+|------|------|------|
+| `handleFocus(pid)` | `useDeskWindows` | 提升 PID 的 z-index 到最高并设置焦点 |
+| `handleStartApp(pid)` | `useDeskWindows` | 先聚焦再调用 `startApp({ pid })`，移动端可进全屏 |
+| `handleColseApp(pid)` | `useDeskWindows` | 休眠应用、清理 z-index 和焦点 |
+| `handleForceKill(pid)` | `useDeskWindows` | 强制终止进程、清理 z-index 和焦点 |
+| `handleGlobalKeyDown` | `useDeskShortcuts` | Ctrl+R 软刷新、Ctrl+Alt+C 调度中心、Ctrl+Alt+O 状态栏 |
+| `autoArrangeApps` / `reflowForGrid` | `useDeskGrid` | 自动排位与移动端只读重排（桌面坐标 → 连续分页序号，页数随图标总数增长，不写回布局） |
+| `handleDragStart / Over / Leave / Drop` | `useDeskGrid` | 桌面图标拖拽（支持位置交换） |
+| `handleUnload()` | `useDeskGrid` | `pagehide` 兜底：`kernel.forceSaveAllStates()` 后把坐标交给 `setLayout`；未就绪或布局为空时不写 |
+| `handleUpdate(newConfig)` | `views/AppEditOverlay` | 调用内核更新资源自定义配置 |
 
 #### Props 传递给子组件
 
@@ -144,9 +167,11 @@ graph TD
 |--------|-----------|
 | `Boot` | `boot={bootSystem}`, `loading={loading}` |
 | `Shortcut` | `app={{ label, ...appData }}` |
-| `ProcessWindow` | `kernel, pid, fileName, zIndex, onFocus, onClose, onKill, isDisplay, isShow, exposeState, reStartApp, forceReStartApp, generateAppSetting, app, showWindowSwitcher, isSelected, initialRect, windowSize` |
-| `StatusBar` | `blockEdApps, startApp, hibernateApp, currentFocus, onFocus, isRunningApps` |
-| `CustomApp` | `initialCustom, onUpdateConfig, onClose, editingAppName` |
+| `WindowLayer` | `isRunningApps, activeWindowPids, deferredZOrders, deferredCurrentFocus, sortedRunningApps, selectedWindowIndex, showWindowSwitcher, isMobile, kernel, showDisplay, setting, generateAppSetting, reStartApp, forceReStartApp, onFocus, onClose, onKill, getWindowSlot`；由它向 `ProcessWindow` 透传窗口 props |
+| `DesktopGrid` / `MobilePagingGrid` | `apps, displayPositions, gridSize, shortcutMenus, onStartApp`；桌面额外收拖拽回调与 `isTouch`，移动端额外收 `mobileWallpaperScroll` |
+| `StatusBar` | `blockEdApps, startApp, hibernateApp, currentFocus, onFocus, isRunningApps, contextMenuItems` |
+| `AppEditOverlay` | `app, kernel, onChange, onClose`；由它向 `CustomApp` 传 `initialCustom` 等 |
+| `WindowSwitcher` | `showWindowSwitcher, isMobile, sortedRunningApps, selectedWindowIndex, onSelect, onHoverIndex, onSelectApp, onDismissAll, onForceKill, windowSlotsRef, onReleaseSlot` |
 
 ---
 
@@ -263,7 +288,7 @@ graph TD
 | `showWindowSwitcher` | `boolean` | 调度中心是否开启 |
 | `isSelected` | `boolean` | 在调度中心是否被选中 |
 
-> 调用方还会传 `initialIndex`（`deskBook/layout.jsx:DeskBook`），但组件签名（`window/layout.jsx:ProcessWindow`）并未接收它，属无害冗余入参。
+> 调用方还会传 `initialIndex`（`deskBook/views/WindowLayer.jsx`），但组件签名（`window/layout.jsx:ProcessWindow`）并未接收它，属无害冗余入参。
 
 > 标题栏相关配置在 `customConfig`（`window/layout.jsx:ProcessWindow`）里解析：`hideHeader` 取 `app.metaInfo.hideHeader ?? resource.metaInfo.hideHeader ?? false`；`hideHeaderHover` 取 `app.metaInfo.custom.hideHeaderHover ?? resource.metaInfo.custom.hideHeaderHover ?? false`，且一旦 `hideHeader` 为真就被强制置回 `false`（两者互斥，隐藏优先）。
 
@@ -476,6 +501,23 @@ Ctrl+Alt+C
       -> closeWindowSwitcher()
 ```
 
+移动端任务卡（`switcher/MobileTaskCard.jsx`）：
+
+```
+HostKeepAlive 渲染每个 ProcessWindow
+  -> createPortal 进该 pid 的挂载槽（纯 DOM 容器，平时 display:contents 挂在 #su-window-layer）
+  -> 调度器打开、卡片挂载时，卡片把挂载槽搬进预览位（moveBefore，保留 iframe 运行状态）
+    -> 槽保持整屏尺寸并 scale(卡片宽 / 屏宽)，真实窗口与卡片标题同属一张卡片
+  -> 上滑卡片（仅记录 dy < 0）只改卡片一次 transform / opacity
+    -> 拖动期间卡片关闭 transition，逐帧 1:1 跟手
+    -> 松手 < 18% 屏高：回弹归零
+    -> 松手 >= 18% 屏高：卡片先播完 320ms 收起动画，父级再强杀进程（延迟 340ms）
+  -> 点标题栏 × 同上；「清除全部」先让所有卡片退场，动画结束后再强杀并收起调度中心
+  -> 调度器关闭、卡片卸载时槽搬回窗口层，窗口恢复桌面几何
+```
+
+预览不再测量卡片矩形：预览就是卡片子树里的真实窗口，横向滚动、回弹与上滑都由同一个盒子承担，不存在两层错位。
+
 ### 5.6 桌面图标拖拽链
 
 ```
@@ -513,12 +555,26 @@ DynamicRenderer.effect (依赖 resource + iframeMountNode)
 
 ```
 deskBook/layout.jsx
+  ├── deskBook/constants.js
+  ├── deskBook/hooks/useDeskWindows.js
+  ├── deskBook/hooks/useDeskGrid.js
+  ├── deskBook/hooks/useWindowSlots.js
+  ├── deskBook/hooks/useDeskShortcuts.js
+  ├── deskBook/hooks/useEdgeGestures.js
+  ├── deskBook/hooks/useBeforeUnload.js
+  ├── deskBook/views/DesktopGrid.jsx
+  │   └── deskBook/shortcut/layout.jsx   (Shortcut)
+  ├── deskBook/views/MobilePagingGrid.jsx
+  │   └── deskBook/shortcut/layout.jsx   (Shortcut)
+  ├── deskBook/views/WindowLayer.jsx
+  │   ├── deskBook/window/layout.jsx     (ProcessWindow)
+  │   │   └── deskBook/window/process/layout.jsx  (DynamicRenderer)
+  │   └── deskBook/AdaptivePlaceholder.jsx
+  ├── deskBook/views/AppEditOverlay.jsx
+  │   └── deskBook/customApp/layout.jsx   (CustomApp)
   ├── deskBook/boot/layout.jsx           (Boot)
-  ├── deskBook/shortcut/layout.jsx       (Shortcut)
   ├── deskBook/statusBar/layout.jsx      (StatusBar)
-  ├── deskBook/window/layout.jsx         (ProcessWindow)
-  │   └── deskBook/window/process/layout.jsx  (DynamicRenderer)
-  └── deskBook/customApp/layout.jsx      (CustomApp)
+  └── deskBook/switcher/layout.jsx       (WindowSwitcher)
 ```
 
 ### 6.2 外部依赖
@@ -526,14 +582,15 @@ deskBook/layout.jsx
 | 依赖来源 | 导入项 | 使用位置 |
 |---------|--------|---------|
 | `@/sukinos/hooks/useKernel` | `useKernel` | DeskBook |
+| `@/sukinos/hooks/useDeskLayout` | `useDeskLayout` | useDeskGrid |
 | `@/sukinos/hooks/useProcessBridge` | `useProcessBridge` | ProcessWindow |
 | `@/sukinos/hooks/useWindowInteraction` | `useWindowInteraction` | ProcessWindow |
 | `@/sukinos/hooks/useFileKernel` | `useFileKernel` | CustomApp |
 | `@/sukinos/hooks/usePersonalization` | `usePersonalization` | DeskBook |
-| `@/sukinos/middleware/VfsImage/main.jsx` | `VfsImage` | DeskBook, Shortcut, StatusBar, ProcessWindow |
-| `@/component/contextMenu/layout.jsx` | `ContextMenu` | DeskBook |
-| `@/component/confirm/layout` | `confirm` | DeskBook |
-| `@/component/alert/layout` | `alert` | DeskBook |
+| `@/sukinos/middleware/VfsImage/main.jsx` | `VfsImage` | Shortcut, StatusBar, ProcessWindow |
+| `@/component/contextMenu/layout.jsx` | `ContextMenu` | DeskBook, DesktopGrid, MobilePagingGrid |
+| `@/component/confirm/layout` | `confirm` | DeskBook, useDeskShortcuts |
+| `@/component/alert/layout` | `alert` | useDeskShortcuts |
 | `@/sukinos/store` | `selectorSetting, selectGenerateApp` | DeskBook |
 | `@/sukinos/utils/config` | `WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_*`, `appCustomMapper`, `appCustom`, `FileType` | 多处 |
 | `@/sukinos/resources/sdk` | `createSdkForInstance` | DynamicRenderer |
@@ -653,7 +710,7 @@ graph LR
 | 数据 | 存储位置 | 键/结构 | 写入时机 |
 |------|---------|---------|---------|
 | 桌面图标位置 | **VFS 文件 `deskbook-layout.json`**（底层是 `SUKIN_OS_VFS` IndexedDB），根目录下由系统预置 | `{ [userId]: { [pid]: "row-col" } }`，所有用户共用一个文件 | `appPositions` 变化时 + 页面卸载时，经防抖 800ms 落盘 |
-| 状态栏显隐 | `localStorage` | `deskbook-show-status`（字符串化的布尔值） | 切换时立即写（`deskBook/layout.jsx:handleGlobalKeyDown`），启动时读（`deskBook/layout.jsx:DeskBook`） |
+| 状态栏显隐 | `localStorage` | `deskbook-show-status`（字符串化的布尔值） | 切换时立即写（`deskBook/layout.jsx:toggleStatusBar`，由 `useDeskShortcuts` 触发），启动时读（`deskBook/layout.jsx:DeskBook`） |
 
 布局读写集中在 `useDeskLayout`（`src/sukinos/hooks/useDeskLayout.js`）：
 
@@ -662,9 +719,9 @@ graph LR
 - `getLayout(userId)` 只返回该用户那一层；`setLayout(userId, positions)` 先合并进全量对象再 `setTimeout(..., 800)` 写盘（`useDeskLayout.js:setLayout`），文件已被误删时走 `fs.writeFile` 重建
 - 读盘走 `fs.readdir('root')` + `fs.readFile`，写盘走 `fs.updateContent`；文件系统未就绪时先 `fs.boot()`（`useDeskLayout.js:ensureReady`）
 
-双重保障仍然成立：`useEffect` 监听 `appPositions` 变化实时调用 `setLayout`（`deskBook/layout.jsx:DeskBook`），`beforeunload` / `pagehide` 兜底用 `appPositionsRef` 再写一次（`deskBook/layout.jsx:handleUnload`、`deskBook/layout.jsx:DeskBook`，用 `pagehide` 替代已弃用的 `unload`）。
+双重保障仍然成立：`useEffect` 监听 `appPositions` 变化实时调用 `setLayout`（`deskBook/hooks/useDeskGrid.js`），`beforeunload` / `pagehide` 兜底用 `appPositionsRef` 再写一次（`useDeskGrid.js:handleUnload` + `useBeforeUnload.js`，用 `pagehide` 替代已弃用的 `unload`）。
 
-> 一个已知取舍：`setLayout` 的落盘是 800ms 防抖，卸载时那次调用只保证把最新值合进 `layoutCache`（同步），磁盘写入仍要等定时器。连续拖拽后立刻刷新，理论上存在最后一次写入不生效的窗口；`beforeunload` 的确认弹窗（`deskBook/layout.jsx:handleBeforeUnload`）在实践中给了定时器留出时间。
+> 一个已知取舍：`setLayout` 的落盘是 800ms 防抖，卸载时那次调用只保证把最新值合进 `layoutCache`（同步），磁盘写入仍要等定时器。连续拖拽后立刻刷新，理论上存在最后一次写入不生效的窗口；`beforeunload` 的确认弹窗（`deskBook/hooks/useBeforeUnload.js`）在实践中给了定时器留出时间。
 
 ## 9. GPU/渲染性能优化措施
 
@@ -718,7 +775,7 @@ useProcessBridge(pid, { isVisible, backgroundSleep })
 - 保活判定唯一入口 `shouldAppKeepAlive(app)`（`utils/config.js:shouldAppKeepAlive`）：`custom.keepAlive === true` 或 `custom.adaptiveMount === false` 保留完整窗口，只有"允许占位且未保活"才退居占位；系统应用与普通应用同一判定
 - 两键同维度、`keepAlive` 优先：`keepAlive=true` 覆盖占位；`adaptiveMount=false` 同样保留完整窗口；缺失键分别按"允许占位""未保活"处理
 - 非保活且不可见：一律渲染 `<div data-placeholder="true">`（零 iframe / 零 header / 零 resize handles），会话恢复后从未可见的 `HIBERNATED` 应用同样走占位
-- 可见性口径：`showDisplay[pid] || showWindowSwitcher`（`deskBook/layout.jsx:activeWindowPids`）——调度中心开启期间一律渲染完整窗口，避免预览丢失
+- 可见性口径：`showDisplay[pid] || showWindowSwitcher`（`deskBook/hooks/useDeskWindows.js:activeWindowPids`）——调度中心开启期间一律渲染完整窗口，避免预览丢失
 - 保活窗口靠 `.su-window:not(.is-active)` 的 `display:none` 与 `content-visibility:hidden` 隐藏，iframe 与内部状态原地保留
 - 唤醒时序：`onFocus(pid)` → 父组件状态更新 → 占位移除、完整 `ProcessWindow` 挂载 → `useProcessBridge` 从 `kernel.getCachedState(pid)` 恢复状态 → 窗口出现在上次位置
 
@@ -726,9 +783,9 @@ useProcessBridge(pid, { isVisible, backgroundSleep })
 
 与 `HostKeepAlive` 同文件导出的 `KeepAlive` 交给应用开发者控制窗口内部页签：面板标识优先取 `tabKey`，未提供时回退 React key；只挂载访问过的面板，切换时用 `display:none` 隐藏而非卸载，滚动位置与表单输入原地保留。
 
-### 9.6 useDeferredValue 优先渲染（deskBook/layout.jsx）
+### 9.6 useDeferredValue 优先渲染（deskBook/hooks/useDeskWindows.js）
 
-- 对 `zOrders` 与 `currentFocus` 使用 `useDeferredValue`（`deskBook/layout.jsx:DeskBook`），传给窗口的 `zIndex` 与 `isFocused` 都取 deferred 值（`deskBook/layout.jsx:DeskBook`、`deskBook/layout.jsx:DeskBook`）
+- 对 `zOrders` 与 `currentFocus` 使用 `useDeferredValue`（`useDeskWindows.js`），传给窗口的 `zIndex` 与 `isFocused` 都取 deferred 值（`deskBook/views/WindowLayer.jsx`）
 - 焦点窗口渲染优先级高于非焦点窗口，非焦点窗口更新可被高优先级交互打断
 
 ### 9.7 memoEqual 精简（`window/layout.jsx:memoEqual`）
@@ -736,11 +793,11 @@ useProcessBridge(pid, { isVisible, backgroundSleep })
 - 从 17 个 prop 比较精简至 8 个（pid, zIndex, isShow, isDisplay, exposeState, showWindowSwitcher, isSelected, isFocused）
 - 父组件通过 `useRef`/`useCallback` 稳定化的回调引用（onFocus, onClose, onKill 等）不再参与比较
 
-### 9.8 LRU 自动休眠（deskBook/layout.jsx）
+### 9.8 LRU 自动休眠（deskBook/hooks/useDeskWindows.js）
 
-- 配置源：`generateAppSetting.maxWindows`（Redux）?? `personalConfig.maxWindows`（Personalization）?? `10`（`deskBook/layout.jsx:DeskBook`）
-- 开关：`generateAppSetting.workerLRU !== false && personalConfig.workerLRU !== false`（`deskBook/layout.jsx:DeskBook`）——两处任意一处显式设为 `false` 即关闭，默认开
-- 超出上限时按 `zOrders` 升序淘汰最旧的非焦点窗口，且要求已有 `currentFocus`（`deskBook/layout.jsx:DeskBook`）
+- 配置源：`generateAppSetting.maxWindows`（Redux）?? `personalConfig.maxWindows`（Personalization）?? `10`
+- 开关：`generateAppSetting.workerLRU !== false && personalConfig.workerLRU !== false`——两处任意一处显式设为 `false` 即关闭，默认开
+- 超出上限时按 `zOrders` 升序淘汰最旧的非焦点窗口，且要求已有 `currentFocus`
 - 配 `backgroundSleep` 的应用额外停止 `useProcessBridge` 订阅（见 §9.3）
 
 ### 9.9 StyleSyncHub 样式同步（utils/process/styleSyncHub.js）

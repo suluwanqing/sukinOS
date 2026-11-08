@@ -91,6 +91,26 @@
   opacity: 0.7;
 }
 
+@media (max-width: 767px) {
+  .su-setting-shortcuts__card {
+    padding: 16px;
+  }
+  .su-setting-shortcuts__list-item {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 0;
+  }
+  .su-setting-shortcuts__list-item:hover {
+    padding-left: 0;
+  }
+  .su-setting-shortcuts__key-group {
+    flex-wrap: wrap;
+  }
+  .su-setting-shortcuts__kbd {
+    padding: 6px 10px;
+  }
+}
+
 @keyframes athenianFadeIn {
   from {
     opacity: 0;

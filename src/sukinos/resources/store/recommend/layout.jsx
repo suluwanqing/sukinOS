@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 import Input from '@/component/input/layout';
+import { Button } from '@/component/button/layout';
 import { Search as SearchIcon } from 'lucide-react';
 
 const bem = createNamespace('recommend');
@@ -113,11 +114,11 @@ function Recommend({
                 {'V ' + (app.version || '1.0.0')}
               </div>
 
-              <button
-                className={[
-                  style[bem.e('btn')],
-                  style[bem.is('installed', app.isInstalled && !app.hasUpdate)]
-                ].filter(Boolean).join(' ')}
+              <Button
+                block
+                round
+                size="sm"
+                variant={app.isInstalled && !app.hasUpdate ? 'secondary' : 'default'}
                 onClick={() => {
                   if (app.isInstalled) {
                     if (app.hasUpdate) {
@@ -131,7 +132,7 @@ function Recommend({
                 }}
               >
                 {app.isInstalled ? (app.hasUpdate ? '更新' : '打开') : '获取'}
-              </button>
+              </Button>
             </div>
           </div>
         ))}

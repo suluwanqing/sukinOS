@@ -63,3 +63,19 @@
   color: #606266;
   margin: 0 4px;
 }
+
+@media (max-width: 767px) {
+  .su-setting-manual {
+    padding: 4px;
+  }
+  .su-setting-manual__title {
+    font-size: 19px;
+  }
+  .su-setting-manual__p {
+    font-size: 14px;
+    text-align: left;
+  }
+  .su-setting-manual__p code {
+    word-break: break-all;
+  }
+}

@@ -71,3 +71,38 @@
   flex-direction: column;
   overflow-y: auto;
 }
+
+@media (max-width: 767px) {
+  .su-system-config-layout {
+    flex-direction: column;
+    min-height: 0;
+  }
+  .su-system-config-layout__sidebar {
+    width: 100%;
+    padding: 8px;
+    border-right: none;
+    border-bottom: 1px solid #f0f0f3;
+  }
+  .su-system-config-layout__title {
+    display: none;
+  }
+  .su-system-config-layout__menu {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding: 4px 2px;
+  }
+  .su-system-config-layout__menu::-webkit-scrollbar {
+    display: none;
+  }
+  .su-system-config-layout__menu-item {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding: 8px 14px;
+    white-space: nowrap;
+  }
+}

@@ -11,36 +11,30 @@ import {
 } from '@/sukinos/utils/config';
 import useKernel from "@/sukinos/hooks/useKernel";
 import { confirm } from '@/component/confirm/layout';
-import { Search as SearchIcon, Play as PlayArrowRoundedIcon, Trash2 as DeleteOutlineRoundedIcon, RotateCcw as RestartAltRoundedIcon, X as CloseRoundedIcon } from 'lucide-react';
+import { Search as SearchIcon, Play as PlayArrowRoundedIcon, Trash2 as DeleteOutlineRoundedIcon, RotateCcw as RestartAltRoundedIcon } from 'lucide-react';
+import { Input } from '@/component/input/layout';
+import { Button } from '@/component/button/layout';
 import fs from '@/sukinos/utils/file/fileKernel';
 import {clearAppSandboxData} from '@/sukinos/utils/process/kernelParts/lifecycle'
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 const bem = createNamespace('start');
 
 const SearchBar = ({ searchQuery, setSearchQuery }) => (
   <div className={style[bem.e('search-bar')]}>
-    <SearchIcon size={20} style={{ color: '#909399' }} />
-    <input
-      type="text"
-      placeholder="搜索应用..."
+    <Input
       value={searchQuery}
       onChange={(e) => setSearchQuery(e.target.value)}
-      className={style[bem.e('search-input')]}
+      placeholder="搜索应用..."
+      prefixIcon={<SearchIcon size={18} />}
+      clearable
       autoFocus
     />
-    {searchQuery && (
-      <button
-        className={style[bem.e('search-clear')]}
-        onClick={() => setSearchQuery('')}
-        title="清除"
-      >
-        <CloseRoundedIcon size={16} />
-      </button>
-    )}
   </div>
 );
 
 function Start(props) {
   const { handleFocus } = props;
+  const { isTouch } = useViewportMode();
   const { apps, runningApps, startApp, kernel } = useKernel();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'running'
@@ -153,6 +147,7 @@ function Start(props) {
                     <div
                       className={style[bem.e('item-info')]}
                       onDoubleClick={() => handleStart(app.pid)}
+                      onClick={isTouch ? () => handleStart(app.pid) : undefined}
                     >
                       <div className={style[bem.e('app-icon')]}>
                         <img
@@ -193,29 +188,36 @@ function Start(props) {
                     </div>
 
                     <div className={style[bem.e('item-actions')]}>
-                      <button
-                        className={[style[bem.e('action-btn')], style[bem.em('action-btn', 'start')]].join(' ')}
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
                         onClick={() => handleStart(app.pid)}
                         title="启动"
+                        aria-label="启动"
                       >
-                        <PlayArrowRoundedIcon size={20} />
-                      </button>
+                        <PlayArrowRoundedIcon />
+                      </Button>
 
-                      <button
-                        className={[style[bem.e('action-btn')], style[bem.em('action-btn', 'reset')]].join(' ')}
+                      <Button
+                        variant="outline"
+                        size="icon-sm"
                         onClick={() => handleResetData(app)}
                         title="重置数据"
+                        aria-label="重置数据"
                       >
-                        <RestartAltRoundedIcon size={18} />
-                      </button>
+                        <RestartAltRoundedIcon />
+                      </Button>
 
-                      <button
-                        className={[style[bem.e('action-btn')], style[bem.em('action-btn', 'delete')]].join(' ')}
+                      <Button
+                        variant="destructive"
+                        plain
+                        size="icon-sm"
                         onClick={() => handleDelete(app)}
                         title="卸载"
+                        aria-label="卸载"
                       >
-                        <DeleteOutlineRoundedIcon size={18} />
-                      </button>
+                        <DeleteOutlineRoundedIcon />
+                      </Button>
                     </div>
                   </div>
                 );

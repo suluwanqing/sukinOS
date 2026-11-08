@@ -296,3 +296,26 @@
   align-items: center;
   justify-content: space-between;
 }
+
+@media (max-width: 767px) {
+  .sideNav {
+    display: none;
+  }
+
+  .iconBtn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .listHeader {
+    padding: 6px 12px;
+  }
+
+  .listItem {
+    padding: 11px 12px;
+  }
+
+  .colTime {
+    display: none;
+  }
+}

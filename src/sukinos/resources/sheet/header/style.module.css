@@ -221,3 +221,84 @@
 .su-br-header__search {
   width: 200px;
 }
+
+@media (max-width: 767px) {
+  .su-br-header__top {
+    height: 48px;
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .su-br-header__title {
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .su-br-header__bottom {
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .su-br-header__bottom::-webkit-scrollbar {
+    display: none;
+  }
+  .su-br-header__actions,
+  .su-br-header__toolbar,
+  .su-br-header__view-tabs {
+    flex-shrink: 0;
+  }
+
+  .su-br-header__tool-btn {
+    padding: 7px 9px;
+  }
+
+  .su-br-header__tab {
+    padding: 0 10px;
+  }
+
+
+  .su-br-header__dropdown,
+  .su-br-header__dropdown.dropdown-lg {
+    position: fixed;
+    top: auto;
+    left: 12px;
+    right: 12px;
+    bottom: calc(12px + var(--su-safe-bottom, 0px));
+    min-width: 0;
+    max-height: 46vh;
+    overflow-y: auto;
+    padding: 8px;
+    border-radius: 12px;
+    z-index: 10002;
+  }
+
+  .su-br-header__drop-title {
+    padding: 4px 10px 6px;
+    margin-bottom: 2px;
+  }
+
+  .su-br-header__drop-item {
+    padding: 11px 10px;
+    font-size: 14px;
+  }
+
+  .su-br-header__drop-list {
+    max-height: 34vh;
+  }
+
+  .su-br-header__check-item {
+    padding: 10px 8px;
+  }
+
+  .su-br-header__check-item span {
+    font-size: 14px;
+  }
+
+  .su-br-header__checkbox {
+    width: 20px;
+    height: 20px;
+    margin-right: 8px;
+  }
+}

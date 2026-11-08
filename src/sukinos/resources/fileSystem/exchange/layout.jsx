@@ -2,9 +2,11 @@ import React, { useState, useRef } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 import { FileType } from "@/sukinos/utils/config";
 import { alert } from '@/component/alert/layout'
 import Select from '@/component/select/drowSelection/layout';
+import { Button } from '@/component/button/layout';
 // 引入 Base64 转换与解码工具
 import { dataToBase64Mapper, dataDeBase64Mapper } from "/utils/js/func/data/exChangeBase64";
 
@@ -40,16 +42,48 @@ const getMapperTypeFromName = (name) => {
 /**
  * 单个文件面板组件
  */
-const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, isPrivate }) => {
+const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, isPrivate, pickedId, onPick }) => {
   const {
     state: { items, currentId, breadcrumbs },
     navigation: { loadDir, handleBack, handleRefresh },
     operation: { handleUploadFiles, handleUploadFolder }
   } = fsHook;
 
+  const { isTouch } = useViewportMode();
+
   // 引用隐藏的 input
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+
+  // 换目录或换盘后原先选中的文件已不在当前视图里，随手清掉选中
+  const enterDir = (id) => {
+    onPick(null);
+    loadDir(id);
+  };
+
+  const goBack = () => {
+    onPick(null);
+    handleBack();
+  };
+
+  const refresh = () => {
+    onPick(null);
+    handleRefresh();
+  };
+
+  const switchMode = (next) => {
+    onPick(null);
+    setMode(next);
+  };
+
+  const handleItemTap = (item) => {
+    if (item.type === FileType.DIRECTORY) {
+      // 触屏没有可靠的双击，目录改成单击进入；鼠标仍保留双击进入
+      if (isTouch) enterDir(item.id);
+      return;
+    }
+    onPick(pickedId === item.id ? null : item);
+  };
 
   const handleDragStart = (e, item) => {
     e.dataTransfer.effectAllowed = "copy";
@@ -103,7 +137,7 @@ const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, is
             value={mode}
             size="small"
             options={ALL_MODES.filter(m => m.value !== otherPanelMode)}
-            onChange={setMode}
+            onChange={switchMode}
           />
         </div>
 
@@ -111,27 +145,27 @@ const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, is
            {/* 在虚拟盘模式，或 local 模式且为 OPFS (isPrivate=true) 时显示上传按钮 */}
            {(mode === 'virtual' || (mode === 'local' && isPrivate)) && (
              <>
-                <button onClick={() => fileInputRef.current.click()} title="上传文件">
-                    <UploadFileIcon size={15} />
-                </button>
-                <button onClick={() => folderInputRef.current.click()} title="上传文件夹">
-                    <DriveFolderUploadIcon size={15} />
-                </button>
+                <Button variant="ghost" size="icon-sm" onClick={() => fileInputRef.current.click()} title="上传文件" aria-label="上传文件">
+                    <UploadFileIcon />
+                </Button>
+                <Button variant="ghost" size="icon-sm" onClick={() => folderInputRef.current.click()} title="上传文件夹" aria-label="上传文件夹">
+                    <DriveFolderUploadIcon />
+                </Button>
                 <div className={style[bem.e('divider')]} />
              </>
            )}
-           <button onClick={handleBack} disabled={currentId === 'root'} title="返回上一级">
-             <ArrowBackIcon size={15} />
-           </button>
-           <button onClick={handleRefresh} title="刷新">
-             <RefreshIcon size={15} />
-           </button>
+           <Button variant="ghost" size="icon-sm" onClick={goBack} disabled={currentId === 'root'} title="返回上一级" aria-label="返回上一级">
+             <ArrowBackIcon />
+           </Button>
+           <Button variant="ghost" size="icon-sm" onClick={refresh} title="刷新" aria-label="刷新">
+             <RefreshIcon />
+           </Button>
         </div>
       </div>
 
       <div className={style[bem.e('breadcrumbs')]}>
          {breadcrumbs.map((b, i) => (
-           <span key={i} onClick={() => loadDir(b.id)}>{b.name} / </span>
+           <span key={i} onClick={() => enterDir(b.id)}>{b.name} / </span>
          ))}
       </div>
 
@@ -140,10 +174,14 @@ const FilePanel = ({ side, mode, setMode, fsHook, onDropItem, otherPanelMode, is
         {items.map(item => (
           <div
             key={item.id}
-            className={style[bem.e('file-item')]}
+            className={[
+              style[bem.e('file-item')],
+              style[bem.is('picked', pickedId === item.id)],
+            ].filter(Boolean).join(' ')}
             draggable
             onDragStart={(e) => handleDragStart(e, item)}
-            onDoubleClick={() => item.type === FileType.DIRECTORY && loadDir(item.id)}
+            onClick={() => handleItemTap(item)}
+            onDoubleClick={() => item.type === FileType.DIRECTORY && enterDir(item.id)}
           >
             <div className={style[bem.e('icon')]}>
                {item.type === FileType.DIRECTORY ?
@@ -167,6 +205,10 @@ function ExChange({ visible, onClose }) {
   const [rightMode, setRightMode] = useState('virtual');
   const rightFS = useSystemFileSystem(rightMode);
 
+  // 触屏没有 HTML5 拖拽，改用"点选一侧文件 + 按中间交换键"的通路；两侧各自记住选中项，最多只有一个
+  const [leftPick, setLeftPick] = useState(null);
+  const [rightPick, setRightPick] = useState(null);
+
   // 解析配置，获取 isPrivate 状态，如果不存在默认处理为 false ::注意这里和boot区别这里一定不能默认true
   const fileSystemConfig = useSelector(selectFileSystemConfig) || {};
   const isPrivate = fileSystemConfig.isPrivate ?? false;
@@ -176,7 +218,7 @@ function ExChange({ visible, onClose }) {
    */
   const handleTransfer = async (item, targetSide, sourceMode) => {
     if (item.type === FileType.DIRECTORY) {
-      alert.success("请进入文件夹后拖拽文件进行交换");
+      alert.success("请进入文件夹后选择文件进行交换");
       return;
     }
 
@@ -295,6 +337,17 @@ function ExChange({ visible, onClose }) {
     }
   };
 
+  const pickedSide = leftPick ? 'left' : rightPick ? 'right' : null;
+
+  // 中间指示器同时是点选通路的执行键：把选中的那份文件送到对侧当前目录
+  const handlePickedExchange = () => {
+    const item = leftPick || rightPick;
+    if (!item) return;
+    handleTransfer(item, pickedSide === 'left' ? 'right' : 'left', pickedSide === 'left' ? leftMode : rightMode);
+    setLeftPick(null);
+    setRightPick(null);
+  };
+
   if (!visible) return null;
 
   return (
@@ -302,11 +355,13 @@ function ExChange({ visible, onClose }) {
       <div className={style[bem.e('container')]}>
         <div className={style[bem.e('header')]}>
           <div className={style[bem.e('title')]}>
-            <SwapHorizIcon size={18} /> 文件交换中心 (Multi-Channel Exchange)
+            <SwapHorizIcon size={18} />
+            文件交换中心
+            <span className={style[bem.e('title-sub')]}>Multi-Channel Exchange</span>
           </div>
-          <button className={style[bem.e('close')]} onClick={onClose}>
+          <Button variant="ghost" size="icon" className={style[bem.e('close')]} aria-label="关闭" onClick={onClose}>
             <CloseIcon size={18} />
-          </button>
+          </Button>
         </div>
 
         <div className={style[bem.e('body')]}>
@@ -318,13 +373,21 @@ function ExChange({ visible, onClose }) {
             onDropItem={handleTransfer}
             otherPanelMode={rightMode}
             isPrivate={isPrivate}
+            pickedId={leftPick?.id}
+            onPick={setLeftPick}
           />
 
-          <div className={style[bem.e('middle-indicator')]}>
+          <Button
+            variant="outline"
+            className={style[bem.e('middle-indicator')]}
+            onClick={handlePickedExchange}
+            disabled={!pickedSide}
+            title="把选中的文件交换到另一侧当前目录"
+          >
             <ArrowForwardIcon width="1em" height="1em" />
             <span>交换</span>
             <ArrowForwardIcon width="1em" height="1em" style={{ transform: 'rotate(180deg)' }} />
-          </div>
+          </Button>
 
           <FilePanel
             side="right"
@@ -334,6 +397,8 @@ function ExChange({ visible, onClose }) {
             onDropItem={handleTransfer}
             otherPanelMode={leftMode}
             isPrivate={isPrivate}
+            pickedId={rightPick?.id}
+            onPick={setRightPick}
           />
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSystemFileSystem } from '@/sukinos/hooks/useFileSystem';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 import { alert } from '@/component/alert/layout';
 import { confirm } from '@/component/confirm/layout';
 import { FileType } from "@/sukinos/utils/config";
@@ -51,6 +52,7 @@ const formatDate = (timestamp) => {
 };
 
 export default function UniversalViewer({ state: propState, handleFocus }) {
+  const { isMobile } = useViewportMode();
   const [activeFile, setActiveFile] = useState(() => ({
     id: propState?.id || null,
     name: propState?.name || '',
@@ -463,14 +465,15 @@ export default function UniversalViewer({ state: propState, handleFocus }) {
 
   const isEditable = [FileCategory.CODE, FileCategory.MARKDOWN, FileCategory.HTML, FileCategory.JSON].includes(parsedData?.category);
   const isHybridMedia = parsedData?.category === FileCategory.IMAGE || parsedData?.category === FileCategory.VIDEO;
+  const showHeader = isMobile || !activeFile.id || drawerOpen;
 
   return (
     <div className="flex flex-col w-full h-full bg-slate-50 text-slate-800 select-none overflow-hidden font-sans relative">
       <div className="absolute top-0 left-0 right-0 z-40 group pointer-events-none">
-        <div className="absolute top-0 left-0 right-0 h-3 bg-transparent cursor-pointer pointer-events-auto" />
+        <div className="absolute top-0 left-0 right-0 h-3 bg-transparent cursor-pointer pointer-events-auto max-[767px]:hidden" />
         <header
-          className={`absolute top-0 left-0 right-0 px-4 py-2 bg-white/95 backdrop-blur-md border-b border-pink-100 shadow-[0_8px_30px_rgba(6,182,212,0.06)] flex items-center justify-between transition-all duration-300 ease-out transform pointer-events-auto ${
-            !activeFile.id || drawerOpen
+          className={`absolute top-0 left-0 right-0 px-4 py-2 bg-white/95 backdrop-blur-md border-b border-pink-100 shadow-[0_8px_30px_rgba(6,182,212,0.06)] flex items-center justify-between transition-all duration-300 ease-out transform pointer-events-auto max-[767px]:px-2 max-[767px]:py-1.5 ${
+            showHeader
               ? 'translate-y-0 opacity-100'
               : '-translate-y-full opacity-0 group-hover:translate-y-0 group-hover:opacity-100'
           }`}
@@ -484,7 +487,7 @@ export default function UniversalViewer({ state: propState, handleFocus }) {
               </span>
 
               {activeFile.id && (
-                <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-gradient-to-r from-cyan-50/70 to-pink-50/70 px-2 py-0.5 rounded-md border border-cyan-100 shrink-0">
+                <div className="flex items-center gap-2 text-[11px] font-mono text-slate-500 bg-gradient-to-r from-cyan-50/70 to-pink-50/70 px-2 py-0.5 rounded-md border border-cyan-100 shrink-0 max-[767px]:hidden">
                   <span className="uppercase font-bold text-pink-600 flex items-center gap-1">
                     <Sparkles size={11} className="text-cyan-500" />
                     {isMixingBoard ? `BOARD (${layers.length})` : parsedData?.category || 'STANDBY'}
@@ -691,7 +694,7 @@ export default function UniversalViewer({ state: propState, handleFocus }) {
       {drawerOpen && (
         <div className="absolute inset-0 z-50 flex justify-end">
           <div className="w-full h-full bg-slate-900/10 backdrop-blur-xs" onClick={() => setDrawerOpen(false)} />
-          <div className="relative w-84 h-full bg-white border-l border-slate-200/80 shadow-2xl flex flex-col">
+          <div className="relative w-84 shrink-0 h-full bg-white border-l border-slate-200/80 shadow-2xl flex flex-col max-[767px]:w-full">
             <div className="p-3.5 border-b border-slate-100 flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-slate-700">
@@ -701,21 +704,21 @@ export default function UniversalViewer({ state: propState, handleFocus }) {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={handleCleanInvalidWithConfirm}
-                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-500 transition"
+                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-amber-500 transition max-[767px]:p-2"
                     title="清理失效条目"
                   >
                     <AlertTriangle size={13} />
                   </button>
                   <button
                     onClick={handleClearAllWithConfirm}
-                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-rose-500 transition"
+                    className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-rose-500 transition max-[767px]:p-2"
                     title="清空全部"
                   >
                     <Trash2 size={13} />
                   </button>
                   <button
                     onClick={() => setDrawerOpen(false)}
-                    className="p-1 hover:bg-slate-100 rounded text-slate-400 transition"
+                    className="p-1 hover:bg-slate-100 rounded text-slate-400 transition max-[767px]:p-2"
                   >
                     <X size={15} />
                   </button>
@@ -787,7 +790,7 @@ export default function UniversalViewer({ state: propState, handleFocus }) {
                           }
                         });
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-rose-500 transition"
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-rose-500 transition max-[767px]:opacity-100 max-[767px]:p-2"
                     >
                       <X size={12} />
                     </button>

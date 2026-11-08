@@ -23,6 +23,8 @@ export const Check = forwardRef(({
   plain = false,
   round,
   dot = false,
+  focus = true,
+  hover = true,
   className = '',
   style: inlineStyle = {}
 }, ref) => {
@@ -78,15 +80,17 @@ export const Check = forwardRef(({
       data-state={checked ? 'checked' : 'unchecked'}
       className={cn(
         'relative inline-flex shrink-0 items-center border px-[2px] align-middle outline-none transition-all',
-        'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        focus !== false && 'focus-visible:border-ring',
         dim.root,
         radiusCls,
         trackCls,
-        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:opacity-85',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+        !disabled && hover !== false && 'hover:opacity-85',
         className
       )}
       style={inlineStyle}
     >
+      <span aria-hidden="true" className="absolute -inset-2 hidden max-[767px]:block" />
       <span
         className={cn(
           'block shrink-0 shadow-xs ring-0 transition-transform duration-200',

@@ -27,6 +27,7 @@ import { canEditContent, isEditorTextFile } from './editorSupport';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
 import { FileType } from "@/sukinos/utils/config";
 import permissionManageAPI from "@/apis/system/permissionManage";
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 
 //ENV_KEY_IS_BUNDLE 这注意这个文件和setting的bundle没有区分,因为这里不会对外产生影响不再修改,而且会增加逻辑负担于=》upload
 const bem = createNamespace('developer');
@@ -47,9 +48,10 @@ const resolveWorkspaceTarget = (fsMode) => {
 function Developer({ app }) {
   const storePath = useSelector(selectorStoreSettingStorePath)
   const dispatch = useDispatch();
+  const { isMobile, isCompact } = useViewportMode();
 
   // VS Code 核心视图状态控制 (分离侧边栏与主工作区)
-  const [activeSidebar, setActiveSidebar] = useState('explorer');
+  const [activeSidebar, setActiveSidebar] = useState(() => (isMobile ? 'none' : 'explorer'));
   const [activeMain, setActiveMain] = useState('editor');
 
   const userInfo = useSelector(selectorUserInfo);
@@ -100,7 +102,7 @@ function Developer({ app }) {
   const pendingWritesRef = useRef(new Set());
 
   // 侧边栏宽度
-  const [sidebarWidth, setSidebarWidth] = useState(260);
+  const [sidebarWidth, setSidebarWidth] = useState(() => (isCompact ? 240 : 260));
   const sidebarResizingRef = useRef(false);
 
   const startSidebarResize = useCallback((e) => {
@@ -646,6 +648,9 @@ function Developer({ app }) {
         </div>
         <div className={style[bem.e('sidebar-resizer')]} onMouseDown={startSidebarResize} />
       </>
+      )}
+      {isMobile && activeSidebar !== 'none' && (
+        <div className={style[bem.e('sidebar-backdrop')]} onClick={() => setActiveSidebar('none')} />
       )}
       <div className={style[bem.e('main-wrapper')]}>
         <Suspense fallback={<div style={{ padding: '40px', color: '#999', textAlign: 'center' }}>工作区加载中...</div>}>

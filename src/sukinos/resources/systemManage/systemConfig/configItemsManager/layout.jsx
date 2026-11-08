@@ -5,6 +5,7 @@ import { createNamespace } from "/utils/js/classcreate";
 import sysConfigAPI from "@/apis/system/config";
 
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { confirm } from "@/component/confirm/layout";
@@ -150,13 +151,18 @@ function ConfigItemsManager() {
           <p className={style[bem.e("desc")]}>管理系统全局静态配置字典项</p>
         </div>
         {hasPermission("system:config:manage") && (
-          <Button type="dark" size="small" onClick={handleOpenCreateModal}>新增配置</Button>
+          <Button variant="dark" size="sm" onClick={handleOpenCreateModal}>新增配置</Button>
         )}
       </div>
 
       <div className={style[bem.e("search")]}>
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        <input placeholder="搜索配置 Key..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+        <Input
+          size="small"
+          placeholder="搜索配置 Key..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          prefixIcon={<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>}
+        />
       </div>
 
       <div className={style[bem.e("list")]}>
@@ -176,13 +182,13 @@ function ConfigItemsManager() {
                   <div className={style[bem.e("card-actions")]}>
                     {hasPermission("system:config:manage") && (
                       <>
-                        <button className={style[bem.e("btn-icon")]} title="编辑" onClick={() => handleOpenEditModal(item)}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-                        </button>
+                        <Button variant="ghost" size="icon-xs" title="编辑" aria-label="编辑" onClick={() => handleOpenEditModal(item)}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /></svg>
+                        </Button>
                         {!reservedConfigKeys.includes(item.configKey) && (
-                          <button className={style[bem.e("btn-icon")]} title="删除" onClick={() => handleDeleteItem(item)}>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                          </button>
+                          <Button variant="destructive" plain size="icon-xs" title="删除" aria-label="删除" onClick={() => handleDeleteItem(item)}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                          </Button>
                         )}
                       </>
                     )}
@@ -208,7 +214,7 @@ function ConfigItemsManager() {
           <div className={style[bem.e("modal")]} onClick={e => e.stopPropagation()}>
             <div className={style[bem.e("modal-head")]}>
               <h3 className={style[bem.e("modal-title")]}>{modalType === "create" ? "新增配置项" : "编辑配置项"}</h3>
-              <button className={style[bem.e("modal-close")]} onClick={() => setModalVisible(false)}>取消</button>
+              <Button variant="ghost" size="xs" onClick={() => setModalVisible(false)}>取消</Button>
             </div>
             <div className={style[bem.e("modal-body")]}>
               {!isKeyReserved && (
@@ -222,11 +228,11 @@ function ConfigItemsManager() {
               )}
               <div className={style[bem.e("field")]}>
                 <label>Key</label>
-                <input value={targetKey} onChange={e => setTargetKey(e.target.value)} placeholder="例如: vfs_mount_settings" disabled={isKeyReserved} />
+                <Input size="small" value={targetKey} onChange={e => setTargetKey(e.target.value)} placeholder="例如: vfs_mount_settings" disabled={isKeyReserved} />
               </div>
               <div className={style[bem.e("field")]}>
                 <label>描述</label>
-                <input value={configDescription} onChange={e => setConfigDescription(e.target.value)} placeholder="简要描述该配置项的用途" />
+                <Input size="small" value={configDescription} onChange={e => setConfigDescription(e.target.value)} placeholder="简要描述该配置项的用途" />
               </div>
               <div className={style[bem.e("field")]}>
                 <label>Value <span className={style[bem.e("label-muted")]}>(JSON)</span></label>
@@ -234,8 +240,8 @@ function ConfigItemsManager() {
               </div>
             </div>
             <div className={style[bem.e("modal-foot")]}>
-              <Button type="default" size="small" onClick={() => setModalVisible(false)}>取消</Button>
-              <Button type="dark" size="small" loading={saving} onClick={handleSaveItem}>保存</Button>
+              <Button variant="outline" size="sm" onClick={() => setModalVisible(false)}>取消</Button>
+              <Button variant="dark" size="sm" loading={saving} onClick={handleSaveItem}>保存</Button>
             </div>
           </div>
         </div>

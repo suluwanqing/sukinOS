@@ -153,3 +153,35 @@
   color: #1b1b1f;
   box-shadow: 0 1px 1px rgba(0,0,0,0.08);
 }
+
+@media (max-width: 767px) {
+  .su-draw-board__topbar {
+    height: 44px;
+    gap: 8px;
+    padding: 0 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .su-draw-board__topbar::-webkit-scrollbar {
+    display: none;
+  }
+  .su-draw-board__brand,
+  .su-draw-board__nav {
+    flex-shrink: 0;
+  }
+  .su-draw-board__nav {
+    margin-left: 4px;
+    padding-left: 8px;
+  }
+  .su-draw-board__help-list {
+    grid-template-columns: 1fr;
+  }
+  .su-draw-board__modal {
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+}

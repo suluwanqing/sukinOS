@@ -209,31 +209,6 @@
   gap: 6px;
 }
 
-.su-system-update__op-btn {
-  background-color: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 6px;
-  color: #64748b;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.su-system-update__op-btn:hover {
-  background-color: #f8fafc;
-  color: #1e293b;
-  border-color: #cbd5e1;
-}
-
-.su-system-update__op-btn-danger:hover {
-  background-color: #fef2f2;
-  border-color: #fee2e2;
-  color: #ef4444;
-}
-
 .su-system-update__card-body {
   display: flex;
   flex-direction: column;
@@ -345,24 +320,6 @@
   color: #0f172a;
 }
 
-.su-update-form__close-btn {
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px;
-  border-radius: 50%;
-  transition: all 0.2s;
-}
-
-.su-update-form__close-btn:hover {
-  background-color: #f1f5f9;
-  color: #475569;
-}
-
 .su-update-form__body {
   padding: 24px;
   display: flex;
@@ -388,43 +345,10 @@
   cursor: pointer;
 }
 
-.su-update-form__checkbox {
-  width: 16px;
-  height: 16px;
-  accent-color: #6366f1;
-  cursor: pointer;
-}
-
 .su-update-form__label {
   font-size: 12px;
   font-weight: 700;
   color: #475569;
-}
-
-.su-update-form__input {
-  width: 100%;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  padding: 10px 14px;
-  font-size: 13px;
-  color: #1e293b;
-  outline: none;
-  box-sizing: border-box;
-  background-color: #f8fafc;
-  transition: all 0.2s;
-}
-
-.su-update-form__input:focus {
-  border-color: #6366f1;
-  background-color: #ffffff;
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.su-update-form__input:disabled {
-  background-color: #f1f5f9;
-  color: #94a3b8;
-  cursor: not-allowed;
-  border-color: #e2e8f0;
 }
 
 .su-update-form__textarea {
@@ -461,22 +385,6 @@
   justify-content: space-between;
 }
 
-.su-update-form__add-btn {
-  background: transparent;
-  border: none;
-  color: #6366f1;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.su-update-form__add-btn:hover {
-  color: #4f46e5;
-}
-
 .su-update-form__item-row {
   display: flex;
   align-items: center;
@@ -501,4 +409,85 @@
   padding: 20px 24px;
   border-top: 1px solid #f1f5f9;
   background-color: #ffffff;
+}
+
+@media (max-width: 767px) {
+  .su-system-update {
+    display: flex;
+    flex-direction: column;
+  }
+  .su-system-update__sidebar {
+    height: auto;
+    padding: 10px 12px;
+    border-right: none;
+    border-bottom: 1px solid #f1f5f9;
+    overflow: visible;
+  }
+  .su-system-update__sidebar-title {
+    margin-bottom: 8px;
+  }
+  .su-system-update__flow-container {
+    flex: 0 0 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-right: 0;
+    scrollbar-width: none;
+  }
+  .su-system-update__flow-container::-webkit-scrollbar {
+    display: none;
+  }
+  .su-system-update__flow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 0;
+  }
+  .su-system-update__flow-line,
+  .su-system-update__flow-dot {
+    display: none;
+  }
+  .su-system-update__flow-node {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 9999px;
+    background: #ffffff;
+  }
+  .su-system-update__flow-node:last-child {
+    padding-bottom: 6px;
+  }
+  .su-system-update__flow-ver {
+    display: inline;
+    font-size: 12px;
+  }
+  .su-system-update__flow-date {
+    font-size: 10px;
+  }
+  .su-system-update__chart-box {
+    display: none;
+  }
+  .su-system-update__main {
+    flex: 1;
+    min-height: 0;
+    height: auto;
+  }
+  .su-system-update__toolbar {
+    padding: 8px 12px;
+  }
+  .su-system-update__scroll-area {
+    padding: 12px;
+  }
+  .su-system-update__content {
+    gap: 12px;
+  }
+  .su-system-update__card {
+    padding: 16px;
+    border-radius: 12px;
+  }
+  .su-update-form-container {
+    width: calc(100vw - 24px);
+  }
 }

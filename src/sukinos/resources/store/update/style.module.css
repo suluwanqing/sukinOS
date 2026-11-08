@@ -46,22 +46,6 @@
   font-weight: 600;
 }
 
-.su-update__btn-refresh {
-  padding: 8px 24px;
-  background-color: #ffffff;
-  border: 1px solid #000000;
-  color: #000000;
-  border-radius: 20px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.su-update__btn-refresh:hover {
-  background-color: #000000;
-  color: #ffffff;
-}
-
 .su-update__list {
   display: flex;
   flex-direction: column;
@@ -127,17 +111,9 @@
   color: #dcdfe6;
 }
 
-.su-update__btn-update {
-  padding: 6px 18px;
-  background-color: #000000;
-  color: #ffffff;
-  border: none;
-  border-radius: 6px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
 
-.su-update__btn-update:hover {
-  opacity: 0.8;
+@media (max-width: 767px) {
+  .su-update {
+    padding: 16px;
+  }
 }

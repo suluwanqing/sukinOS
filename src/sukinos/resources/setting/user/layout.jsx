@@ -3,12 +3,15 @@ import { useSelector, useDispatch } from 'react-redux';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 
-import { Pencil as EditIcon, Save as SaveIcon, Send as SendIcon, ShieldCheck as SecurityIcon, UserRound as PersonOutlineIcon, Eye as VisibilityIcon, EyeOff as VisibilityOffIcon, LogOut as ExitToAppIcon } from 'lucide-react';
+import { Pencil as EditIcon, Save as SaveIcon, Send as SendIcon, ShieldCheck as SecurityIcon, UserRound as PersonOutlineIcon, LogOut as ExitToAppIcon } from 'lucide-react';
 
 import { user as userApi } from '@/apis/main';
 import auth from '@/apis/auth';
 import { sukinOsActions, selectorUserInfo, selectVerificationData } from '@/sukinos/store';
 import { alert } from '@/component/alert/layout';
+import { Button } from '@/component/button/layout';
+import { Input } from '@/component/input/layout';
+import Select from '@/component/select/drowSelection/layout';
 import { DEFAULT_USER_AVATOR_URL } from "@/sukinos/utils/config";
 import generateShortSeed from "/utils/js/rootSeed";
 
@@ -17,6 +20,12 @@ import { useAuth } from '@/sukinos/hooks/main';
 import { checkIsGuest } from '/utils/js/guest';
 
 const bem = createNamespace('setting-user');
+
+const SEX_OPTIONS = [
+  { label: '男', value: 'M' },
+  { label: '女', value: 'F' },
+  { label: '其他', value: 'X' }
+];
 
 const UserSettings = () => {
   const dispatch = useDispatch();
@@ -33,12 +42,12 @@ const UserSettings = () => {
   const { seed } = passwordCodeData;
   const [isEditing, setIsEditing] = useState(false);
   const [passwordStep, setPasswordStep] = useState(0);
+  // 取消后，倒计时仍在跑时不要再被自动展开逻辑弹回来
+  const [passwordDismissed, setPasswordDismissed] = useState(false);
   const [verifyCode, setVerifyCode] = useState('');
 
   const [formData, setFormData] = useState({});
   const [passwordData, setPasswordData] = useState({ new_password: '', confirm_password: '' });
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -66,10 +75,10 @@ const UserSettings = () => {
 
   // 新增逻辑：如果检测到修改密码有倒计时（说明验证码发送中或者未过期），自动展开修改密码页面
   useEffect(() => {
-    if (!isGuest && passwordCodeData?.isRunning && passwordStep === 0) {
+    if (!isGuest && passwordCodeData?.isRunning && passwordStep === 0 && !passwordDismissed) {
       setPasswordStep(1);
     }
-  }, [passwordCodeData?.isRunning, passwordStep, isGuest]);
+  }, [passwordCodeData?.isRunning, passwordStep, passwordDismissed, isGuest]);
 
   useEffect(() => {
     let timer;
@@ -133,10 +142,9 @@ const UserSettings = () => {
 
   const resetPasswordState = () => {
     setPasswordStep(0);
+    setPasswordDismissed(true);
     setVerifyCode('');
     setPasswordData({ new_password: '', confirm_password: '' });
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
   };
 
   const handleSendCode = async (type) => {
@@ -164,7 +172,10 @@ const UserSettings = () => {
           account: targetAccount,                       // 目标账号
           limit: res.data?.config?.limit                // 后端配置的动态频率限制 (秒)
         }));
-        if (passwordStep === 0) setPasswordStep(1);
+        if (passwordStep === 0) {
+          setPasswordDismissed(false);
+          setPasswordStep(1);
+        }
       } else {
         alert.failure(res.msg || "发送失败");
       }
@@ -273,14 +284,15 @@ const UserSettings = () => {
             <p style={{ maxWidth: 360, margin: '0 auto 24px', fontSize: 13, color: '#60736b', lineHeight: 1.6 }}>
               您当前是以临时访客身份登录。为保障系统安全，个人资料、密码修改等安全设置功能仅对注册用户开放。
             </p>
-            <button
-              className={style[bem.e('btn')]}
+            <Button
+              variant="success"
+              plain
+              icon={<ExitToAppIcon size={16} />}
               onClick={logout}
-              style={{ margin: '0 auto', color: '#3eb08f', borderColor: '#3eb08f' }}
+              style={{ margin: '0 auto' }}
             >
-              <ExitToAppIcon size={16} style={{ marginRight: 6 }} />
-              <span>登录 / 注册新账号</span>
-            </button>
+              登录 / 注册新账号
+            </Button>
           </div>
         </div>
       </div>
@@ -332,24 +344,20 @@ const UserSettings = () => {
                 <div className={style[bem.e('form-grid')]}>
                   <div className={style[bem.e('input-group')]}>
                     <label>用户名</label>
-                    <input type="text" name="username" value={formData.username} onChange={handleChange} className={style[bem.e('input')]} disabled={isLoading} />
+                    <Input type="text" name="username" value={formData.username} onChange={handleChange} disabled={isLoading} />
                   </div>
                   <div className={style[bem.e('input-group')]}>
                     <label>邮箱</label>
-                    <input type="email" name="email" value={formData.email} onChange={handleChange} className={style[bem.e('input')]} disabled={isLoading} />
+                    <Input type="email" name="email" value={formData.email} onChange={handleChange} disabled={isLoading} />
                   </div>
                 </div>
               )}
             </div>
 
             {!isEditing && (
-              <button
-                className={style[bem.e('btn')]}
-                onClick={() => setIsEditing(true)}
-              >
-                <EditIcon size={16} />
-                <span>编辑资料</span>
-              </button>
+              <Button variant="outline" icon={<EditIcon size={16} />} onClick={() => setIsEditing(true)}>
+                编辑资料
+              </Button>
             )}
           </div>
 
@@ -360,38 +368,40 @@ const UserSettings = () => {
                 <div className={style[bem.e('inline-fields')]}>
                   <div className={style[bem.e('input-group')]}>
                     <label>年龄</label>
-                    <input type="number" name="age" value={formData.age} onChange={handleChange} className={style[bem.e('input')]} disabled={isLoading} />
+                    <Input type="number" name="age" value={formData.age} onChange={handleChange} disabled={isLoading} />
                   </div>
                   <div className={style[bem.e('input-group')]}>
                     <label>真实姓名</label>
-                    <input type="text" name="name" value={formData.name} onChange={handleChange} className={style[bem.e('input')]} disabled={isLoading} />
+                    <Input type="text" name="name" value={formData.name} onChange={handleChange} disabled={isLoading} />
                   </div>
                   <div className={style[bem.e('input-group')]}>
                     <label>性别</label>
-                    <select name="sex" value={formData.sex} onChange={handleChange} className={style[bem.e('select')]} disabled={isLoading}>
-                      <option value="">请选择</option>
-                      <option value="M">男</option>
-                      <option value="F">女</option>
-                      <option value="X">其他</option>
-                    </select>
+                    <Select
+                      value={formData.sex}
+                      onChange={(val) => setFormData((prev) => ({ ...prev, sex: val }))}
+                      options={SEX_OPTIONS}
+                      placeholder="请选择"
+                      direction="bottom"
+                      disabled={isLoading}
+                    />
                   </div>
                 </div>
                 <div className={style[bem.e('inline-fields')]}>
                    <div className={style[bem.e('input-group')]}>
                       <label>手机号码</label>
-                      <input type="tel" name="phone" value={formData.phone} onChange={handleChange} className={style[bem.e('input')]} disabled={isLoading} />
+                      <Input type="tel" name="phone" value={formData.phone} onChange={handleChange} disabled={isLoading} />
                    </div>
                    <div className={style[bem.e('input-group')]}>
                       <label>联系地址</label>
-                      <input type="text" name="address" value={formData.address} onChange={handleChange} className={style[bem.e('input')]} disabled={isLoading} />
+                      <Input type="text" name="address" value={formData.address} onChange={handleChange} disabled={isLoading} />
                    </div>
                 </div>
 
                 <div className={style[bem.e('action-buttons')]}>
-                  <button className={style[bem.e('btn-text')]} onClick={handleCancelClick} disabled={isLoading}>取消</button>
-                  <button className={`${style[bem.e('btn')]} ${style[bem.is('primary', true)]}`} onClick={handleSaveProfile} disabled={isLoading}>
+                  <Button variant="ghost" onClick={handleCancelClick} disabled={isLoading}>取消</Button>
+                  <Button variant="default" onClick={handleSaveProfile} disabled={isLoading}>
                     {isLoading ? '保存中...' : '保存修改'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </>
@@ -408,13 +418,9 @@ const UserSettings = () => {
               {/* <p className={style[bem.e('description')]}>通过验证码验证身份后，设置新密码。无需输入旧密码。</p> */}
             </div>
             {passwordStep === 0 && (
-              <button
-                className={style[bem.e('btn')]}
-                onClick={() => handleSendCode('updatePassword')}
-                disabled={passwordCountdown > 0}
-              >
-                <span>{passwordCountdown > 0 ? `重新发送(${passwordCountdown}s)` : '修改密码'}</span>
-              </button>
+              <Button variant="outline" onClick={() => handleSendCode('updatePassword')} disabled={passwordCountdown > 0}>
+                {passwordCountdown > 0 ? `重新发送(${passwordCountdown}s)` : '修改密码'}
+              </Button>
             )}
           </div>
 
@@ -424,74 +430,58 @@ const UserSettings = () => {
               <div className={style[bem.e('password-form')]}>
                 <div className={style[bem.e('input-group')]}>
                   <label>设置新密码</label>
-                  <div className={style[bem.e('password-input-wrapper')]}>
-                    <input
-                      type={showNewPassword ? "text" : "password"}
-                      name="new_password"
-                      value={passwordData.new_password}
-                      onChange={handlePasswordChange}
-                      className={style[bem.e('input')]}
-                      placeholder="请输入新密码"
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      className={style[bem.e('password-toggle')]}
-                      onClick={() => setShowNewPassword(!showNewPassword)}
-                    >
-                      {showNewPassword ? <VisibilityIcon size={18} /> : <VisibilityOffIcon size={18} />}
-                    </button>
-                  </div>
+                  <Input
+                    type="password"
+                    showPassword
+                    name="new_password"
+                    value={passwordData.new_password}
+                    onChange={handlePasswordChange}
+                    placeholder="请输入新密码"
+                    disabled={isLoading}
+                  />
                 </div>
 
                 <div className={style[bem.e('input-group')]}>
                   <label>确认新密码</label>
-                  <div className={style[bem.e('password-input-wrapper')]}>
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      name="confirm_password"
-                      value={passwordData.confirm_password}
-                      onChange={handlePasswordChange}
-                      className={style[bem.e('input')]}
-                      placeholder="请再次输入新密码"
-                      disabled={isLoading}
-                    />
-                    <button
-                      type="button"
-                      className={style[bem.e('password-toggle')]}
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    >
-                      {showConfirmPassword ? <VisibilityIcon size={18} /> : <VisibilityOffIcon size={18} />}
-                    </button>
-                  </div>
+                  <Input
+                    type="password"
+                    showPassword
+                    name="confirm_password"
+                    value={passwordData.confirm_password}
+                    onChange={handlePasswordChange}
+                    placeholder="请再次输入新密码"
+                    disabled={isLoading}
+                  />
                 </div>
 
                 <div className={style[bem.e('input-group')]}>
                   <label>身份验证码</label>
                   <div className={style[bem.e('code-wrapper')]}>
-                    <input
+                    <Input
                       type="text"
                       value={verifyCode}
                       onChange={(e) => setVerifyCode(e.target.value)}
-                      className={style[bem.e('input')]}
+                      className="flex-1"
                       placeholder="邮件/手机验证码"
                       disabled={isLoading}
                     />
-                    <button
-                      className={style[bem.e('btn-secondary')]}
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<SendIcon size={16} />}
                       onClick={() => handleSendCode('updatePassword')}
                       disabled={passwordCountdown > 0 || isLoading}
                     >
-                      {passwordCountdown > 0 ? `${passwordCountdown}s` : <SendIcon size={16} />}
-                    </button>
+                      {passwordCountdown > 0 ? `${passwordCountdown}s` : null}
+                    </Button>
                   </div>
                 </div>
 
                 <div className={style[bem.e('action-buttons')]}>
-                  <button className={style[bem.e('btn-text')]} onClick={resetPasswordState} disabled={isLoading}>取消</button>
-                  <button className={`${style[bem.e('btn')]} ${style[bem.is('primary', true)]}`} onClick={handleSavePassword} disabled={isLoading}>
-                    <SaveIcon size={16} /> {isLoading ? '提交中...' : '确认修改'}
-                  </button>
+                  <Button variant="ghost" onClick={resetPasswordState} disabled={isLoading}>取消</Button>
+                  <Button variant="default" icon={<SaveIcon size={16} />} onClick={handleSavePassword} disabled={isLoading}>
+                    {isLoading ? '提交中...' : '确认修改'}
+                  </Button>
                 </div>
               </div>
              </>
@@ -509,14 +499,14 @@ const UserSettings = () => {
               <strong className={style[bem.e('label-bold')]}>退出登录</strong>
               <p className={style[bem.e('description')]}>安全退出当前设备上的系统账户。</p>
             </div>
-            <button
-              className={style[bem.e('btn')]}
+            <Button
+              variant="destructive"
+              plain
+              icon={<ExitToAppIcon size={16} />}
               onClick={logout}
-              style={{ color: '#d32f2f', borderColor: '#d32f2f' }}
             >
-              <ExitToAppIcon size={16} />
-              <span>退出账号</span>
-            </button>
+              退出账号
+            </Button>
           </div>
         </div>
       </div>

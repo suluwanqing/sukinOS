@@ -2,6 +2,7 @@ import React, {useEffect, useState, useRef, useCallback} from 'react'
 import style from './style.module.css'
 import {createNamespace} from '/utils/js/classcreate'
 import {listMindmaps, putMindmap, getMindmap, deleteMindmap, uid} from '../db'
+import {useViewportMode} from '@/sukinos/hooks/useViewportMode'
 
 const bem = createNamespace('draw-board-mindmap')
 
@@ -1015,6 +1016,7 @@ function MMList({state, dispatch, navigate}) {
 }
 
 function MMEdit({state, dispatch, navigate}) {
+  const {isMobile} = useViewportMode()
   const cRef = useRef(null),
     wRef = useRef(null),
     tooltipRef = useRef(null),
@@ -1025,6 +1027,7 @@ function MMEdit({state, dispatch, navigate}) {
   const [addSh, setAddSh] = useState(null)
   const [spaceDown, setSpaceDown] = useState(false)
   const [marqueeMode, setMarqueeMode] = useState(false)
+  const [ppOpen, setPpOpen] = useState(false)
   const iact = useRef(null),
     posRef = useRef(new Map()),
     marqRef = useRef(null),
@@ -1869,6 +1872,15 @@ function MMEdit({state, dispatch, navigate}) {
   const cur = addSh ? 'crosshair' : marqueeMode ? 'crosshair' : 'default'
   const isFrameEdit = sel1?.shape === 'frame'
 
+  const hasPanel = state.mmSelectedIds.length > 0 || isFrameEdit || !!selConn
+  const ppCls = [
+    style[bem.e('pp')],
+    isMobile ? style[bem.em('pp', 'drawer')] : '',
+    isMobile && ppOpen ? style[bem.is('open', true)] : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <div className={style[bem.b()]}>
       <div ref={tooltipRef} className={style[bem.e('tooltip')]} />
@@ -1877,10 +1889,11 @@ function MMEdit({state, dispatch, navigate}) {
           ref={cRef}
           className={style[bem.e('cv')]}
           style={{cursor: cur}}
-          onMouseDown={onDown}
-          onMouseMove={onMove}
-          onMouseUp={onUp}
-          onMouseLeave={onUp}
+          onPointerDown={onDown}
+          onPointerMove={onMove}
+          onPointerUp={onUp}
+          onPointerLeave={onUp}
+          onPointerCancel={onUp}
           onDoubleClick={onDbl}
           onContextMenu={e => e.preventDefault()}
         />
@@ -2139,10 +2152,30 @@ function MMEdit({state, dispatch, navigate}) {
             </svg>
             <span className={style[bem.e('tip')]}>导出PNG</span>
           </button>
+          {isMobile && hasPanel && (
+            <button
+              className={[
+                style[bem.e('ti')],
+                ppOpen ? style[bem.is('active', true)] : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setPpOpen(o => !o)}
+            >
+              <svg viewBox="0 0 24 24">
+                <path d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z" />
+              </svg>
+              <span className={style[bem.e('tip')]}>属性</span>
+            </button>
+          )}
         </div>
 
+        {isMobile && ppOpen && (
+          <div className={style[bem.e('pp-backdrop')]} onClick={() => setPpOpen(false)} />
+        )}
+
         {state.mmSelectedIds.length > 0 && !selConn && !isFrameEdit && (
-          <div className={style[bem.e('pp')]}>
+          <div className={ppCls}>
             <div className={style[bem.e('pp-r')]}>
               <span className={style[bem.e('pp-l')]}>主题</span>
               {CKEYS.map(k => (
@@ -2308,7 +2341,7 @@ function MMEdit({state, dispatch, navigate}) {
         )}
 
         {isFrameEdit && (
-          <div className={style[bem.e('pp')]}>
+          <div className={ppCls}>
             <div className={style[bem.e('pp-r')]}>
               <span className={style[bem.e('pp-l')]}>颜色</span>
               {CKEYS.map(k => (
@@ -2450,7 +2483,7 @@ function MMEdit({state, dispatch, navigate}) {
         )}
 
         {selConn && (
-          <div className={style[bem.e('pp')]}>
+          <div className={ppCls}>
             <div className={style[bem.e('pp-r')]}>
               <span className={style[bem.e('pp-l')]}>箭头</span>
               {ARROWS.map(a => (

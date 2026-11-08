@@ -124,3 +124,19 @@
   overflow: hidden;
   background: #ffffff;
 }
+
+@media (max-width: 767px) {
+  .su-dev-center__editor-tabs {
+    touch-action: pan-x;
+  }
+  .su-dev-center__editor-tab,
+  .su-dev-center__editor-tab-active {
+    max-width: 60vw;
+    padding: 0 8px 0 10px;
+    touch-action: pan-x;
+  }
+  .su-dev-center__tab-close {
+    width: 24px;
+    height: 24px;
+  }
+}

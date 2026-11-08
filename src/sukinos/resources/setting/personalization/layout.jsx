@@ -1,4 +1,4 @@
-import React, { useState, useEffect, memo } from 'react';
+import React, { useState, useEffect, useRef, memo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 
@@ -14,10 +14,16 @@ import usePersonalization, {
   defaultPersonalization
 } from '@/sukinos/hooks/usePersonalization';
 
+import { Button } from '@/component/button/layout';
+import { Input } from '@/component/input/layout';
+import Check from '@/component/check/layout';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
+
 const bem = createNamespace('setting-personalize');
 
 const AssetPreview = memo(({ fileId, fileName, type, getFileBase64 }) => {
   const [base64Src, setBase64Src] = useState(null);
+  const videoRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -29,6 +35,12 @@ const AssetPreview = memo(({ fileId, fileName, type, getFileBase64 }) => {
     return () => { isMounted = false; };
   }, [fileId, getFileBase64]);
 
+  useEffect(() => {
+    if (type === 'video' && videoRef.current) {
+      videoRef.current.play().catch(() => {});
+    }
+  }, [base64Src, type]);
+
   if (!base64Src) {
     return type === 'image' ?
       <ImageOutlinedIcon style={{ color: '#cbd5e1' }} /> :
@@ -38,18 +50,102 @@ const AssetPreview = memo(({ fileId, fileName, type, getFileBase64 }) => {
   return type === 'image' ? (
     <img src={base64Src} alt={fileName} className={style[bem.e('preview-media')]} />
   ) : (
-    <video src={base64Src} className={style[bem.e('preview-media')]} muted playsInline />
+    <video
+      ref={videoRef}
+      src={base64Src}
+      className={style[bem.e('preview-media')]}
+      muted
+      playsInline
+      autoPlay
+      loop
+    />
   );
 });
 
-const SliderRow = ({ label, hint, value, min, max, step = 1, unit = '', onChange }) => (
-  <div className={style[bem.e('control-row')]}>
+const MobileCropPreview = memo(({ bgType, bgValue, fitMode, cropX, cropY, cropScale, getFileBase64 }) => {
+  const [src, setSrc] = useState(null);
+  const mainVideoRef = useRef(null);
+  const ambientVideoRef = useRef(null);
+
+  useEffect(() => {
+    let active = true;
+    if (bgValue && (bgType === 'image' || bgType === 'video')) {
+      getFileBase64(bgValue).then(res => {
+        if (active && res) setSrc(res);
+      });
+    }
+    return () => { active = false; };
+  }, [bgValue, bgType, getFileBase64]);
+
+  useEffect(() => {
+    if (bgType === 'video' && src) {
+      if (mainVideoRef.current) mainVideoRef.current.play().catch(() => {});
+      if (ambientVideoRef.current) ambientVideoRef.current.play().catch(() => {});
+    }
+  }, [src, bgType]);
+
+  if (!src) {
+    return <div className={style[bem.e('fit-placeholder')]} />;
+  }
+
+  const isContain = fitMode === 'contain';
+
+  const mediaStyle = isContain ? {
+    objectFit: 'contain',
+    objectPosition: 'center center',
+    width: '100%',
+    height: '100%'
+  } : {
+    objectFit: 'cover',
+    objectPosition: `${cropX}% ${cropY}%`,
+    width: `${cropScale * 100}%`,
+    height: `${cropScale * 100}%`
+  };
+
+  return (
+    <div className={style[bem.e('fit-screen')]}>
+      {isContain && (
+        bgType === 'image' ? (
+          <img src={src} alt="ambient" className={style[bem.e('fit-ambient')]} />
+        ) : (
+          <video
+            ref={ambientVideoRef}
+            src={src}
+            muted
+            playsInline
+            autoPlay
+            loop
+            className={style[bem.e('fit-ambient')]}
+          />
+        )
+      )}
+      {bgType === 'image' ? (
+        <img src={src} alt="preview" style={mediaStyle} className={style[bem.e('fit-media')]} />
+      ) : (
+        <video
+          ref={mainVideoRef}
+          src={src}
+          muted
+          playsInline
+          autoPlay
+          loop
+          style={mediaStyle}
+          className={style[bem.e('fit-media')]}
+        />
+      )}
+    </div>
+  );
+});
+
+const SliderRow = ({ label, hint, value, min, max, step = 1, unit = '', onChange, disabled = false }) => (
+  <div className={[style[bem.e('control-row')], disabled ? style[bem.is('disabled', true)] : ''].join(' ')}>
     <div className={style[bem.e('label-container')]}>
       <span className={style[bem.e('label')]}>{label}</span>
       {hint && <span className={style[bem.e('label-hint')]}>{hint}</span>}
     </div>
     <input
       type="range"
+      disabled={disabled}
       min={min} max={max} step={step}
       className={style[bem.e('slider')]}
       value={value}
@@ -123,6 +219,7 @@ const Personalization = () => {
 
   const [bgTab, setBgTab] = useState('image');
   const [showPresets, setShowPresets] = useState(true);
+  const { isMobile } = useViewportMode();
 
   const presetStylesList = getAllPresetStyles();
 
@@ -142,12 +239,13 @@ const Personalization = () => {
             <StyleOutlinedIcon size={18} style={{ marginRight: 8 }} />
             主题方案
           </div>
-          <button
-            className={style[bem.e('preset-toggle')]}
+          <Button
+            variant="outline"
+            size="sm"
             onClick={() => setShowPresets(!showPresets)}
           >
             {showPresets ? '收起方案' : '展开方案'}
-          </button>
+          </Button>
         </div>
         {showPresets && (
           <div className={style[bem.e('card')]}>
@@ -279,15 +377,17 @@ const Personalization = () => {
             )}
 
             {bgTab === 'image' && (
-              <div className={style[bem.e('grid')]}>
-                {localAssets.images.map(img => (
-                  <div key={img.id} className={`${style[bem.e('grid-item')]} ${config.bgType === 'image' && config.bgValue === img.id ? style[bem.is('selected', true)] : ''}`}
-                    onClick={() => updateMultipleConfigs({ bgType: 'image', bgValue: img.id })}>
-                    <div className={style[bem.e('preview-box')]}>
-                      <AssetPreview fileId={img.id} fileName={img.name} type="image" getFileBase64={getFileBase64} />
+              <div>
+                <div className={style[bem.e('grid')]}>
+                  {localAssets.images.map(img => (
+                    <div key={img.id} className={`${style[bem.e('grid-item')]} ${config.bgType === 'image' && config.bgValue === img.id ? style[bem.is('selected', true)] : ''}`}
+                      onClick={() => updateMultipleConfigs({ bgType: 'image', bgValue: img.id })}>
+                      <div className={style[bem.e('preview-box')]}>
+                        <AssetPreview fileId={img.id} fileName={img.name} type="image" getFileBase64={getFileBase64} />
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             )}
 
@@ -301,6 +401,99 @@ const Personalization = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {isMobile && bgTab !== 'color' && (
+              <div className={style[bem.e('mobile-crop-section')]}>
+                <div className={style[bem.e('mobile-crop-header')]}>
+                  <span className={style[bem.e('label-bold')]}>移动端壁纸取景与视差滚动</span>
+                  <span className={style[bem.e('label-hint')]}>自由移动镜头锁定画面；或开启滚动，让壁纸随页面滑动展现更多</span>
+                </div>
+
+                <div className={style[bem.e('mobile-crop-layout')]}>
+                  <div className={style[bem.e('mobile-crop-phone')]}>
+                    <div className={style[bem.e('mobile-crop-notch')]} />
+                    <MobileCropPreview
+                      bgType={config.bgType}
+                      bgValue={config.bgValue}
+                      fitMode={config.bgFitMobile || 'cover'}
+                      cropX={config.bgCropMobile?.x ?? 50}
+                      cropY={config.bgCropMobile?.y ?? 50}
+                      cropScale={config.bgCropMobile?.scale ?? 1}
+                      getFileBase64={getFileBase64}
+                    />
+                  </div>
+
+                  <div className={style[bem.e('mobile-crop-controls')]}>
+                    <div className={style[bem.e('btn-group')]}>
+                      <button
+                        type="button"
+                        className={`${style[bem.e('chip')]} ${config.bgFitMobile !== 'contain' ? style[bem.is('active', true)] : ''}`}
+                        onClick={() => updateConfig('bgFitMobile', 'cover')}
+                      >
+                        沉浸取景
+                      </button>
+                      <button
+                        type="button"
+                        className={`${style[bem.e('chip')]} ${config.bgFitMobile === 'contain' ? style[bem.is('active', true)] : ''}`}
+                        onClick={() => updateConfig('bgFitMobile', 'contain')}
+                      >
+                        全景延展
+                      </button>
+                    </div>
+
+                    {config.bgFitMobile !== 'contain' ? (
+                      <div className={style[bem.e('crop-sliders')]}>
+                        <div className={style[bem.e('toggle-row')]}>
+                          <div>
+                            <span className={style[bem.e('label-bold')]}>壁纸视差滚动</span>
+                            <span className={style[bem.e('description')]}>开启后，壁纸将随多页桌面横向划动而自然平移</span>
+                          </div>
+                          <Check
+                            checked={!!config.mobileWallpaperScroll}
+                            onChange={(val) => updateConfig('mobileWallpaperScroll', val)}
+                          />
+                        </div>
+
+                        <SliderRow
+                          label="水平构图"
+                          hint={config.mobileWallpaperScroll ? "已由滑动视差接管" : "0% 偏左 · 50% 居中 · 100% 偏右"}
+                          value={config.bgCropMobile?.x ?? 50}
+                          min={0}
+                          max={100}
+                          unit="%"
+                          disabled={config.mobileWallpaperScroll}
+                          onChange={(val) => updateConfig('bgCropMobile', { ...(config.bgCropMobile || { y: 50, scale: 1 }), x: val })}
+                        />
+                        <SliderRow
+                          label="垂直微调"
+                          hint="0% 顶部 · 50% 居中 · 100% 底部"
+                          value={config.bgCropMobile?.y ?? 50}
+                          min={0}
+                          max={100}
+                          unit="%"
+                          onChange={(val) => updateConfig('bgCropMobile', { ...(config.bgCropMobile || { x: 50, scale: 1 }), y: val })}
+                        />
+                        <SliderRow
+                          label="视野缩放"
+                          value={config.bgCropMobile?.scale ?? 1}
+                          min={1}
+                          max={2}
+                          step={0.05}
+                          unit="x"
+                          onChange={(val) => updateConfig('bgCropMobile', { ...(config.bgCropMobile || { x: 50, y: 50 }), scale: val })}
+                        />
+                      </div>
+                    ) : (
+                      <div className={style[bem.e('contain-hint')]}>
+                        <span className={style[bem.e('description')]}>
+                          全图模式完整保留原横幅画面，上下区域自适应进行高斯柔光弥散，消除生硬黑边。
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -334,13 +527,15 @@ const Personalization = () => {
       </div>
 
       <div className={style[bem.e('row')]}>
-        <div className={style[bem.e('section')]} style={{ flex: 1 }}>
-          <div className={style[bem.e('section-title')]}><DashboardOutlinedIcon size={18} style={{ marginRight: 8 }} /> 桌面布局</div>
-          <div className={style[bem.e('card')]}>
-            <SliderRow label="间距" value={config.deskGridGap} min={0} max={40} unit="px" onChange={(val) => updateConfig('deskGridGap', val)} />
-            <SliderRow label="边距" value={config.deskPadding} min={0} max={60} step={2} unit="px" onChange={(val) => updateConfig('deskPadding', val)} />
+        {!isMobile && (
+          <div className={style[bem.e('section')]} style={{ flex: 1 }}>
+            <div className={style[bem.e('section-title')]}><DashboardOutlinedIcon size={18} style={{ marginRight: 8 }} /> 桌面布局</div>
+            <div className={style[bem.e('card')]}>
+              <SliderRow label="间距" value={config.deskGridGap} min={0} max={40} unit="px" onChange={(val) => updateConfig('deskGridGap', val)} />
+              <SliderRow label="边距" value={config.deskPadding} min={0} max={60} step={2} unit="px" onChange={(val) => updateConfig('deskPadding', val)} />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className={style[bem.e('section')]} style={{ flex: 1 }}>
           <div className={style[bem.e('section-title')]}><WebAssetOutlinedIcon size={18} style={{ marginRight: 8 }} /> 窗口头部背景</div>
@@ -467,10 +662,10 @@ const Personalization = () => {
               <span className={style[bem.e('label-bold')]}>毛玻璃特效</span>
               <span className={style[bem.e('description')]}>开启全系统窗口高斯模糊</span>
             </div>
-            <div className={`${style[bem.e('switch')]} ${config.glassEffect ? style[bem.is('on', true)] : ''}`}
-              onClick={() => updateConfig('glassEffect', !config.glassEffect)}>
-              <div className={style[bem.e('switch-knob')]}></div>
-            </div>
+            <Check
+              checked={!!config.glassEffect}
+              onChange={(val) => updateConfig('glassEffect', val)}
+            />
           </div>
           <div className={style[bem.e('divider')]}></div>
           <div>
@@ -502,22 +697,51 @@ const Personalization = () => {
               <span className={style[bem.e('label-bold')]}>LRU 自动休眠</span>
               <span className={style[bem.e('description')]}>超出最大窗口数时自动休眠最久未使用的窗口</span>
             </div>
-            <div className={`${style[bem.e('switch')]} ${config.workerLRU !== false ? style[bem.is('on', true)] : ''}`}
-              onClick={() => updateConfig('workerLRU', config.workerLRU === false ? true : false)}>
-              <div className={style[bem.e('switch-knob')]}></div>
-            </div>
+            <Check
+              checked={config.workerLRU !== false}
+              onChange={(val) => updateConfig('workerLRU', val)}
+            />
           </div>
           <div className={style[bem.e('divider')]}></div>
-          <div className={style[bem.e('toggle-row')]}>
-            <div>
-              <span className={style[bem.e('label-bold')]}>启动APP时自动隐藏状态栏</span>
-              <span className={style[bem.e('description')]}>聚焦或启动应用后自动收起底部状态栏 (Ctrl+Alt+O 恢复)</span>
+          {isMobile ? (
+            <div className={style[bem.e('toggle-row')]}>
+              <div>
+                <span className={style[bem.e('label-bold')]}>移动端沉浸式</span>
+                <span className={style[bem.e('description')]}>开启后，在移动端交互时自动执行全屏模式（类似顶部全屏按钮），获得极致沉浸体验</span>
+              </div>
+              <Check
+                checked={!!config.mobileImmersive}
+                onChange={(val) => {
+                  updateConfig('mobileImmersive', val);
+                  try {
+                    if (val) {
+                      const docEl = document.documentElement;
+                      const requestFullscreen = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+                      if (requestFullscreen) {
+                        requestFullscreen.call(docEl).catch(err => {});
+                      }
+                    } else {
+                      const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+                      if (exitFullscreen && document.fullscreenElement) {
+                        exitFullscreen.call(document).catch(err => {});
+                      }
+                    }
+                  } catch (error) {}
+                }}
+              />
             </div>
-            <div className={`${style[bem.e('switch')]} ${config.autoHideStatusBar ? style[bem.is('on', true)] : ''}`}
-              onClick={() => updateConfig('autoHideStatusBar', !config.autoHideStatusBar)}>
-              <div className={style[bem.e('switch-knob')]}></div>
+          ) : (
+            <div className={style[bem.e('toggle-row')]}>
+              <div>
+                <span className={style[bem.e('label-bold')]}>启动APP时自动隐藏状态栏</span>
+                <span className={style[bem.e('description')]}>聚焦或启动应用后收起状态栏，按 Ctrl+Alt+O 切换</span>
+              </div>
+              <Check
+                checked={!!config.autoHideStatusBar}
+                onChange={(val) => updateConfig('autoHideStatusBar', val)}
+              />
             </div>
-          </div>
+          )}
           <div className={style[bem.e('divider')]}></div>
           <div className={style[bem.e('double-row')]}>
             <div className={style[bem.e('half-col')]}>
@@ -526,8 +750,13 @@ const Personalization = () => {
                 <span className={style[bem.e('label-hint')]}>仅对 saveState=true 的应用生效</span>
               </div>
               <div className={style[bem.e('input-group')]}>
-                <input type="number" min={0} max={300} step={5}
-                  className={style[bem.e('number-input')]}
+                <Input
+                  type="number"
+                  size="small"
+                  min={0}
+                  max={300}
+                  step={5}
+                  style={{ width: 76 }}
                   value={config.autoSaveStateInterval || 0}
                   onChange={(e) => updateConfig('autoSaveStateInterval', Number(e.target.value))}
                 />
@@ -541,8 +770,13 @@ const Personalization = () => {
                 <span className={style[bem.e('label-hint')]}>0=禁用自动记录窗口位置</span>
               </div>
               <div className={style[bem.e('input-group')]}>
-                <input type="number" min={0} max={120} step={5}
-                  className={style[bem.e('number-input')]}
+                <Input
+                  type="number"
+                  size="small"
+                  min={0}
+                  max={120}
+                  step={5}
+                  style={{ width: 76 }}
                   value={config.autoSaveWindowInterval || 0}
                   onChange={(e) => updateConfig('autoSaveWindowInterval', Number(e.target.value))}
                 />

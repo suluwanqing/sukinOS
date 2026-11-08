@@ -44,26 +44,6 @@
   gap: 8px;
 }
 
-.su-save-modal__back-btn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  padding: 4px;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  color: #606266;
-}
-
-.su-save-modal__back-btn:hover {
-  background-color: #f0f2f5;
-}
-
-.su-save-modal__back-btn:disabled {
-  opacity: 0.3;
-  cursor: default;
-}
-
 .su-save-modal__breadcrumbs {
   flex: 1;
   display: flex;
@@ -151,20 +131,8 @@
   white-space: nowrap;
 }
 
-.su-save-modal__input-group input {
+.su-save-modal__file-input {
   flex: 1;
-  padding: 6px 10px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  outline: none;
-  font-size: 13px;
-  transition: border-color 0.2s;
-  background-color: #ffffff;
-  color: #303133;
-}
-
-.su-save-modal__input-group input:focus {
-  border-color: #0ea5e9;
 }
 
 .su-save-modal__footer-actions {
@@ -176,32 +144,22 @@
   border-top: 1px solid #dcdfe6;
 }
 
-.su-save-modal__btn-cancel,
-.su-save-modal__btn-confirm {
-  padding: 7px 18px;
-  border-radius: 4px;
-  font-size: 13px;
-  cursor: pointer;
-  border: none;
-}
-
-.su-save-modal__btn-cancel {
-  background: #ffffff;
-  border: 1px solid #dcdfe6;
-  color: #606266;
-}
-
-.su-save-modal__btn-cancel:hover {
-  color: #0ea5e9;
-  border-color: #7dd3fc;
-  background-color: #f0f9ff;
-}
-
-.su-save-modal__btn-confirm {
-  background: #0ea5e9;
-  color: #ffffff;
-}
-
-.su-save-modal__btn-confirm:hover {
-  background: #38bdf8;
+@media (max-width: 767px) {
+  .su-save-modal {
+    padding: 12px;
+    box-sizing: border-box;
+  }
+  .su-save-modal__container {
+    width: 100%;
+    max-width: none;
+    height: 100%;
+    max-height: 560px;
+  }
+  .su-save-modal__list {
+    grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  }
+  .su-save-modal__footer-actions > button {
+    flex: 1;
+    min-height: 44px;
+  }
 }

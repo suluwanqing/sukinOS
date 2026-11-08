@@ -111,7 +111,6 @@ function CustomApp({ initialCustom = {}, onUpdateConfig, onClose, editingAppName
     setIsUploading(true)
 
     try {
-
       const finalContent = await dataToBase64Mapper(file, 'Image')
       const fileName = `icon_${Date.now()}_${file.name}`;
       const newNode = await writeFile(fileName, finalContent)

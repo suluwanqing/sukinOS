@@ -156,15 +156,15 @@ export const GeneralPurposePage = (props) => {
   const finalDescription = description || defaults.defaultDescription;
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-center gap-16 p-8 min-h-[80vh] max-md:flex-col max-md:text-center">
-      <div className="flex min-w-[320px] flex-1 items-center justify-center max-md:min-w-[50vw]">
+    <div className="flex w-full flex-wrap items-center justify-center gap-16 p-8 min-h-[80vh] max-[767px]:flex-col max-[767px]:gap-6 max-[767px]:p-4 max-[767px]:text-center">
+      <div className="flex min-w-[320px] flex-1 items-center justify-center max-[767px]:min-w-[50vw]">
         <img
           src={finalImageUrl}
           alt={finalTitle}
           className="h-auto w-full max-w-[400px] rounded-md object-contain"
         />
       </div>
-      <div className="flex min-w-[320px] flex-1 flex-col justify-center max-md:min-w-[50vw] max-md:items-center">
+      <div className="flex min-w-[320px] flex-1 flex-col justify-center max-[767px]:min-w-[50vw] max-[767px]:items-center">
         <h1 className="m-0 mb-4 text-3xl font-semibold text-foreground">{finalTitle}</h1>
         <p className="m-0 mb-6 text-base leading-relaxed text-muted-foreground">{finalDescription}</p>
 
@@ -176,9 +176,9 @@ export const GeneralPurposePage = (props) => {
 
         {actionText && (
           <Button
-            type="primary"
-            size="large"
-            className="self-start px-5 max-md:mt-8 max-md:self-center"
+            variant="default"
+            size="lg"
+            className="self-start px-5 max-[767px]:mt-4 max-[767px]:self-center"
             onClick={handleActionClick}
           >
             {actionText}

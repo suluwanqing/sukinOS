@@ -229,3 +229,21 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+@media (max-width: 767px) {
+  .su-draw-board-gallery {
+    padding: 16px 12px 40px;
+  }
+  .su-draw-board-gallery__head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .su-draw-board-gallery__grid {
+    grid-template-columns: 1fr;
+  }
+  .su-draw-board-gallery__btn {
+    min-height: 40px;
+  }
+}

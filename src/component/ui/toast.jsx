@@ -18,20 +18,22 @@ const iconVariants = cva('shrink-0', {
       success: 'text-success',
       failure: 'text-destructive',
       warning: 'text-warning',
-      dark: 'text-foreground',
+      dark: 'text-background',
     },
   },
   defaultVariants: { type: 'success' },
 });
 
+const lightBarTone = 'border-border/70 bg-background/80 text-foreground dark:border-white/10 dark:bg-background/80 dark:shadow-[0_16px_36px_rgba(0,0,0,0.5)]';
+
 const barVariants = cva(
-  'pointer-events-auto flex w-fit max-w-[calc(100vw-2.5rem)] items-center gap-2.5 rounded-full border border-border/70 bg-background/80 px-4.5 py-2 text-sm text-foreground shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md transition-all duration-200 animate-in fade-in-0 slide-in-from-top-2 dark:border-white/10 dark:bg-background/80 dark:shadow-[0_16px_36px_rgba(0,0,0,0.5)]',
+  'pointer-events-auto flex w-fit max-w-[calc(100vw-2.5rem)] items-center gap-2.5 rounded-full border px-4.5 py-2 text-sm shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-md transition-all duration-200 animate-in fade-in-0 slide-in-from-top-2',
   {
     variants: {
       type: {
-        success: '',
-        failure: '',
-        warning: '',
+        success: lightBarTone,
+        failure: lightBarTone,
+        warning: lightBarTone,
         dark: 'border-transparent bg-foreground font-semibold text-background',
       },
       multiLine: {
@@ -115,7 +117,7 @@ const ToastContainer = forwardRef((props, ref) => {
   if (toasts.length === 0) return null;
 
   return createPortal(
-    <div className="pointer-events-none fixed left-1/2 top-6 z-[9999] flex -translate-x-1/2 flex-col items-center gap-2.5">
+    <div className="pointer-events-none fixed left-1/2 top-6 z-[9999] flex -translate-x-1/2 flex-col items-center gap-2.5 max-[767px]:top-[calc(1.5rem+var(--su-safe-top,0px))]">
       {toasts.map((item) => (
         <ToastBar key={item.id} {...item} />
       ))}

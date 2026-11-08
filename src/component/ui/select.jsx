@@ -8,13 +8,14 @@ const PAGE_SIZE = 20;
 
 
 const triggerVariants = cva(
-  'flex w-full min-w-[100px] cursor-pointer items-center justify-between gap-2 rounded-md border border-input bg-transparent px-3 py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow,border-color] outline-none data-[placeholder]:text-muted-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
+  'flex w-full min-w-[100px] cursor-pointer items-center justify-between gap-2 rounded-md border border-input bg-transparent py-2 text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow,border-color] outline-none data-[placeholder]:text-muted-foreground focus-visible:border-ring disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive dark:bg-input/30 dark:hover:bg-input/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*=\'size-\'])]:size-4',
   {
     variants: {
       size: {
-        small: 'h-8 text-xs sm:text-[13px]',
-        default: 'h-9 text-sm',
-        large: 'h-10 text-base',
+        xsmall: 'h-7 px-2 text-xs',
+        small: 'h-8 px-2.5 text-xs sm:text-[13px] max-[767px]:h-9',
+        default: 'h-9 px-3 text-sm max-[767px]:px-2.5',
+        large: 'h-10 px-3.5 text-base max-[767px]:px-3',
       },
     },
     defaultVariants: { size: 'default' },
@@ -36,14 +37,27 @@ const dropdownPanelVariants = cva(
 );
 
 const itemVariants = cva(
-  'flex w-full cursor-pointer items-center justify-between rounded-sm py-1.5 pr-2.5 pl-2 text-xs sm:text-sm outline-hidden select-none transition-colors hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50'
+  'flex w-full cursor-pointer items-center justify-between rounded-sm py-1.5 pr-2.5 pl-2 text-xs sm:text-sm outline-hidden select-none transition-colors hover:bg-accent hover:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+  {
+    variants: {
+      size: {
+        default: 'max-[767px]:min-h-9 max-[767px]:text-[13px]',
+        xsmall: 'max-[767px]:min-h-8 max-[767px]:text-xs',
+      },
+    },
+    defaultVariants: { size: 'default' },
+  }
 );
 
 
 const noScrollbarCls = '[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]';
 
-const cellPad = { small: 'px-2.5', default: 'px-3', large: 'px-3.5' };
-const sizeKeyOf = (size) => (size === 'small' || size === 'large' ? size : 'default');
+const cellPad = { xsmall: 'px-2', small: 'px-2.5', default: 'px-3', large: 'px-3.5' };
+const sizeKeyOf = (size) => (
+  size === 'xs' || size === 'xsmall' ? 'xsmall'
+    : size === 'small' || size === 'large' ? size
+      : 'default'
+);
 
 const useClickOutside = (ref, handler) => {
   useEffect(() => {
@@ -77,6 +91,8 @@ export const Select = ({
   showTitle = false,
   maxHeight,
   hideScrollbar = false,
+  disabled = false,
+  className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredTooltip, setHoveredTooltip] = useState(null);
@@ -199,14 +215,15 @@ export const Select = ({
   return (
     <div
       ref={containerRef}
-      className="relative inline-block w-full select-none"
+      className={cn('relative inline-block w-full select-none', className)}
     >
       {/* 触发器 */}
       <div
-        className={triggerVariants({ size: sizeKey })}
-        onClick={() => setIsOpen(!isOpen)}
+        className={cn(triggerVariants({ size: sizeKey }), disabled && 'cursor-not-allowed opacity-50')}
+        onClick={() => !disabled && setIsOpen(!isOpen)}
         style={boxStyle}
         tabIndex={-1}
+        aria-disabled={disabled || undefined}
         title={showTitle ? (currentOption?.label ?? undefined) : undefined}
         onMouseEnter={(e) => handleMouseEnter(e, currentOption ? currentOption.label : undefined)}
         onMouseLeave={handleMouseLeave}
@@ -222,7 +239,7 @@ export const Select = ({
         />
       </div>
 
-      {isOpen && (
+      {isOpen && !disabled && (
         <div
           className={dropdownPanelVariants({ direction: direction === 'top' ? 'top' : 'bottom' })}
           style={dropdownStyle}
@@ -235,7 +252,7 @@ export const Select = ({
                 value={searchText}
                 onChange={handleSearchChange}
                 placeholder="搜索..."
-                className="h-7 w-full rounded border border-input bg-transparent px-2 text-xs text-foreground outline-none transition-colors focus:border-ring focus:ring-1 focus:ring-ring"
+                className="h-7 w-full rounded border border-input bg-transparent px-2 text-xs text-foreground outline-none transition-colors focus:border-ring"
                 onKeyDown={e => e.stopPropagation()}
                 onClick={e => e.stopPropagation()}
               />
@@ -267,7 +284,7 @@ export const Select = ({
                 <div
                   key={opt.value}
                   className={cn(
-                    itemVariants(),
+                    itemVariants({ size: sizeKey === 'xsmall' ? 'xsmall' : 'default' }),
                     isSelected && 'bg-accent/60 font-medium text-accent-foreground'
                   )}
                   onClick={() => handleSelect(opt.value)}

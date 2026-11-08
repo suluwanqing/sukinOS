@@ -16,7 +16,6 @@
   border: 1px solid var(--su-os-border-color, #dcdfe6);
   overflow: hidden;
   user-select: none;
-  --header-height: attr(data-header-height px);
   /* 这个还是比较重要的 */
   max-height: 100dvh;
 }
@@ -30,7 +29,9 @@
 /* 仅焦点窗口应用毛玻璃背景 */
 .su-window.is-focused {
   transform: translateZ(0);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 10px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
   backdrop-filter: var(--su-os-backdrop, none);
   -webkit-backdrop-filter: var(--su-os-backdrop, none);
 }
@@ -41,7 +42,9 @@
 }
 
 .su-window__header {
-  height: var(--header-height);
+  /* 外框定高，内容区靠 flex: 1 取剩余高度 */
+  height: 28px;
+  box-sizing: border-box;
   padding: 8px 12px;
   /* 头部背景继承全局动态混色后的带透明度颜色 */
   background: var(--custom-window-header-bg, #f9fafb);
@@ -61,7 +64,9 @@
 }
 
 .su-window__icon {
-  height: 200%;
+  /* 显式高度，宽度由比例得出，不随父级高度变化 */
+  height: 22px;
+  flex: 0 0 auto;
   aspect-ratio: 1;
   border-radius: 0.125rem;
 }
@@ -259,26 +264,38 @@
   display: none !important;
 }
 
-/*隐形鼠标感应带：绝对定位在顶部最外侧，不占容器高宽，浮于 iframe 之上 */
+
+.su-window:global(.sukin-mobile-card-preview) {
+  border-radius: 20px !important;
+  box-shadow: none !important;
+  pointer-events: none !important;
+}
+
+
+.su-window.is-mobile:global(.sukin-mobile-card-preview) {
+  bottom: 0 !important;
+}
+
+
 .su-window__hover-trigger {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  height: 10px !important; /* 顶部感应带厚度为 10px */
+  height: 10px !important;
   background: transparent !important;
-  z-index: 1000 !important; /* 层级高于内容物，确保捕捉 hover 事件 */
+  z-index: 1000 !important;
   pointer-events: auto !important;
 }
 
-/* 常规状态下，将标题栏往上提 100% 隐藏收拢 */
-.su-window:global(.is-hide-header-hover):not(:global(.sukin-ubuntu-preview-mode))
+
+.su-window:global(.is-hide-header-hover):not(.is-mobile):not(:global(.sukin-ubuntu-preview-mode))
   .su-window__header {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  z-index: 1001 !important; /* 展开后高于感应带，实现正常点击交互 */
+  z-index: 1001 !important; 
   /* will-change: transform, opacity; */
   transform: translateY(-100%) !important;
   opacity: 0 !important;
@@ -290,10 +307,10 @@
 /* 核心悬停控制机制：
    - 鼠标滑向顶部 10px 触发带（.su-window__hover-trigger:hover）时，使相邻兄弟元素 .su-window__header 展开
    - 展开后，鼠标落在标题栏（.su-window__header:hover）本身上时，继续保持展开 */
-.su-window:global(.is-hide-header-hover):not(:global(.sukin-ubuntu-preview-mode))
+.su-window:global(.is-hide-header-hover):not(.is-mobile):not(:global(.sukin-ubuntu-preview-mode))
   .su-window__hover-trigger:hover
   + .su-window__header,
-.su-window:global(.is-hide-header-hover):not(:global(.sukin-ubuntu-preview-mode))
+.su-window:global(.is-hide-header-hover):not(.is-mobile):not(:global(.sukin-ubuntu-preview-mode))
   .su-window__header:hover {
   transform: translateY(0) !important;
   opacity: 1 !important;
@@ -303,4 +320,112 @@
 .su-window:global(.is-hide-header-hover):not(:global(.sukin-ubuntu-preview-mode))
   .su-window__content {
   padding-top: 0 !important;
+}
+
+.su-window.is-mobile {
+  inset: 0 0 var(--su-safe-bottom, 0px) 0 !important;
+  width: auto !important;
+  height: auto !important;
+  max-height: none;
+  border-radius: 0;
+  border: none;
+  transition: bottom 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.su-window.is-mobile .su-window__header {
+  position: relative;
+  height: 28px;
+  padding: 0 2px 0 8px;
+  cursor: default;
+  touch-action: none;
+  transition: transform 0.18s ease;
+  will-change: transform;
+}
+
+.su-window.is-mobile:global(.is-hide-header-hover) .su-window__header {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 1001 !important;
+  transform: translateY(-100%);
+  opacity: 0;
+  transition:
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.22s ease;
+}
+
+.su-window.is-mobile:global(.is-hide-header-hover):global(.is-header-revealed) .su-window__header {
+  transform: translateY(0);
+  opacity: 1;
+}
+
+.su-window.is-mobile .su-window__hover-trigger {
+  height: 16px !important;
+}
+
+.su-window.is-mobile .su-window__icon {
+  height: 16px;
+}
+
+.su-window.is-mobile .su-window__name {
+  flex: 1;
+  min-width: 0;
+  margin-left: 6px;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.su-window.is-mobile .su-window__actions {
+  gap: 2px;
+}
+
+.su-window.is-mobile .su-window__actions > span {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.su-window.is-mobile .su-window__actions > span svg {
+  width: 16px;
+  height: 16px;
+}
+
+.su-window.is-mobile .su-window__actions > span:active {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.su-window__grabber {
+  display: none;
+}
+
+.su-window.is-mobile .su-window__grabber {
+  display: block;
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  width: 24px;
+  height: 2px;
+  margin-left: -12px;
+  border-radius: 2px;
+  background-color: rgba(0, 0, 0, 0.18);
+}
+
+/* 无 hover 的触屏：隐藏式标题栏常显 */
+@media (hover: none) {
+  .su-window:global(.is-hide-header-hover):not(.is-mobile):not(:global(.sukin-ubuntu-preview-mode))
+    .su-window__header {
+    transform: translateY(0) !important;
+    opacity: 1 !important;
+  }
+}
+
+@media (max-width: 767px) {
+  :global(.sukin-ubuntu-preview-mode) {
+    transform: translate(-50%, -50%) scale(0.9) !important;
+    max-width: 92vw;
+    max-height: 80dvh;
+  }
 }

@@ -34,11 +34,11 @@ function Authorized({ appList = [], installedApps = [], startApp, installApp }) 
             </div>
             <div className={style[bem.e('actions')]}>
               {app.isInstalled ? (
-                <Button type="primary" onClick={() => startApp({ resourceId: app.resourceId })}>
+                <Button variant="default" onClick={() => startApp({ resourceId: app.resourceId })}>
                   打开
                 </Button>
               ) : (
-                <Button type="success" onClick={() => installApp(app)}>
+                <Button variant="success" onClick={() => installApp(app)}>
                   安装
                 </Button>
               )}

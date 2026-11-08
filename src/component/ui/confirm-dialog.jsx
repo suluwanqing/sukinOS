@@ -53,7 +53,7 @@ const ConfirmDiY = ({
   }, [inputDefaultValue]);
 
   return (
-    <div className={`fixed inset-0 z-[10000] flex items-center justify-center p-6 ${isVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
+    <div className={`fixed inset-0 z-[10000] flex items-center justify-center p-5 max-[767px]:p-3 ${isVisible ? 'pointer-events-auto' : 'pointer-events-none'}`}>
       <div
         className={overlayVariants({ visible: isVisible })}
         onClick={showCancel ? onCancel : undefined}
@@ -62,10 +62,10 @@ const ConfirmDiY = ({
         className={cardVariants({ visible: isVisible })}
         onAnimationEnd={onAnimationEnd}
       >
-        <div className="px-8 pt-8 pb-3">
-          <h3 className="m-0 text-lg font-semibold tracking-[-0.01em] text-foreground">{title || '提示'}</h3>
+        <div className="px-5 pt-5 pb-2.5 max-[767px]:px-4 max-[767px]:pt-4 max-[767px]:pb-1.5">
+          <h3 className="m-0 text-lg font-semibold tracking-[-0.01em] text-foreground max-[767px]:text-base">{title || '提示'}</h3>
         </div>
-        <div className="px-8 pb-8 text-sm leading-normal">
+        <div className="px-5 pb-5 text-sm leading-normal max-[767px]:px-4 max-[767px]:pb-4">
           {children || (
             <>
               <p className="m-0 text-muted-foreground">{content || '确定要执行此操作吗？'}</p>
@@ -82,11 +82,11 @@ const ConfirmDiY = ({
             </>
           )}
         </div>
-        <div className={`grid gap-3 px-8 pb-8 ${showCancel ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <div className={`grid gap-3 px-5 pb-5 max-[767px]:gap-2 max-[767px]:px-4 max-[767px]:pb-4 ${showCancel ? 'grid-cols-2' : 'grid-cols-1'}`}>
           {showCancel && (
             <Button onClick={onCancel}>{cancelText}</Button>
           )}
-          <Button type="primary" onClick={() => onConfirm(inputValue)}>
+          <Button variant="default" onClick={() => onConfirm(inputValue)}>
             {confirmText}
           </Button>
         </div>

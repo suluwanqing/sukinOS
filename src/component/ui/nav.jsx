@@ -14,8 +14,8 @@ const scrollbarCls = '[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-thumb]:ro
 const arrowCls = 'text-muted-foreground';
 
 const modeKeyOf = (mode) => (mode === 'vertical' ? 'vertical' : 'horizontal');
-const itemShape = 'mx-1 my-0.5 flex h-8.5 items-center overflow-hidden whitespace-nowrap rounded-md text-[13px] transition-colors duration-150';
-const dropdownShape = 'invisible absolute left-0 top-full z-[100] mt-1.5 min-w-45 translate-y-1.5 rounded-lg border px-0 py-1.5 text-xs opacity-0 transition-[opacity,transform,visibility] duration-150 group-hover/item:visible group-hover/item:translate-y-0 group-hover/item:opacity-100';
+const itemShape = 'mx-1 my-0.5 flex h-8.5 items-center overflow-hidden whitespace-nowrap rounded-md text-[13px] transition-colors duration-150 max-[767px]:h-9';
+const dropdownShape = 'invisible absolute left-0 top-full z-[100] mt-1.5 max-w-[calc(100vw-16px)] min-w-45 translate-y-1.5 rounded-lg border px-0 py-1.5 text-xs opacity-0 transition-[opacity,transform,visibility] duration-150 group-hover/item:visible group-hover/item:translate-y-0 group-hover/item:opacity-100';
 
 
 const parseWidth = (val, defaultTailwindCls) => {
@@ -41,6 +41,7 @@ const NavItem = ({
   expandedKeys,
   onItemClick,
   onToggleExpand,
+  onToggleTopMenu,
   collapsed,
   mode,
   tone
@@ -53,7 +54,9 @@ const NavItem = ({
   const handleClick = (e) => {
     e.stopPropagation();
     if (hasChildren) {
-      if (mode === 'vertical') onToggleExpand(item.id);
+      // 触屏不会稳定派发 hover，横向档改为点按开合浮层，竖向档仍按折叠展开。
+      if (mode === 'horizontal') onToggleTopMenu(item.id);
+      else if (!collapsed) onToggleExpand(item.id);
     } else {
       onItemClick(item.id);
     }
@@ -152,6 +155,7 @@ const NavItem = ({
               expandedKeys={expandedKeys}
               onItemClick={onItemClick}
               onToggleExpand={onToggleExpand}
+              onToggleTopMenu={onToggleTopMenu}
               collapsed={collapsed}
               mode={mode}
               tone={tone}
@@ -161,7 +165,7 @@ const NavItem = ({
       )}
 
       {hasChildren && mode === 'horizontal' && (
-        <div className={cn(dropdownShape, tone.dropdown, tone.idle)}>
+        <div className={cn(dropdownShape, isExpanded && 'visible translate-y-0 opacity-100', tone.dropdown, tone.idle)}>
           {item.children.map(child => (
             <NavItem
               key={child.id}
@@ -171,6 +175,7 @@ const NavItem = ({
               expandedKeys={expandedKeys}
               onItemClick={onItemClick}
               onToggleExpand={onToggleExpand}
+              onToggleTopMenu={onToggleTopMenu}
               collapsed={false}
               mode="vertical"
               tone={tone}
@@ -199,6 +204,7 @@ export const Nav = ({
   const [expandedKeys, setExpandedKeys] = useState([]);
   const tone = toneOf(theme);
   const modeKey = modeKeyOf(mode);
+  const shellRef = useRef(null);
 
   const isDarkTheme = theme === 'dark';
 
@@ -206,17 +212,42 @@ export const Nav = ({
     if (collapsed) setExpandedKeys([]);
   }, [collapsed]);
 
+
+  useEffect(() => {
+    if (modeKey !== 'horizontal') return undefined;
+    const handleOutsidePointer = (event) => {
+      if (shellRef.current && !shellRef.current.contains(event.target)) {
+        setExpandedKeys([]);
+      }
+    };
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setExpandedKeys([]);
+    };
+    document.addEventListener('pointerdown', handleOutsidePointer);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('pointerdown', handleOutsidePointer);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [modeKey]);
+
   const handleItemClick = useCallback(
     (id) => {
       if (onChange) onChange(id);
+      if (mode === 'horizontal') setExpandedKeys([]);
     },
-    [onChange]
+    [onChange, mode]
   );
 
   const handleToggleExpand = useCallback((id) => {
     setExpandedKeys((prev) =>
       prev.includes(id) ? prev.filter((k) => k !== id) : prev.concat(id)
     );
+  }, []);
+
+  // 同一时刻只留一条主菜单浮层，避免两条浮层叠在一起。
+  const handleToggleTopMenu = useCallback((id) => {
+    setExpandedKeys((prev) => (prev.includes(id) ? [] : [id]));
   }, []);
 
   const defaultExpandCls = 'w-48';
@@ -231,10 +262,11 @@ export const Nav = ({
 
   const shellSize = modeKey === 'vertical'
     ? cn('h-full flex-col border-r', parsedWidthCls)
-    : 'h-14 w-full flex-row items-center border-b px-4';
+    : 'h-14 w-full flex-row items-center border-b px-4 max-[767px]:h-12 max-[767px]:px-2';
 
   return (
     <div
+      ref={shellRef}
       className={cn(
         'flex box-border text-xs sm:text-[13px]',
         shellSize,
@@ -270,6 +302,7 @@ export const Nav = ({
             expandedKeys={expandedKeys}
             onItemClick={handleItemClick}
             onToggleExpand={handleToggleExpand}
+            onToggleTopMenu={handleToggleTopMenu}
             collapsed={collapsed}
             mode={mode}
             tone={tone}

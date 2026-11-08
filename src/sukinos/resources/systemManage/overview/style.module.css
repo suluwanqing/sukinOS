@@ -326,3 +326,14 @@
   color: #db2777;
   font-size: 12px;
 }
+
+@media (max-width: 767px) {
+  .su-overview__stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .su-overview__chart-grid,
+  .su-overview__resources-grid,
+  .su-overview__services-grid {
+    grid-template-columns: 1fr;
+  }
+}

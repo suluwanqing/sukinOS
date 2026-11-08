@@ -7,6 +7,9 @@ import { X as CloseIcon, Code as CodeIcon, Maximize as FullscreenIcon, Minimize 
 import style from "./style.module.css"
 import { ENV_KEY_RESOURCE_ID, ENV_KEY_NAME, ENV_KEY_META_INFO } from '@/sukinos/utils/config'
 import VfsImage from '@/sukinos/middleware/VfsImage/main.jsx'
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode'
+import { useFullscreen } from '@/sukinos/hooks/useFullscreen'
+import usePersonalization from '@/sukinos/hooks/usePersonalization'
 
 const bem = createNamespace('window')
 const ScreenIcon = ({ isMaximized }) => {
@@ -22,6 +25,9 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   onFocus, isDisplay, isShow, reStartApp, forceReStartApp, generateAppSetting, renderRef, ref,
   showWindowSwitcher, isSelected, isFocused
 }) => {
+  const { isMobile } = useViewportMode();
+  const { isFullscreen, isFullscreenSupported, toggleFullscreen } = useFullscreen();
+  const { config: personalConfig } = usePersonalization();
   const custom = useMemo(() => app?.[ENV_KEY_META_INFO]?.custom || {}, [app]);
   const { state, dispatch } = useProcessBridge(pid, {
     isVisible: isShow,
@@ -94,12 +100,14 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   })
   const handleCompoundMouseDown = (e, type) => {
     onFocus(pid)
+    if (isMobile) return
     handleMouseDown(e, type)
   }
 
   // 非焦点窗口边缘 resize 聚焦优先：基于鼠标位置计算缩放方向
   const EDGE_SIZE = 8
   const handleEdgeMouseDown = (e) => {
+    if (isMobile) return
     if (isFocused || !windowElRef.current) return
     e.stopPropagation()
     const rect = windowElRef.current.getBoundingClientRect()
@@ -134,11 +142,11 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   }, [ref, windowElRef]);
   // 注意这个逻辑就是确保了,系统APP绝不是只是根据metaInfo获取的,这里是直接从系统注册表加载出来的，我们的metaInfo.appType只是做一个标记。
   const isSystemApp = useMemo(() => kernel ? kernel.isSystemApp(pid) : false, [kernel, pid]);
-  const headerHeight = 28//header，还是比较重要。主要就是涉及高度问题
   const name = state?.config?.[ENV_KEY_NAME] || fileName.replace('.sukin-worker.js', '')
   const iconUrl = resource?.[ENV_KEY_META_INFO]?.icon;
   const [showState, setShowState] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
+  const [headerRevealed, setHeaderRevealed] = useState(false)
 
   const toggleMaximize = () => {
     const nextMaximizedState = !isMaximized
@@ -153,6 +161,11 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   }, [])
 
   const handleClose = () => {
+    // 移动端几何是整屏测量值，不保存
+    if (isMobile) {
+      onClose(pid);
+      return;
+    }
     if (windowElRef.current) {
       const currentRect = getCurrentRect()
       kernel.saveWindowState(pid, currentRect).then(() => {
@@ -163,6 +176,45 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
     }
   };
 
+  // 标题栏下滑收起：仅触摸指针，位移超过阈值且纵向占优才触发
+  const headerSwipeRef = useRef(null)
+  const handleHeaderPointerDown = (e) => {
+    if (!isMobile || e.pointerType !== 'touch') return
+    headerSwipeRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      dy: 0,
+    }
+    e.currentTarget.setPointerCapture?.(e.pointerId)
+  }
+  const handleHeaderPointerMove = (e) => {
+    const gesture = headerSwipeRef.current
+    if (!gesture || e.pointerId !== gesture.pointerId) return
+    const dy = e.clientY - gesture.startY
+    const dx = e.clientX - gesture.startX
+    gesture.dy = dy
+    if (dy > 0 && dy > Math.abs(dx)) {
+      e.currentTarget.style.transform = `translateY(${Math.min(dy, 96)}px)`
+    } else if (dy < 0 && -dy > Math.abs(dx) && customConfig.hideHeaderHover) {
+      e.currentTarget.style.transform = `translateY(${Math.max(dy, -96)}px)`
+    }
+  }
+  const endHeaderSwipe = (e) => {
+    const gesture = headerSwipeRef.current
+    if (!gesture) return
+    if (e && e.pointerId !== gesture.pointerId) return
+    headerSwipeRef.current = null
+    if (e?.currentTarget) e.currentTarget.style.transform = ''
+    if (gesture.dy > 72) {
+      handleClose()
+      return
+    }
+    if (gesture.dy < -48 && customConfig.hideHeaderHover) {
+      setHeaderRevealed(false)
+    }
+  }
+
   // 注入 APP SDK 的窗口控制 API（AppSDK.API.window）
   // controlsRef 每轮渲染直接赋值持有最新闭包；外观对象仅创建一次，
   // 保证 prop 引用恒定，不触发 DynamicRenderer 的 instanceSDK 重建
@@ -170,13 +222,24 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   controlsRef.current = {
     close: () => handleKillProcess(pid),
     hibernate: handleClose,
-    toggleMaximize,
+    toggleMaximize: () => {
+      if (isMobile) return
+      toggleMaximize()
+    },
     setRect: (rect) => {
+      // 移动端几何由 CSS 接管
+      if (isMobile) return
       // setRect 视为退出最大化并应用新几何，下次 toggleMaximize 以新 rect 为还原基准
       if (isMaximized) setIsMaximized(false)
       setRect(rect)
     },
-    getRect: () => ({ ...getCurrentRect() }),
+    getRect: () => {
+      if (isMobile && windowElRef.current) {
+        const rect = windowElRef.current.getBoundingClientRect()
+        return { x: rect.left, y: rect.top, w: rect.width, h: rect.height }
+      }
+      return { ...getCurrentRect() }
+    },
   }
   const windowControls = useMemo(() => ({
     close: () => controlsRef.current?.close?.(),
@@ -190,9 +253,15 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   const headerFuncs = useMemo(() => [
     ...(exposeState ? [{ id: 'state', icon: <CodeIcon size={20} />, onClick: () => setShowState(!showState) }] : []),
     { id: 'back', icon: <HorizontalRuleIcon size={20} />, onClick: handleClose },
-    { id: 'window', icon: <ScreenIcon isMaximized={isMaximized} />, onClick: toggleMaximize },
+    ...(isMobile
+      ? (isFullscreenSupported ? [{
+        id: 'fullscreen',
+        icon: isFullscreen ? <FullscreenExitIcon size={20} /> : <FullscreenIcon size={20} />,
+        onClick: toggleFullscreen
+      }] : [])
+      : [{ id: 'window', icon: <ScreenIcon isMaximized={isMaximized} />, onClick: toggleMaximize }]),
     { id: 'close', icon: <CloseIcon size={20} />, onClick: () => handleKillProcess(pid) },
-  ].filter(Boolean), [exposeState, showState, isMaximized, handleClose, toggleMaximize, handleKillProcess, pid]);
+  ].filter(Boolean), [exposeState, showState, isMaximized, isMobile, isFullscreen, isFullscreenSupported, handleClose, toggleMaximize, toggleFullscreen, handleKillProcess, pid]);
 
   const resizeHandles = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
 
@@ -217,24 +286,33 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
       className={[
         style[bem.b()],
         customConfig.hideHeader ? 'is-hide-header' : (customConfig.hideHeaderHover ? 'is-hide-header-hover' : ''),
-        /* BEM 控制活性显隐 */
-        style[bem.is('active', showWindowSwitcher ? isSelected : isShow)],
+        /* 调度器里每张卡片都显示自己的窗口 */
+        style[bem.is('active', showWindowSwitcher ? (isMobile || isSelected) : isShow)],
         /* BEM 控制焦点，GPU 合成层分配依据 */
         style[bem.is('focused', isFocused)],
-        /* 挂载预制类 */
-        showWindowSwitcher && (isSelected ? 'sukin-ubuntu-preview-mode' : 'sukin-ubuntu-hidden-mode')
+        style[bem.is('mobile', isMobile)],
+        /* 移动端悬浮标题栏唤出态 */
+        customConfig.hideHeaderHover && headerRevealed ? 'is-header-revealed' : '',
+        /* 移动端预览由卡片承载，桌面才套 ubuntu 预览/隐藏态 */
+        showWindowSwitcher && !isMobile && (isSelected ? 'sukin-ubuntu-preview-mode' : 'sukin-ubuntu-hidden-mode'),
+        showWindowSwitcher && isMobile ? 'sukin-mobile-card-preview' : ''
       ].join(' ')}
       onMouseDown={(e) => {
         // 非焦点窗口边缘点击触发聚焦优先 resize
         handleEdgeMouseDown(e)
         if (!e.defaultPrevented) onFocus && onFocus(pid)
       }}
-      data-header-height={headerHeight}
+      onClick={(e) => {
+        // 移动端首触直接进浏览器全屏
+        if (isMobile && personalConfig?.mobileImmersive && isFullscreenSupported && !isFullscreen) {
+          toggleFullscreen();
+        }
+      }}
       style={{
         position: 'absolute',
         zIndex: zIndex || 10,
         /* 内联样式强制 display 解决空白，同时应用 will-change 优化电影感缩放动画性能 */
-        display: showWindowSwitcher ? (isSelected ? 'flex' : 'none') : undefined,
+        display: showWindowSwitcher ? ((isMobile || isSelected) ? 'flex' : 'none') : undefined,
         /*
            对于非活动后台静默窗口，启用 content-visibility: hidden 挂起渲染更新
            这可以在保留 iframe 内存状态（不重载）的前提下，完全免除隐藏窗口的 GPU 绘制与排版开销
@@ -244,12 +322,13 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
       }}
     >
       {/* 绝对定位在顶部最外侧，不占空间，不影响宽高，必须作为 header 的紧邻前置兄弟节点以供 CSS 的 '+' 选择器捕获 */}
-      {!customConfig.hideHeader && customConfig.hideHeaderHover && (
-        <div className={style[bem.e('hover-trigger')]} />
+      {!isMobile && !customConfig.hideHeader && customConfig.hideHeaderHover && (
+        <div
+          className={style[bem.e('hover-trigger')]}
+        />
       )}
 
-      {/* 标题栏（metaInfo.hideHeader 为 true 时整体不渲染，由 APP 经 AppSDK.API.window 自行实现窗口操作） */}
-      {!customConfig.hideHeader && (
+      {!isMobile && !customConfig.hideHeader && (
       <div
         className={style[bem.e('header')]}
         onMouseDown={(e) => handleCompoundMouseDown(e, 'drag')}
@@ -259,7 +338,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
       >
         {iconUrl && <VfsImage app={app} className={style[bem.e('icon')]} />}
         <span className={style[bem.e('name')]}>{name}</span>
-        <div className={style[bem.e('actions')]} onMouseDown={e => e.stopPropagation()}>
+        <div className={style[bem.e('actions')]} onMouseDown={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
           {headerFuncs.map((item) => (
             <span key={item.id} onClick={(e) => { e.stopPropagation(); item.onClick(); }}>
               {item.icon}
@@ -295,7 +374,7 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
         )}
       </div>
 
-      {!showWindowSwitcher && renderResizeHandles()}
+      {!showWindowSwitcher && !isMobile && renderResizeHandles()}
       {showState && (
         <div className={style[bem.e('state-panel')]}>
           <div className={style[bem.e('state-header')]}>

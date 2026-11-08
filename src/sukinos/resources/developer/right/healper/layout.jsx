@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
+import Button from '@/component/button/layout';
 import { FileText as DescriptionIcon, Puzzle as ExtensionIcon, Wrench as BuildIcon, ShieldCheck as SecurityIcon, Code as CodeIcon, Archive as FolderZipIcon, Network as AccountTreeIcon, Globe as WebIcon, Globe as PublicIcon, HardDrive as StorageIcon, CircleAlert as ErrorOutlineIcon, Bot as SmartToyIcon, Layers as LayersIcon, Rocket as RocketLaunchIcon, Cloud as CloudQueueIcon } from 'lucide-react';
 const bem = createNamespace('developer-helper');
 
@@ -97,7 +98,7 @@ const {
   React,          // React 19 核心对象，含 createElement / Fragment / createContext 等
   useState, useEffect, useMemo, useCallback, useRef,   // 已解构到顶层
 
-  Components: {   // 内置 UI 组件库（38 个具名导出 + KeepAlive，见「内置组件」章节）
+  Components: {   // 内置 UI 组件库（44 个具名导出 + KeepAlive，见「内置组件」章节）
     Button, Input, KeepAlive, /* ... */
   },
 
@@ -368,16 +369,17 @@ export default ({ state }) => {
 };`}
     </pre>
 
-    <h4 className={style[bem.e('subtitle')]}>普通应用可用组件（全量 38 个公共导出 + KeepAlive）</h4>
+    <h4 className={style[bem.e('subtitle')]}>普通应用可用组件（全量 44 个公共导出 + KeepAlive）</h4>
     <p className={style[bem.e('text')]}>
-      <code>AppSDK.Components</code> 是宿主 <code>src/component/main.jsx</code> 的 38 个具名导出，外加面板级保活容器 <code>KeepAlive</code>：
+      <code>AppSDK.Components</code> 是宿主 <code>src/component/main.jsx</code> 的 44 个具名导出，外加面板级保活容器 <code>KeepAlive</code>：
     </p>
     <pre className={style[bem.e('code')]}>
 {`交互控件   Button, Input, Check, CheckGroup, CheckCardBar,
            Select（下拉）, BoardSelection（面板选择）, DateGoogle（日期选择）
 容器布局   Page, GeneralPurposePage, InfoList, PageList, Nav, RoolWrapper
 反馈浮层   alert, confirm, AlertConfirm, Notification, OverPlay, Loading,
-           Modal（弹窗外壳）
+           Modal（弹窗外壳）, Drawer 与 5 个子部件（Header / Title /
+           Description / Body / Footer）
 右键菜单   ContextMenu 与 13 个子部件（Trigger / Content / Item / CheckboxItem /
            RadioItem / RadioGroup / Label / Separator / Shortcut /
            Sub / SubTrigger / SubContent / Portal）
@@ -388,6 +390,8 @@ export default ({ state }) => {
       <li><code>RoolWrapper</code> 与 <code>Code</code> 只透传 <code>children</code> 与 <code>className</code>，没有内建样式和行为，占位保住导出名。</li>
       <li><code>ContextMenu</code> 只导出 Root 时应用组不出菜单，因此 14 个部件一并公开；
         <code>Modal</code> 是成品弹窗外壳，底层 <code>Dialog*</code> 原语不在公开档。</li>
+      <li><code>Drawer</code> 不 portal、也不固定到视口：它铺在<strong>最近的定位祖先</strong>里，只盖住宿主容器，
+        应用自带的 CSS Modules 作用域对它依然有效；宿主容器要自己占住位置与高度。</li>
       <li><code>KeepAlive</code>：面板级保活。给每个面板加 <code>tabKey</code>，外层 <code>{'<KeepAlive activeKey={tab}>'}</code> 只挂载访问过的面板，切换时用 <code>display</code> 隐藏，滚动位置与表单输入原地保留。</li>
       <li><code>Button</code>：通用按钮，支持 <code>type="danger"</code> 等变体。<code>Input</code>：<code>forwardRef</code> 组件，支持受控/非受控。</li>
       <li><code>alert</code> 与 <code>confirm</code> 是<strong>命令式对象</strong>而不是组件：
@@ -1370,6 +1374,8 @@ custom.*          扩展特性      见下    外壳 / 内核           用户�
     <ul className={style[bem.e('list')]}>
       <li><code>exposeState</code> 为真时标题栏第一项变成「查看状态」，点开是实时状态面板；给用户排查用，不影响运行时。</li>
       <li><code>hideHeader</code> 取值顺序是「应用级 → 资源级 → false」，并且优先级高于用户的 <code>custom.hideHeaderHover</code>：一旦整体隐藏，悬浮隐藏自动失效。</li>
+      <li><code>custom.hideHeaderHover</code> 在移动端同样生效：标题栏收起为顶部感应带，点一下感应带唤出，在标题栏上向上滑收起；桌面端仍是鼠标悬浮显隐。</li>
+      <li>移动端没有窗口几何交互，标题栏右侧换成浏览器级全屏开关（隐藏地址栏）；不支持 Element 全屏的浏览器不出现该按钮。桌面端仍是窗口最大化。</li>
       <li>隐藏标题栏后拖动、最大化、关闭都得应用自己做，接口是 <code>AppSDK.API.window</code> 的五个方法：<code>close</code>、<code>hibernate</code>、<code>toggleMaximize</code>、<code>setRect</code>、<code>getRect</code>。</li>
       <li><code>setRect</code> 收 <code>{'{ x, y, w, h }'}</code>，调用即视为退出最大化，之后的还原基准就是这个新矩形；<code>getRect</code> 返回当前矩形的副本。预览环境没有窗口外壳，<code>getRect</code> 返回 <code>null</code>，其余调用只打一条警告日志，不会抛错。</li>
       <li>完整用法见内置示例的 <code>pages/windowDemo</code>。</li>
@@ -1407,7 +1413,7 @@ autoStart                     开机/会话恢复自动运行      生效
 backgroundSleep               后台暂停状态订阅          生效
 adaptiveMount                 后台自适应挂载(轻量占位)   生效：false 保留完整窗口，缺键允许占位
 keepAlive                     后台常驻保活              生效：优先级高于 adaptiveMount；系统应用同一判定，预设默认开
-hideHeaderHover               无悬浮时隐藏标题栏        生效，但被 metaInfo.hideHeader 压制
+hideHeaderHover               无悬浮时隐藏标题栏        生效，但被 metaInfo.hideHeader 压制；移动端改为感应带唤出
 autoSaveStateInterval         自动保存状态间隔(秒)      生效，还需 saveState 打开
 autoSaveWindowInterval        自动保存窗口位置间隔(秒)   生效，不看 saveState
 allowResize                   允许调整窗口大小          不生效：外壳有 \`|| true\` 兜底，关不掉
@@ -2532,19 +2538,14 @@ const AIPromptSection = () => {
       </p>
 
       <div style={{ position: 'relative', marginTop: '20px' }}>
-        <button
+        <Button
+          variant={copied ? 'success' : 'info'}
+          size="sm"
           onClick={handleCopy}
-          style={{
-            position: 'absolute', top: '10px', right: '10px',
-            padding: '8px 16px',
-            backgroundColor: copied ? '#52c41a' : '#1677ff',
-            color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer',
-            fontWeight: 'bold', zIndex: 1, transition: 'background 0.3s',
-            fontSize: '13px',
-          }}
+          style={{ position: 'absolute', top: '10px', right: '10px', zIndex: 1 }}
         >
           {copied ? '✓ 已复制！' : '一键复制 Prompt'}
-        </button>
+        </Button>
         <pre className={style[bem.e('code')]} style={{
           paddingTop: '52px',
           whiteSpace: 'pre-wrap',

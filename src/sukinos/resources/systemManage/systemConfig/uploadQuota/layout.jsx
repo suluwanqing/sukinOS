@@ -7,6 +7,7 @@ import permissionManageAPI from "@/apis/system/permissionManage";
 import systemAPI from "@/apis/system/main";
 
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import { usePermission } from "@/hooks/usePermission/main";
@@ -201,9 +202,9 @@ function UploadQuota() {
           </p>
         </div>
         <div className={style[bem.e("head-actions")]}>
-          <Button type="default" size="small" onClick={loadQuota} loading={loading}>重新载入</Button>
+          <Button variant="outline" size="sm" onClick={loadQuota} loading={loading}>重新载入</Button>
           {canWrite && (
-            <Button type="dark" size="small" loading={saving} onClick={handleSave}>应用并生效</Button>
+            <Button variant="dark" size="sm" loading={saving} onClick={handleSave}>应用并生效</Button>
           )}
         </div>
       </div>
@@ -244,10 +245,12 @@ function UploadQuota() {
         <div className={style[bem.e("row")]}>
           <div className={style[bem.e("row-label")]}>默认</div>
           <div className={style[bem.e("mb-input")]}>
-            <input
+            <Input
+              size="small"
+              style={{ width: 95 }}
               type="number"
-              min="0"
-              step="0.1"
+              min={0}
+              step={0.1}
               value={defaultMb}
               disabled={!canWrite}
               onChange={e => setDefaultMb(e.target.value)}
@@ -272,10 +275,12 @@ function UploadQuota() {
           <div key={row.role} className={style[bem.e("row")]}>
             <div className={style[bem.e("row-label")]}>{row.role}</div>
             <div className={style[bem.e("mb-input")]}>
-              <input
+              <Input
+                size="small"
+                style={{ width: 95 }}
                 type="number"
-                min="0"
-                step="0.1"
+                min={0}
+                step={0.1}
                 value={row.mb}
                 disabled={!canWrite}
                 onChange={e => patchRow(setRoleRows, idx, { mb: e.target.value })}
@@ -285,9 +290,9 @@ function UploadQuota() {
             </div>
             <div className={style[bem.e("bytes")]}>{formatBytes(mbToBytes(row.mb))}</div>
             {canWrite && (
-              <button className={style[bem.e("btn-remove")]} onClick={() => setRoleRows(prev => prev.filter((_, i) => i !== idx))}>
+              <Button variant="destructive" plain size="xs" onClick={() => setRoleRows(prev => prev.filter((_, i) => i !== idx))}>
                 删除
-              </button>
+              </Button>
             )}
           </div>
         ))}
@@ -304,7 +309,7 @@ function UploadQuota() {
                 size="small"
               />
             </div>
-            <Button type="dark" plain size="small" onClick={addRoleRow}>加入角色档</Button>
+            <Button variant="dark" plain size="sm" onClick={addRoleRow}>加入角色档</Button>
           </div>
         )}
       </div>
@@ -320,10 +325,12 @@ function UploadQuota() {
           <div key={row.id} className={style[bem.e("row")]}>
             <div className={style[bem.e("row-label")]} title={`用户 ID ${row.id}`}>{row.label}</div>
             <div className={style[bem.e("mb-input")]}>
-              <input
+              <Input
+                size="small"
+                style={{ width: 95 }}
                 type="number"
-                min="0"
-                step="0.1"
+                min={0}
+                step={0.1}
                 value={row.mb}
                 disabled={!canWrite}
                 onChange={e => patchRow(setUserRows, idx, { mb: e.target.value })}
@@ -333,9 +340,9 @@ function UploadQuota() {
             </div>
             <div className={style[bem.e("bytes")]}>{formatBytes(mbToBytes(row.mb))}</div>
             {canWrite && (
-              <button className={style[bem.e("btn-remove")]} onClick={() => setUserRows(prev => prev.filter((_, i) => i !== idx))}>
+              <Button variant="destructive" plain size="xs" onClick={() => setUserRows(prev => prev.filter((_, i) => i !== idx))}>
                 删除
-              </button>
+              </Button>
             )}
           </div>
         ))}
@@ -353,7 +360,7 @@ function UploadQuota() {
                 size="small"
               />
             </div>
-            <Button type="dark" plain size="small" onClick={addUserRow}>加入用户档</Button>
+            <Button variant="dark" plain size="sm" onClick={addUserRow}>加入用户档</Button>
           </div>
         )}
       </div>

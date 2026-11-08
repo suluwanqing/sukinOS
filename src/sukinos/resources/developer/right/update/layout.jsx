@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
-import { FolderOpen as FolderOpenIcon, Eye as VisibilityIcon, CircleAlert as ErrorOutlineIcon, CircleCheck as CheckCircleOutlineIcon, Upload as FileUploadIcon } from 'lucide-react';
+import { FolderOpen as FolderOpenIcon, Eye as VisibilityIcon, CircleAlert as ErrorOutlineIcon, CircleCheck as CheckCircleOutlineIcon, Upload as FileUploadIcon, X as CloseIcon } from 'lucide-react';
 import { useSelector } from 'react-redux';
 import { selectorUserInfo, selectorStoreSettingStorePath } from '@/sukinos/store';
 import { sukinOs as sukinApi } from '@/apis/main';
@@ -9,6 +9,7 @@ import { extUpdateCloud } from '@/sukinos/utils/process/generateApp';
 import { buildPreviewFromWorker } from '@/sukinos/utils/process/workerFiles';
 import RenderProcess from '@/sukinos/utils/process/renderProcess';
 import { confirm } from '@/component/confirm/layout';
+import Button from '@/component/button/layout';
 import kernel from '@/sukinos/utils/process/kernel';
 import {
   ENV_KEY_NAME,
@@ -98,7 +99,7 @@ function UpdatePreviewModal({ open, app, source, onClose, onConfirmPreview }) {
           <div className={style[bem.e('modal-title')]}>
             应用更新预览核验
           </div>
-          <button className={style[bem.e('modal-close')]} onClick={onClose}>&times;</button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} title="关闭" aria-label="关闭"><CloseIcon /></Button>
         </div>
 
         <div className={style[bem.e('modal-tabs')]}>
@@ -174,14 +175,15 @@ function UpdatePreviewModal({ open, app, source, onClose, onConfirmPreview }) {
         <div className={style[bem.e('modal-footer')]}>
           <div className={style[bem.e('footer-hint')]}>提示: 切换顶部 Tab 以在后台无缝比对差异，导航交互状态将完美保留。</div>
           <div className={style[bem.e('footer-actions')]}>
-            <button className={style[bem.e('btn-ghost')]} onClick={onClose}>取消</button>
-            <button
-              className={style[bem.e('btn-solid')]}
+            <Button variant="outline" size="sm" onClick={onClose}>取消</Button>
+            <Button
+              variant="info"
+              size="sm"
               onClick={() => { onConfirmPreview(); onClose(); }}
               disabled={loading || !!errorMsg}
             >
               确认更新内容无误
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -445,9 +447,9 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
         <div className={style[bem.e('column')]}>
           <div className={style[bem.e('column-header')]}>
             <div className={style[bem.e('column-title')]}>我发布的应用</div>
-            <button className={style[bem.e('ghost-btn')]} onClick={refreshUploads} disabled={isLoading}>
+            <Button variant="outline" size="sm" onClick={refreshUploads} disabled={isLoading}>
               刷新列表
-            </button>
+            </Button>
           </div>
 
           <div className={style[bem.e('list')]}>
@@ -491,21 +493,24 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
                         </span>
                       </div>
                       <div className={style[bem.e('btn-group')]}>
-                        <button
-                          className={style[bem.e('action-btn')]}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          icon={<FileUploadIcon />}
                           onClick={(e) => handleSelectSource(e, app.resourceId)}
                         >
-                          <FileUploadIcon width="1em" height="1em" />
                           重载文件
-                        </button>
-                        <button
-                          className={`${style[bem.e('action-btn')]} ${style[bem.e('action-btn--primary')]}`}
+                        </Button>
+                        <Button
+                          variant="info"
+                          plain
+                          size="sm"
+                          icon={<VisibilityIcon />}
                           onClick={(e) => openPreview(e, app)}
                           disabled={!hasFile}
                         >
-                          <VisibilityIcon width="1em" height="1em" />
                           对比预览
-                        </button>
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -526,13 +531,14 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
             </div>
           )}
         </div>
-        <button
+        <Button
           className={style[bem.e('update-btn')]}
+          variant="default"
           onClick={handleUpdateSelected}
           disabled={isUpdating || isLoading || !selectedId || previewedId !== selectedId}
         >
           {isUpdating ? '部署中...' : '确认发布更新'}
-        </button>
+        </Button>
       </div>
 
       <UpdatePreviewModal

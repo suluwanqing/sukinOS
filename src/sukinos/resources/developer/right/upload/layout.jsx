@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 import { FolderOpen as FolderOpenIcon, Upload as UploadIcon, CircleAlert as ErrorOutlineIcon, CircleCheck as CheckCircleOutlineIcon } from 'lucide-react';
+import Button from '@/component/button/layout';
+import Check from '@/component/check/layout';
 import kernel from "@/sukinos/utils/process/kernel"
 import { selectorUserInfo, selectorStoreSettingStorePath } from "@/sukinos/store"
 import { useSelector } from 'react-redux';
@@ -222,19 +224,25 @@ function Uploader({ appMeta, uploadType, entryConfig }) {
         {canRegister && (
           <div className={style[bem.e('register-option')]}>
             <label className={style[bem.e('register-label')]}>
-              <input
-                type="checkbox"
+              <Check
+                size="small"
                 checked={registerToPool}
-                onChange={e => setRegisterToPool(e.target.checked)}
+                onChange={(val) => setRegisterToPool(val)}
               />
               <span>上传后注册到权限控制池</span>
             </label>
           </div>
         )}
         <div className={style[bem.e('upload')]}>
-          <button className={style[bem.e('upload-btn')]} onClick={handleMainAction} disabled={isUploading}>
-            {isUploading ? (<><span className={style[bem.e('upload-spinner')]}></span>上传处理中...</>) : (<><UploadIcon size={20} />选择文件上传</>)}
-          </button>
+          <Button
+            block
+            size="lg"
+            loading={isUploading}
+            icon={isUploading ? null : <UploadIcon size={20} />}
+            onClick={handleMainAction}
+          >
+            {isUploading ? '上传处理中...' : '选择文件上传'}
+          </Button>
         </div>
         {message && (
           <div className={`${style[bem.e('message')]} ${style[bem.e(`message-${messageType}`)]}`}>

@@ -142,17 +142,9 @@
   text-transform: uppercase;
 }
 
+
 .su-local-dev__drawer-close {
-  width: 24px;
-  height: 24px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   color: #6b7280;
-  transition: color 0.15s;
 }
 
 .su-local-dev__drawer-close:hover {
@@ -186,6 +178,10 @@
   gap: 8px;
 }
 
+.su-local-dev__update-actions > button {
+  flex: 1;
+}
+
 .su-local-dev__update-list {
   display: flex;
   flex-direction: column;
@@ -202,11 +198,6 @@
   padding: 6px 8px;
   font-size: 12px;
   color: #1f2937;
-}
-
-.su-local-dev__update-item input {
-  width: 14px;
-  height: 14px;
 }
 
 .su-local-dev__update-name {
@@ -302,40 +293,6 @@
   user-select: none;
 }
 
-.su-local-dev__toggle {
-  position: relative;
-  width: 34px;
-  height: 18px;
-  background: #d1d5db;
-  border: none;
-  border-radius: 9px;
-  cursor: pointer;
-  padding: 0;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-
-.su-local-dev__toggle--on {
-  background: #000000;
-}
-
-.su-local-dev__toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #ffffff;
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  pointer-events: none;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.su-local-dev__toggle--on .su-local-dev__toggle-knob {
-  transform: translateX(16px);
-}
-
 .su-local-dev__toggle-label {
   font-size: 12px;
   font-weight: 500;
@@ -359,23 +316,13 @@
   gap: 8px;
 }
 
+
 .su-local-dev__mode-btn {
   flex-shrink: 0;
-  padding: 5px 10px;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  background: #000000;
-  color: #ffffff;
-  border: none;
-  cursor: pointer;
-  font-family: 'DM Mono', 'Fira Code', monospace;
-  transition: opacity 0.15s;
-  white-space: nowrap;
 }
 
-.su-local-dev__mode-btn:hover {
-  opacity: 0.7;
+.su-local-dev__mode-btn--block {
+  justify-content: flex-start;
 }
 
 .su-local-dev__status-header {
@@ -520,56 +467,8 @@
   gap: 8px;
 }
 
-.su-local-dev__btn-ghost {
+.su-local-dev__panel-actions > button {
   flex: 1;
-  padding: 9px 0;
-  border: 1px solid #d1d5db;
-  background: transparent;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #4b5563;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s,
-    background 0.15s;
-}
-
-.su-local-dev__btn-ghost:hover:not(:disabled) {
-  border-color: #000000;
-  color: #ffffff;
-  background: #000000;
-}
-
-.su-local-dev__btn-ghost:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.su-local-dev__btn-solid {
-  flex: 1;
-  padding: 9px 0;
-  border: 1px solid #000000;
-  background: #000000;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #ffffff;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.su-local-dev__btn-solid:hover:not(:disabled) {
-  background: #ffffff;
-  color: #000000;
-}
-
-.su-local-dev__btn-solid:disabled {
-  opacity: 0.2;
-  cursor: not-allowed;
 }
 
 .su-local-dev__debug-pane {
@@ -662,46 +561,6 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
-}
-
-.su-local-dev__footer-discard {
-  padding: 5px 12px;
-  border: 1px solid #d1d5db;
-  background: transparent;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  color: #6b7280;
-  cursor: pointer;
-  transition:
-    color 0.15s,
-    border-color 0.15s,
-    background 0.15s;
-}
-
-.su-local-dev__footer-discard:hover {
-  border-color: #000000;
-  color: #ffffff;
-  background: #000000;
-}
-
-.su-local-dev__footer-save {
-  padding: 5px 14px;
-  border: 1px solid #000000;
-  background: #000000;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: #ffffff;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.su-local-dev__footer-save:hover {
-  background: #ffffff;
-  color: #000000;
 }
 
 .su-local-dev__canvas {
@@ -801,26 +660,6 @@
   color: #9ca3af;
   font-family: 'DM Mono', 'Fira Code', monospace;
   margin: 0;
-}
-
-.su-local-dev__empty-cta {
-  margin-top: 4px;
-  padding: 8px 20px;
-  background: #000000;
-  color: #ffffff;
-  border: none;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s;
-}
-
-.su-local-dev__empty-cta:hover {
-  background: #ffffff;
-  color: #000000;
 }
 
 .su-local-dev__preview-hint {
@@ -995,21 +834,11 @@
 }
 
 .su-local-dev__btn-dl {
-  width: 100%;
-  display: flex;
+  height: auto;
   align-items: center;
-  gap: 10px;
   padding: 10px 14px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit;
-}
-
-.su-local-dev__btn-dl:hover {
-  background: #000000;
-  border-color: #000000;
+  white-space: normal;
+  text-align: left;
 }
 
 .su-local-dev__dl-content {
@@ -1023,51 +852,29 @@
 .su-local-dev__dl-text {
   font-size: 11px;
   font-weight: 600;
-  color: #374151;
-  transition: color 0.15s;
-}
-
-.su-local-dev__btn-dl:hover .su-local-dev__dl-text {
-  color: #ffffff;
 }
 
 .su-local-dev__dl-desc {
   font-size: 9px;
-  color: #9ca3af;
-  transition: color 0.15s;
+  color: var(--muted-foreground);
 }
 
-.su-local-dev__btn-dl:hover .su-local-dev__dl-desc {
-  color: #d1d5db;
-}
 
 .su-local-dev__pause-fab {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #1f2937;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
   color: #9ca3af;
   margin-bottom: 4px;
 }
 
 .su-local-dev__pause-fab:hover {
-  background: #374151;
   color: #ffffff;
-  transform: scale(1.02);
 }
 
 .su-local-dev__pause-fab--paused {
-  background: #fdba74;
-  color: #ffffff;
+  color: #fdba74;
 }
 
 .su-local-dev__pause-fab--paused:hover {
-  background: #67c23a;
+  color: #67c23a;
 }
 
 .su-local-dev__bar-chip--paused {
@@ -1085,13 +892,20 @@
   color: #ffffff;
 }
 
-.su-local-dev__btn-ghost--paused {
-  border-color: #f56c6c;
-  color: #f56c6c;
-}
-
-.su-local-dev__btn-ghost--paused:hover:not(:disabled) {
-  background: #f56c6c;
-  border-color: #f56c6c;
-  color: #ffffff;
+@media (max-width: 767px) {
+  .su-local-dev__drawer {
+    width: min(300px, calc(100vw - 52px));
+  }
+  .su-local-dev__grid {
+    grid-template-columns: 1fr;
+  }
+  .su-local-dev__field--span {
+    grid-column: auto;
+  }
+  .su-local-dev__flag-grid {
+    grid-template-columns: 1fr;
+  }
+  .su-local-dev__err-text {
+    max-width: 100%;
+  }
 }

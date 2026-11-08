@@ -1,8 +1,10 @@
 import style from "./style.module.css"
 import { createNamespace } from '/utils/js/classcreate'
 import { memo } from "react"
+import { getLogoBase64Url } from "@/component/logo/layout"
 
 const bem = createNamespace('boot')
+const logo = getLogoBase64Url()
 
 const features = [
   {
@@ -28,25 +30,24 @@ function Boot({ boot, loading }) {
     <div className={style[bem.b()]}>
       <div className={style[bem.e('container')]}>
         <div className={style[bem.e('header')]}>
-          <div className={style[bem.e('logo-box')]}>OS</div>
+          <div className={style[bem.e('logo-box')]}>
+            <img src={logo} alt="logo" />
+          </div>
           <h1 className={style[bem.e('title')]}>SukinOS</h1>
           <p className={style[bem.e('subtitle')]}>简约 · 高效 · 可拓展</p>
         </div>
 
-        <div className={style[bem.e('features')]}>
+        <ul className={style[bem.e('features')]}>
           {features.map((feature, index) => (
-            <div key={index} className={style[bem.e('feature')]}>
-              <h3 className={style[bem.e('feature-title')]}>{feature.title}</h3>
-              <p className={style[bem.e('feature-desc')]}>{feature.description}</p>
-            </div>
+            <li key={feature.title} className={style[bem.e('feature')]}>
+              <span className={style[bem.e('feature-index')]}>{String(index + 1).padStart(2, '0')}</span>
+              <div className={style[bem.e('feature-body')]}>
+                <h3 className={style[bem.e('feature-title')]}>{feature.title}</h3>
+                <p className={style[bem.e('feature-desc')]}>{feature.description}</p>
+              </div>
+            </li>
           ))}
-        </div>
-
-        <div className={style[bem.e('info')]}>
-          <span className={style[bem.e('version')]}>VER: 0.0.1</span>
-          <span className={style[bem.e('separator')]}>//</span>
-          <span className={style[bem.e('status')]}>BETA_BUILD</span>
-        </div>
+        </ul>
 
         <button
           onClick={boot}
@@ -54,15 +55,18 @@ function Boot({ boot, loading }) {
           className={style[bem.e('button')]}
         >
           {loading ? (
-            <div className={style[bem.e('loading-wrap')]}>
+            <span className={style[bem.e('loading-wrap')]}>
               <span className={style[bem.e('button-spinner')]}></span>
               SYSTEM BOOTING...
-            </div>
+            </span>
           ) : 'INITIALIZE SYSTEM'}
         </button>
 
         <div className={style[bem.e('footer')]}>
-          <p className={style[bem.e('hint')]}>READY TO LAUNCH</p>
+          <span className={style[bem.e('status-dot')]} />
+          <span className={style[bem.e('hint')]}>READY TO LAUNCH</span>
+          <span className={style[bem.e('separator')]}>/</span>
+          <span className={style[bem.e('version')]}>VER 0.0.1 · BETA_BUILD</span>
         </div>
       </div>
     </div>

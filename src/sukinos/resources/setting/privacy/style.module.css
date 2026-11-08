@@ -55,3 +55,18 @@
   display: block;
   margin-bottom: 6px;
 }
+
+@media (max-width: 767px) {
+  .su-setting-privacy__card {
+    padding: 16px;
+  }
+  .su-setting-privacy__hero-title {
+    font-size: 18px;
+  }
+  .su-setting-privacy__divider {
+    margin: 18px 0;
+  }
+  .su-setting-privacy__policy-item {
+    margin-bottom: 16px;
+  }
+}

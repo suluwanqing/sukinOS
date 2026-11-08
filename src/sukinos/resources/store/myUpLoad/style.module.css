@@ -113,3 +113,9 @@
   color: #909399;
   font-size: 14px;
 }
+
+@media (max-width: 767px) {
+  .su-upload {
+    padding: 16px;
+  }
+}

@@ -7,6 +7,8 @@ import { createNamespace } from "/utils/js/classcreate";
 import permissionManageAPI from "@/apis/system/permissionManage";
 import systemAPI from "@/apis/system/main";
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
+import Check from "@/component/check/layout";
 import Select from "@/component/select/drowSelection/layout";
 import { alert } from "@/component/alert/layout";
 import PageList from "@/component/list/pageList/layout";
@@ -211,20 +213,20 @@ function RoutePermissionPanel() {
       <div className={style[bem.e("section-header")]}>
         <h3>API 路由权限管理</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} loading={seeding} onClick={handleSeed}>扫描并同步新路由</Button>
-          <Button type="default" size="small" onClick={fetchConfig} loading={loading}>刷新</Button>
+          <Button variant="default" size="sm" loading={seeding} onClick={handleSeed}>扫描并同步新路由</Button>
+          <Button variant="outline" size="sm" onClick={fetchConfig} loading={loading}>刷新</Button>
         </div>
       </div>
       <p className={style[bem.e("desc")]}>
         未配置的路由默认放行。仅在显式配置了 allowedRoles 或 allowedUsers 后才会限制访问。root 用户始终拥有全部路由访问权限，不受路由权限配置限制。受保护的系统路由（以 /system/permission/ 等开头）强制 root-only，不可编辑。
       </p>
       <div style={{ marginBottom: 12 }}>
-        <input
-          type="text"
+        <Input
+          size="small"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
           placeholder="搜索路由路径..."
-          style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid #f0f0f3", fontSize: 13, width: 300, outline: "none" }}
+          style={{ width: 300 }}
         />
         <span className={style[bem.e("count")]} style={{ marginLeft: 12 }}>
           共 {routeEntries.length} 条路由
@@ -292,7 +294,7 @@ function RoutePermissionPanel() {
                 </div>
               </div>
               <div className={style[bem.e("form-actions")]}>
-                <Button type="default" size="small" onClick={() => setViewModal({ visible: false, path: null })}>关闭</Button>
+                <Button variant="outline" size="sm" onClick={() => setViewModal({ visible: false, path: null })}>关闭</Button>
               </div>
             </div>
           );
@@ -313,7 +315,10 @@ function RoutePermissionPanel() {
         <div className={style[bem.e("split-right")]}>
           <div className={style[bem.e("form-group")]}>
             <label>
-              <input type="checkbox" checked={localEdit?.require_auth !== false} onChange={e => setLocalEdit(prev => prev ? { ...prev, require_auth: e.target.checked } : prev)} style={{ marginRight: 6 }} />
+              <Check
+                checked={localEdit?.require_auth !== false}
+                onChange={(val) => setLocalEdit(prev => prev ? { ...prev, require_auth: val } : prev)}
+              />
               需要登录验证
             </label>
           </div>
@@ -326,7 +331,7 @@ function RoutePermissionPanel() {
                   <button className={style[bem.e("tag-remove")]} onClick={() => removeFromRouteLocalEdit("allowed_roles", v)}>&times;</button>
                 </span>
               ))}
-              <Button type="default" size="small" onClick={() => setRoutePickerModal({ visible: true, field: 'allowed_roles' })}>+ 添加角色</Button>
+              <Button variant="outline" size="sm" onClick={() => setRoutePickerModal({ visible: true, field: 'allowed_roles' })}>+ 添加角色</Button>
             </div>
           </div>
           <div className={style[bem.e("form-group")]}>
@@ -338,12 +343,12 @@ function RoutePermissionPanel() {
                   <button className={style[bem.e("tag-remove")]} onClick={() => removeFromRouteLocalEdit("allowed_users", v)}>&times;</button>
                 </span>
               ))}
-              <Button type="default" size="small" onClick={() => setRoutePickerModal({ visible: true, field: 'allowed_users' })}>+ 添加用户</Button>
+              <Button variant="outline" size="sm" onClick={() => setRoutePickerModal({ visible: true, field: 'allowed_users' })}>+ 添加用户</Button>
             </div>
           </div>
           <div className={style[bem.e("form-actions")]}>
-            <Button type="default" size="small" onClick={handleRouteModalCancel}>取消</Button>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleRouteModalSave}>保存</Button>
+            <Button variant="outline" size="sm" onClick={handleRouteModalCancel}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleRouteModalSave}>保存</Button>
           </div>
         </div>
       </Modal>
@@ -383,7 +388,7 @@ function RoutePermissionPanel() {
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 8 }}>
-            <Button type="primary" size="small" onClick={() => setRoutePickerModal({ visible: false, field: '' })} style={{ background: "#222", borderColor: "#222" }}>完成</Button>
+            <Button variant="default" size="sm" onClick={() => setRoutePickerModal({ visible: false, field: '' })}>完成</Button>
           </div>
         </div>
       </Modal>

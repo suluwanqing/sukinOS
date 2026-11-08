@@ -139,7 +139,7 @@ function PermissionRegistry({ appList, registryMap, onRefresh }) {
         <h3>APP 权限注册池</h3>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <span className={style[bem.e("count")]}>已注册: {registryIds.size} 个</span>
-          <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={() => { setSelectedApp(""); setAddModal(true); }} disabled={unregisteredApps.length === 0}>添加 APP</Button>
+          <Button variant="default" size="sm" onClick={() => { setSelectedApp(""); setAddModal(true); }} disabled={unregisteredApps.length === 0}>添加 APP</Button>
         </div>
       </div>
       <p className={style[bem.e("desc")]}>
@@ -160,8 +160,8 @@ function PermissionRegistry({ appList, registryMap, onRefresh }) {
           <label style={{ fontSize: 13, fontWeight: 600, color: "#171717" }}>选择 APP</label>
           <Select value={selectedApp} onChange={setSelectedApp} options={addAppOptions} placeholder="请选择要加入权限池的 APP..." direction="bottom" />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-            <Button type="default" size="small" onClick={() => setAddModal(false)}>取消</Button>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleAdd}>确认添加</Button>
+            <Button variant="outline" size="sm" onClick={() => setAddModal(false)}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleAdd}>确认添加</Button>
           </div>
         </div>
       </Modal>
@@ -237,8 +237,8 @@ function PermissionRegistry({ appList, registryMap, onRefresh }) {
           </div>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-          <Button type="default" size="small" onClick={() => setAuthModal({ visible: false, app: null })}>取消</Button>
-          <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleAuthSave}>保存授权</Button>
+          <Button variant="outline" size="sm" onClick={() => setAuthModal({ visible: false, app: null })}>取消</Button>
+          <Button variant="default" size="sm" onClick={handleAuthSave}>保存授权</Button>
         </div>
       </Modal>
     </div>

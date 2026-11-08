@@ -44,3 +44,13 @@
 .su-appview__error {
   color: #f56c6c;
 }
+
+@media (max-width: 767px) {
+  .su-appview__header {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .su-appview__title {
+    font-size: 13px;
+  }
+}

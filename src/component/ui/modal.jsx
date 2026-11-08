@@ -71,7 +71,7 @@ const DialogContent = forwardRef(function DialogContent(
           }
         }}
         className={cn(
-          'bg-background text-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[1000] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200',
+          'bg-background text-foreground data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-[1000] grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-5 shadow-lg duration-200 max-[767px]:gap-3 max-[767px]:p-4',
           className
         )}
         {...props}
@@ -80,7 +80,7 @@ const DialogContent = forwardRef(function DialogContent(
         {showCloseButton && (
           <DialogClose
             data-slot="dialog-close"
-            className="absolute top-4 right-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:ring-[3px] focus:ring-ring/50 focus:outline-hidden disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute top-4 right-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-2 disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
             aria-label="关闭"
           >
             <XIcon />
@@ -117,7 +117,7 @@ const DialogFooter = forwardRef(function DialogFooter(
     >
       {children}
       {showCloseButton && (
-        <DialogClose className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs transition-all hover:bg-accent hover:text-accent-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50">
+        <DialogClose className="inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs transition-all hover:bg-accent hover:text-accent-foreground focus-visible:border-ring max-[767px]:px-3 max-[767px]:text-[13px]">
           关闭
         </DialogClose>
       )}
@@ -151,8 +151,14 @@ const DialogDescription = forwardRef(function DialogDescription({ className, ...
 DialogDescription.displayName = 'DialogDescription'
 
 const bodyLayout = {
-  standard: 'flex flex-col gap-4',
-  split: 'grid grid-cols-[220px_1fr] gap-7',
+  standard: 'flex flex-col gap-4 max-[767px]:gap-3',
+  split: 'grid grid-cols-[220px_1fr] gap-7 max-[767px]:grid-cols-1 max-[767px]:gap-3',
+}
+
+// 移动端跟随内容收缩，不撑固定高度
+const minHeights = {
+  standard: 'min-h-[320px] max-[767px]:min-h-0',
+  split: 'min-h-[420px] max-[767px]:min-h-0',
 }
 
 function Modal({
@@ -168,31 +174,35 @@ function Modal({
     if (!next) onClose?.()
   }
 
+  // 调用方显式给 minHeight 时走内联并盖掉档位默认值，否则由工具类给
+  const useCallerMinHeight = !!minHeight
+
   return (
     <DialogPrimitive.Root open={visible} onOpenChange={handleOpenChange}>
       <DialogContent
         showCloseButton={false}
         className={cn(
-          'flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-none'
+          'flex max-h-[80vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-none max-[767px]:max-h-[calc(100dvh-16px)]',
+          !useCallerMinHeight && (minHeights[layout] || minHeights.standard),
         )}
         style={{
           width,
           maxWidth: 'calc(100vw - 32px)',
-          minHeight: minHeight || (layout === 'split' ? 420 : 320),
+          ...(useCallerMinHeight ? { minHeight } : null),
         }}
         aria-modal="true"
       >
-        <div className="flex shrink-0 items-center justify-between gap-4 border-b px-6 py-5">
+        <div className="flex shrink-0 items-center justify-between gap-4 border-b px-5 py-4 max-[767px]:gap-2 max-[767px]:px-3 max-[767px]:py-2.5">
           <DialogTitle className="min-w-0 flex-1 truncate">{title}</DialogTitle>
           <DialogClose
             data-slot="modal-close"
-            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm opacity-70 outline-none transition-opacity hover:opacity-100 focus-visible:ring-[3px] focus-visible:ring-ring/50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-2 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 max-[767px]:size-9"
             aria-label="关闭"
           >
             <XIcon />
           </DialogClose>
         </div>
-        <div className={cn('min-h-0 flex-1 overflow-y-auto p-6', bodyLayout[layout] || bodyLayout.standard)}>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto p-5 max-[767px]:p-3', bodyLayout[layout] || bodyLayout.standard)}>
           {children}
         </div>
       </DialogContent>

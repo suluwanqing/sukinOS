@@ -8,6 +8,7 @@ import {
   Code as CodeIcon,
 } from 'lucide-react';
 import { publicSdkComponents } from '@/sukinos/resources/sdkComponents';
+import { Input } from '@/component/input/layout';
 import { GROUPS, ENTRIES } from './catalog';
 import { DEMOS } from './demos';
 
@@ -60,7 +61,7 @@ const EntryCard = ({ entry }) => {
 
       {entry.keys.length > 1 && (
         <p className={style[bem.e('entry-note')]}>
-          覆盖 {entry.keys.length} 个导出：{entry.keys.join(' / ')}
+          同时覆盖：{entry.keys.join(' / ')}
         </p>
       )}
 
@@ -143,7 +144,7 @@ const About = () => {
       <div className={style[bem.e('card')]}>
         <h2 className={style[bem.e('doc-title')]}>内置组件 (AppSDK.Components)</h2>
         <p className={style[bem.e('description')]}>
-          本页覆盖 {ALL_ENTRIES.length} 个条目、{SDK_KEYS.length} 个导出，示例一律按应用侧真实取用方式书写。
+          本页按应用侧真实取用方式列出内置组件与示例。
         </p>
         <div className={style[bem.e('code-block')]} style={{ marginTop: 12 }}>
           <pre>{`const { Button, Input, Modal } = AppSDK.Components;`}</pre>
@@ -153,22 +154,21 @@ const About = () => {
           <li>应用沙箱里没有 ES import，组件只能从 <code className={style[bem.e('code-inline')]}>AppSDK.Components</code> 取。</li>
           <li>宿主已经把 <code className={style[bem.e('code-inline')]}>React</code> 与 <code className={style[bem.e('code-inline')]}>useState / useEffect / useRef / useCallback / useMemo</code> 解构到模块顶层，直接用，不要重复声明。</li>
           <li><code className={style[bem.e('code-inline')]}>alert</code> 与 <code className={style[bem.e('code-inline')]}>confirm</code> 是命令式对象，不是 JSX 组件。</li>
-          <li>系统应用另有 11 个专属面板（Developer、FileSystem 等），不在这一档公开。</li>
         </ul>
       </div>
 
       <div className={style[bem.e('toolbar')]}>
         <div className={style[bem.e('search')]}>
-          <SearchIcon size={14} className={style[bem.e('search-icon')]} />
-          <input
-            className={style[bem.e('search-input')]}
+          <Input
+            size="small"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="搜索组件名、导出名或说明"
+            prefixIcon={<SearchIcon size={14} />}
             spellCheck={false}
           />
         </div>
-        <span className={style[bem.e('group-count')]}>{hitCount} / {ALL_ENTRIES.length}</span>
+        {keyword && <span className={style[bem.e('group-count')]}>{hitCount} 项</span>}
       </div>
 
       {groups.map((group) => (

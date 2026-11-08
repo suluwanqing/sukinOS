@@ -1,10 +1,11 @@
 .su-br-app {
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: stretch;
   width: 100%;
-  height: 100vh;
-  min-height: 100vh;
+  height: 100dvh;
+  min-height: 100dvh;
   background-color: #f8fafc;
   font-family:
     'PingFang SC',
@@ -42,6 +43,24 @@
   overflow-y: hidden;
   flex-shrink: 0;
   white-space: nowrap;
+}
+
+.su-br-app__tabs-menu {
+  position: sticky;
+  left: -12px;
+  z-index: 2;
+  width: 36px;
+  height: 32px;
+  margin-right: 4px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background-color: #f1f5f9;
+  color: #334155;
+  cursor: pointer;
 }
 
 .su-br-app__tabs-bar::-webkit-scrollbar {
@@ -220,4 +239,19 @@
 
 .su-br-app__btn-danger:hover {
   background-color: #dc2626;
+}
+
+@media (max-width: 767px) {
+  .su-br-app {
+    flex-direction: column;
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+  .su-br-app__tabs-bar {
+    touch-action: pan-x;
+  }
+  .su-br-app__confirm-box {
+    width: calc(100vw - 24px);
+    padding: 20px;
+  }
 }

@@ -8,7 +8,7 @@ import Logo from "@/component/logo/layout";
 
 const bem = createNamespace('br-sidebar');
 
-function Sidebar({ store }) {
+function Sidebar({ store, onNavigate }) {
   const { state, dispatch, confirmAction } = store;
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
@@ -84,6 +84,7 @@ function Sidebar({ store }) {
                 onClick={() => {
                   if (!isEditing) {
                     dispatch({ type: 'SET_ACTIVE_TABLE', payload: t.id });
+                    onNavigate?.();
                   }
                 }}
                 className={`${style[bem.e('item')]} ${isActive ? style['is-active'] : ''}`}
@@ -124,7 +125,10 @@ function Sidebar({ store }) {
         <div className={style[bem.e('section-bottom')]}>
           <div
             className={`${style[bem.e('item')]} ${state.activeTab === 'presets' ? style['is-active'] : ''}`}
-            onClick={() => dispatch({ type: 'OPEN_PRESETS_TAB' })}
+            onClick={() => {
+              dispatch({ type: 'OPEN_PRESETS_TAB' });
+              onNavigate?.();
+            }}
             style={{ marginBottom: 4 }}
           >
             <div className={style[bem.e('item-left')]}>
@@ -134,7 +138,10 @@ function Sidebar({ store }) {
           </div>
           <div
             className={`${style[bem.e('item')]} ${state.activeTab === 'manual' ? style['is-active'] : ''}`}
-            onClick={() => dispatch({ type: 'OPEN_MANUAL_TAB' })}
+            onClick={() => {
+              dispatch({ type: 'OPEN_MANUAL_TAB' });
+              onNavigate?.();
+            }}
           >
             <div className={style[bem.e('item-left')]}>
               <HelpOutlineIcon className={style[bem.e('item-icon')]} size={18} />

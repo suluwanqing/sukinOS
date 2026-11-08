@@ -10,6 +10,7 @@ import systemAPI from "@/apis/system/main.jsx";
 import permissionManageAPI from "@/apis/system/permissionManage";
 import Check from '@/component/check/layout';
 import Button from '@/component/button/layout';
+import { Input } from '@/component/input/layout';
 import Select from '@/component/select/drowSelection/layout';
 import PageList from '@/component/list/pageList/layout';
 import { alert } from '@/component/alert/layout';
@@ -192,9 +193,9 @@ function UserDetailModal({ userId, onClose, onRefresh }) {
       <div className={style[bem.e("modal")]} onClick={e => e.stopPropagation()}>
         <div className={style[bem.e("modal-head")]}>
           <div className={style[bem.e("modal-title")]}>成员详细档案</div>
-          <button className={style[bem.e("modal-close")]} onClick={onClose}>
-            <CloseIcon size={20} />
-          </button>
+          <Button variant="ghost" size="icon-sm" onClick={onClose} title="关闭" aria-label="关闭">
+            <CloseIcon />
+          </Button>
         </div>
         <div className={style[bem.e("modal-body")]}>
           {loading ? (
@@ -460,21 +461,21 @@ function Users() {
   return (
     <div className={style[bem.b()]}>
       <div className={style[bem.e("toolbar")]}>
-        <div className={style[bem.e("search-bar")]}>
-          <SearchIcon size={20} style={{ color: '#9ca3af' }} />
-          <input
-            placeholder="搜索账号、名称、邮箱..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1); }}
-          />
-        </div>
+        <Input
+          className={style[bem.e("search-bar")]}
+          size="small"
+          prefixIcon={<SearchIcon size={16} />}
+          placeholder="搜索账号、名称、邮箱..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1); }}
+        />
         <div style={{ flex: 1 }} />
         {selected.length > 0 && (
           <div className={style[bem.e("batch-bar")]}>
             <span>已选 {selected.length} 人</span>
-            <Button type="primary" plain size="small" onClick={() => onBatch('enable')}>批量启用</Button>
-            <Button type="warning" plain size="small" onClick={() => onBatch('disable')}>批量禁用</Button>
-            <Button type="danger" plain size="small" onClick={() => onBatch('delete')}>批量删除</Button>
+            <Button variant="default" plain size="sm" onClick={() => onBatch('enable')}>批量启用</Button>
+            <Button variant="warning" plain size="sm" onClick={() => onBatch('disable')}>批量禁用</Button>
+            <Button variant="destructive" plain size="sm" onClick={() => onBatch('delete')}>批量删除</Button>
           </div>
         )}
       </div>
@@ -514,13 +515,11 @@ function Users() {
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>用户名</label>
-              <input value={editForm.username} onChange={e => setEditForm(p => ({ ...p, username: e.target.value }))}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              <Input value={editForm.username} onChange={e => setEditForm(p => ({ ...p, username: e.target.value }))} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>邮箱</label>
-              <input value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              <Input type="email" value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
@@ -532,15 +531,13 @@ function Users() {
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>年龄</label>
-              <input type="number" value={editForm.age} onChange={e => setEditForm(p => ({ ...p, age: e.target.value }))}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              <Input type="number" value={editForm.age} onChange={e => setEditForm(p => ({ ...p, age: e.target.value }))} />
             </div>
           </div>
           <div style={{ display: "flex", gap: 12 }}>
             <div style={{ flex: 1 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>电话</label>
-              <input value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))}
-                style={{ width: "100%", padding: "8px 12px", borderRadius: 6, border: "1px solid #ddd", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+              <Input type="tel" value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} />
             </div>
             <div style={{ flex: 1 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#171717", marginBottom: 4 }}>角色</label>
@@ -549,8 +546,8 @@ function Users() {
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
-            <Button type="default" size="small" onClick={() => setEditModal({ visible: false, user: null })}>取消</Button>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleEditSave}>保存</Button>
+            <Button variant="outline" size="sm" onClick={() => setEditModal({ visible: false, user: null })}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleEditSave}>保存</Button>
           </div>
         </div>
       </Modal>

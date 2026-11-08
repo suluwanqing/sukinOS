@@ -334,3 +334,69 @@
   justify-content: flex-end;
   gap: 8px;
 }
+
+
+.su-draw-board-canvas__panel-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.42);
+  z-index: 35;
+}
+.su-draw-board-canvas__props--drawer {
+  top: auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: auto;
+  max-height: 62%;
+  padding: 16px 14px calc(16px + env(safe-area-inset-bottom, 0px));
+  border: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -6px 24px rgba(15, 23, 42, 0.22);
+  transform: translateY(100%);
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 40;
+}
+.su-draw-board-canvas__props--drawer.is-open {
+  transform: translateY(0);
+}
+.su-draw-board-canvas__tb-btn.is-active {
+  background: #dbd4f4;
+  color: #6965db;
+}
+
+@media (max-width: 767px) {
+  .su-draw-board-canvas__canvas {
+    touch-action: none;
+  }
+  .su-draw-board-canvas__tools-float {
+    top: 8px;
+    left: 8px;
+    padding: 3px;
+    gap: 1px;
+  }
+  .su-draw-board-canvas__tool {
+    width: 34px;
+    height: 34px;
+  }
+  .su-draw-board-canvas__tool svg {
+    width: 16px;
+    height: 16px;
+  }
+  .su-draw-board-canvas__tool-sep {
+    margin: 3px 5px;
+  }
+  .su-draw-board-canvas__topbar {
+    top: 8px;
+    padding: 2px;
+  }
+  .su-draw-board-canvas__tb-btn {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  .su-draw-board-canvas__zoom {
+    left: 8px;
+    bottom: 8px;
+    padding: 2px;
+  }
+}

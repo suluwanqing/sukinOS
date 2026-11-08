@@ -20,10 +20,10 @@ function Manage({ appList = [], startApp, deleteApp }) {
                 </div>
              </div>
              <div className={style[bem.e('actions')]}>
-              <Button type='primary' onClick={() => startApp({ resourceId: app.resourceId })}>
+              <Button variant="default" onClick={() => startApp({ resourceId: app.resourceId })}>
                     打开
                 </Button>
-                <Button type="warning" onClick={() => deleteApp(app.resourceId)}>
+                <Button variant="warning" onClick={() => deleteApp(app.resourceId)}>
                     卸载
                 </Button>
              </div>

@@ -1,10 +1,11 @@
-import React, { memo } from 'react';
+import React, { memo, useState } from 'react';
 import {
   Play, Pause, Volume2, VolumeX, Maximize, RotateCw,
   ZoomIn, ZoomOut, Maximize2, SkipForward, SkipBack,
   Repeat, Repeat1, Sliders, Timer, Film, Image as ImageIcon,
-  Trash2, Plus, FolderSync
+  Trash2, Plus, FolderSync, MoreHorizontal
 } from 'lucide-react';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 
 const formatTime = (seconds) => {
   if (isNaN(seconds) || seconds < 0) return '00:00';
@@ -56,13 +57,15 @@ const CanvasControls = memo(function CanvasControls({
   onToggleSettingsOpen
 }) {
   const isVideo = activeLayer?.category === 'video';
+  const { isMobile } = useViewportMode();
+  const [moreOpen, setMoreOpen] = useState(false);
 
   return (
 
-    <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-5 group pointer-events-none">
-      <div className="w-96 h-5 bg-transparent cursor-pointer pointer-events-auto" />
+    <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center pb-5 group pointer-events-none max-[767px]:pb-3">
+      <div className="w-96 h-5 bg-transparent cursor-pointer pointer-events-auto max-[767px]:hidden" />
       <div
-        className="flex flex-col gap-2 p-3 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-[0_12px_40px_rgba(236,72,153,0.08)] transition-all duration-300 pointer-events-auto w-[92%] max-w-[680px] transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100"
+        className="flex flex-col gap-2 p-3 rounded-2xl bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-[0_12px_40px_rgba(236,72,153,0.08)] transition-all duration-300 pointer-events-auto w-[92%] max-w-[680px] transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 max-[767px]:translate-y-0 max-[767px]:opacity-100 max-[767px]:p-2.5"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2.5 px-1">
@@ -99,7 +102,7 @@ const CanvasControls = memo(function CanvasControls({
         </div>
 
         {/* 核心操作按钮聚合行 */}
-        <div className="flex items-center justify-between text-slate-600 pt-0.5">
+        <div className="flex items-center gap-2 text-slate-600 pt-0.5 flex-wrap">
           {/* 左侧：播放控制与切首 */}
           <div className="flex items-center gap-1.5">
             <button
@@ -157,7 +160,12 @@ const CanvasControls = memo(function CanvasControls({
           </div>
 
 
-          <div className="flex items-center gap-1">
+
+          <div className={isMobile
+            ? (moreOpen
+              ? 'order-3 basis-full mt-1.5 pt-1.5 border-t border-slate-100 flex flex-wrap items-center gap-1'
+              : 'hidden')
+            : 'order-2 ml-auto flex items-center gap-1'}>
             <button onClick={onZoomIn} className="p-1.5 hover:bg-cyan-50 hover:text-cyan-600 rounded text-slate-700 transition" title="放大">
               <ZoomIn size={15} />
             </button>
@@ -224,6 +232,18 @@ const CanvasControls = memo(function CanvasControls({
             >
               <Sliders size={15} />
             </button>
+          </div>
+
+          <div className={`flex items-center gap-1 ${isMobile ? 'order-2 ml-auto' : 'order-3'}`}>
+            {isMobile && (
+              <button
+                onClick={() => setMoreOpen((o) => !o)}
+                className={`p-1.5 rounded transition ${moreOpen ? 'bg-cyan-50 text-cyan-600' : 'hover:bg-slate-100 text-slate-700'}`}
+                title="更多操作"
+              >
+                <MoreHorizontal size={15} />
+              </button>
+            )}
 
             <button onClick={onToggleFullscreen} className="p-1.5 hover:bg-slate-100 rounded text-slate-700 transition" title="全屏">
               <Maximize size={15} />
@@ -232,8 +252,8 @@ const CanvasControls = memo(function CanvasControls({
         </div>
 
         {/* 展开的轮播偏好配置抽屉 */}
-        {settingsOpen && (
-          <div className="mt-2 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600 px-1 animate-in fade-in duration-150">
+        {settingsOpen && (!isMobile || moreOpen) && (
+          <div className="mt-2 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-600 px-1 animate-in fade-in duration-150 max-[767px]:flex-col max-[767px]:items-stretch max-[767px]:gap-2">
             <div className="flex items-center gap-3">
               <button
                 onClick={onToggleAutoPlay}

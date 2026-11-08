@@ -1,514 +1,96 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo, useDeferredValue } from 'react'
-import { createPortal } from 'react-dom'
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import style from "./style.module.css"
 import { createNamespace } from '/utils/js/classcreate'
 import StatusBar from "./statusBar/layout"
-import Shortcut from "./shortcut/layout"
-import ProcessWindow from "./window/layout"
-import AdaptiveWindowPlaceholder from "./AdaptivePlaceholder"
-import { HostKeepAlive } from "@/sukinos/components/KeepAliveViewport"
+import WindowSwitcher from "./switcher/layout"
+import DesktopGrid from "./views/DesktopGrid"
+import MobilePagingGrid from "./views/MobilePagingGrid"
+import WindowLayer from "./views/WindowLayer"
+import AppEditOverlay from "./views/AppEditOverlay"
+import { CELL_SIZE, MOBILE_CELL_SIZE, MOBILE_GAP_SIZE, MOBILE_PADDING } from "./constants"
 import useKernel from "@/sukinos/hooks/useKernel"
-import { WindowSize, SUKIN_EXT, SUKIN_PRE, ENV_KEY_META_INFO, ENV_KEY_NAME, ENV_KEY_RESOURCE_ID, DEFAULT_USER_ID } from "@/sukinos/utils/config"
+import { ENV_KEY_RESOURCE_ID } from "@/sukinos/utils/config"
 import Boot from "./boot/layout"
 import ContextMenu from "@/component/contextMenu/layout"
 import { selectorSetting, selectGenerateApp } from "../store"
 import { useDispatch, useSelector } from 'react-redux'
 import usePersonalization from "@/sukinos/hooks/usePersonalization"
 import { confirm } from '@/component/confirm/layout'
-import { alert } from "@/component/alert/layout"
-import CustomApp from "./customApp/layout"
-import VfsImage from '@/sukinos/middleware/VfsImage/main.jsx'
-import useDeskLayout from "@/sukinos/hooks/useDeskLayout"
+import useDeskWindows from "./hooks/useDeskWindows"
+import useDeskGrid from "./hooks/useDeskGrid"
+import useDeskShortcuts from "./hooks/useDeskShortcuts"
+import useEdgeGestures from "./hooks/useEdgeGestures"
+import useWindowSlots from "./hooks/useWindowSlots"
+import useBeforeUnload from "./hooks/useBeforeUnload"
+import { useViewportMode } from "@/sukinos/hooks/useViewportMode"
 
-// 创建 BEM 命名空间
 const bem = createNamespace('deskbook')
-// 桌面网格常量
-const CELL_SIZE = 100; // 对应CSS中的尺寸 (px)
-const GAP_SIZE = 10;   // 对应CSS中的gap, 和padding计算 (px)
 
 function DeskBook() {
   // --- 初始化 Hooks ---
   const dispatch = useDispatch()
   const { refreshConfig, config: personalConfig } = usePersonalization(); // 个性化配置 Hook
+  const { isMobile, isTouch } = useViewportMode();
 
   // --- 内核状态与方法 ---
   const {
-    apps, isReady, loading, bootSystem, startApp, hibernateApp, kernel,
-    runningApps, hibernatedApps, blockEdApps,
-    reStartApp, forceReStartApp
+    apps, isReady, loading, bootSystem, startApp, kernel,
+    blockEdApps, reStartApp, forceReStartApp
   } = useKernel();
-
-  // --- 桌面布局持久化（按用户隔离，VFS 文件存储） ---
-  const { getLayout, setLayout } = useDeskLayout();
-  const currentUserId = kernel.currentUser?.id || DEFAULT_USER_ID;
-  const currentUserIdRef = useRef(currentUserId);
-  useEffect(() => { currentUserIdRef.current = currentUserId; }, [currentUserId]);
 
   // --- Redux 状态选择器 ---
   const setting = useSelector(selectorSetting)
   const generateAppSetting = useSelector(selectGenerateApp)
 
-  // --- 核心显示逻辑 ---
-  // 使用 useRef 维护应用的先来后到顺序（PID列表），提升用户体验，保证窗口和状态栏顺序稳定
-  const runningOrderRef = useRef([]);
-
-  // isRunningApps 包含所有符合当前"运行"定义规则的应用，用于全量调度预览和窗口渲染
-  const isRunningApps = useMemo(() => {
-    // 根据 setting.isDisplay 的定义过滤出当前的活跃应用
-    const activeApps = apps.filter(a => a.status !== "INSTALLED")
-
-    const activePids = new Set(activeApps.map(a => a.pid));
-    // 从历史顺序中移除已经不再"运行"的应用
-    runningOrderRef.current = runningOrderRef.current.filter(pid => activePids.has(pid));
-
-    // 将新加入的"运行"应用追加到末尾（先来后到原则）
-    const existingPids = new Set(runningOrderRef.current);
-    activeApps.forEach(app => {
-      if (!existingPids.has(app.pid)) {
-        runningOrderRef.current.push(app.pid);
-      }
-    });
-    // 按照维护好的稳定的 PID 顺序，重新映射回真实的 app 对象数据
-    const appMap = new Map(activeApps.map(a => [a.pid, a]));
-    return runningOrderRef.current.map(pid => appMap.get(pid)).filter(Boolean);
-  }, [apps, setting?.isDisplay]);
-
-
-  // --- 窗口层级状态 ---
-  const [zOrders, setZOrders] = useState({});
-  const [maxZ, setMaxZ] = useState(10);
+  // --- 窗口与调度 ---
+  const {
+    isRunningApps, showDisplay, activeWindowPids, sortedRunningApps,
+    deferredZOrders, deferredCurrentFocus, currentFocus,
+    showWindowSwitcher, selectedWindowIndex, setSelectedWindowIndex, setShowWindowSwitcher,
+    handleFocus, handleStartApp, handleColseApp, handleForceKill,
+    closeWindowSwitcher, handleMobileDismissToHome, handleSelectWindow, handleSwitcherAppSelect
+  } = useDeskWindows({ apps, setting, kernel, startApp, isMobile, personalConfig, generateAppSetting });
 
   // --- DOM 引用 ---
   const mainContainerRef = useRef(null) // 主容器引用
   const viewRef = useRef(null)         // 桌面视图引用
 
+  // --- 图标网格 ---
+  const {
+    gridSize, dragOverCell, displayPositions,
+    handleDragStart, handleDragOver, handleDragLeave, handleDrop,
+    refreshDeskLayout, handleUnload
+  } = useDeskGrid({ apps, isReady, isMobile, kernel, refreshConfig, mainContainerRef, viewRef });
+  useBeforeUnload(handleUnload);
+
   // --- UI 状态管理 ---
-  // 将原本基于 Effect 动态更新的 showDisplay 状态转为纯 useMemo 声明式计算，消除双重渲染造成的卡顿
-  const showDisplay = useMemo(() => {
-    const displayMap = {};
-    apps.forEach((app) => {
-      displayMap[app.pid] = app.status === 'RUNNING';
+  const [statusBarOpen, setStatusBarOpen] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('deskbook-show-status') ?? 'true')
+    } catch {
+      return true
+    }
+  })
+  const toggleStatusBar = useCallback(() => {
+    setStatusBarOpen(prev => {
+      const newStatus = !prev;
+      localStorage.setItem("deskbook-show-status", JSON.stringify(newStatus));
+      return newStatus;
     });
-    return displayMap;
-  }, [apps]);
-
-  const [statusBarOpen, setStatusBarOpen] = useState(false) // 状态栏开启状态
-  const [currentFocus, setCurrentFocus] = useState(null)    // 当前焦点 PID
-
-  // --- 网格布局与图标排列状态 ---
-  const [gridSize, setGridSize] = useState({ rows: 0, cols: 0 }); // 动态行列数
-  const [appPositions, setAppPositions] = useState({}); // 存储 PID 到 "row-col" 的坐标映射
-  const [dragOverCell, setDragOverCell] = useState(null); // 当前拖拽悬停的格子坐标 "row-col"
-
-  // 保持最新位置引用的 Ref，用于防止 unload 或闭包时的状态滞后问题
-  const appPositionsRef = useRef(appPositions);
-  useEffect(() => {
-    appPositionsRef.current = appPositions;
-  }, [appPositions]);
-
-  // 缓存系统就绪状态，用于在卸载事件中进行边界校验
-  const isReadyRef = useRef(isReady);
-  useEffect(() => {
-    isReadyRef.current = isReady;
-  }, [isReady]);
+  }, [])
 
   // --- 应用编辑状态 ---
   const [editingApp, setEditingApp] = useState(null);
 
-  // --- Ubuntu 调度中心 (Window Switcher) 相关状态 ---
-  const [showWindowSwitcher, setShowWindowSwitcher] = useState(false); // 切换器显示隐藏
-  const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);    // 切换器中选中的索引
+  const { windowLayerRef, windowSlotsRef, getWindowSlot, releaseWindowSlot } = useWindowSlots(isRunningApps);
 
-  // 保活容器的集合：调度中心打开期间所有运行窗口都算可见，与旧渲染分支一致
-  const activeWindowPids = useMemo(() => {
-    const pids = new Set();
-    isRunningApps.forEach((app) => {
-      if (showDisplay[app.pid] || showWindowSwitcher) pids.add(app.pid);
-    });
-    return pids;
-  }, [isRunningApps, showDisplay, showWindowSwitcher]);
-
-  // ---对应用进行层级排序，确保最高层级（即当前正在使用）的应用在 Switcher 中排在最前面 ---
-  const sortedRunningApps = useMemo(() => {
-    return [...isRunningApps].sort((a, b) => {
-      // 优先判断焦点应用排在第一位
-      if (currentFocus === a.pid) return -1;
-      if (currentFocus === b.pid) return 1;
-
-      // 其次根据 z-index 排序，降序排列（大的在前）
-      const zA = zOrders[a.pid] || 0;
-      const zB = zOrders[b.pid] || 0;
-      return zB - zA;
-    });
-  }, [isRunningApps, zOrders, currentFocus]);
-
-  // --- 窗口引用搜集器 ---
-  // 使用 useDeferredValue 优先处理焦点窗口的渲染，非焦点窗口更新可延迟
-  const deferredZOrders = useDeferredValue(zOrders);
-  const deferredCurrentFocus = useDeferredValue(currentFocus);
-
-  // 使用 Ref 和 pid 作为键搜集每个 ProcessWindow 的 DOM 引用，用于 switcher 动画效果
-  const windowRefsMap = useRef(new Map());
-
-  // 设置窗口 ref 的函数
-  const setWindowRef = (pid) => (ref) => {
-    if (ref) windowRefsMap.current.set(pid, ref);
-    else windowRefsMap.current.delete(pid);
-  };
-
-  // --- 窗口交互处理函数 ---
-
-  // 使用 ref 追踪动态值，使回调引用稳定，避免子组件因回调引用变化触发重渲染
-  const maxZRef = useRef(maxZ);
-  const settingRef = useRef(setting);
-  const zOrdersRef = useRef(zOrders);
-  useEffect(() => { maxZRef.current = maxZ; }, [maxZ]);
-  useEffect(() => { settingRef.current = setting; }, [setting]);
-  useEffect(() => { zOrdersRef.current = zOrders; }, [zOrders]);
-
-  // 处理窗口聚焦与层级提升（稳定引用，子组件 memo 可正确拦截）
-  const handleFocus = useCallback((pid) => {
-    if (zOrdersRef.current[pid] === maxZRef.current) return;
-    const newMax = maxZRef.current + 1;
-    maxZRef.current = newMax;
-    setMaxZ(newMax);
-    setCurrentFocus(pid);
-    setZOrders(prev => ({ ...prev, [pid]: newMax }));
-  }, []);
-
-  // 启动应用
-  const handleStartApp = useCallback((pid) => {
-    handleFocus(pid);
-    startApp({ pid });
-  }, [handleFocus, startApp]);
-
-  // 关闭或休眠应用（稳定引用，子组件 memo 可正确拦截）
-  const handleColseApp = useCallback((pid) => {
-    kernel.hibernate(pid);
-    // 清理 zIndex
-    setZOrders(prev => {
-      const newOrders = { ...prev }
-      delete newOrders[pid]
-      return newOrders
-    })
-    // 清理当前焦点
-    setCurrentFocus(prev => (prev === pid ? null : prev))
-  }, [kernel])
-
-  // 强制终止应用进程（稳定引用，子组件 memo 可正确拦截）
-  const handleForceKill = useCallback((pid) => {
-    kernel.forceKillProcess(pid);
-    setZOrders(prev => {
-      const newOrders = { ...prev }
-      delete newOrders[pid]
-      return newOrders
-    })
-    setCurrentFocus(prev => (prev === pid ? null : prev))
-  }, [kernel])
-
-  // --- LRU 自动休眠：窗口数量超过上限时，自动休眠最近最少使用的非焦点窗口 ---
-  useEffect(() => {
-    const maxWindows = generateAppSetting?.maxWindows ?? personalConfig?.maxWindows ?? 10;
-    const workerLRUEnabled = generateAppSetting?.workerLRU !== false && personalConfig?.workerLRU !== false;
-    if (!maxWindows || !workerLRUEnabled || !currentFocus) return;
-
-    const visibleWindows = isRunningApps.filter(a => showDisplay[a.pid]);
-    if (visibleWindows.length <= maxWindows) return;
-
-    // 按 zOrders 升序排列（最旧的在前），保留焦点窗口
-    const toHibernate = [...visibleWindows]
-      .filter(a => a.pid !== currentFocus)
-      .sort((a, b) => (zOrders[a.pid] || 0) - (zOrders[b.pid] || 0))
-      .slice(0, visibleWindows.length - maxWindows);
-
-    toHibernate.forEach(app => {
-      // hibernate 仅改变状态标记为 HIBERNATED，Worker 继续后台运行保持热状态
-      // 若应用开启了 backgroundSleep → useProcessBridge 自动停止状态订阅
-      kernel.hibernate(app.pid);
-      // 清理 zIndex
-      setZOrders(prev => {
-        const next = { ...prev };
-        delete next[app.pid];
-        return next;
-      });
-    });
-  }, [isRunningApps, currentFocus, showDisplay, zOrders, generateAppSetting, personalConfig, kernel]);
-
-  // --- 窗口切换器(Switcher) 逻辑控制 ---
-  const closeWindowSwitcher = () => {
-    setShowWindowSwitcher(false);
-    setSelectedWindowIndex(0);
-  };
-
-  // 确认选择切换器中的某个窗口
-  const handleSelectWindow = (index) => {
-    // 必须根据排序后的数组来获取 targetApp
-    const targetApp = sortedRunningApps[index];
-    if (targetApp) {
-      handleStartApp(targetApp.pid);
-      closeWindowSwitcher();
-    }
-  };
-
-  //stateRef 存储所有最新状态，避免闭包陷阱 and 重新绑定监听器导致的失效
-  const stateRef = useRef({});
-  useEffect(() => {
-    stateRef.current = {
-      showWindowSwitcher,
-      sortedRunningApps,
-      selectedWindowIndex,
-      handleStartApp,
-      closeWindowSwitcher,
-      setShowWindowSwitcher,
-      setSelectedWindowIndex,
-      setStatusBarOpen,
-      apps,
-      gridSize,
-      autoArrangeApps,
-      setAppPositions,
-      refreshConfig
-    };
+  useDeskShortcuts({
+    isMobile,
+    showWindowSwitcher, sortedRunningApps, selectedWindowIndex,
+    handleStartApp, closeWindowSwitcher,
+    setShowWindowSwitcher, setSelectedWindowIndex,
+    refreshDeskLayout, handleMobileDismissToHome, toggleStatusBar
   });
-
-  // 全局键盘事件监听：处理 Ctrl+Alt+C (调度中心) 和 Ctrl+Alt+O (状态栏)
-  const handleGlobalKeyDown = useCallback((event) => {
-    // 通过 ref 提取所有最新状态
-    const {
-      showWindowSwitcher, sortedRunningApps, selectedWindowIndex,
-      handleStartApp, closeWindowSwitcher, setShowWindowSwitcher,
-      setSelectedWindowIndex, setStatusBarOpen
-    } = stateRef.current;
-
-    //使用 event.code 物理键值，避免 Alt + C 输出特殊字符造成匹配失败
-    const code = event.code;
-
-    // 拦截Ctrl+R 执行自定义软刷新，并在执行前进行弹窗确认
-    if ((event.ctrlKey && code === 'KeyR')) {
-      event.preventDefault();
-      event.stopPropagation();
-      confirm.show({
-        title: '系统刷新',
-        content: '是否执行系统界面和配置项的刷新？(此操作不会关闭您正在运行的应用)。',
-        onConfirm: () => {
-          const { apps, gridSize, autoArrangeApps, setAppPositions, refreshConfig } = stateRef.current;
-          if (apps && autoArrangeApps && setAppPositions && refreshConfig) {
-            setAppPositions(autoArrangeApps(apps, {}, gridSize.rows, gridSize.cols));
-            refreshConfig();
-            alert.success('系统桌面及配置已刷新');
-          }
-        }
-      });
-      return;
-    }
-
-    // Toggle 切换器开启与关闭 (Ctrl+Alt+C)
-    if (event.ctrlKey && event.altKey && code === 'KeyC') {
-      event.preventDefault();
-      event.stopPropagation();
-      if (showWindowSwitcher) {
-        closeWindowSwitcher();
-      } else {
-         if (sortedRunningApps.length === 0) return;
-         setShowWindowSwitcher(true);
-         // 排序后，索引0一定是层级最高的(即当前活动窗口)
-         setSelectedWindowIndex(0);
-      }
-      return;
-    }
-
-    // 切换器开启后的导航逻辑
-    if (showWindowSwitcher) {
-      const count = sortedRunningApps.length;
-      // Alt + C 快速轮询切换
-      if (event.altKey && !event.ctrlKey && code === 'KeyC') {
-        event.preventDefault();
-        setSelectedWindowIndex((selectedWindowIndex + 1) % count);
-        return;
-      }
-      if (code === 'Tab' || code === 'ArrowRight') {
-        event.preventDefault();
-        setSelectedWindowIndex((selectedWindowIndex + 1) % count);
-      } else if (code === 'ArrowLeft') {
-        event.preventDefault();
-        setSelectedWindowIndex((selectedWindowIndex - 1 + count) % count);
-      } else if (code === 'Enter') {
-        event.preventDefault();
-        const targetApp = sortedRunningApps[selectedWindowIndex];
-        if (targetApp) {
-          handleStartApp(targetApp.pid);
-          closeWindowSwitcher();
-        }
-      } else if (code === 'Escape') {
-        event.preventDefault();
-        closeWindowSwitcher();
-      }
-    }
-
-    // 状态栏显隐切换 (Ctrl+Alt+O)
-    if (event.ctrlKey && event.altKey && code === 'KeyO') {
-      event.preventDefault();
-      event.stopPropagation();
-      setStatusBarOpen(prev => {
-        const newStatus = !prev;
-        localStorage.setItem("deskbook-show-status", JSON.stringify(newStatus));
-        return newStatus;
-      });
-    }
-  }, []); // 空依赖，确保不会因为重渲染导致监听器丢失事件
-
-  // 解决焦点丢失与鼠标位置造成的按键拦截失效问题
-  useEffect(() => {
-    // 捕获阶段绑定原生键盘事件
-    window.addEventListener('keydown', handleGlobalKeyDown, true);
-
-    // Iframe / 跨域应用焦点丢失处理机制
-    const handleIframeMessage = (e) => {
-      if (e.data && e.data.type === 'SUKIN_GLOBAL_KEY') {
-        const payload = e.data.eventPayload || {};
-        const simulatedEvent = {
-          ctrlKey: payload.ctrlKey,
-          altKey: payload.altKey,
-          code: payload.code,
-          preventDefault: () => {},
-          stopPropagation: () => {}
-        };
-        handleGlobalKeyDown(simulatedEvent);
-      }
-    };
-    window.addEventListener('message', handleIframeMessage);
-
-    return () => {
-      window.removeEventListener('keydown', handleGlobalKeyDown, true);
-      window.removeEventListener('message', handleIframeMessage);
-    };
-  }, [handleGlobalKeyDown]);
-
-  // --- 桌面网格与拖拽排列逻辑 ---
-
-  // 自动排列未分配位置的应用
-  const autoArrangeApps = useCallback((currentApps, currentPositions, maxRows, maxCols) => {
-    const newPositions = { ...currentPositions };
-    const usedPositions = new Set(Object.values(newPositions));
-    // 过滤出需要显示在桌面的图标 (hasShortcut)
-    const shortcuts = currentApps.filter(item => item?.[ENV_KEY_META_INFO]?.custom?.hasShortcut);
-    let currentRow = 0;
-    let currentCol = 0;
-
-    shortcuts.forEach(app => {
-      if (!newPositions[app.pid]) {
-        // 寻找下一个空余格子
-        while (usedPositions.has(`${currentRow}-${currentCol}`)) {
-            currentCol++;
-            if (currentCol >= maxCols) {
-                currentCol = 0;
-                currentRow++;
-            }
-        }
-        // 检查是否超出网格边界
-        if (currentRow < maxRows) {
-            const posKey = `${currentRow}-${currentCol}`;
-            newPositions[app.pid] = posKey;
-            usedPositions.add(posKey);
-        }
-      }
-    });
-    return newPositions;
-  }, []);
-
-  // 监听容器大小变化，动态计算行列数
-  useEffect(() => {
-    if (!isReady || !mainContainerRef.current) return;
-    let resizeTimer;
-    const calculateGrid = () => {
-      if (mainContainerRef.current) {
-        const width = mainContainerRef.current.clientWidth - 40; // 减去 padding
-        const height = mainContainerRef.current.clientHeight - 40;
-        const cols = Math.max(1, Math.floor(width / (CELL_SIZE + GAP_SIZE)));
-        const rows = Math.max(1, Math.floor(height / (CELL_SIZE + GAP_SIZE)));
-        setGridSize(prev => (prev.rows === rows && prev.cols === cols) ? prev : { rows, cols });
-      }
-    };
-    calculateGrid();
-    const observer = new ResizeObserver(() => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(calculateGrid, 200);
-    });
-    observer.observe(mainContainerRef.current);
-    return () => {
-        observer.disconnect();
-        clearTimeout(resizeTimer);
-    };
-  }, [isReady]);
-
-  // 当 App 列表或网格大小变化时，同步应用位置
-  useEffect(() => {
-    if (!isReady || gridSize.cols === 0) return;
-    // 加载持久化位置（按用户隔离，从 VFS 文件读取）
-    let cancelled = false;
-    getLayout(currentUserId).then(savedLayout => {
-      if (cancelled) return;
-      setAppPositions(prev => {
-          const basePositions = Object.keys(prev).length > 0 ? prev : savedLayout;
-          const currentAppPids = new Set(apps.map(a => a.pid));
-          const validPositions = {};
-
-          Object.keys(basePositions).forEach(pid => {
-              if(!currentAppPids.has(pid)) return; // 移除已卸载的应用位置
-              const pos = basePositions[pid];
-              if (pos) {
-                  const [r, c] = pos.split('-').map(Number);
-                  // 响应式检查：如果窗口缩放导致原位置越界，则标记为待重新分配
-                  if (r < gridSize.rows && c < gridSize.cols) {
-                      validPositions[pid] = pos;
-                  }
-              }
-          });
-          return autoArrangeApps(apps, validPositions, gridSize.rows, gridSize.cols);
-      });
-    });
-    return () => { cancelled = true; };
-  }, [apps, isReady, gridSize.cols, gridSize.rows, autoArrangeApps, currentUserId, getLayout]);
-
-  // 当网格布局更改时，主动写入持久化，形成保存的双保险（系统未就绪或布局为空时禁止保存，防覆盖）
-  useEffect(() => {
-    if (isReady && Object.keys(appPositions).length > 0) {
-      setLayout(currentUserId, appPositions);
-    }
-  }, [appPositions, isReady, currentUserId, setLayout]);
-
-  // --- 拖拽事件处理 ---
-  const handleDragStart = (e, pid) => {
-    e.dataTransfer.setData("text/plain", pid);
-    e.dataTransfer.effectAllowed = "move";
-  };
-  const handleDragOver = (e, row, col) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    const posKey = `${row}-${col}`;
-    if (dragOverCell !== posKey) setDragOverCell(posKey);
-  };
-  const handleDragLeave = () => setDragOverCell(null);
-  const handleDrop = (e, targetRow, targetCol) => {
-    e.preventDefault();
-    setDragOverCell(null);
-    const sourcePid = e.dataTransfer.getData("text/plain");
-    const targetKey = `${targetRow}-${targetCol}`;
-    if (!sourcePid) return;
-
-    setAppPositions(prev => {
-        const newPositions = { ...prev };
-        // 查找目标位置是否已有应用，如果有则进行交换
-        const targetPid = Object.keys(newPositions).find(pid => newPositions[pid] === targetKey);
-        if (targetPid && targetPid !== sourcePid) {
-            const sourceKey = newPositions[sourcePid];
-            newPositions[sourcePid] = targetKey;
-            newPositions[targetPid] = sourceKey;
-        } else {
-            newPositions[sourcePid] = targetKey;
-        }
-        return newPositions;
-    });
-  };
 
   // --- 桌面右键菜单项 ---
   const deskBookMenuItems = [
@@ -516,15 +98,14 @@ function DeskBook() {
       id: 'refresh',
       label: '刷新布局',
       onClick: () => {
-        setAppPositions(autoArrangeApps(apps, {}, gridSize.rows, gridSize.cols));
-        refreshConfig();
+        refreshDeskLayout();
       }
     },
     { type: 'divider' },
   ]
 
-  // --- 图标右键菜单项 ---
-  const shortcutMenus = [
+  // --- 图标右键菜单项（桌面图标与状态栏共用同一份） ---
+  const shortcutMenus = useMemo(() => [
     {
       id: 'delete', label: '删除',
       onClick: async (metaInfo) => {
@@ -541,25 +122,7 @@ function DeskBook() {
       id: 'edit', label: '编辑',
       onClick: (metaInfo) => setEditingApp(metaInfo)
     },
-  ]
-
-
-  // 保存布局位置到 VFS 文件（系统未就绪或新布局为空时，拒绝清空本地数据）
-  const handleUnload = useCallback(() => {
-    if (isReadyRef.current) {
-      kernel.forceSaveAllStates()
-    }
-    if (isReadyRef.current && Object.keys(appPositionsRef.current).length > 0) {
-      setLayout(currentUserIdRef.current, appPositionsRef.current);
-    }
-  }, [setLayout]);
-
-  const handleBeforeUnload = (e) => {
-    e.preventDefault();
-    e.returnValue = "确定离开当前页面吗？";
-    return e.returnValue;
-  };
-
+  ], [kernel])
 
   // 当系统 Ready 且主容器 Ref 挂载后，强制刷新配置以应用壁纸
   useEffect(() => {
@@ -576,128 +139,31 @@ function DeskBook() {
     kernel.setDispatch(dispatch);
   }, [dispatch, kernel]);
 
-  // 管理状态栏显隐配置
+  // 桌面档：启动/聚焦 APP 时自动隐藏状态栏
   useEffect(() => {
-    const statusBar = localStorage.getItem('deskbook-show-status') || 'true';
-    setStatusBarOpen(JSON.parse(statusBar));
-  }, []);
-
-  // 启动/聚焦 APP 时自动隐藏状态栏（基于 Personalization 配置）
-  useEffect(() => {
+    if (isMobile) return;
     if (!personalConfig?.autoHideStatusBar || !currentFocus) return;
     setStatusBarOpen(false);
-  }, [currentFocus, personalConfig?.autoHideStatusBar]);
+  }, [currentFocus, personalConfig?.autoHideStatusBar, isMobile]);
 
-  // 绑定全局退出及保存布局事件（单独依赖 handleUnload，不随 apps 频繁绑定导致清空）
-  useEffect(() => {
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    // 监听 pagehide 替代弃用的 unload 以避免 Permissions policy violation
-    window.addEventListener('pagehide', handleUnload);
-    return () => {
-      handleUnload();
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      window.removeEventListener('pagehide', handleUnload);
-    }
-  }, [handleUnload]);
+  // 窗口铺满到安全区，状态栏只是浮层
+  const statusBarVisible = !isMobile && statusBarOpen;
 
-  // 资源自定义配置更新处理
-  const handleCustomUpdate = async (newCustomConfig) => {
-    if (!editingApp) return;
-    try {
-      const updatedApp = await kernel.updateResourceCustom({
-        resourceId: editingApp?.[ENV_KEY_RESOURCE_ID],
-        custom: newCustomConfig
-      });
-      if (updatedApp) setEditingApp({ ...updatedApp });
-    } catch (err) {
-      // console.error("更新配置失败:", err);
-    }
-  }
+  // --- 移动端底部手势：轻划回桌面，上滑进多任务 ---
+  const { handleEdgePointerDown, handleEdgePointerMove, handleEdgePointerUp } = useEdgeGestures({
+    isMobile,
+    showWindowSwitcher,
+    setShowWindowSwitcher,
+    closeWindowSwitcher,
+    dismissToHome: handleMobileDismissToHome
+  });
 
-  //系统启动状态检查
+  // 系统启动状态检查
   if (!isReady) {
     return <Boot boot={bootSystem} loading={loading} />
   }
 
-  // 渲染桌面图标网格
-  const renderGridCells = () => {
-    const cells = [];
-    const shortcuts = apps.filter(item => item?.[ENV_KEY_META_INFO]?.custom?.hasShortcut);
-    const posToAppMap = {};
-    Object.keys(appPositions).forEach(pid => {
-        posToAppMap[appPositions[pid]] = shortcuts.find(app => app.pid === pid);
-    });
-
-    for (let r = 0; r < gridSize.rows; r++) {
-      for (let c = 0; c < gridSize.cols; c++) {
-        const posKey = `${r}-${c}`;
-        const app = posToAppMap[posKey];
-        const isHovered = dragOverCell === posKey;
-        cells.push(
-          <div
-            key={posKey}
-            className={[style[bem.e('grid-cell')], style[bem.is('grid-cell-hover', isHovered)]].join(' ')}
-            style={{ gridArea: `${r + 1} / ${c + 1} / span 1 / span 1` }}
-            onDragOver={(e) => handleDragOver(e, r, c)}
-            onDragLeave={handleDragLeave}
-            onDrop={(e) => handleDrop(e, r, c)}
-          >
-            {app && (
-              <div
-                draggable
-                onDragStart={(e) => handleDragStart(e, app.pid)}
-                onClick={() => handleStartApp(app.pid)}
-                className={style[bem.e('shortcut-container')]}
-              >
-                <ContextMenu menuItems={shortcutMenus} metaInfo={app}>
-                  <Shortcut app={{
-                    label: app?.[ENV_KEY_NAME]?.replace(SUKIN_EXT, '')?.replace(SUKIN_PRE, ''),
-                    ...app
-                  }} />
-                </ContextMenu>
-              </div>
-            )}
-          </div>
-        );
-      }
-    }
-    return cells;
-  };
-
-  // 渲染窗口切换器调度中心 (Portal 到 body)
-  const renderWindowSwitcher = () => {
-    if (!showWindowSwitcher) return null;
-    return createPortal(
-      <>
-        {/* 全屏透明遮罩层：点击确认并推入选中的应用 */}
-        <div
-          onClick={() => handleSelectWindow(selectedWindowIndex)}
-          className={style[bem.e('fullscreen')]}
-        />
-        {/* 调度中心顶部导航图标栏 */}
-        <div
-          className={style[bem.e('switcher-container')]}
-        >
-          {/* 渲染时使用经过 Z-Index 排序后的 sortedRunningApps 保证最高在前 */}
-          {sortedRunningApps.map((app, index) => {
-            const isSelected = selectedWindowIndex === index;
-            return (
-              <div
-                key={app.pid}
-                onClick={(e) => { e.stopPropagation(); handleSelectWindow(index); }}
-                onMouseEnter={() => setSelectedWindowIndex(index)}
-                className={[style[bem.e('switcher-item')],style[bem.is('switchericon-selected',isSelected )]].join(' ')}
-              >
-                <VfsImage app={app} className={style[bem.e('switch-icon')]} />
-              </div>
-            );
-          })}
-        </div>
-      </>,
-      document.body
-    );
-  };
-
+  const cellSize = isMobile ? MOBILE_CELL_SIZE : CELL_SIZE;
 
   return (
         <>
@@ -709,7 +175,7 @@ function DeskBook() {
           style={{ outline: 'none' }}
         >
           {/* 独立的防干扰背景容器。React因为这个div没有子节点，所以永远不会去清理它的内部，防止视频背景被刷掉 */}
-        <div id="su-os-bg-layer" style={{
+        <div id="su-os-bg-layer" className={style[bem.e('bg-layer')]} style={{
           position: 'absolute',
           willChange: 'transform',
           transform: 'translateZ(0)',
@@ -727,100 +193,119 @@ function DeskBook() {
                   }
                 }}
                 style={{
-                    gridTemplateColumns: `repeat(${gridSize.cols}, ${CELL_SIZE}px)`,
-                    gridTemplateRows: `repeat(${gridSize.rows}, ${CELL_SIZE}px)`,
+                    gridTemplateColumns: isMobile ? '1fr' : `repeat(${gridSize.cols}, ${cellSize}px)`,
+                    gridTemplateRows: isMobile ? '1fr' : `repeat(${gridSize.rows}, ${cellSize}px)`,
+                    justifyContent: 'center',
+                    alignContent: 'start',
                     /* 激活切换器时背景虚化 */
                     filter: showWindowSwitcher ? 'blur(8px) brightness(0.65)' : 'none',
+                    ...(isMobile ? {
+                        '--custom-deskbook-padding': `${MOBILE_PADDING}px`,
+                        '--custom-deskbook-grid-gap': `${MOBILE_GAP_SIZE}px`,
+                    } : {}),
                 }}
             >
-              {renderGridCells()}
+              {isMobile ? (
+                <MobilePagingGrid
+                  apps={apps}
+                  displayPositions={displayPositions}
+                  gridSize={gridSize}
+                  shortcutMenus={shortcutMenus}
+                  mobileWallpaperScroll={personalConfig?.mobileWallpaperScroll}
+                  onStartApp={handleStartApp}
+                />
+              ) : (
+                <DesktopGrid
+                  apps={apps}
+                  displayPositions={displayPositions}
+                  gridSize={gridSize}
+                  dragOverCell={dragOverCell}
+                  isTouch={isTouch}
+                  shortcutMenus={shortcutMenus}
+                  onStartApp={handleStartApp}
+                  onDragStart={handleDragStart}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                />
+              )}
             </div>
           </ContextMenu>
 
+          {/* 窗口挂载层：不占布局，槽节点由卡片搬走 */}
+          <div ref={windowLayerRef} id="su-window-layer" style={{ display: 'contents' }} />
+
           {/* 渲染正在运行的窗口进程 — 宿主进程级视口保活 */}
-          <HostKeepAlive
-            apps={isRunningApps}
-            activePids={activeWindowPids}
-            renderPlaceholder={(app) => (
-              <AdaptiveWindowPlaceholder
-                key={app.pid}
-                pid={app.pid}
-                app={app}
-                zIndex={deferredZOrders[app.pid] || 10}
-              />
-            )}
-            renderWindow={(app) => {
-              // 判断当前窗口是否在调度器中被选中 [通过pid比对避免DOM循序错乱]
-              const isSelected = sortedRunningApps[selectedWindowIndex]?.pid === app.pid;
-              const index = isRunningApps.findIndex(a => a.pid === app.pid);
-
-              return (
-                <ProcessWindow
-                  key={app.pid}
-                  ref={setWindowRef(app.pid)} // 绑定 Ref 到 Map 中
-                  kernel={kernel}
-                  pid={app.pid}
-                  fileName={app?.[ENV_KEY_NAME] || ''}
-                  initialIndex={index}
-                  zIndex={deferredZOrders[app.pid] || 10}
-                  onFocus={handleFocus}
-                  onClose={handleColseApp}
-                  onKill={handleForceKill}
-                  initialRect={app.savedState?.window || app?.[ENV_KEY_META_INFO]?.initialSize || WindowSize}
-                  windowSize={WindowSize}
-                  isDisplay={setting?.isDisplay || false}
-                  isShow={showDisplay[app.pid]}
-                  isFocused={deferredCurrentFocus === app.pid}
-                  exposeState={app?.[ENV_KEY_META_INFO]?.exposeState}
-                  reStartApp={reStartApp}
-                  forceReStartApp={forceReStartApp}
-                  generateAppSetting={generateAppSetting}
-                  app={app}
-                  /* 传递切换器状态给窗口以应用 sukin-ubuntu 预览样式 */
-                  showWindowSwitcher={showWindowSwitcher}
-                  isSelected={isSelected}
-                />
-              )
-            }}
+          <WindowLayer
+            isRunningApps={isRunningApps}
+            activeWindowPids={activeWindowPids}
+            deferredZOrders={deferredZOrders}
+            deferredCurrentFocus={deferredCurrentFocus}
+            sortedRunningApps={sortedRunningApps}
+            selectedWindowIndex={selectedWindowIndex}
+            showWindowSwitcher={showWindowSwitcher}
+            isMobile={isMobile}
+            kernel={kernel}
+            showDisplay={showDisplay}
+            setting={setting}
+            generateAppSetting={generateAppSetting}
+            reStartApp={reStartApp}
+            forceReStartApp={forceReStartApp}
+            onFocus={handleFocus}
+            onClose={handleColseApp}
+            onKill={handleForceKill}
+            getWindowSlot={getWindowSlot}
           />
-
 
           {/* 编辑 App 配置的 Overlay */}
           {editingApp && (
-            <div className={style[bem.e('overlay')]} onClick={() => setEditingApp(null)}>
-              <div onClick={(e) => e.stopPropagation()}>
-                <CustomApp
-                    // 缺键应用运行时是“允许占位、未保活”，面板按有效值回填，避免显示种子值误导
-                    initialCustom={editingApp ? {
-                      ...editingApp?.[ENV_KEY_META_INFO]?.custom,
-                      adaptiveMount: editingApp?.[ENV_KEY_META_INFO]?.custom?.adaptiveMount !== false,
-                      keepAlive: editingApp?.[ENV_KEY_META_INFO]?.custom?.keepAlive === true,
-                    } : undefined}
-                    onUpdateConfig={handleCustomUpdate}
-                    onClose={() => setEditingApp(null)}
-                    editingAppName={editingApp?.[ENV_KEY_NAME]?.replace(SUKIN_EXT, '').replace(SUKIN_PRE, '')}
-                  />
-              </div>
-            </div>
+            <AppEditOverlay
+              app={editingApp}
+              kernel={kernel}
+              onChange={(updatedApp) => setEditingApp({ ...updatedApp })}
+              onClose={() => setEditingApp(null)}
+            />
           )}
 
           {/* 窗口切换调度中心入口 */}
-          {renderWindowSwitcher()}
+          <WindowSwitcher
+            showWindowSwitcher={showWindowSwitcher}
+            isMobile={isMobile}
+            sortedRunningApps={sortedRunningApps}
+            selectedWindowIndex={selectedWindowIndex}
+            onSelect={handleSelectWindow}
+            onHoverIndex={setSelectedWindowIndex}
+            onSelectApp={handleSwitcherAppSelect}
+            onDismissAll={handleMobileDismissToHome}
+            onForceKill={handleForceKill}
+            windowSlotsRef={windowSlotsRef}
+            onReleaseSlot={releaseWindowSlot}
+          />
+
+          {/* 隐藏的底部手势感应区 */}
+          {isMobile && (
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="底部沉浸式手势感应区"
+              className={style[bem.e('status-edge')]}
+              onPointerDown={handleEdgePointerDown}
+              onPointerMove={handleEdgePointerMove}
+              onPointerUp={handleEdgePointerUp}
+              onPointerCancel={handleEdgePointerUp}
+            />
+          )}
         </div>
 
-      {/* 状态栏 */}
-      { statusBarOpen && <StatusBar
+      {statusBarVisible && <StatusBar
         blockEdApps={blockEdApps}
         startApp={handleStartApp}
         hibernateApp={handleColseApp}
-        // runningApps={runningApps}
-        // hibernatedApps={hibernatedApps}
         currentFocus={currentFocus}
         onFocus={handleFocus}
-        className={style[bem.is('status-close', !statusBarOpen)]}
         isRunningApps={isRunningApps}
-      />
-      }
+        contextMenuItems={shortcutMenus}
+      />}
 
     </>
   );

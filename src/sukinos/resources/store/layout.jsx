@@ -15,11 +15,17 @@ import { alert } from "@/component/alert/layout";
 import useKernel from "@/sukinos/hooks/useKernel"
 import { confirm } from '@/component/confirm/layout';
 import { selectorStoreSettingStorePath } from "@/sukinos/store";
+import Drawer from '@/component/drawer/layout';
+import { Button } from '@/component/button/layout';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
+import { Menu as MenuIcon } from 'lucide-react';
 
 const bem = createNamespace('store');
 
 function Store() {
   const [currentNav, setCurrentNav] = useState('recommend');
+  const [navOpen, setNavOpen] = useState(false);
+  const { isMobile } = useViewportMode();
   const [remoteApps, setRemoteApps] = useState([]);
   const [updateApps, setUpdateApps] = useState([]);
   const [installedApps, setInstalledApps] = useState([]);
@@ -290,31 +296,57 @@ function Store() {
     { id: 'helper', title: '说明' }
   ];
 
+  const renderSidebar = () => (
+    <div className={style[bem.e('sidebar')]}>
+      <div className={style[bem.e('sidebar-header')]}>
+        <img src="/logo.jpg" alt="Logo" className={style[bem.e('logo')]} />
+        <span className={style[bem.e('title')]}>App Store</span>
+      </div>
+      <div className={style[bem.e('nav')]}>
+        {NAV_ITEMS.map((item) => (
+          <div
+            key={item.id}
+            className={[
+              style[bem.e('nav-item')],
+              style[bem.is('active', currentNav === item.id)]
+            ].filter(Boolean).join(' ')}
+            onClick={() => {
+              setCurrentNav(item.id);
+              setNavOpen(false);
+            }}
+          >
+            {item.title}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className={style[bem.b()]}>
-      <div className={style[bem.e('sidebar')]}>
-        <div className={style[bem.e('sidebar-header')]}>
-          <img src="/logo.jpg" alt="Logo" className={style[bem.e('logo')]} />
-          <span className={style[bem.e('title')]}>App Store</span>
+      {isMobile ? (
+        <div className={style[bem.e('mobile-bar')]}>
+          <Button
+            variant="outline"
+            size="icon-lg"
+            onClick={() => setNavOpen(true)}
+            aria-label="打开商店导航"
+          >
+            <MenuIcon size={20} />
+          </Button>
+          <span className={style[bem.e('mobile-title')]}>
+            {NAV_ITEMS.find(item => item.id === currentNav)?.title || 'App Store'}
+          </span>
         </div>
-        <div className={style[bem.e('nav')]}>
-          {NAV_ITEMS.map((item) => (
-            <div
-              key={item.id}
-              className={[
-                style[bem.e('nav-item')],
-                style[bem.is('active', currentNav === item.id)]
-              ].filter(Boolean).join(' ')}
-              onClick={() => setCurrentNav(item.id)}
-            >
-              {item.title}
-            </div>
-          ))}
-        </div>
-      </div>
+      ) : renderSidebar()}
       <div className={style[bem.e('content')]}>
         {renderMainContent()}
       </div>
+      {isMobile && (
+        <Drawer open={navOpen} onClose={() => setNavOpen(false)} label="商店导航">
+          {renderSidebar()}
+        </Drawer>
+      )}
     </div>
   );
 }

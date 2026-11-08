@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils';
 const positionVariants = cva('', {
   variants: {
     position: {
-      'top-right': 'top-6 right-6',
-      'top-left': 'top-6 left-6',
-      'bottom-right': 'bottom-6 right-6',
-      'bottom-left': 'bottom-6 left-6',
-      'top-center': 'top-6 left-1/2 -translate-x-1/2',
+      'top-right': 'top-6 right-6 max-[767px]:top-[calc(0.75rem+var(--su-safe-top,0px))] max-[767px]:right-3',
+      'top-left': 'top-6 left-6 max-[767px]:top-[calc(0.75rem+var(--su-safe-top,0px))] max-[767px]:left-3',
+      'bottom-right': 'bottom-6 right-6 max-[767px]:bottom-[calc(0.75rem+var(--su-safe-bottom,0px))] max-[767px]:right-3',
+      'bottom-left': 'bottom-6 left-6 max-[767px]:bottom-[calc(0.75rem+var(--su-safe-bottom,0px))] max-[767px]:left-3',
+      'top-center': 'top-6 left-1/2 -translate-x-1/2 max-[767px]:top-[calc(0.75rem+var(--su-safe-top,0px))]',
     },
   },
   defaultVariants: { position: 'top-right' },
@@ -38,7 +38,7 @@ export const Notification = ({
   return (
     <div
       className={cn(
-        'fixed z-[9999] box-border flex w-80 flex-col overflow-hidden rounded-lg border border-border bg-popover text-sm text-popover-foreground shadow-lg transition-[opacity,transform] duration-300',
+        'fixed z-[9999] box-border flex w-80 max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-lg border border-border bg-popover text-sm text-popover-foreground shadow-lg transition-[opacity,transform] duration-300',
         positionVariants({ position: positionKeyOf(position) }),
         className
       )}
@@ -47,17 +47,17 @@ export const Notification = ({
       {...restProps}
     >
       {hasHeader && (
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2 max-[767px]:px-3 max-[767px]:pt-2.5 max-[767px]:pb-1.5">
           <div className="flex items-center gap-2">
-            {icon && <span className="inline-flex items-center justify-center text-lg text-primary">{icon}</span>}
-            {title && <span className="text-base font-medium leading-snug">{title}</span>}
+            {icon && <span className="inline-flex items-center justify-center text-lg text-primary max-[767px]:text-base">{icon}</span>}
+            {title && <span className="text-base font-medium leading-snug max-[767px]:text-[15px]">{title}</span>}
           </div>
           {showClose && (
             <span
               role="button"
               tabIndex={0}
               aria-label="关闭"
-              className="inline-flex cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:rounded-sm"
+              className="inline-flex cursor-pointer items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 max-[767px]:-mr-1.5 max-[767px]:size-9"
               onClick={(e) => {
                 e.stopPropagation();
                 onClose?.(e);

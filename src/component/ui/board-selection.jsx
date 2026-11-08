@@ -57,7 +57,7 @@ export const BoardSelection = ({
         style={{ width: 360 }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="border-b border-border bg-muted/60 px-5 py-3.5 text-sm font-semibold text-foreground">
+        <div className="border-b border-border bg-muted/60 px-5 py-3.5 text-sm font-semibold text-foreground max-[767px]:px-3 max-[767px]:py-2.5">
           {title}
         </div>
         <div className="max-h-[280px] overflow-y-auto bg-background py-1 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/30 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent">
@@ -67,7 +67,7 @@ export const BoardSelection = ({
                 key={item.id ?? item.value ?? item.key ?? index}
                 role="button"
                 tabIndex={0}
-                className="flex cursor-pointer items-center bg-background px-5 py-2.5 outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent"
+                className="flex cursor-pointer items-center bg-background px-5 py-2.5 outline-none transition-colors duration-150 hover:bg-accent focus-visible:bg-accent max-[767px]:px-3"
                 onClick={() => onSelect && onSelect(item)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' || e.key === ' ') {
@@ -76,22 +76,22 @@ export const BoardSelection = ({
                   }
                 }}
               >
-                <div className="mr-3.5 flex size-8 shrink-0 items-center justify-center">
+                <div className="mr-3.5 flex size-8 shrink-0 items-center justify-center max-[767px]:mr-2.5">
                   {item.icon || <div className="size-full rounded-md border border-border bg-muted" />}
                 </div>
-                <div className="flex-1 truncate text-sm font-medium text-foreground">
+                <div className="flex-1 truncate text-sm font-medium text-foreground max-[767px]:text-[13px]">
                   {item.label}
                 </div>
               </div>
             ))
           ) : (
-            <div className="bg-background px-5 py-8 text-center text-sm text-muted-foreground">{noneInfo}</div>
+            <div className="bg-background px-5 py-8 text-center text-sm text-muted-foreground max-[767px]:px-3 max-[767px]:py-5">{noneInfo}</div>
           )}
         </div>
         <div
           role="button"
           tabIndex={0}
-          className="cursor-pointer select-none border-t border-border bg-muted/60 px-5 py-2.5 text-center text-xs sm:text-sm font-medium text-muted-foreground outline-none transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:bg-accent"
+          className="cursor-pointer select-none border-t border-border bg-muted/60 px-5 py-2.5 text-center text-xs sm:text-sm font-medium text-muted-foreground outline-none transition-colors duration-150 hover:bg-accent hover:text-foreground focus-visible:bg-accent max-[767px]:min-h-9 max-[767px]:px-3"
           onClick={onClose}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {

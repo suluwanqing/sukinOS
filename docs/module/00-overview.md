@@ -310,6 +310,8 @@ graph TD
 
     subgraph DeskBookLayer["桌面层"]
         DB_Layout["deskBook/layout.jsx"]
+        DB_Views["deskBook/views/"]
+        DB_DeskHooks["deskBook/hooks/"]
         DB_Window["deskBook/window/layout.jsx"]
         DB_Process["deskBook/window/process/"]
         DB_Shortcut["deskBook/shortcut/layout.jsx"]
@@ -317,8 +319,10 @@ graph TD
     end
 
     Layout --> DB_Layout
-    DB_Layout --> DB_Window
-    DB_Layout --> DB_Shortcut
+    DB_Layout --> DB_Views
+    DB_Layout --> DB_DeskHooks
+    DB_Views --> DB_Window
+    DB_Views --> DB_Shortcut
     DB_Layout --> DB_Status
     DB_Window --> DB_Process
 

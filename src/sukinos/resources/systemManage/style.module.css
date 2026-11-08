@@ -1,9 +1,10 @@
 .su-system {
   display: flex;
-  height: 100vh;
+  height: 100dvh;
   background: #f9fafb;
   font-family: 'PingFang SC', 'Helvetica Neue', Arial, sans-serif;
   overflow: hidden;
+  position: relative;
 }
 
 
@@ -96,6 +97,12 @@
   letter-spacing: -0.2px;
 }
 
+
+.su-system__menu-btn {
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
 .su-system__breadcrumb {
   font-size: 11px;
   color: #9ca3af;
@@ -160,4 +167,60 @@
 .su-system__content::-webkit-scrollbar-thumb {
   background: #d1d5db;
   border-radius: 5px;
+}
+
+@media (max-width: 767px) {
+  .su-system__sidebar {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    height: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    border-right: none;
+    border-bottom: none;
+  }
+  .su-system__brand {
+    height: 56px;
+    padding: 0 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    border-right: none;
+  }
+  .su-system__brand-name {
+    display: block;
+  }
+  .su-system__main {
+    min-height: 0;
+  }
+  .su-system__header {
+    height: 56px;
+    padding: 0 12px;
+  }
+  .su-system__header-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 10px;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .su-system__header-left h2 {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .su-system__breadcrumb {
+    display: none;
+  }
+  .su-system__header-right {
+    flex-shrink: 0;
+  }
+  .su-system__profile-info {
+    display: none;
+  }
+  .su-system__content {
+    padding: 12px;
+  }
 }

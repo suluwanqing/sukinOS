@@ -124,8 +124,8 @@ function MiddlewareWhitelistPanel() {
       <div className={style[bem.e("section-header")]}>
         <h3>中间件路由白名单</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={() => { setNewPath(""); setNewType("publicPaths"); setAddModal(true); }}>添加路径</Button>
-          <Button type="default" size="small" onClick={fetchConfig} loading={loading}>刷新</Button>
+          <Button variant="default" size="sm" onClick={() => { setNewPath(""); setNewType("publicPaths"); setAddModal(true); }}>添加路径</Button>
+          <Button variant="outline" size="sm" onClick={fetchConfig} loading={loading}>刷新</Button>
         </div>
       </div>
       <p className={style[bem.e("desc")]}>
@@ -176,8 +176,8 @@ function MiddlewareWhitelistPanel() {
             />
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
-            <Button type="default" size="small" onClick={() => setAddModal(false)}>取消</Button>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={handleAdd}>添加</Button>
+            <Button variant="outline" size="sm" onClick={() => setAddModal(false)}>取消</Button>
+            <Button variant="default" size="sm" onClick={handleAdd}>添加</Button>
           </div>
         </div>
       </Modal>

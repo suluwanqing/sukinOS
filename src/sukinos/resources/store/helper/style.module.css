@@ -5,8 +5,26 @@
   background-color: #ffffff;
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
   font-family:
     -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: #303133;
+}
+
+.su-store-helper__mobile-bar {
+  height: 48px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+  border-bottom: 1px solid #e4e7ed;
+  background-color: #ffffff;
+}
+
+.su-store-helper__mobile-title {
+  font-size: 15px;
+  font-weight: 600;
   color: #303133;
 }
 
@@ -218,4 +236,70 @@
 
 .su-store-helper__table tr:nth-child(even) {
   background-color: #fafcff;
+}
+
+
+@media (max-width: 767px) {
+  .su-store-helper {
+    flex-direction: column;
+  }
+
+  .su-store-helper__sidebar {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    flex-direction: column;
+    border-right: none;
+    border-bottom: none;
+    overflow: hidden;
+  }
+
+  .su-store-helper__header {
+    padding: 16px 16px 12px 16px;
+    border-bottom: 1px solid #e4e7ed;
+  }
+
+  .su-store-helper__header h3 {
+    font-size: 16px;
+    white-space: normal;
+  }
+
+  .su-store-helper__nav {
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px;
+    width: auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .su-store-helper__nav-item {
+    min-height: 44px;
+    padding: 12px 14px;
+    white-space: normal;
+  }
+
+  .su-store-helper__content {
+    flex: 1;
+    min-height: 0;
+    padding: 20px 16px;
+    overflow-y: auto;
+  }
+
+  .su-store-helper__title {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+
+  .su-store-helper__table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .su-store-helper__content {
+    padding: 32px 24px;
+  }
 }

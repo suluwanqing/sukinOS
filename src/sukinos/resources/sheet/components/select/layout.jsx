@@ -15,13 +15,14 @@ function CustomSelect({ options = [], value, onCommit, onClose, placeholder = "æ
   });
 
   useEffect(() => {
-    const handleOutsideClick = (e) => {
+    const handleOutsideClose = (e) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target)) {
         onClose();
       }
     };
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    
+    document.addEventListener('pointerdown', handleOutsideClose);
+    return () => document.removeEventListener('pointerdown', handleOutsideClose);
   }, [onClose]);
 
   return (

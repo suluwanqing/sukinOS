@@ -101,3 +101,28 @@
   background-color: #e4e7ed;
   margin: 0 2px;
 }
+
+
+@media (max-width: 767px) {
+  .su-notebook__statusbar {
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+  }
+
+  .su-notebook__statusbar--item {
+    min-width: 0;
+    flex-shrink: 0;
+  }
+}
+
+
+@media (max-width: 480px) {
+  .su-notebook__gutter {
+    display: none;
+  }
+
+  .su-notebook__editor {
+    font-size: 13px;
+  }
+}

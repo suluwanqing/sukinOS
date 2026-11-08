@@ -4,6 +4,7 @@ import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 import { selectorStoreSettingStorePath, sukinOsActions } from "@/sukinos/store";
 import Input from '@/component/input/layout';
+import { Button } from '@/component/button/layout';
 import { alert } from "@/component/alert/layout";
 import {
   SUKINOS_STORE_REMOTE_BASE,
@@ -223,10 +224,10 @@ function Setting() {
           <div className={style[bem.e('bar-content')]}>
               <span className={style[bem.e('bar-text')]}>检测到未保存的配置更改</span>
               <div className={style[bem.e('bar-btns')]}>
-                  <button  className={style[bem.e('btn-action')]} onClick={handleCancel} >放弃</button>
-                  <button className={style[bem.e('btn-action')]} onClick={handleSave}>
+                  <Button round variant="outline" onClick={handleCancel}>放弃</Button>
+                  <Button round variant="outline" onClick={handleSave}>
                        保存更改
-                  </button>
+                  </Button>
               </div>
           </div>
       </div>

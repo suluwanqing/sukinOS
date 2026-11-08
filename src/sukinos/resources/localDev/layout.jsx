@@ -19,6 +19,8 @@ import { collectPayloadFiles, formatPayloadSize, formatSkipped } from '@/sukinos
 import RenderProcess from '@/sukinos/utils/process/renderProcess';
 import Select from "@/component/select/drowSelection/layout";
 import Input from "@/component/input/layout";
+import Check from "@/component/check/layout";
+import Button from "@/component/button/layout";
 import { confirm } from '@/component/confirm/layout';
 import { X as CloseIcon, Play as PlayArrowIcon, Pause as PauseIcon, Archive as FolderZipIcon, Terminal as TerminalIcon, Link2 as HttpIcon, FolderOpen as FolderOpenIcon, Zap as BoltIcon, CircleHelp as HelpOutlineIcon, Download as DownloadIcon } from 'lucide-react';
 
@@ -74,15 +76,11 @@ const STATUS_CFG = {
 
 const Toggle = ({ checked, onChange, label }) => (
   <label className={style[bem.e('toggle-wrap')]}>
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      className={[style[bem.e('toggle')], checked ? style[bem.e('toggle--on')] : ''].join(' ')}
-      onClick={() => onChange({ target: { checked: !checked } })}
-    >
-      <span className={style[bem.e('toggle-knob')]} />
-    </button>
+    <Check
+      size="small"
+      checked={!!checked}
+      onChange={(val) => onChange({ target: { checked: val } })}
+    />
     {label && <span className={style[bem.e('toggle-label')]}>{label}</span>}
   </label>
 );
@@ -163,9 +161,15 @@ const ConnectPanel = ({ draft, config, setCfg, folderName, handleSelectFolder, u
         <Cap>连接配置 (本地文件夹)</Cap>
         <div className={style[bem.e('grid')]}>
           <Field label="选择目录" span>
-            <button onClick={handleSelectFolder} className={style[bem.e('mode-btn')]} style={{width: '100%', height: '30px', textAlign: 'left', padding: '0 8px'}}>
+            <Button
+              variant="dark"
+              size="sm"
+              block
+              className={[style[bem.e('mode-btn')], style[bem.e('mode-btn--block')]].join(' ')}
+              onClick={handleSelectFolder}
+            >
               {folderName ? `已选择: ${folderName}` : '点击选择文件夹'}
-            </button>
+            </Button>
           </Field>
         </div>
         <Divider />
@@ -216,9 +220,15 @@ const ConnectPanel = ({ draft, config, setCfg, folderName, handleSelectFolder, u
             />
           </Field>
           <Field label="选择对应本地目录" span>
-            <button onClick={handleSelectFolder} className={style[bem.e('mode-btn')]} style={{width: '100%', height: '30px', textAlign: 'left', padding: '0 8px'}}>
+            <Button
+              variant="dark"
+              size="sm"
+              block
+              className={[style[bem.e('mode-btn')], style[bem.e('mode-btn--block')]].join(' ')}
+              onClick={handleSelectFolder}
+            >
               {folderName ? `已选择: ${folderName}` : '点击选择文件夹'}
-            </button>
+            </Button>
           </Field>
         </div>
         <Divider />
@@ -326,9 +336,9 @@ const AppPanel = ({
     <div className={style[bem.e('grid')]}>
       <Field label="应用类型" span>
         <div className={style[bem.e('type-row')]}>
-          <button className={style[bem.e('mode-btn')]} onClick={() => setIsManualType(!isManualType)}>
+          <Button variant="dark" size="xs" className={style[bem.e('mode-btn')]} onClick={() => setIsManualType(!isManualType)}>
             {isManualType ? '选预设' : '自定义'}
-          </button>
+          </Button>
           {isManualType
             ? <Input value={appMeta.appType} onChange={e => updateAppMeta({ appType: e.target.value })} placeholder="自定义类型" size="small" />
             : <Select
@@ -395,8 +405,8 @@ const AppPanel = ({
     <Divider />
     <Cap>更新已上传</Cap>
     <div className={style[bem.e('update-actions')]}>
-      <button className={style[bem.e('btn-ghost')]} onClick={onRefreshUploads}>刷新列表</button>
-      <button className={style[bem.e('btn-solid')]} onClick={onUpdateSelected} disabled={isUpdating || !canUpdate}>更新已选</button>
+      <Button variant="outline" size="sm" plain onClick={onRefreshUploads}>刷新列表</Button>
+      <Button variant="default" size="sm" onClick={onUpdateSelected} disabled={isUpdating || !canUpdate}>更新已选</Button>
     </div>
     <div className={style[bem.e('update-list')]}>
       {myUploads.length === 0 ? (
@@ -404,8 +414,7 @@ const AppPanel = ({
       ) : (
         myUploads.map(app => (
           <label key={app.resourceId} className={style[bem.e('update-item')]}>
-            <input
-              type="checkbox"
+            <Check
               checked={selectedUploadIds.has(app.resourceId)}
               onChange={() => onToggleUploadSelect(app.resourceId)}
             />
@@ -480,20 +489,22 @@ const FilesPanel = ({ fetchStatus, lastSync, errorMsg, syncNotice, missingRequir
       )}
       <Divider />
       <div className={style[bem.e('panel-actions')]}>
-        <button
-          className={[style[bem.e('btn-ghost')], syncPaused ? style[bem.e('btn-ghost--paused')] : ''].join(' ')}
+        <Button
+          variant={syncPaused ? 'destructive' : 'outline'}
+          plain
+          size="sm"
           onClick={onTogglePause}
           title={syncPaused ? '恢复自动同步' : '立即暂停同步'}
         >
-          {syncPaused ? <PlayArrowIcon size={16} /> : <PauseIcon size={16} />}
+          {syncPaused ? <PlayArrowIcon /> : <PauseIcon />}
           {syncPaused ? '恢复' : '暂停'}
-        </button>
-        <button className={style[bem.e('btn-ghost')]} onClick={handleManualSync} disabled={fetchStatus === 'syncing'}>
+        </Button>
+        <Button variant="outline" plain size="sm" onClick={handleManualSync} disabled={fetchStatus === 'syncing'}>
           {compiling ? '编译中…' : fetchStatus === 'syncing' ? '同步中…' : '立即同步'}
-        </button>
-        <button className={style[bem.e('btn-solid')]} onClick={handleCreate} disabled={!canPublish}>
+        </Button>
+        <Button variant="default" size="sm" onClick={handleCreate} disabled={!canPublish}>
           发布应用
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -636,13 +647,13 @@ const GuidePanel = ({ entryConfig }) => {
   const downloadTemplates = [
     {
       id: 'standard',
-      icon: <FolderZipIcon size={18} style={{ marginRight: 8 }} />,
+      icon: <FolderZipIcon />,
       label: 'Vite 插件模板',
       description: '包含完整的 Vite 插件配置 and 示例代码'
     },
     {
       id: 'logic',
-      icon: <TerminalIcon size={18} style={{ marginRight: 8 }} />,
+      icon: <TerminalIcon />,
       label: 'SSE服务模板[服务已经提供sse接口]',
       description: '适合SSE + 文件夹模式'
     }
@@ -713,13 +724,21 @@ const GuidePanel = ({ entryConfig }) => {
         <div className={style[bem.e('guide-actions')]}>
           {downloadTemplates.map((template) => (
             <div key={template.id} className={style[bem.e('dl-item')]}>
-              <button className={style[bem.e('btn-dl')]} onClick={() => download(template.id)} title={template.description}>
+              <Button
+                variant="outline"
+                plain
+                size="sm"
+                block
+                className={style[bem.e('btn-dl')]}
+                onClick={() => download(template.id)}
+                title={template.description}
+              >
                 {template.icon}
                 <div className={style[bem.e('dl-content')]}>
                   <span className={style[bem.e('dl-text')]}>{template.label}</span>
                   {template.description && <span className={style[bem.e('dl-desc')]}>{template.description}</span>}
                 </div>
-              </button>
+              </Button>
             </div>
           ))}
         </div>
@@ -1148,15 +1167,22 @@ const LocalDev = () => {
           ))}
         </div>
         <div className={style[bem.e('bar-bottom')]}>
-          <button className={[style[bem.e('pause-fab')], syncPaused ? style[bem.e('pause-fab--paused')] : ''].join(' ')} onClick={handleTogglePause} title={syncPaused ? '恢复同步' : '暂停同步'}>
-            {syncPaused ? <PlayArrowIcon size={16} /> : <PauseIcon size={16} />}
-          </button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            round
+            className={[style[bem.e('pause-fab')], syncPaused ? style[bem.e('pause-fab--paused')] : ''].join(' ')}
+            onClick={handleTogglePause}
+            title={syncPaused ? '恢复同步' : '暂停同步'}
+          >
+            {syncPaused ? <PlayArrowIcon /> : <PauseIcon />}
+          </Button>
           <span className={[style[bem.e('status-pip')], stMod ? style[bem.e(`status-pip--${stMod}`)] : ''].join(' ')} title={STATUS_CFG[displayStatus].label} />
         </div>
       </div>
 
       <div className={[style[bem.e('drawer')], drawerOpen ? style[bem.e('drawer--open')] : ''].join(' ')} ref={drawerRef}>
-        <div className={style[bem.e('drawer-head')]}><span className={style[bem.e('drawer-title')]}>{activeNav ? PANEL_TITLES[activeNav] : ''}</span><button className={style[bem.e('drawer-close')]} onClick={() => setActiveNav(null)}><CloseIcon size={18} /></button></div>
+        <div className={style[bem.e('drawer-head')]}><span className={style[bem.e('drawer-title')]}>{activeNav ? PANEL_TITLES[activeNav] : ''}</span><Button variant="ghost" size="icon-xs" className={style[bem.e('drawer-close')]} onClick={() => setActiveNav(null)} title="关闭" aria-label="关闭"><CloseIcon /></Button></div>
         <div className={style[bem.e('drawer-scroll')]}>
           {activeNav === 'connect' && <ConnectPanel draft={draft} config={config} setCfg={(k,v)=>setDraft(p=>({...p,[k]:v}))} folderName={folderName} handleSelectFolder={async()=>{try{const h=await window.showDirectoryPicker();folderHandleRef.current=h;setFolderName(h.name);performSync(configRef.current,false);}catch(e){}}} userInfo={userInfo} />}
           {activeNav === 'app' && (
@@ -1187,8 +1213,8 @@ const LocalDev = () => {
           <div className={style[bem.e('drawer-footer')]}>
             <span className={style[bem.e('footer-hint')]}>有未保存的更改</span>
             <div className={style[bem.e('footer-btns')]}>
-              <button className={style[bem.e('footer-discard')]} onClick={()=>setDraft(config)}>放弃</button>
-              <button className={style[bem.e('footer-save')]} onClick={()=>{setConfig(draft); localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));}}>保存</button>
+              <Button variant="outline" plain size="sm" onClick={() => setDraft(config)}>放弃</Button>
+              <Button variant="default" size="sm" onClick={() => { setConfig(draft); localStorage.setItem(STORAGE_KEY, JSON.stringify(draft)); }}>保存</Button>
             </div>
           </div>
         )}
@@ -1212,7 +1238,7 @@ const LocalDev = () => {
             <div className={style[bem.e('canvas-empty')]}>
               <div className={style[bem.e('empty-glyph')]}><BoltIcon size={60} style={{ color: '#ddd' }} /></div>
               <p className={style[bem.e('empty-text')]}>请检查连接配置或本地服务</p>
-              <button className={style[bem.e('empty-cta')]} onClick={() => handleNavClick('connect')}>配置连接</button>
+              <Button variant="default" onClick={() => handleNavClick('connect')}>配置连接</Button>
             </div>
           )}
 

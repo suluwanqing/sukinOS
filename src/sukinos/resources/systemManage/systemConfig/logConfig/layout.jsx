@@ -4,6 +4,7 @@ import { createNamespace } from "/utils/js/classcreate";
 import sysConfigAPI from "@/apis/system/config";
 import CheckCardBar from "@/component/checkCardBar/layout";
 import Button from "@/component/button/layout";
+import { Input } from "@/component/input/layout";
 import Select from "@/component/select/drowSelection/layout";
 import Check from "@/component/check/layout";
 import { alert } from "@/component/alert/layout";
@@ -233,15 +234,14 @@ function LogConfig() {
           {settings.auditMode === "whitelist" && (
             <div className={style[bem.e("form-item")]}>
               <label>白名单默认审计匹配前缀</label>
-              <div className={style[bem.e("prefix-input-container")]}>
-                <span className={style[bem.e("input-prefix-slash")]}>/</span>
-                <input
-                  className={style[bem.e("prefix-input")]}
-                  placeholder="例如 system"
-                  value={settings.defaultLogPrefix}
-                  onChange={e => handleConfigUpdate("defaultLogPrefix", e.target.value.trim())}
-                />
-              </div>
+              <Input
+                className={style[bem.e("prefix-input")]}
+                size="small"
+                prefixIcon="/"
+                placeholder="例如 system"
+                value={settings.defaultLogPrefix}
+                onChange={e => handleConfigUpdate("defaultLogPrefix", e.target.value.trim())}
+              />
               <p className={style[bem.e("form-item-help")]}>白名单模式下，默认仅对此前缀路由记录，其余所有请求默认不审计（除非在个性化清单中额外开启强制记录）</p>
             </div>
           )}
@@ -255,13 +255,14 @@ function LogConfig() {
         </div>
 
         <div className={style[bem.e("ignore-controls")]}>
-          <input
+          <Input
             className={style[bem.e("input-text")]}
+            size="small"
             placeholder="输入在后端需要物理忽略审计的路径（支持级联匹配，例如 /docs）"
             value={newIgnorePath}
             onChange={e => setNewIgnorePath(e.target.value)}
           />
-          <Button type="dark" plain size="small" onClick={handleAddIgnorePath}>
+          <Button variant="dark" plain size="sm" onClick={handleAddIgnorePath}>
             <span>加入持久化放行名单</span>
           </Button>
         </div>
@@ -271,13 +272,15 @@ function LogConfig() {
             settings.ignoredPaths.map(path => (
               <div key={path} className={style[bem.e("ignore-item")]}>
                 <span className={style[bem.e("ignore-path-name")]}>{path}</span>
-                <button
-                  className={style[bem.e("ignore-btn-remove")]}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => handleRemoveIgnorePath(path)}
                   title="移除路径"
+                  aria-label="移除路径"
                 >
                   <CloseIcon />
-                </button>
+                </Button>
               </div>
             ))
           ) : (
@@ -304,8 +307,9 @@ function LogConfig() {
             />
           </div>
           <div className={style[bem.e("input-wrapper")]}>
-            <input
+            <Input
               className={style[bem.e("input-text")]}
+              size="small"
               placeholder="或在此手动键入 API 过滤通配规则"
               value={rulePath}
               onChange={e => setRulePath(e.target.value)}
@@ -324,7 +328,7 @@ function LogConfig() {
             <Check checked={ruleIsPrefix} onChange={setRuleIsPrefix} round type="dark" />
             <span>前缀匹配</span>
           </div>
-          <Button type="dark" size="small" onClick={handleAddRule}>
+          <Button variant="dark" size="sm" onClick={handleAddRule}>
             <span>配置定制规则</span>
           </Button>
         </div>
@@ -377,13 +381,16 @@ function LogConfig() {
                         type="dark"
                       />
                     </div>
-                    <button
-                      className={style[bem.e("rule-btn-delete")]}
+                    <Button
+                      variant="destructive"
+                      plain
+                      size="icon-sm"
                       onClick={() => handleRemoveRule(idx)}
                       title="删除规则"
+                      aria-label="删除规则"
                     >
                       <DeleteOutlineIcon />
-                    </button>
+                    </Button>
                   </div>
                 </div>
               );
@@ -398,8 +405,8 @@ function LogConfig() {
 
       <div className={style[bem.e("footer")]}>
         <Button
-          type="dark"
-          size="small"
+          variant="dark"
+          size="sm"
           loading={submitting}
           onClick={handleSaveConfig}
         >

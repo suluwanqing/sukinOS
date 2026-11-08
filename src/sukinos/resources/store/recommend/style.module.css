@@ -99,32 +99,39 @@
   margin-top: auto;
 }
 
-.su-recommend__btn {
-  width: 100%;
-  background-color: #000000;
-  color: #ffffff;
-  border: none;
-  padding: 8px 0;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.su-recommend__btn:hover {
-  opacity: 0.8;
-}
-
-.is-installed {
-  background-color: #f0f2f5;
-  color: #303133;
-}
-
 .su-recommend__empty {
   grid-column: 1 / -1;
   text-align: center;
   color: #909399;
   padding: 40px;
   font-size: 14px;
+}
+
+@media (max-width: 767px) {
+  .su-recommend {
+    padding: 16px;
+  }
+
+  .su-recommend__header {
+    margin-bottom: 20px;
+  }
+
+  .su-recommend__hero h2 {
+    font-size: 22px;
+  }
+
+  .su-recommend__search-box {
+    width: 100%;
+  }
+
+  .su-recommend__grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .su-recommend {
+    padding: 24px;
+  }
 }

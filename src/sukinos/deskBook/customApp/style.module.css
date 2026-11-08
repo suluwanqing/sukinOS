@@ -39,6 +39,7 @@
   justify-content: space-between;
   padding: 0 20px;
   background: #fcfcfc;
+  flex-shrink: 0;
 }
 
 .su-customapp__header-title {
@@ -60,12 +61,12 @@
   color: #000;
 }
 
+/* PC 端各自独立滚动 */
 .su-customapp__content {
   flex: 1;
   display: flex;
   overflow: hidden;
 }
-
 
 .su-customapp__left {
   width: 336px;
@@ -73,7 +74,6 @@
   border-right: 1px solid #f0f0f0;
   overflow-y: auto;
 }
-
 
 .su-customapp__right {
   flex: 1;
@@ -115,7 +115,6 @@
   font-weight: 500;
 }
 
-
 .su-customapp__config-hint {
   margin-top: 16px;
   padding: 0 8px;
@@ -123,7 +122,6 @@
   line-height: 1.6;
   color: #aaa;
 }
-
 
 .su-customapp__toggle {
   width: 44px;
@@ -150,7 +148,6 @@
 .su-customapp__toggle.is-active .su-customapp__toggle-knob {
   transform: translateX(22px);
 }
-
 
 .su-customapp__identity-box {
   display: flex;
@@ -210,7 +207,6 @@
   cursor: pointer;
   white-space: nowrap;
 }
-
 
 .su-customapp__gallery-head {
   font-size: 11px;
@@ -275,4 +271,57 @@
   width: 100%;
   height: 100%;
   background: #f7f7f7;
+}
+
+@media (max-width: 767px) {
+  .su-customapp__modal {
+    width: calc(100vw - 24px);
+    height: calc(100dvh - 24px);
+  }
+
+  .su-customapp__header {
+    padding: 0 16px;
+  }
+  .su-customapp__content {
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .su-customapp__left {
+    width: 100%;
+    padding: 24px 16px;
+    border-right: none;
+    border-bottom: 8px solid #f0f0f0;
+    overflow-y: visible;
+  }
+
+  .su-customapp__right {
+    width: 100%;
+    padding: 24px 16px;
+    overflow-y: visible;
+  }
+
+  .su-customapp__pane-label {
+    margin-bottom: 16px;
+  }
+
+  .su-customapp__identity-box {
+    gap: 24px;
+  }
+
+  .su-customapp__preview-wrapper {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .su-customapp__config-item {
+    padding: 14px 4px;
+  }
+
+  .su-customapp__grid {
+    grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+    gap: 8px;
+  }
 }

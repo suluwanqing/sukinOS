@@ -17,7 +17,7 @@ function Update({ updateList = [], onRefresh, onUpdate }) {
         <div className={style[bem.e('empty')]}>
            <div className={style[bem.e('check-circle')]}>✓</div>
            <h3>所有应用已是最新</h3>
-           <Button type="primary" className={style[bem.e('btn-refresh')]} onClick={onRefresh}>检查更新</Button>
+           <Button variant="outline" round onClick={onRefresh}>检查更新</Button>
         </div>
       ) : (
         <div className={style[bem.e('list')]}>
@@ -31,8 +31,7 @@ function Update({ updateList = [], onRefresh, onUpdate }) {
                 </div>
               </div>
               <Button
-                type="primary"
-                className={style[bem.e('btn-update')]}
+                size="sm"
                 onClick={() => onUpdate(app)}
               >
                 更新

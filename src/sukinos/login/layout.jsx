@@ -234,8 +234,12 @@ function LoginLayout() {
           </button>
         </form>
         <FooterLinks activeMode={activeMode} onSwitchMode={handleModeSwitch} />
-        <Divider />
-        <SocialButtons />
+        {LOGIN_CONFIG.thirdParty.length > 0 && (
+          <>
+            <Divider />
+            <SocialButtons />
+          </>
+        )}
 
         <div className={style[bem.e('guest-section')]}>
           <button type="button" className={style[bem.e('guest-btn')]} onClick={guestLogin}>

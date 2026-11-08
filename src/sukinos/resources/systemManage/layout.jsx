@@ -3,7 +3,9 @@ import { useSelector } from "react-redux";
 import style from "./style.module.css";
 import { createNamespace } from "/utils/js/classcreate";
 import Nav from '@/component/nav/layout';
-import { LayoutDashboard as DashboardIcon, Users as PeopleIcon, ChartGantt as TimelineIcon, Clock as AccessTimeIcon, ClipboardCheck as FactCheckIcon, Settings as SettingsIcon, LayoutGrid as AppsIcon, Lock as LockIcon } from 'lucide-react';
+import Drawer from '@/component/drawer/layout';
+import Button from '@/component/button/layout';
+import { LayoutDashboard as DashboardIcon, Users as PeopleIcon, ChartGantt as TimelineIcon, Clock as AccessTimeIcon, ClipboardCheck as FactCheckIcon, Settings as SettingsIcon, LayoutGrid as AppsIcon, Lock as LockIcon, Menu as MenuIcon } from 'lucide-react';
 import Overview from './overview/layout';
 import Users from './users/layout';
 import Behavior from './behavior/layout';
@@ -16,6 +18,7 @@ import { DEFAULT_LOGO } from '@/sukinos/utils/config';
 import { selectorUserInfo } from "@/sukinos/store";
 import { usePermission } from "@/hooks/usePermission/main";
 import systemAPI from '@/apis/system/main';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 
 const bem = createNamespace("system");
 
@@ -45,9 +48,11 @@ export function Avatar({ user, size = 32 }) {
 
 function SystemDashboard() {
   const [tab, setTab] = useState("overview");
+  const [navOpen, setNavOpen] = useState(false);
   const [navItems, setNavItems] = useState([]);
   const currentUser = useSelector(selectorUserInfo);
   const { hasMenuPermission, isRoot } = usePermission();
+  const { isMobile } = useViewportMode();
 
   useEffect(() => {
     systemAPI.getNavItems().then(res => {
@@ -88,29 +93,47 @@ function SystemDashboard() {
   };
   const activeContent = tabContentMap[tab] || tabContentMap[activeTabId] || <Overview />;
 
+  const renderSidebar = () => (
+    <aside className={style[bem.e("sidebar")]}>
+      <div className={style[bem.e("brand")]}>
+        <div className={style[bem.e("logo")]}>
+          <img src={DEFAULT_LOGO} alt="logo" />
+        </div>
+        <div className={style[bem.e("brand-name")]}>
+          <strong>sukin</strong>
+        </div>
+      </div>
+      <Nav
+        items={visibleNavItems}
+        activeId={tab}
+        onChange={(id) => {
+          setTab(id);
+          setNavOpen(false);
+        }}
+        theme="dark"
+        className="w-full border-r-0 bg-transparent flex-1"
+      />
+    </aside>
+  );
+
   return (
     <div className={style[bem.b()]}>
-      <aside className={style[bem.e("sidebar")]}>
-        <div className={style[bem.e("brand")]}>
-          <div className={style[bem.e("logo")]}>
-            <img src={DEFAULT_LOGO} alt="logo" />
-          </div>
-          <div className={style[bem.e("brand-name")]}>
-            <strong>sukin</strong>
-          </div>
-        </div>
-        <Nav
-          items={visibleNavItems}
-          activeId={tab}
-          onChange={setTab}
-          theme="dark"
-          className="w-full border-r-0 bg-transparent flex-1"
-        />
-      </aside>
+      {!isMobile && renderSidebar()}
 
       <main className={style[bem.e("main")]}>
         <header className={style[bem.e("header")]}>
           <div className={style[bem.e("header-left")]}>
+            {isMobile && (
+              <Button
+                variant="outline"
+                size="icon-lg"
+                className={style[bem.e("menu-btn")]}
+                onClick={() => setNavOpen(true)}
+                aria-label="打开管理导航"
+              >
+                <MenuIcon size={20} />
+              </Button>
+            )}
             <h2>{activeLabel}</h2>
             <div className={style[bem.e("breadcrumb")]}>
               主控制台 / {activeLabel}
@@ -131,6 +154,17 @@ function SystemDashboard() {
           {activeContent}
         </section>
       </main>
+
+      {isMobile && (
+        <Drawer
+          open={navOpen}
+          onClose={() => setNavOpen(false)}
+          label="管理导航"
+          style={{ backgroundColor: '#111827' }}
+        >
+          {renderSidebar()}
+        </Drawer>
+      )}
     </div>
   );
 }

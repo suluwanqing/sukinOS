@@ -139,9 +139,12 @@ const headCellCls = 'border-b px-3.5 py-2.5 text-left text-xs font-semibold trac
 const headGutterCls = 'border-b px-3 py-2.5 text-left';
 const rowCls = 'border-b transition-colors duration-150 last:border-b-0';
 const cellCls = 'px-3.5 py-2.5 align-middle text-xs sm:text-[13px]';
-const boxCls = 'grid size-4 shrink-0 cursor-pointer place-items-center rounded-[3px] border transition-all duration-150';
+const mobileRowCls = 'max-[767px]:block max-[767px]:px-3 max-[767px]:py-2.5';
+const mobileCellCls = 'max-[767px]:grid max-[767px]:grid-cols-[5.5rem_1fr] max-[767px]:items-center max-[767px]:gap-x-3 max-[767px]:px-0 max-[767px]:py-1 max-[767px]:w-auto! max-[767px]:min-w-0! max-[767px]:max-w-none!';
+const mobileLabelCls = 'hidden max-[767px]:block max-[767px]:truncate max-[767px]:text-[11px] max-[767px]:font-medium max-[767px]:text-muted-foreground';
+const boxCls = 'grid size-4 shrink-0 cursor-pointer place-items-center rounded-[3px] border transition-all duration-150 max-[767px]:size-6 max-[767px]:rounded-md';
 const chipCls = 'inline-flex select-none items-center justify-center gap-1.5 rounded-md border font-normal transition-all duration-150';
-const expandCls = 'grid size-5 shrink-0 place-items-center rounded border transition-colors';
+const expandCls = 'grid size-5 shrink-0 place-items-center rounded border transition-colors max-[767px]:size-8';
 const emptyCls = 'flex flex-col items-center gap-2 py-10 text-xs font-medium';
 const linkCls = 'truncate font-medium no-underline transition-opacity hover:underline';
 
@@ -576,11 +579,11 @@ export const PageList = ({
     return (
       <React.Fragment key={key}>
         <tr
-          className={`group/row ${rowCls} ${isSelected ? tone.rowOn : tone.rowIdle}`}
+          className={`group/row ${rowCls} ${mobileRowCls} ${isSelected ? tone.rowOn : tone.rowIdle}`}
           onClick={() => selectable && handleSelectRow(key)}
         >
           {selectable && (
-            <td className="w-10 px-3 py-2 text-center align-middle sticky left-0 z-10 bg-inherit">
+            <td className="w-10 px-3 py-2 text-center align-middle sticky left-0 z-10 bg-inherit max-[767px]:static max-[767px]:flex max-[767px]:w-auto max-[767px]:justify-end max-[767px]:px-0 max-[767px]:py-0">
               <div
                 className={`${boxCls} ${isSelected ? tone.boxOn : tone.boxIdle} mx-auto`}
                 onClick={(e) => { e.stopPropagation(); handleSelectRow(key); }}
@@ -599,12 +602,13 @@ export const PageList = ({
             return (
               <td
                 key={col.prop}
-                className={`${cellCls} ${tone.cell} ${responsiveClass}`}
+                className={`${cellCls} ${mobileCellCls} ${isFirstCol ? 'max-[767px]:pl-0!' : ''} ${tone.cell} ${responsiveClass}`}
                 style={{
                   ...colStyle,
                   paddingLeft: isFirstCol ? level * 20 + 14 : undefined
                 }}
               >
+                <span className={mobileLabelCls}>{col.label}</span>
                 <div className="flex items-center gap-1.5 overflow-hidden">
                   {isFirstCol && hasChildren && (
                     <button
@@ -627,13 +631,13 @@ export const PageList = ({
             <td
               className={`px-3.5 py-2.5 align-middle ${
                 actionFixed ? `sticky right-0 z-10 ${tone.stickyBg} shadow-[-4px_0_8px_-3px_rgba(0,0,0,0.06)]` : ''
-              }`}
+              } max-[767px]:static max-[767px]:w-auto! max-[767px]:min-w-0! max-[767px]:border-t max-[767px]:border-border max-[767px]:px-0 max-[767px]:pb-0 max-[767px]:pt-2.5 max-[767px]:shadow-none`}
               style={{
                 width: formatWidth(actionWidth),
                 minWidth: formatWidth(actionWidth)
               }}
             >
-              <div className="flex flex-nowrap items-center gap-1.5 whitespace-nowrap">
+              <div className="flex flex-nowrap items-center gap-1.5 whitespace-nowrap max-[767px]:flex-wrap max-[767px]:justify-end">
                 {actions.map((action, i) => {
                   const hasIcon = Boolean(action.icon);
                   const hasLabel = Boolean(action.label);
@@ -645,7 +649,7 @@ export const PageList = ({
                       type="button"
                       className={`${chipCls} h-7 ${
                         !isTextExplicitlyShown ? 'size-7 p-0' : 'px-2.5'
-                      } text-xs ${tone.chipIdle} shrink-0`}
+                      } text-xs max-[767px]:h-9 ${!isTextExplicitlyShown && hasLabel ? 'max-[767px]:w-auto! max-[767px]:px-2.5' : ''} ${tone.chipIdle} shrink-0`}
                       style={action.style || {}}
                       onClick={(e) => {
                         e.stopPropagation();
@@ -665,8 +669,9 @@ export const PageList = ({
                           {action.icon}
                         </span>
                       )}
-                      {hasLabel && isTextExplicitlyShown && (
-                        <span className={hasIcon ? 'ml-1' : ''}>{action.label}</span>
+                      {hasLabel && (isTextExplicitlyShown
+                        ? <span className={hasIcon ? 'ml-1' : ''}>{action.label}</span>
+                        : <span className="ml-1 hidden max-[767px]:inline">{action.label}</span>
                       )}
                     </button>
                   );
@@ -692,7 +697,7 @@ export const PageList = ({
             ref={settingsBtnRef}
             type="button"
             aria-expanded={showSettings}
-            className={`${chipCls} h-8 px-3 text-xs [&_svg]:size-3.5 ${showSettings ? tone.chipOn : tone.chipIdle}`}
+            className={`${chipCls} h-8 px-3 text-xs max-[767px]:h-9 [&_svg]:size-3.5 ${showSettings ? tone.chipOn : tone.chipIdle}`}
             onClick={() => setShowSettings(v => !v)}
           >
             <SettingsIcon />
@@ -735,13 +740,13 @@ export const PageList = ({
 
       <div className={`${frameCls} ${tone.frame}`}>
         <table
-          className="w-full border-collapse"
+          className="w-full border-collapse max-[767px]:block max-[767px]:min-w-0!"
           style={{
             minWidth: formatWidth(scrollX)
           }}
         >
           {/* 使用类似 Antd 的 colgroup 进行底层像素精准分配 */}
-          <colgroup>
+          <colgroup className="max-[767px]:hidden">
             {selectable && <col style={{ width: 40, minWidth: 40 }} />}
             {displayColumns.map(col => (
               <col
@@ -760,7 +765,7 @@ export const PageList = ({
             )}
           </colgroup>
 
-          <thead>
+          <thead className="max-[767px]:hidden">
             <tr className={`${headRowCls} ${tone.headRow}`}>
               {selectable && (
                 /* scope="col"：没有它，屏幕阅读器把表头格和正文格一视同仁，
@@ -807,14 +812,14 @@ export const PageList = ({
               )}
             </tr>
           </thead>
-          <tbody>
+          <tbody className="max-[767px]:block">
             {finalData.length > 0
               ? finalData.map(item => renderRow(item, 0))
               : (
                 <tr>
                   <td
                     colSpan={displayColumns.length + (selectable ? 1 : 0) + (hasActions ? 1 : 0)}
-                    className="px-4 py-12 text-center"
+                    className="px-4 py-12 text-center max-[767px]:block max-[767px]:w-full"
                   >
                     <div className={`${emptyCls} ${tone.empty}`}>
                       <p>暂无数据</p>
@@ -827,7 +832,7 @@ export const PageList = ({
         </table>
       </div>
 
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex justify-end max-[767px]:mt-3 max-[767px]:block">
         <Page
           current={finalCurrent}
           total={finalTotal}

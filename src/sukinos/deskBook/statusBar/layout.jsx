@@ -2,11 +2,11 @@ import style from "./style.module.css"
 import { createNamespace } from '/utils/js/classcreate'
 import React, { useState, useEffect, useRef, useMemo } from "react"
 import VfsImage from '@/sukinos/middleware/VfsImage/main.jsx'
+import ContextMenu from '@/component/contextMenu/layout'
 
-const LENGTH = 44
 const bem = createNamespace('status')
 
-function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus, className, isRunningApps }) {
+function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus, isRunningApps, contextMenuItems }) {
   const containerRef = useRef(null)
 
   const displayApps = useMemo(() => {
@@ -66,6 +66,8 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
     }
 
     const onMouseDown = (e) => {
+      // 右键交给图标菜单，不进入拖拽滚动
+      if (e.button !== 0) return
       isDown = true
       startX = e.clientX
       scrollLeft = el.scrollLeft
@@ -105,25 +107,25 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
   }, []) 
 
   return (
-    <div className={[style[bem.b()], className].join(' ')} >
+    <div className={style[bem.b()]}>
       {displayApps.length > 0 && (
           <div ref={containerRef} className={style[bem.e('container')]}>
             {displayApps.map((app) => (
-              <div
-                onClick={() => handleAppClick(app)}
-                key={app.pid}
-                className={[
-                  style[bem.e('icon-box')],
-                  style[bem.is('active', app.status !== 'INSTALLED')]
-                ].join(' ')}
-                style={{ width: LENGTH, height: LENGTH }}
-              >
-                <div className={style[bem.e('app-icon')]}>
-                  <VfsImage app={app} className={style[bem.e('icon')]} />
+              <ContextMenu key={app.pid} menuItems={contextMenuItems} metaInfo={app}>
+                <div
+                  onClick={() => handleAppClick(app)}
+                  className={[
+                    style[bem.e('icon-box')],
+                    style[bem.is('active', app.status !== 'INSTALLED')]
+                  ].join(' ')}
+                >
+                  <div className={style[bem.e('app-icon')]}>
+                    <VfsImage app={app} className={style[bem.e('icon')]} />
+                  </div>
+                  {app.status === 'RUNNING' && <div className={style[bem.e('active-indicator')]}></div>}
+                  {app.status === 'HIBERNATED' && <div className={style[bem.e('active-hibernated')]}></div>}
                 </div>
-                {app.status === 'RUNNING' && <div className={style[bem.e('active-indicator')]}></div>}
-                {app.status === 'HIBERNATED' && <div className={style[bem.e('active-hibernated')]}></div>}
-              </div>
+              </ContextMenu>
             ))}
           </div>
       )}
@@ -132,11 +134,11 @@ function StatusBar({ blockEdApps, startApp, hibernateApp, currentFocus, onFocus,
 }
 
 export default React.memo(StatusBar, (prev, next) => {
-  return prev.className === next.className
-    && prev.currentFocus === next.currentFocus
+  return prev.currentFocus === next.currentFocus
     && prev.isRunningApps === next.isRunningApps
     && prev.blockEdApps === next.blockEdApps
     && prev.onFocus === next.onFocus
     && prev.startApp === next.startApp
-    && prev.hibernateApp === next.hibernateApp;
+    && prev.hibernateApp === next.hibernateApp
+    && prev.contextMenuItems === next.contextMenuItems;
 })

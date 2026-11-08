@@ -8,6 +8,7 @@ import CheckGroup from "@/component/checkGroup/layout";
 import Select from "@/component/select/drowSelection/layout";
 import Check from "@/component/check/layout";
 import Input from "@/component/input/layout";
+import Button from "@/component/button/layout";
 import { DEFAULT_ENTRY_CONFIG } from '@/sukinos/utils/entryConfig';
 import { isHtmlKey } from '@/sukinos/utils/process/sourceMapper';
 
@@ -379,24 +380,29 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
           {patterns.map((pattern, index) => (
             <div key={index} className={style[bem.e('pattern-row')]}>
               <Input value={pattern} onChange={(e) => setPattern(index, e.target.value)} placeholder="如 logic.jsx / service/*.jsx" size="small" />
-              <button
-                type="button"
+              <Button
+                variant="destructive"
+                plain
+                size="icon-xs"
                 className={style[bem.e('pattern-remove')]}
                 onClick={() => patch({ logicEntries: patterns.filter((_, i) => i !== index) })}
+                title="删除该规则"
+                aria-label="删除该规则"
               >
-                <DeleteOutlineIcon width="1em" height="1em" />
-              </button>
+                <DeleteOutlineIcon />
+              </Button>
             </div>
           ))}
         </div>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           className={style[bem.e('pattern-add')]}
+          icon={<AddCircleOutlineIcon />}
           onClick={() => patch({ logicEntries: [...patterns, ''] })}
         >
-          <AddCircleOutlineIcon width="1em" height="1em" />
           添加匹配规则
-        </button>
+        </Button>
 
         <div className={style[bem.e('sub-title')]} style={{ marginTop: '12px' }}>视图入口</div>
         <Input value={config.viewEntry || ''} onChange={(e) => patch({ viewEntry: e.target.value })} placeholder="layout.jsx" size="small" />
@@ -415,15 +421,16 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
         <div className={style[bem.e('hint')]}>
           按当前入口约定扫描逻辑层与页面的依赖方向，只在手动触发时运行（发布与预览会自动再跑一次）
         </div>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           className={style[bem.e('pattern-add')]}
+          icon={<InfoIcon />}
           style={{ marginBottom: issues === null ? 0 : '8px' }}
           onClick={() => setIssues(onLayeringCheck ? onLayeringCheck() : [])}
         >
-          <InfoIcon width="1em" height="1em" />
           运行分层检查
-        </button>
+        </Button>
         {issues !== null && (
           <div className={style[bem.e('match-list')]}>
             {issues.length === 0 ? (
@@ -437,10 +444,9 @@ const EntrySettings = ({ entryConfig, updateEntryConfig, appEntries, onLayeringC
           </div>
         )}
 
-        <button type="button" className={style[bem.e('pattern-add')]} style={{ marginTop: '10px' }} onClick={() => updateEntryConfig({ ...DEFAULT_ENTRY_CONFIG })}>
-          <RestoreIcon width="1em" height="1em" />
+        <Button variant="outline" size="sm" className={style[bem.e('pattern-add')]} style={{ marginTop: '10px' }} icon={<RestoreIcon />} onClick={() => updateEntryConfig({ ...DEFAULT_ENTRY_CONFIG })}>
           恢复默认
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -504,14 +510,12 @@ function Setting({ appMeta, appTypes, appCustomMapper, onUpdateAppMeta, onCreate
       </div>
 
       <div className={style[bem.e('footer-actions')]}>
-        <button className={style[bem.e('preview-btn')]} onClick={onPreview}>
-          <PreviewIcon size={20} />
+        <Button variant="outline" size="sm" className={style[bem.e('preview-btn')]} icon={<PreviewIcon />} onClick={onPreview}>
           效果预览
-        </button>
-        <button className={style[bem.e('create-btn')]} onClick={onCreate} disabled={!appName}>
-          <AddCircleOutlineIcon size={20} />
+        </Button>
+        <Button variant="default" size="sm" className={style[bem.e('create-btn')]} icon={<AddCircleOutlineIcon />} onClick={onCreate} disabled={!appName}>
           执行创建
-        </button>
+        </Button>
       </div>
     </div>
   );

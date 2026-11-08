@@ -13,9 +13,14 @@ const {
   ContextMenuTrigger, ContextMenuContent, ContextMenuItem, ContextMenuLabel,
   ContextMenuSeparator, ContextMenuShortcut, ContextMenuSub, ContextMenuSubTrigger,
   ContextMenuSubContent, Logo, getLogoBase64Url, KeepAlive,
+  Drawer, DrawerHeader, DrawerBody, DrawerFooter, DrawerTitle, DrawerDescription,
 } = C;
 
 const shell = style[bem.e('preview-shell')];
+const hSm = style[bem.e('demo-h-sm')];
+const hMd = style[bem.e('demo-h-md')];
+const hLg = style[bem.e('demo-h-lg')];
+const hXl = style[bem.e('demo-h-xl')];
 const row = style[bem.e('demo-row')];
 const stack = style[bem.e('demo-stack')];
 const hint = style[bem.e('demo-hint')];
@@ -44,6 +49,11 @@ function ButtonDemo() {
         <Button variant="default" icon={<PlusIcon size={15} />}>带图标</Button>
         <Button variant="outline" loading={loading} onClick={fakeLoad}>点击加载</Button>
         <Button variant="outline" disabled>禁用</Button>
+      </div>
+      <div className={row}>
+        <Button variant="dark">墨面</Button>
+        <Button variant="dark" plain>墨面朴素</Button>
+        <Button type="dark">旧名 dark</Button>
       </div>
     </div>
   );
@@ -283,7 +293,7 @@ const NAV_ITEMS = [
 function NavDemo() {
   const [active, setActive] = useState('home');
   return (
-    <div className={shell} style={{ height: 240 }}>
+    <div className={`${shell} ${hLg}`}>
       <Nav items={NAV_ITEMS} activeId={active} onChange={setActive} header="我的应用" />
     </div>
   );
@@ -291,7 +301,7 @@ function NavDemo() {
 
 function GeneralPurposePageDemo() {
   return (
-    <div className={shell} style={{ height: 280, overflow: 'auto' }}>
+    <div className={`${shell} ${hXl}`} style={{ overflow: 'auto' }}>
       <GeneralPurposePage
         type="no-data"
         title="暂无记录"
@@ -364,15 +374,23 @@ function AlertConfirmDemo() {
   const [savedTip, setSavedTip] = useState('');
   return (
     <div className={stack}>
-      <AlertConfirm
-        visible={dirty}
-        onConfirm={() => { setDirty(false); setSavedTip('已保存'); }}
-        onCancel={() => { setDirty(false); setSavedTip('已放弃'); }}
-      />
-      <div className={row}>
-        <Button variant="outline" size="sm" onClick={() => { setDirty(true); setSavedTip(''); }}>重新显示</Button>
-        {savedTip && <span className={hint}>{savedTip}</span>}
+      <div className={`${shell} ${hSm}`}>
+        <AlertConfirm
+          visible={dirty}
+          onConfirm={() => { setDirty(false); setSavedTip('已保存'); }}
+          onCancel={() => { setDirty(false); setSavedTip('已放弃'); }}
+        />
+        <div
+          className={style[bem.e('demo-center')]}
+          style={{ height: '100%', alignItems: 'flex-end', paddingBottom: 8 }}
+        >
+          <div className={row}>
+            <Button variant="outline" size="sm" onClick={() => { setDirty(true); setSavedTip(''); }}>重新显示</Button>
+            {savedTip && <span className={hint}>{savedTip}</span>}
+          </div>
+        </div>
       </div>
+      <span className={hint}>演示被限制在预览区内；真实使用时固定在视口顶部。</span>
     </div>
   );
 }
@@ -380,7 +398,7 @@ function AlertConfirmDemo() {
 function NotificationDemo() {
   const [open, setOpen] = useState(false);
   return (
-    <div className={shell} style={{ height: 200 }}>
+    <div className={`${shell} ${hMd}`}>
       {!open && (
         <div className={style[bem.e('demo-center')]}>
           <Button variant="outline" onClick={() => setOpen(true)}>弹出通知</Button>
@@ -403,7 +421,7 @@ function NotificationDemo() {
 function OverPlayDemo() {
   const [open, setOpen] = useState(false);
   return (
-    <div className={shell} style={{ height: 200 }}>
+    <div className={`${shell} ${hMd}`}>
       <div className={style[bem.e('demo-center')]}>
         <Button variant="outline" onClick={() => setOpen(true)}>打开遮罩层</Button>
       </div>
@@ -423,7 +441,7 @@ function OverPlayDemo() {
 
 function LoadingDemo() {
   return (
-    <div className={shell} style={{ height: 220 }}>
+    <div className={`${shell} ${hMd}`}>
       <Loading className="relative inset-auto h-full w-full" text="LOADING" />
     </div>
   );
@@ -441,6 +459,50 @@ function ModalDemo() {
           <span className={hint}>内容区可滚动；layout="split" 会变成左栏 + 内容两栏</span>
         </div>
       </Modal>
+    </div>
+  );
+}
+
+function DrawerDemo() {
+  const [side, setSide] = useState('left');
+  const [open, setOpen] = useState(false);
+  const vertical = side === 'top' || side === 'bottom';
+  return (
+    <div className={stack}>
+      <div className={row}>
+        {['left', 'right', 'top', 'bottom'].map((next) => (
+          <Button
+            key={next}
+            variant={next === side && open ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => { setSide(next); setOpen(true); }}
+          >
+            {next}
+          </Button>
+        ))}
+      </div>
+      <div className={shell} style={{ minHeight: 240 }}>
+        <span className={hint}>抽屉铺在最近的定位祖先里，所以只盖住这块预览区。</span>
+        <Drawer
+          open={open}
+          onClose={() => setOpen(false)}
+          side={side}
+          size={vertical ? 132 : 196}
+          label="抽屉示例"
+          showCloseButton
+        >
+          <DrawerHeader>
+            <DrawerTitle>导航</DrawerTitle>
+            <DrawerDescription>点遮罩或按 Esc 收起</DrawerDescription>
+          </DrawerHeader>
+          <DrawerBody>
+            <Input placeholder="面板内的输入框" />
+          </DrawerBody>
+          <DrawerFooter>
+            <Button onClick={() => setOpen(false)}>完成</Button>
+          </DrawerFooter>
+        </Drawer>
+      </div>
     </div>
   );
 }
@@ -540,6 +602,7 @@ export const DEMOS = {
   'over-play': OverPlayDemo,
   loading: LoadingDemo,
   modal: ModalDemo,
+  drawer: DrawerDemo,
   'context-menu': ContextMenuDemo,
   logo: LogoDemo,
   'get-logo-base64': LogoBase64Demo,

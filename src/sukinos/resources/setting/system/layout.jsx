@@ -109,9 +109,6 @@ function System() {
               <Check
                 checked={generateAppConfig.singleIframe}
                 onChange={(val) => handleToggleSingleIframe(val)}
-                type="primary"
-                size="medium"
-                round
               />
             </div>
           </div>
@@ -131,9 +128,6 @@ function System() {
               <Check
                 checked={generateAppConfig.useVirtualWorker}
                 onChange={(val) => handleToggleVirtualWorker(val)}
-                type="success"
-                size="medium"
-                round
               />
             </div>
           </div>
@@ -153,9 +147,6 @@ function System() {
               <Check
                 checked={generateAppConfig.truthAllApp}
                 onChange={(val) => handleToggleAppConfig('truthAllApp', val)}
-                type="danger"
-                size="medium"
-                round
               />
             </div>
           </div>
@@ -175,9 +166,6 @@ function System() {
               <Check
                 checked={fileSystemConfig?.isPrivate}
                 onChange={(val) => handleTogglePrivate(val)}
-                type="danger"
-                size="medium"
-                round
               />
             </div>
           </div>

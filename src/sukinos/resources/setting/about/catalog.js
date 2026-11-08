@@ -24,9 +24,9 @@ export const ENTRIES = [
     desc: '通用按钮。variant 是新口径，type 保留旧名映射；both 同时给时 variant 优先。',
     props: [
       { name: 'children', type: 'ReactNode', default: '-', desc: '按钮内容' },
-      { name: 'variant', type: 'string', default: "'default'", desc: 'default | outline | secondary | ghost | destructive | link | success | warning | info' },
-      { name: 'type', type: 'string', default: '-', desc: '旧名快捷方式：primary→default、danger→destructive、dark→default、text→ghost' },
-      { name: 'size', type: 'string', default: "'default'", desc: 'default | sm | lg | xs | icon | icon-sm | icon-lg | icon-xs；旧名 mini/small/medium/large 自动映射' },
+      { name: 'variant', type: 'string', default: "'default'", desc: 'default | dark | outline | secondary | ghost | destructive | link | success | warning | info' },
+      { name: 'type', type: 'string', default: '-', desc: '旧名快捷方式：primary→default、dark→dark、danger→destructive、default→outline、text→ghost，success/warning/info 同名；只作造型，不会透传成 DOM 的 type' },
+      { name: 'size', type: 'string', default: "'default'", desc: 'default | sm | lg | xs | icon | icon-sm | icon-lg | icon-xs；旧名 mini/small/medium/large 自动映射。≤767px 把不足 36px 的档抬到 36（sm / icon-sm 36），xs 与 icon-xs 保持 28，其余档只收横向内边距' },
       { name: 'plain', type: 'boolean', default: 'false', desc: '透明底 + 描边的朴素样式' },
       { name: 'round', type: 'boolean', default: 'false', desc: '全圆角' },
       { name: 'block', type: 'boolean', default: 'false', desc: '占满父容器宽度' },
@@ -34,6 +34,8 @@ export const ENTRIES = [
       { name: 'disabled', type: 'boolean', default: 'false', desc: '禁用' },
       { name: 'icon', type: 'ReactNode', default: '-', desc: '图标；loading 时让位给转圈' },
       { name: 'iconPosition', type: 'string', default: "'left'", desc: 'left | right' },
+      { name: 'focus', type: 'boolean', default: 'true', desc: '键盘聚焦时换 --ring 描边；不需要焦点提示的工具条场景可传 false' },
+      { name: 'hover', type: 'boolean', default: 'true', desc: '悬浮加深底色（plain 为淡底）；传 false 时悬浮态与常态一致' },
       { name: 'asChild', type: 'boolean', default: 'false', desc: '样式交给唯一子元素（Slot）' },
     ],
     usage: `const { Button } = AppSDK.Components;
@@ -56,13 +58,15 @@ export default () => (
     props: [
       { name: 'value / defaultValue', type: 'string', default: '-', desc: '受控与非受控两种用法' },
       { name: 'onChange', type: 'function', default: '-', desc: '(event) => void，原生事件' },
-      { name: 'size', type: 'string', default: "'medium'", desc: 'small | medium | large（sm / lg 是同义写法）' },
+      { name: 'size', type: 'string', default: "'medium'", desc: "xsmall | small | medium | large（xs / mini 同义 xsmall，sm / lg 同义 small / large）。≤767px 只把 small 抬到 36，medium 36 / large 40 与桌面同高，xsmall 固定 28px 不抬高，留给移动端紧凑工具条" },
       { name: 'clearable', type: 'boolean', default: 'false', desc: '有值时显示清空按钮' },
       { name: 'showPassword', type: 'boolean', default: 'false', desc: '密码显隐切换（按 type=password 渲染）' },
       { name: 'prefixIcon / suffixIcon', type: 'ReactNode', default: '-', desc: '前后置图标' },
       { name: 'maxLength / minLength', type: 'number', default: '-', desc: '长度限制，透传给原生 input' },
       { name: 'isRound', type: 'boolean', default: 'false', desc: '全圆角' },
       { name: 'disabled', type: 'boolean', default: 'false', desc: '禁用' },
+      { name: 'focus', type: 'boolean', default: 'true', desc: '聚焦时换 --ring 描边；传 false 时输入中保持常态描边' },
+      { name: 'hover', type: 'boolean', default: 'true', desc: '悬浮加深描边（深色档改为整框提亮）；传 false 时悬浮态与常态一致' },
       { name: 'ref', type: 'ref', default: '-', desc: 'forwardRef 到原生 input 元素' },
     ],
     usage: `const { Input } = AppSDK.Components;
@@ -92,6 +96,8 @@ export default ({ state, dispatch }) => (
       { name: 'plain', type: 'boolean', default: 'false', desc: '透明轨道 + 带色边框' },
       { name: 'round', type: 'boolean', default: '-', desc: '全圆角轨道' },
       { name: 'dot', type: 'boolean', default: 'false', desc: '圆点模式：更矮的轨道 + 大圆点' },
+      { name: 'focus', type: 'boolean', default: 'true', desc: '键盘聚焦时换 --ring 描边；传 false 时不出现焦点描边' },
+      { name: 'hover', type: 'boolean', default: 'true', desc: '悬浮整体压到 85% 不透明度；传 false 时悬浮态与常态一致' },
       { name: 'disabled', type: 'boolean', default: 'false', desc: '禁用交互' },
     ],
     usage: `const { Check } = AppSDK.Components;
@@ -172,15 +178,17 @@ export default ({ state, dispatch }) => (
       { name: 'value', type: 'any', default: '-', desc: '当前选中值' },
       { name: 'options', type: 'Array', default: '[]', desc: '[{ value, label }]' },
       { name: 'onChange', type: 'function', default: '() => {}', desc: '(value) => void' },
-      { name: 'size', type: 'string', default: "'default'", desc: 'small | default | large' },
+      { name: 'size', type: 'string', default: "'default'", desc: "xsmall | small | default | large（xs 同义 xsmall）。≤767px 只把 small 抬到 36，default 36 / large 40 与桌面同高，xsmall 固定 28px 且下拉项同步收窄" },
       { name: 'direction', type: 'string', default: "'bottom'", desc: 'bottom | top' },
       { name: 'placeholder', type: 'string', default: "'请选择'", desc: '无选中时的占位' },
+      { name: 'disabled', type: 'boolean', default: 'false', desc: '禁用：压暗去指针，点击不再展开下拉' },
       { name: 'searchable', type: 'boolean', default: 'false', desc: '开启搜索框' },
       { name: 'optionsAsync', type: 'function', default: 'null', desc: '({ page, pageSize, searchQuery }) => Promise<{ items, total }>，需配合 searchable' },
       { name: 'showTitle', type: 'boolean', default: 'false', desc: '默认选中项的 title 提示，用于长文本' },
       { name: 'maxHeight', type: 'number | string', default: '-', desc: '下拉面板最大高度' },
       { name: 'hideScrollbar', type: 'boolean', default: 'false', desc: '隐藏下拉滚动条' },
       { name: 'boxStyle / dropdownStyle / optionStyle', type: 'object', default: '{}', desc: '三段内联样式覆盖' },
+      { name: 'className', type: 'string', default: "''", desc: '额外类名，合并到最外层容器（cn 合并，可覆盖同级工具类）' },
     ],
     usage: `const { Select } = AppSDK.Components;
 
@@ -347,7 +355,7 @@ export default () => (
       { name: 'items', type: 'Array', default: '[]', desc: '[{ id, label, icon, children }]' },
       { name: 'activeId', type: 'string', default: '-', desc: '当前激活项' },
       { name: 'onChange', type: 'function', default: '-', desc: '(id) => void' },
-      { name: 'mode', type: 'string', default: "'vertical'", desc: 'vertical | horizontal' },
+      { name: 'mode', type: 'string', default: "'vertical'", desc: 'vertical | horizontal；horizontal 的子菜单鼠标悬停即开，触屏无悬停，点标题开合、点空白或 Esc 收起' },
       { name: 'theme', type: 'string', default: "'light'", desc: 'light | dark' },
       { name: 'collapsed', type: 'boolean', default: 'false', desc: '收起为图标条' },
       { name: 'onCollapse', type: 'function', default: '-', desc: '(next) => void；提供后才出现底部收起按钮' },
@@ -478,7 +486,7 @@ export default () => (
     keys: ['AlertConfirm'],
     group: 'feedback',
     kind: '组件',
-    desc: '内嵌在页面里的「未保存更改」确认条，不 portal、不遮挡页面。',
+    desc: 'fixed 在视口顶部的「未保存更改」确认条，不 portal；示例已限制在预览区内。',
     props: [
       { name: 'visible', type: 'boolean', default: 'false', desc: '显隐（用高度/透明度过渡）' },
       { name: 'title', type: 'string', default: "'检测到未保存的更改'", desc: '提示文案' },
@@ -586,7 +594,7 @@ export default ({ state }) => (
       { name: 'children', type: 'ReactNode', default: '-', desc: '内容区' },
       { name: 'width', type: 'number', default: '820', desc: '宽度，最大不超过视口减 32px' },
       { name: 'layout', type: 'string', default: "'standard'", desc: 'standard 单栏 | split 220px 左栏 + 内容' },
-      { name: 'minHeight', type: 'number', default: '-', desc: '内容区最小高度；split 默认 420，standard 默认 320' },
+      { name: 'minHeight', type: 'number', default: '-', desc: '内容区最小高度；split 默认 420，standard 默认 320。≤767px 不套这两个默认值，弹窗跟着内容收缩，显式传入时仍按传入值生效' },
     ],
     usage: `const { Modal, Button } = AppSDK.Components;
 
@@ -599,6 +607,49 @@ export default () => {
         内容区
       </Modal>
     </>
+  );
+};`,
+  },
+  {
+    id: 'drawer',
+    name: 'Drawer',
+    keys: ['Drawer', 'DrawerHeader', 'DrawerTitle', 'DrawerDescription', 'DrawerBody', 'DrawerFooter'],
+    group: 'feedback',
+    kind: '组件组',
+    desc: '贴边抽屉：遮罩 + 从一条边滑入的面板。Root 已含遮罩与面板，子部件按需在面板里排标题、滚动区与底部操作。',
+    props: [
+      { name: 'open', type: 'boolean', default: 'false', desc: '显隐（受控）；面板常驻挂载，靠位移动画进出' },
+      { name: 'onClose', type: 'function', default: '-', desc: '点遮罩、按 Esc 或点关闭叉时回调' },
+      { name: 'side', type: 'string', default: "'left'", desc: 'left | right | top | bottom；清单外的值按 left 渲染' },
+      { name: 'size', type: 'number | string', default: '-', desc: '主轴尺寸，按 side 落到宽或高；缺省左右取 min(232px, 78%)、上下取 min(240px, 60%)' },
+      { name: 'label', type: 'string', default: '-', desc: '面板的无障碍标签，读屏用' },
+      { name: 'showCloseButton', type: 'boolean', default: 'false', desc: '面板右上角的关闭叉' },
+      { name: 'className / style', type: 'string | object', default: '-', desc: '透到面板本身，改底色、内边距走这里' },
+      { name: 'children', type: 'ReactNode', default: '-', desc: '面板内容' },
+      { name: 'DrawerHeader / DrawerTitle / DrawerDescription', type: 'component', default: '-', desc: '顶部标题区，标题区不滚动' },
+      { name: 'DrawerBody', type: 'component', default: '-', desc: '中间滚动区，占满剩余高度' },
+      { name: 'DrawerFooter', type: 'component', default: '-', desc: '底部操作区，贴面板另一端' },
+    ],
+    usage: `const {
+  Drawer, DrawerHeader, DrawerTitle, DrawerBody, DrawerFooter, Button,
+} = AppSDK.Components;
+
+export default () => {
+  const [open, setOpen] = useState(false);
+  return (
+    // 抽屉铺在最近的定位祖先里，所以宿主容器要自己占住位置与高度。
+    <div style={{ position: 'relative', height: '100%' }}>
+      <Button onClick={() => setOpen(true)}>打开导航</Button>
+      <Drawer open={open} onClose={() => setOpen(false)} side="left" label="导航">
+        <DrawerHeader>
+          <DrawerTitle>导航</DrawerTitle>
+        </DrawerHeader>
+        <DrawerBody>列表内容</DrawerBody>
+        <DrawerFooter>
+          <Button onClick={() => setOpen(false)}>完成</Button>
+        </DrawerFooter>
+      </Drawer>
+    </div>
   );
 };`,
   },

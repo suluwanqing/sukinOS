@@ -131,7 +131,7 @@ function RegistryPowerPanel() {
       <div className={style[bem.e("section-header")]}>
         <h3>注册权管理</h3>
         <div style={{ display: "flex", gap: 8 }}>
-          <Button type="default" size="small" onClick={fetchConfig} loading={loading}>刷新</Button>
+          <Button variant="outline" size="sm" onClick={fetchConfig} loading={loading}>刷新</Button>
         </div>
       </div>
       <p className={style[bem.e("desc")]}>
@@ -155,7 +155,7 @@ function RegistryPowerPanel() {
             )}
           </div>
           <div className={style[bem.e("registry-list-footer")]}>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={() => { setPickVal(""); setUserPickerOpen(true); }}>添加用户</Button>
+            <Button variant="default" size="sm" onClick={() => { setPickVal(""); setUserPickerOpen(true); }}>添加用户</Button>
           </div>
         </div>
         <div className={style[bem.e("registry-list-wrap")]}>
@@ -175,7 +175,7 @@ function RegistryPowerPanel() {
             )}
           </div>
           <div className={style[bem.e("registry-list-footer")]}>
-            <Button type="primary" size="small" style={{ background: "#222", borderColor: "#222" }} onClick={() => { setPickVal(""); setRolePickerOpen(true); }}>添加角色</Button>
+            <Button variant="default" size="sm" onClick={() => { setPickVal(""); setRolePickerOpen(true); }}>添加角色</Button>
           </div>
         </div>
       </div>
@@ -193,8 +193,8 @@ function RegistryPowerPanel() {
           />
         </div>
         <div className={style[bem.e("form-actions")]}>
-          <Button type="default" size="small" onClick={() => setUserPickerOpen(false)}>取消</Button>
-          <Button type="primary" size="small" disabled={!pickVal} style={{ background: "#222", borderColor: "#222" }} onClick={addUser}>确认添加</Button>
+          <Button variant="outline" size="sm" onClick={() => setUserPickerOpen(false)}>取消</Button>
+          <Button variant="default" size="sm" disabled={!pickVal} onClick={addUser}>确认添加</Button>
         </div>
       </Modal>
       <Modal title="添加授权角色" visible={rolePickerOpen} onClose={() => setRolePickerOpen(false)} width={500}>
@@ -212,8 +212,8 @@ function RegistryPowerPanel() {
           </div>
         </div>
         <div className={style[bem.e("form-actions")]}>
-          <Button type="default" size="small" onClick={() => setRolePickerOpen(false)}>取消</Button>
-          <Button type="primary" size="small" disabled={!pickVal} style={{ background: "#222", borderColor: "#222" }} onClick={addRole}>确认添加</Button>
+          <Button variant="outline" size="sm" onClick={() => setRolePickerOpen(false)}>取消</Button>
+          <Button variant="default" size="sm" disabled={!pickVal} onClick={addRole}>确认添加</Button>
         </div>
       </Modal>
     </div>

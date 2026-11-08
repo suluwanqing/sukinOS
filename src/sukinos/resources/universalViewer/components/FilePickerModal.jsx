@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useSystemFileSystem } from '@/sukinos/hooks/useFileSystem';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 import { FileType } from "@/sukinos/utils/config";
 import FileSystemView from '@/sukinos/component/fileSystemView/layout';
 import { HardDrive, Monitor, X, FolderSync } from 'lucide-react';
@@ -24,12 +25,22 @@ export default function FilePickerModal({
 }) {
   const [mode, setMode] = useState('virtual');
   const fs = useSystemFileSystem(mode);
+  const { isMobile } = useViewportMode();
+
+
+  const handleActivate = (item) => {
+    if (isDirectory(item)) {
+      fs.navigation.loadDir(item.id);
+    } else if (!isSelectFolder && onConfirmFile) {
+      onConfirmFile(item, mode);
+    }
+  };
 
   if (!visible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-xs p-8 animate-in fade-in duration-150">
-      <div className="w-[820px] h-[560px] bg-white rounded-2xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-xs p-8 max-[767px]:p-2 animate-in fade-in duration-150">
+      <div className="w-[820px] h-[560px] bg-white rounded-2xl shadow-2xl border border-slate-200/80 flex flex-col overflow-hidden max-[767px]:w-[calc(100vw-16px)] max-[767px]:h-[calc(100dvh-16px)]">
         {/* 顶部栏 */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 bg-slate-50/50">
           <div className="flex items-center gap-3">
@@ -74,13 +85,8 @@ export default function FilePickerModal({
               onBack={fs.navigation.handleBack}
               onRefresh={fs.navigation.handleRefresh}
               onBreadcrumbClick={fs.navigation.loadDir}
-              onItemDoubleClick={(item) => {
-                if (isDirectory(item)) {
-                  fs.navigation.loadDir(item.id);
-                } else if (!isSelectFolder && onConfirmFile) {
-                  onConfirmFile(item, mode);
-                }
-              }}
+              onItemClick={isMobile ? handleActivate : undefined}
+              onItemDoubleClick={handleActivate}
               orientation="horizontal"
               width="100%"
               height="100%"
@@ -89,8 +95,8 @@ export default function FilePickerModal({
 
           {/* 模式特有的底部确认栏 */}
           {isSelectFolder && (
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-500">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between max-[767px]:flex-col max-[767px]:items-stretch max-[767px]:gap-2">
+              <span className="text-xs text-slate-500 truncate">
                 当前目录：
                 <span className="font-semibold text-slate-700">
                   {fs.state.breadcrumbs[fs.state.breadcrumbs.length - 1]?.name || '根目录'}
@@ -108,7 +114,7 @@ export default function FilePickerModal({
                     });
                   }
                 }}
-                className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-medium shadow-sm transition flex items-center gap-1.5"
+                className="px-4 py-2 rounded-xl bg-sky-500 hover:bg-sky-400 text-white text-xs font-medium shadow-sm transition flex items-center justify-center gap-1.5 shrink-0"
               >
                 <FolderSync size={14} />
                 <span>以此文件夹开启轮播</span>

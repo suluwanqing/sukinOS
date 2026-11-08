@@ -133,21 +133,52 @@
   gap: 10px;
 }
 
-.su-setting__btn-action {
-  background-color: #ffffff;
-  color: #000000;
-  border: none;
-  padding: 6px 16px;
-  border-radius: 20px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: opacity 0.2s;
+
+@media (max-width: 767px) {
+  .su-setting {
+    padding: 16px 16px 80px;
+  }
+
+  .su-setting__hero h2 {
+    font-size: 22px;
+  }
+
+  .su-setting__card {
+    padding: 16px;
+  }
+
+  .su-setting__form-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .su-setting__action-bar {
+    top: calc(12px + var(--su-safe-top, 0px));
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    min-width: 0;
+    padding: 10px 16px;
+    box-sizing: border-box;
+    border-radius: 16px;
+  }
+
+  .su-setting__bar-content {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .su-setting__bar-btns {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .su-setting__bar-btns > button {
+    min-height: 40px;
+  }
 }
 
-.su-setting__btn-save:hover {
-  opacity: 0.9;
+@media (min-width: 768px) and (max-width: 1023px) {
+  .su-setting {
+    padding: 24px 24px 64px 24px;
+  }
 }

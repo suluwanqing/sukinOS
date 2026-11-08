@@ -2,6 +2,7 @@ import React, {useEffect, useState, useRef, useCallback} from 'react'
 import style from './style.module.css'
 import {createNamespace} from '/utils/js/classcreate'
 import {getBoard, putBoard, uid} from '../db'
+import {useViewportMode} from '@/sukinos/hooks/useViewportMode'
 
 const bem = createNamespace('draw-board-canvas')
 
@@ -470,6 +471,7 @@ const ICON_MAP = {
 }
 
 const Canvas = ({state, dispatch, navigate}) => {
+  const {isMobile} = useViewportMode()
   const canvasRef = useRef(null)
   const wrapRef = useRef(null)
   const clipRef = useRef(null)
@@ -477,6 +479,7 @@ const Canvas = ({state, dispatch, navigate}) => {
   const interaction = useRef(null)
   const [cursor, setCursor] = useState('default')
   const [clearConfirm, setClearConfirm] = useState(false)
+  const [panelOpen, setPanelOpen] = useState(false)
   const [spaceDown, setSpaceDown] = useState(false)
   const [, setTick] = useState(0)
 
@@ -1362,6 +1365,30 @@ const Canvas = ({state, dispatch, navigate}) => {
   const showProps =
     state.scene.selectedIds.length > 0 || !['select', 'pan', 'eraser', 'image'].includes(state.tool)
 
+
+  const commandButtons = (
+    <>
+      <button className={style[bem.e('tb-btn')]} onClick={exportPNG}>
+        <svg viewBox="0 0 24 24">
+          <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+        </svg>
+        导出 PNG
+      </button>
+      <button className={style[bem.e('tb-btn')]} onClick={exportJSON}>
+        <svg viewBox="0 0 24 24">
+          <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+        </svg>
+        导出 JSON
+      </button>
+      <button className={style[bem.e('tb-btn')]} onClick={() => setClearConfirm(true)}>
+        <svg viewBox="0 0 24 24">
+          <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
+        </svg>
+        清空
+      </button>
+    </>
+  )
+
   return (
     <div className={style[bem.b()]}>
       <div className={style[bem.e('main')]} ref={wrapRef}>
@@ -1369,10 +1396,11 @@ const Canvas = ({state, dispatch, navigate}) => {
           ref={canvasRef}
           className={style[bem.e('canvas')]}
           style={{cursor}}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
+          onPointerDown={onMouseDown}
+          onPointerMove={onMouseMove}
+          onPointerUp={onMouseUp}
+          onPointerLeave={onMouseUp}
+          onPointerCancel={onMouseUp}
           onContextMenu={e => e.preventDefault()}
           onDoubleClick={e => {
             const {x, y} = screenToWorld(e)
@@ -1433,31 +1461,51 @@ const Canvas = ({state, dispatch, navigate}) => {
               <path d="M18.4 10.6C16.55 8.99 14.15 8 11.5 8c-4.65 0-8.58 3.03-9.96 7.22L3.9 16c1.05-3.19 4.05-5.5 7.6-5.5 1.95 0 3.73.72 5.12 1.88L13 16h9V7l-3.6 3.6z" />
             </svg>
           </button>
-          <div className={style[bem.e('tb-sep')]} />
-          <button className={style[bem.e('tb-btn')]} onClick={exportPNG}>
-            <svg viewBox="0 0 24 24">
-              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
-            </svg>
-            导出 PNG
-          </button>
-          <button className={style[bem.e('tb-btn')]} onClick={exportJSON}>
-            <svg viewBox="0 0 24 24">
-              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
-            </svg>
-            导出 JSON
-          </button>
-          <div className={style[bem.e('tb-sep')]} />
-          <button className={style[bem.e('tb-btn')]} onClick={() => setClearConfirm(true)}>
-            <svg viewBox="0 0 24 24">
-              <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
-            </svg>
-            清空
-          </button>
+          {!isMobile && (
+            <>
+              <div className={style[bem.e('tb-sep')]} />
+              {commandButtons}
+            </>
+          )}
+          {isMobile && (
+            <button
+              className={[
+                style[bem.e('tb-btn')],
+                panelOpen ? style[bem.is('active', true)] : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+              onClick={() => setPanelOpen(o => !o)}
+            >
+              面板
+            </button>
+          )}
         </div>
 
-        {showProps && (
-          <div className={style[bem.e('props')]}>
-            {state.scene.selectedIds.length > 0 && (
+        {/* 移动端：属性区变成底部面板，命令按钮一并收纳，桌面档保 持常驻 */}
+        {(showProps || isMobile) && (
+          <>
+            {isMobile && panelOpen && (
+              <div className={style[bem.e('panel-backdrop')]} onClick={() => setPanelOpen(false)} />
+            )}
+            <div
+              className={[
+                style[bem.e('props')],
+                isMobile ? style[bem.em('props', 'drawer')] : '',
+                isMobile && panelOpen ? style[bem.is('open', true)] : '',
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            >
+              {isMobile && (
+                <div className={style[bem.e('prop-row')]}>
+                  <div className={style[bem.e('prop-label')]}>操作</div>
+                  <div className={style[bem.e('pills')]} style={{flexWrap: 'wrap'}}>
+                    {commandButtons}
+                  </div>
+                </div>
+              )}
+              {state.scene.selectedIds.length > 0 && (
               <div className={style[bem.e('prop-row')]}>
                 <div className={style[bem.e('prop-label')]}>层级与操作</div>
                 <div className={style[bem.e('pills')]} style={{flexWrap: 'wrap'}}>
@@ -1665,7 +1713,8 @@ const Canvas = ({state, dispatch, navigate}) => {
                 </div>
               </div>
             )}
-          </div>
+            </div>
+          </>
         )}
 
         <div className={style[bem.e('zoom')]}>

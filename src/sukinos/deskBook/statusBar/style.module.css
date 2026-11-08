@@ -120,3 +120,53 @@
 .su-status__icon-box:active .su-status__active-hibernated {
   transform: scaleX(0.625);
 }
+
+
+@media (max-width: 767px) {
+  .su-status {
+    width: 100dvw;
+    height: var(--su-status-bar-height);
+    padding-bottom: var(--su-safe-bottom, 0px);
+    box-sizing: border-box;
+
+    animation: suStatusRise 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .su-status__container {
+    gap: 4px;
+    padding: 6px 8px;
+    border-radius: 14px;
+    max-width: calc(100vw - 16px);
+    touch-action: pan-x;
+  }
+
+  .su-status__icon-box {
+    width: 40px;
+    height: 40px;
+  }
+
+  .su-status__app-icon svg {
+    font-size: 24px;
+  }
+
+  .su-status__app-icon > img {
+    height: 24px;
+  }
+}
+
+@keyframes suStatusRise {
+  from {
+    transform: translateX(-50%) translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .su-status {
+    animation: none;
+  }
+}

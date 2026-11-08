@@ -1,7 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
-import { Server as DnsIcon, CloudUpload as CloudUploadIcon, CloudDownload as CloudDownloadIcon, MonitorDown as SystemUpdateAltIcon, UserCog as ManageAccountsIcon, Code as CodeIcon } from 'lucide-react';
+import Drawer from '@/component/drawer/layout';
+import { Button } from '@/component/button/layout';
+import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
+import { Menu as MenuIcon, Server as DnsIcon, CloudUpload as CloudUploadIcon, CloudDownload as CloudDownloadIcon, MonitorDown as SystemUpdateAltIcon, UserCog as ManageAccountsIcon, Code as CodeIcon } from 'lucide-react';
 const bem = createNamespace('store-helper');
 const codeUpload = `@appManage.post('/upload')
 async def sukinOS_upload(
@@ -260,36 +263,64 @@ const docSections = [
 
 const StoreHelper = () => {
   const [activeTabId, setActiveTabId] = useState('intro');
+  const [navOpen, setNavOpen] = useState(false);
+  const { isMobile } = useViewportMode();
 
   const ActiveComponent = useMemo(() =>
     docSections.find(s => s.id === activeTabId)?.component || IntroSection,
   [activeTabId]);
 
+  const activeSection = docSections.find(s => s.id === activeTabId) || docSections[0];
+
+  const sidebar = (
+    <div className={style[bem.e('sidebar')]}>
+      <div className={style[bem.e('header')]}>
+        <h3>源 API 手册</h3>
+      </div>
+      <div className={style[bem.e('nav')]}>
+        {docSections.map(item => (
+          <div
+            key={item.id}
+            className={[
+              style[bem.e('nav-item')],
+              style[bem.is('active', activeTabId === item.id)]
+            ].join(' ')}
+            onClick={() => {
+              setActiveTabId(item.id);
+              setNavOpen(false);
+            }}
+          >
+            <span className={style[bem.e('nav-icon')]}>{item.icon}</span>
+            <span className={style[bem.e('nav-label')]}>{item.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
     <div className={style[bem.b()]}>
-      <div className={style[bem.e('sidebar')]}>
-        <div className={style[bem.e('header')]}>
-          <h3>源 API 手册</h3>
+      {isMobile ? (
+        <div className={style[bem.e('mobile-bar')]}>
+          <Button
+            variant="outline"
+            size="icon-lg"
+            onClick={() => setNavOpen(true)}
+            aria-label="打开手册目录"
+          >
+            <MenuIcon size={20} />
+          </Button>
+          <span className={style[bem.e('mobile-title')]}>{activeSection.label}</span>
         </div>
-        <div className={style[bem.e('nav')]}>
-          {docSections.map(item => (
-            <div
-              key={item.id}
-              className={[
-                style[bem.e('nav-item')],
-                style[bem.is('active', activeTabId === item.id)]
-              ].join(' ')}
-              onClick={() => setActiveTabId(item.id)}
-            >
-              <span className={style[bem.e('nav-icon')]}>{item.icon}</span>
-              <span className={style[bem.e('nav-label')]}>{item.label}</span>
-            </div>
-          ))}
-        </div>
-      </div>
+      ) : sidebar}
       <div className={style[bem.e('content')]}>
         <ActiveComponent />
       </div>
+      {isMobile && (
+        <Drawer open={navOpen} onClose={() => setNavOpen(false)} label="手册目录">
+          {sidebar}
+        </Drawer>
+      )}
     </div>
   );
 }

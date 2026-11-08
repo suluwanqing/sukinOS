@@ -3,6 +3,9 @@ import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 import { Columns3 as ViewColumnIcon, Trash2 as DeleteIcon, ChevronDown as ArrowDropDownIcon } from 'lucide-react';
 import CustomSelect from '../components/select/layout';
+import { Button } from '@/component/button/layout';
+import { Input } from '@/component/input/layout';
+import Check from '@/component/check/layout';
 
 const bem = createNamespace('br-presets');
 
@@ -80,8 +83,7 @@ function PresetColumnsView({ store }) {
         <div className={style[bem.e('form-body')]}>
           <div className={style[bem.e('form-group')]}>
             <label>预制列名称</label>
-            <input
-              className={style[bem.e('input')]}
+            <Input
               value={name}
               onChange={e => setName(e.target.value)}
               placeholder="例如：紧急度"
@@ -115,15 +117,13 @@ function PresetColumnsView({ store }) {
           <div className={style[bem.e('form-group')]}>
             <label>默认值</label>
             {type === 'boolean' ? (
-              <input
-                type="checkbox"
+              <Check
                 checked={defaultValue === 'true'}
-                onChange={e => setDefaultValue(e.target.checked ? 'true' : 'false')}
+                onChange={(val) => setDefaultValue(val ? 'true' : 'false')}
               />
             ) : (
-              <input
+              <Input
                 type={type === 'number' ? 'number' : type === 'date' ? 'date' : 'text'}
-                className={style[bem.e('input')]}
                 value={defaultValue}
                 onChange={e => setDefaultValue(e.target.value)}
                 placeholder="预设默认填充值"
@@ -133,10 +133,9 @@ function PresetColumnsView({ store }) {
 
           <div className={style[bem.e('form-group-checkbox')]}>
             <label className={style[bem.e('checkbox-label')]}>
-              <input
-                type="checkbox"
+              <Check
                 checked={sortable}
-                onChange={e => setSortable(e.target.checked)}
+                onChange={(val) => setSortable(val)}
               />
               <span>支持数据排序</span>
             </label>
@@ -154,24 +153,24 @@ function PresetColumnsView({ store }) {
                       value={opt.color}
                       onChange={e => updateOption(idx, 'color', e.target.value)}
                     />
-                    <input
+                    <Input
                       className={style[bem.e('opt-input')]}
                       value={opt.label}
                       onChange={e => updateOption(idx, 'label', e.target.value)}
                     />
-                    <button className={style[bem.e('opt-del')]} onClick={() => removeOption(idx)}>×</button>
+                    <Button variant="ghost" size="icon-xs" onClick={() => removeOption(idx)}>×</Button>
                   </div>
                 ))}
-                <button className={style[bem.e('opt-add')]} onClick={addOption}>
+                <Button variant="outline" size="sm" block onClick={addOption}>
                   + 添加选项
-                </button>
+                </Button>
               </div>
             </div>
           )}
 
-          <button className={style[bem.e('submit-btn')]} onClick={handleAddPreset}>
+          <Button block onClick={handleAddPreset}>
             确认并添加至预制
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -190,9 +189,9 @@ function PresetColumnsView({ store }) {
                     {fieldTypes.find(t => t.value === p.type)?.label}
                   </span>
                 </div>
-                <button className={style[bem.e('card-del-btn')]} onClick={() => handleDelete(p.id, p.name)}>
+                <Button variant="ghost" size="icon-sm" onClick={() => handleDelete(p.id, p.name)}>
                   <DeleteIcon size={16} />
-                </button>
+                </Button>
               </div>
 
               <div className={style[bem.e('card-body')]}>
@@ -221,14 +220,10 @@ function PresetColumnsView({ store }) {
                 </span>
                 <div className={style[bem.e('toggle-wrap')]}>
                   <span className={style[bem.e('toggle-label')]}>{p.enabled ? '已启用' : '已停用'}</span>
-                  <label className={style[bem.e('switch')]}>
-                    <input
-                      type="checkbox"
-                      checked={p.enabled !== false}
-                      onChange={() => handleToggle(p.id)}
-                    />
-                    <span className={style[bem.e('slider')]} />
-                  </label>
+                  <Check
+                    checked={p.enabled !== false}
+                    onChange={() => handleToggle(p.id)}
+                  />
                 </div>
               </div>
             </div>

@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 
 
 const barVariants = cva(
-  'fixed left-1/2 top-[30px] z-[1000] w-auto min-w-80 -translate-x-1/2 rounded-full border border-border bg-popover px-6 py-2.5 text-popover-foreground shadow-lg transition-all duration-500 ease-[cubic-bezier(0.175,0.885,0.32,1.275)]',
+  'fixed left-1/2 top-[30px] z-[1000] w-auto min-w-[min(20rem,calc(100%-24px))] max-w-[calc(100%-24px)] -translate-x-1/2 rounded-full border border-border bg-popover px-5 py-2 text-popover-foreground shadow-lg transition-all duration-500 ease-[cubic-bezier(0.175,0.885,0.32,1.275)] max-[767px]:top-[calc(12px+var(--su-safe-top,0px))] max-[767px]:px-4 max-[767px]:rounded-2xl',
   {
     variants: {
       visible: {
@@ -17,7 +17,7 @@ const barVariants = cva(
 )
 
 const barButtonVariants = cva(
-  'flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none px-4 py-1.5 text-xs font-bold outline-none transition-all duration-200 focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-60',
+  'flex cursor-pointer items-center justify-center gap-1.5 rounded-full border-none px-4 py-1.5 text-xs font-bold transition-all duration-200 focus-visible:outline-2 disabled:cursor-not-allowed disabled:opacity-60',
   {
     variants: {
       tone: {
@@ -42,12 +42,12 @@ export const AlertConfirm = ({
 }) => {
   return (
     <div className={cn(barVariants({ visible }), className)}>
-      <div className="flex items-center justify-between gap-5">
-        <span className="whitespace-nowrap text-[13px] font-medium">{title}</span>
-        <div className="flex items-center gap-2.5">
+      <div className="flex flex-wrap items-center justify-between gap-5 max-[767px]:gap-2">
+        <span className="min-w-0 whitespace-nowrap text-[13px] font-medium max-[767px]:whitespace-normal">{title}</span>
+        <div className="flex items-center gap-2.5 max-[767px]:w-full max-[767px]:justify-end">
           <button
             type="button"
-            className={barButtonVariants({ tone: 'cancel' })}
+            className={cn(barButtonVariants({ tone: 'cancel' }), 'max-[767px]:min-h-9')}
             onClick={onCancel}
             disabled={loading}
           >
@@ -55,7 +55,7 @@ export const AlertConfirm = ({
           </button>
           <button
             type="button"
-            className={barButtonVariants({ tone: confirmType })}
+            className={cn(barButtonVariants({ tone: confirmType }), 'max-[767px]:min-h-9')}
             onClick={onConfirm}
             disabled={loading}
           >

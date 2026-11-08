@@ -92,8 +92,8 @@ export const useAuth = (bizType = 'login') => {
         type: bizType,
         seed: generateShortSeed()
       });
-      if (res.code === 200) {
-        alert.success("验证码发送成功");
+      if (res?.code === 200 && res?.data?.id) {
+        alert.success(res.message || res.msg || "验证码发送成功");
         dispatch(sukinOsActions.startVerificationCountdown({
           type: bizType,
           id: res.data.id,               // 后端生成的 codeId
@@ -103,11 +103,12 @@ export const useAuth = (bizType = 'login') => {
         }));
         return true;
       } else {
-        alert.failure(res.msg || res.message || "发送失败");
+        // 未成功发送验证码（包括429限流、403未注册等），统一展示后端返回的真实提示
+        alert.failure(res?.msg || res?.message || "发送失败");
         return false;
       }
     } catch (e) {
-      alert.warning("网络异常");
+      alert.warning("网络连接超时，请稍后重试");
       return false;
     } finally {
       setIsSending(false);
