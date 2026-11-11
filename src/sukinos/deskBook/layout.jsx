@@ -7,6 +7,7 @@ import DesktopGrid from "./views/DesktopGrid"
 import MobilePagingGrid from "./views/MobilePagingGrid"
 import WindowLayer from "./views/WindowLayer"
 import AppEditOverlay from "./views/AppEditOverlay"
+import FloatingBall from "./floatingBall/layout"
 import { CELL_SIZE, MOBILE_CELL_SIZE, MOBILE_GAP_SIZE, MOBILE_PADDING } from "./constants"
 import useKernel from "@/sukinos/hooks/useKernel"
 import { ENV_KEY_RESOURCE_ID } from "@/sukinos/utils/config"
@@ -46,9 +47,9 @@ function DeskBook() {
   const {
     isRunningApps, showDisplay, activeWindowPids, sortedRunningApps,
     deferredZOrders, deferredCurrentFocus, currentFocus,
-    showWindowSwitcher, selectedWindowIndex, setSelectedWindowIndex, setShowWindowSwitcher,
+    showWindowSwitcher, switcherFromBack, selectedWindowIndex, setSelectedWindowIndex, setShowWindowSwitcher,
     handleFocus, handleStartApp, handleColseApp, handleForceKill,
-    closeWindowSwitcher, handleMobileDismissToHome, handleSelectWindow, handleSwitcherAppSelect
+    closeWindowSwitcher, openSwitcherForBack, handleMobileDismissToHome, handleSelectWindow, handleSwitcherAppSelect
   } = useDeskWindows({ apps, setting, kernel, startApp, isMobile, personalConfig, generateAppSetting });
 
   // --- DOM 引用 ---
@@ -149,6 +150,18 @@ function DeskBook() {
   // 窗口铺满到安全区，状态栏只是浮层
   const statusBarVisible = !isMobile && statusBarOpen;
 
+  const floatingBallEnabled = isMobile && !!personalConfig?.mobileFloatingBall;
+  useEffect(() => {
+    if (!floatingBallEnabled) return;
+    const root = document.documentElement;
+    root.style.setProperty('--su-gesture-band', '0px');
+    root.style.setProperty('--su-gesture-bottom', 'var(--su-safe-bottom)');
+    return () => {
+      root.style.removeProperty('--su-gesture-band');
+      root.style.removeProperty('--su-gesture-bottom');
+    };
+  }, [floatingBallEnabled]);
+
   // --- 移动端底部手势：轻划回桌面，上滑进多任务 ---
   const { handleEdgePointerDown, handleEdgePointerMove, handleEdgePointerUp } = useEdgeGestures({
     isMobile,
@@ -179,7 +192,7 @@ function DeskBook() {
           position: 'absolute',
           willChange: 'transform',
           transform: 'translateZ(0)',
-          top: 0, left: 0, width: '100%', height: '100%', zIndex: -1, pointerEvents: 'none', overflow: 'hidden'
+          top: -1, left: -1, width: 'calc(100% + 2px)', height: 'calc(100% + 2px)', zIndex: -1, pointerEvents: 'none', overflow: 'hidden'
         }}></div>
           <ContextMenu menuItems={deskBookMenuItems}>
             <div
@@ -276,14 +289,32 @@ function DeskBook() {
             onSelect={handleSelectWindow}
             onHoverIndex={setSelectedWindowIndex}
             onSelectApp={handleSwitcherAppSelect}
-            onDismissAll={handleMobileDismissToHome}
+            onDismissAll={switcherFromBack ? closeWindowSwitcher : handleMobileDismissToHome}
             onForceKill={handleForceKill}
             windowSlotsRef={windowSlotsRef}
             onReleaseSlot={releaseWindowSlot}
           />
 
-          {/* 隐藏的底部手势感应区 */}
-          {isMobile && (
+          {floatingBallEnabled && (
+            <FloatingBall
+              apps={apps}
+              currentFocus={currentFocus}
+              isRunningApps={isRunningApps}
+              showWindowSwitcher={showWindowSwitcher}
+              kernel={kernel}
+              ballSize={personalConfig?.mobileFloatingBallSize}
+              ballOpacity={personalConfig?.mobileFloatingBallOpacity}
+              ballColor={personalConfig?.mobileFloatingBallColor}
+              ballTextColor={personalConfig?.mobileFloatingBallTextColor}
+              ballIconOnly={!!personalConfig?.mobileFloatingBallIconOnly}
+              onStartApp={handleStartApp}
+              onOpenSwitcher={openSwitcherForBack}
+              onHome={handleMobileDismissToHome}
+            />
+          )}
+
+
+          {isMobile && !floatingBallEnabled && !showWindowSwitcher && (
             <div
               role="button"
               tabIndex={0}

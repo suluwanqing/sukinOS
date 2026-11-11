@@ -2,7 +2,10 @@
 --custom-window-header-color
 --custom-window-header-bg
 --custom-window-border-radius
---su-os-window-padding
+--su-os-window-padding-top
+--su-os-window-padding-right
+--su-os-window-padding-bottom
+--su-os-window-padding-left
 --su-os-surface-bg
 */
 .su-window {
@@ -111,8 +114,12 @@
   position: relative;
   /* 核心：内容层设置为透明以免阻挡毛玻璃背景效果 */
   background: transparent !important;
-  /* 应用个性化设置中的内边距 */
-  padding: var(--su-os-window-padding, 0px);
+  /* 应用个性化设置中的四向内边距；槽被 reparent 到 body 时靠兜底值保底 */
+  padding:
+    var(--su-os-window-padding-top, 0px)
+    var(--su-os-window-padding-right, 0px)
+    var(--su-os-window-padding-bottom, 0px)
+    var(--su-os-window-padding-left, 0px);
 }
 
 .su-window__resize-handle {
@@ -295,7 +302,7 @@
   top: 0 !important;
   left: 0 !important;
   right: 0 !important;
-  z-index: 1001 !important; 
+  z-index: 1001 !important;
   /* will-change: transform, opacity; */
   transform: translateY(-100%) !important;
   opacity: 0 !important;
@@ -317,13 +324,14 @@
 }
 
 /* 隐藏生效时，内容主区域向上无缝直顶，防止标题栏占位产生多余空白白条 */
-.su-window:global(.is-hide-header-hover):not(:global(.sukin-ubuntu-preview-mode))
+.su-window:global(.is-hide-header-hover):not(.is-mobile):not(:global(.sukin-ubuntu-preview-mode))
   .su-window__content {
   padding-top: 0 !important;
 }
 
 .su-window.is-mobile {
-  inset: 0 0 var(--su-safe-bottom, 0px) 0 !important;
+
+  inset: 0 !important;
   width: auto !important;
   height: auto !important;
   max-height: none;

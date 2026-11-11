@@ -18,8 +18,8 @@ const applyExitMotion = (cardEl) => {
 function MobileTaskCard({ app, windowSlotsRef, onSelect, onClose, onReleaseSlot, exiting }) {
   const cardRef = useRef(null);
   const previewHostRef = useRef(null);
-  const touchStartRef = useRef(0);
-  const currentYRef = useRef(0);
+  const gestureRef = useRef(null);
+  const suppressClickRef = useRef(false);
 
   const screenW = typeof window !== 'undefined' ? window.innerWidth : 375;
   const screenH = typeof window !== 'undefined' ? window.innerHeight : 667;
@@ -60,18 +60,14 @@ function MobileTaskCard({ app, windowSlotsRef, onSelect, onClose, onReleaseSlot,
     cardEl.style.opacity = String(Math.max(0.15, 1 - Math.abs(dy) / 220));
   };
 
-  const beginMotion = () => {
-    const cardEl = cardRef.current;
-    if (!cardEl) return;
-    cardEl.style.transition = 'none';
-    cardEl.style.willChange = 'transform, opacity';
-  };
-
-  const settleMotion = () => {
+  // 只清内联样式，让 CSS 自带的过渡把卡片带回原位
+  const resetMotion = () => {
     const cardEl = cardRef.current;
     if (!cardEl) return;
     cardEl.style.transition = '';
     cardEl.style.willChange = '';
+    cardEl.style.transform = '';
+    cardEl.style.opacity = '';
   };
 
 
@@ -88,31 +84,79 @@ function MobileTaskCard({ app, windowSlotsRef, onSelect, onClose, onReleaseSlot,
 
   const handleTouchStart = (e) => {
     if (exiting) return;
-    touchStartRef.current = e.touches[0].clientY;
-    currentYRef.current = 0;
-    beginMotion();
+    const touch = e.touches[0];
+    suppressClickRef.current = false;
+    gestureRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      axis: null,
+      dy: 0,
+    };
   };
 
+  // 横向交给原生滚动，纵向才进入上滑收起，避免横拖时被纵向抖动抽起
   const handleTouchMove = (e) => {
-    const dy = e.touches[0].clientY - touchStartRef.current;
-    if (dy < 0) {
-      currentYRef.current = dy;
-      applyMotion(dy);
+    const gesture = gestureRef.current;
+    if (!gesture || exiting) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - gesture.startX;
+    const dy = touch.clientY - gesture.startY;
+
+    if (!gesture.axis) {
+      const ax = Math.abs(dx);
+      const ay = Math.abs(dy);
+      if (ax < 8 && ay < 8) return;
+      // 横向优先：轻微偏斜仍视为横滑，交给原生滚动
+      if (ax >= 8 && ax > ay * 1.2) {
+        gesture.axis = 'x';
+        suppressClickRef.current = true;
+        return;
+      }
+      // 纵向必须又向上又明显垂直，斜向起手保持未定，避免误抬卡片
+      if (dy <= -12 && ay > ax * 1.5) {
+        gesture.axis = 'y';
+        suppressClickRef.current = true;
+        const cardEl = cardRef.current;
+        if (cardEl) {
+          cardEl.style.transition = 'none';
+          cardEl.style.willChange = 'transform, opacity';
+        }
+      } else {
+        return;
+      }
     }
+
+    if (gesture.axis !== 'y') return;
+    if (dy >= 0) {
+      // 回拖到起点以下：立即归位，避免卡片停在旧位移直到松手
+      gesture.dy = 0;
+      const cardEl = cardRef.current;
+      if (cardEl) {
+        cardEl.style.transition = 'none';
+        cardEl.style.transform = 'translateY(0)';
+        cardEl.style.opacity = '1';
+      }
+      return;
+    }
+    gesture.dy = dy;
+    applyMotion(dy);
   };
 
   const handleTouchEnd = () => {
-    if (currentYRef.current < -(screenH * 0.18)) {
+    const gesture = gestureRef.current;
+    gestureRef.current = null;
+    if (!gesture || gesture.axis !== 'y') return;
+    if (gesture.dy < -(screenH * 0.18)) {
       handlePerformClose();
       return;
     }
-    settleMotion();
-    if (currentYRef.current !== 0) applyMotion(0);
+    resetMotion();
   };
 
   const handleTouchCancel = () => {
-    settleMotion();
-    if (currentYRef.current !== 0) applyMotion(0);
+    const gesture = gestureRef.current;
+    gestureRef.current = null;
+    if (gesture?.axis === 'y') resetMotion();
   };
 
   const appName = app?.[ENV_KEY_NAME]?.replace(SUKIN_EXT, '')?.replace(SUKIN_PRE, '') || '应用';
@@ -131,6 +175,10 @@ function MobileTaskCard({ app, windowSlotsRef, onSelect, onClose, onReleaseSlot,
       onTouchCancel={handleTouchCancel}
       onClick={(e) => {
         e.stopPropagation();
+        if (suppressClickRef.current) {
+          suppressClickRef.current = false;
+          return;
+        }
         if (exiting) return;
         onSelect(app.pid);
       }}

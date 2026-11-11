@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, memo } from 'react';
 import style from "./style.module.css";
 import { createNamespace } from '/utils/js/classcreate';
 
-import { SunMedium as LightModeIcon, Type as TextFieldsIcon, Wallpaper as WallpaperIcon, Square as RoundedCornerIcon, PaintBucket as InvertColorsIcon, Image as ImageOutlinedIcon, Video as VideocamOutlinedIcon, Palette as ColorLensOutlinedIcon, AppWindow as WebAssetOutlinedIcon, LayoutDashboard as DashboardOutlinedIcon, LayoutGrid as GridViewOutlinedIcon, Paintbrush as StyleOutlinedIcon, Cpu as MemoryIcon } from 'lucide-react';
+import { SunMedium as LightModeIcon, Type as TextFieldsIcon, Wallpaper as WallpaperIcon, Square as RoundedCornerIcon, PaintBucket as InvertColorsIcon, Image as ImageOutlinedIcon, Video as VideocamOutlinedIcon, Palette as ColorLensOutlinedIcon, AppWindow as WebAssetOutlinedIcon, LayoutDashboard as DashboardOutlinedIcon, LayoutGrid as GridViewOutlinedIcon, Paintbrush as StyleOutlinedIcon, Cpu as MemoryIcon, Circle as FloatingBallIcon, PanelBottom as GestureBandIcon } from 'lucide-react';
 
 import usePersonalization, {
   PRESET_BG_COLORS,
@@ -214,7 +214,8 @@ const Personalization = () => {
     updateCustomColor,
     getFileBase64,
     applyPresetStyle,
-    getAllPresetStyles
+    getAllPresetStyles,
+    getCurrentAccentColor
   } = usePersonalization();
 
   const [bgTab, setBgTab] = useState('image');
@@ -230,6 +231,10 @@ const Personalization = () => {
   const currentDeskFontHex = scaleColor(config.customDeskFontColor, defaultPersonalization.deskFontColor);
   const currentWindowHeaderBgHex = scaleColor(config.customWindowHeaderBg, defaultPersonalization.windowHeaderBg);
   const currentWindowHeaderColorHex = scaleColor(config.customWindowHeaderColor, defaultPersonalization.windowHeaderColor);
+  const floatingBallFollowAccent = !config.mobileFloatingBallColor || config.mobileFloatingBallColor === 'auto';
+  const currentFloatingBallHex = scaleColor(config.customFloatingBallColor, '#0ea5e9');
+  const currentFloatingBallTextHex = scaleColor(config.customFloatingBallTextColor, '#fafafa');
+  const currentGestureBandHex = scaleColor(config.customGestureBandColor, defaultPersonalization.gestureBandColor);
 
   return (
     <div className={style[bem.b()]}>
@@ -681,9 +686,149 @@ const Personalization = () => {
           <div className={style[bem.e('divider')]}></div>
           <SliderRow label="背景透明" hint="不会穿透" value={config.windowOpacity} min={0} max={100} unit="%" onChange={(val) => updateConfig('windowOpacity', val)} />
           <div className={style[bem.e('divider')]}></div>
-          <SliderRow label="窗口内距" value={config.windowPadding} min={0} max={40} unit="px" onChange={(val) => updateConfig('windowPadding', val)} />
+          <div>
+            <span className={style[bem.e('label-bold')]}>窗口内距</span>
+            <span className={style[bem.e('description')]}>分别控制窗口内容与四条边的距离，桌面与移动端同时生效</span>
+          </div>
+          <SliderRow label="上" value={config.windowPaddingTop} min={0} max={40} unit="px" onChange={(val) => updateConfig('windowPaddingTop', val)} />
+          <SliderRow label="右" value={config.windowPaddingRight} min={0} max={40} unit="px" onChange={(val) => updateConfig('windowPaddingRight', val)} />
+          <SliderRow label="下" value={config.windowPaddingBottom} min={0} max={40} unit="px" onChange={(val) => updateConfig('windowPaddingBottom', val)} />
+          <SliderRow label="左" value={config.windowPaddingLeft} min={0} max={40} unit="px" onChange={(val) => updateConfig('windowPaddingLeft', val)} />
         </div>
       </div>
+
+      {isMobile && (
+        <div className={style[bem.e('section')]}>
+          <div className={style[bem.e('section-title')]}><FloatingBallIcon size={18} style={{ marginRight: 8 }} /> 悬浮球</div>
+          <div className={style[bem.e('card')]}>
+            <div className={style[bem.e('toggle-row')]}>
+              <div>
+                <span className={style[bem.e('label-bold')]}>启用悬浮球</span>
+                <span className={style[bem.e('description')]}>显示可拖拽悬浮球，聚合打开应用、返回与回到桌面；开启后隐藏系统手势带</span>
+              </div>
+              <Check
+                checked={!!config.mobileFloatingBall}
+                onChange={(val) => updateConfig('mobileFloatingBall', val)}
+              />
+            </div>
+            {config.mobileFloatingBall && (
+              <>
+                <div className={style[bem.e('divider')]}></div>
+                <SliderRow
+                  label="球体大小"
+                  value={config.mobileFloatingBallSize}
+                  min={36}
+                  max={72}
+                  step={2}
+                  unit="px"
+                  onChange={(val) => updateConfig('mobileFloatingBallSize', val)}
+                />
+                <SliderRow
+                  label="透明度"
+                  hint="过低会难以找到悬浮球"
+                  value={config.mobileFloatingBallOpacity}
+                  min={30}
+                  max={100}
+                  unit="%"
+                  onChange={(val) => updateConfig('mobileFloatingBallOpacity', val)}
+                />
+                <div className={style[bem.e('divider')]}></div>
+                <div className={style[bem.e('toggle-row')]}>
+                  <div>
+                    <span className={style[bem.e('label-bold')]}>跟随强调色</span>
+                    <span className={style[bem.e('description')]}>关闭后可单独选择悬浮球颜色</span>
+                  </div>
+                  <Check
+                    checked={floatingBallFollowAccent}
+                    onChange={(val) => updateConfig('mobileFloatingBallColor', val ? 'auto' : getCurrentAccentColor())}
+                  />
+                </div>
+                <div>
+                  <span className={style[bem.e('label-bold')]}>球体颜色</span>
+                  <ColorSelector
+                    type="small"
+                    presets={PRESET_ACCENTS}
+                    currentValue={config.mobileFloatingBallColor}
+                    customConfig={config.customFloatingBallColor}
+                    customHex={currentFloatingBallHex}
+                    onSelectPreset={(val) => updateConfig('mobileFloatingBallColor', val)}
+                    onUpdateCustom={(base, shade) => updateCustomColor('floatingBall', base, shade)}
+                  />
+                </div>
+                <div className={style[bem.e('divider')]}></div>
+                <div>
+                  <span className={style[bem.e('label-bold')]}>图标 / 文字颜色</span>
+                  <span className={style[bem.e('description')]}>同时作用于球体图标与菜单文字</span>
+                  <ColorSelector
+                    type="small"
+                    presets={PRESET_ACCENTS}
+                    currentValue={config.mobileFloatingBallTextColor}
+                    customConfig={config.customFloatingBallTextColor}
+                    customHex={currentFloatingBallTextHex}
+                    onSelectPreset={(val) => updateConfig('mobileFloatingBallTextColor', val)}
+                    onUpdateCustom={(base, shade) => updateCustomColor('floatingBallText', base, shade)}
+                  />
+                </div>
+                <div className={style[bem.e('divider')]}></div>
+                <div>
+                  <span className={style[bem.e('label-bold')]}>显示模式</span>
+                  <div className={style[bem.e('btn-group')]}>
+                    <button
+                      type="button"
+                      className={`${style[bem.e('chip')]} ${!config.mobileFloatingBallIconOnly ? style[bem.is('active', true)] : ''}`}
+                      onClick={() => updateConfig('mobileFloatingBallIconOnly', false)}
+                    >图标 + 文字</button>
+                    <button
+                      type="button"
+                      className={`${style[bem.e('chip')]} ${config.mobileFloatingBallIconOnly ? style[bem.is('active', true)] : ''}`}
+                      onClick={() => updateConfig('mobileFloatingBallIconOnly', true)}
+                    >仅图标</button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {isMobile && (
+        <div className={style[bem.e('section')]}>
+          <div className={style[bem.e('section-title')]}><GestureBandIcon size={18} style={{ marginRight: 8 }} /> 手势感应区</div>
+          <div className={style[bem.e('card')]}>
+            <SliderRow
+              label="显示高度"
+              hint="0 为隐藏；仅作视觉提示，不改变底部手势热区"
+              value={config.gestureBandHeight}
+              min={0}
+              max={40}
+              unit="px"
+              onChange={(val) => updateConfig('gestureBandHeight', val)}
+            />
+            <SliderRow
+              label="不透明度"
+              hint="0 为完全透明"
+              value={config.gestureBandOpacity}
+              min={0}
+              max={100}
+              unit="%"
+              onChange={(val) => updateConfig('gestureBandOpacity', val)}
+            />
+            <div className={style[bem.e('divider')]}></div>
+            <div>
+              <span className={style[bem.e('label-bold')]}>显示颜色</span>
+              <ColorSelector
+                type="small"
+                presets={PRESET_ACCENTS}
+                currentValue={config.gestureBandColor}
+                customConfig={config.customGestureBandColor}
+                customHex={currentGestureBandHex}
+                onSelectPreset={(val) => updateConfig('gestureBandColor', val)}
+                onUpdateCustom={(base, shade) => updateCustomColor('gestureBand', base, shade)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className={style[bem.e('section')]}>
         <div className={style[bem.e('section-title')]}><MemoryIcon size={18} style={{ marginRight: 8 }} /> 性能优化</div>
@@ -704,32 +849,36 @@ const Personalization = () => {
           </div>
           <div className={style[bem.e('divider')]}></div>
           {isMobile ? (
-            <div className={style[bem.e('toggle-row')]}>
-              <div>
-                <span className={style[bem.e('label-bold')]}>移动端沉浸式</span>
-                <span className={style[bem.e('description')]}>开启后，在移动端交互时自动执行全屏模式（类似顶部全屏按钮），获得极致沉浸体验</span>
-              </div>
-              <Check
-                checked={!!config.mobileImmersive}
-                onChange={(val) => {
-                  updateConfig('mobileImmersive', val);
-                  try {
-                    if (val) {
-                      const docEl = document.documentElement;
-                      const requestFullscreen = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
-                      if (requestFullscreen) {
-                        requestFullscreen.call(docEl).catch(err => {});
+            <>
+              <div className={style[bem.e('toggle-row')]}>
+                <div>
+                  <span className={style[bem.e('label-bold')]}>移动端沉浸式</span>
+                  <span className={style[bem.e('description')]}>开启后，在移动端交互时自动执行全屏模式（类似顶部全屏按钮），获得极致沉浸体验</span>
+                </div>
+                <Check
+                  checked={!!config.mobileImmersive}
+                  onChange={(val) => {
+                    updateConfig('mobileImmersive', val);
+                    try {
+                      if (val) {
+                        const docEl = document.documentElement;
+                        const requestFullscreen = docEl.requestFullscreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+                        if (requestFullscreen) {
+                          requestFullscreen.call(docEl).catch(() => {});
+                        }
+                      } else {
+                        const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+                        if (exitFullscreen && document.fullscreenElement) {
+                          exitFullscreen.call(document).catch(() => {});
+                        }
                       }
-                    } else {
-                      const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
-                      if (exitFullscreen && document.fullscreenElement) {
-                        exitFullscreen.call(document).catch(err => {});
-                      }
+                    } catch {
+                      // 全屏切换失败不影响设置持久化
                     }
-                  } catch (error) {}
-                }}
-              />
-            </div>
+                  }}
+                />
+              </div>
+            </>
           ) : (
             <div className={style[bem.e('toggle-row')]}>
               <div>

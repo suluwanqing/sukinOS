@@ -1,5 +1,5 @@
-@import "tw-animate-css";
-@import "tailwindcss";
+@import 'tw-animate-css';
+@import 'tailwindcss';
 /* 组件库是唯一写裸 Tailwind 类的地方：业务侧（sukinos / apps / index）走 CSS Modules，
    所以这里只扫 component。改动这条之前先确认没有新增裸类名的目录。 */
 @source "./component";
@@ -14,6 +14,10 @@
 
 :root {
   --radius: 0.625rem;
+  --su-safe-top: env(safe-area-inset-top, 0px);
+  --su-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --su-gesture-band: clamp(18px, 3.5vh, 24px);
+  --su-gesture-bottom: max(var(--su-safe-bottom), var(--su-gesture-band));
 
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -32,16 +36,9 @@
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
   --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --input: oklch(0.89 0 0);
   --ring: oklch(0.708 0 0);
 
-  /* 业务侧存量 type 轴的三个语义档，按官网 theming 文档的自定义令牌方式承接。
-     这两个角色必须同时满足，取值时按此权衡：
-       角色 A 作前景色（toast 图标、plain 按钮文字）压在 bg-popover 上 -> 需 >= 3:1
-       角色 B 作按钮底色，上面压 --x-foreground -> 需 >= 4.5:1
-     浅色模式：底色要压白字，所以取中深色；加深对两个角色同向有利。
-     深色模式：底色要压深字，所以取中浅色（与官方 --primary 在深色下反色同理）。
-     warning 色相感知偏亮，两个模式都配深棕前景。 */
   --success: oklch(0.508 0.118 165.612);
   --success-foreground: oklch(0.985 0 0);
   --warning: oklch(0.666 0.179 75);
@@ -133,7 +130,7 @@
 
   /* Tailwind v4 把 button 的 cursor 改成了 default，按官网说明恢复 pointer */
   button:not(:disabled),
-  [role="button"]:not(:disabled) {
+  [role='button']:not(:disabled) {
     cursor: pointer;
   }
 }
@@ -142,11 +139,45 @@
    这里不要再写未分层的 * 规则：未分层的作者样式优先级高于所有分层样式，
    一条 padding: 0 就能压死 @layer utilities 里的内边距与外边距工具类，与特异性无关。 */
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body,
 #root {
   width: 100%;
   height: 100dvh;
   scroll-behavior: smooth;
+  overscroll-behavior: none;
+}
+
+/* 手机/平板不接受页面级双指缩放；画布等需要缩放的区域自己声明 touch-action */
+@media (max-width: 1023px) {
+  html,
+  body {
+    touch-action: pan-x pan-y;
+  }
+}
+
+/* 手机档状态栏本体高度。窗口与桌面网格不再按它让位（窗口铺满，网格只让出唤出条），
+   目前状态栏本体与贴边唤出条的落位读这一个值。 */
+@media (max-width: 767px) {
+  :root {
+    --su-status-bar-height: calc(60px + var(--su-safe-bottom, 0px));
+  }
+}
+
+/* iOS 聚焦小于 16px 的输入框会强制放大页面；这条不放进 @layer，
+   否则会被 utilities 里的 text-sm 等字号类压过。 */
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 767px) {
+    input,
+    textarea,
+    select {
+      /* 组件类里的 13px 等字号会盖过元素选择器，必须提高优先级才能压住聚焦放大 */
+      font-size: max(16px, 1em) !important;
+    }
+  }
 }
 
 body::-webkit-scrollbar {
@@ -169,42 +200,98 @@ body::-webkit-scrollbar {
 }
 
 @keyframes ui-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 @keyframes ui-fade-out {
-  from { opacity: 1; }
-  to { opacity: 0; }
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 @keyframes ui-pop-in {
-  from { opacity: 0; transform: scale(0.94) translateY(6px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.94) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 @keyframes ui-pop-out {
-  from { opacity: 1; transform: scale(1); }
-  to { opacity: 0; transform: scale(0.96); }
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 @keyframes ui-drop-in {
-  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 @keyframes ui-drop-in-up {
-  from { opacity: 0; transform: translateY(4px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 @keyframes ui-slide-down {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 @keyframes ui-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes ui-morph-jump {
-  0% { transform: translateY(0) rotate(0deg) scale(1); border-radius: 8px; }
-  50% { transform: translateY(-50px) rotate(180deg) scale(0.8); border-radius: 50%; }
-  100% { transform: translateY(0) rotate(360deg) scale(1); border-radius: 8px; }
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+    border-radius: 8px;
+  }
+  50% {
+    transform: translateY(-50px) rotate(180deg) scale(0.8);
+    border-radius: 50%;
+  }
+  100% {
+    transform: translateY(0) rotate(360deg) scale(1);
+    border-radius: 8px;
+  }
 }
 @keyframes ui-shadow-pulse {
-  0%, 100% { transform: scale(1.4); opacity: 0.3; }
-  50% { transform: scale(0.6); opacity: 0.05; }
+  0%,
+  100% {
+    transform: scale(1.4);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(0.6);
+    opacity: 0.05;
+  }
 }

@@ -26,11 +26,43 @@ function WindowSwitcher({
   const [clearing, setClearing] = useState(false)
   const timersRef = useRef([])
   const pendingRef = useRef(new Set())
+  const pressRef = useRef({ x: 0, y: 0, moved: false })
+
+  // 拖动后浏览器可能补发 click，不能让一次横滑把整个控制中心关掉
+  const handleRootTouchStart = (e) => {
+    const touch = e.touches[0]
+    pressRef.current = { x: touch.clientX, y: touch.clientY, moved: false }
+  }
+
+  const handleRootTouchMove = (e) => {
+    const press = pressRef.current
+    const touch = e.touches[0]
+    if (Math.hypot(touch.clientX - press.x, touch.clientY - press.y) > 10) {
+      press.moved = true
+    }
+  }
+
+  const handleDismiss = () => {
+    if (pressRef.current.moved) {
+      pressRef.current.moved = false
+      return
+    }
+    onDismissAll()
+  }
 
   useEffect(() => () => {
     timersRef.current.forEach(clearTimeout)
     timersRef.current = []
   }, [])
+
+  // 打开控制中心时锁住文档滚动，避免 iOS 橡皮筋把 fixed 整层一起带动
+  useEffect(() => {
+    if (!isMobile || !showWindowSwitcher) return undefined
+    const root = document.documentElement
+    const prevOverflow = root.style.overflow
+    root.style.overflow = 'hidden'
+    return () => { root.style.overflow = prevOverflow }
+  }, [isMobile, showWindowSwitcher])
 
   const scheduleForceKill = (pid) => {
     if (pendingRef.current.has(pid)) return
@@ -72,7 +104,12 @@ function WindowSwitcher({
 
   if (isMobile) {
     return createPortal(
-      <div className={style[bem.e('mobile-switcher')]} onClick={onDismissAll}>
+      <div
+        className={style[bem.e('mobile-switcher')]}
+        onClick={handleDismiss}
+        onTouchStart={handleRootTouchStart}
+        onTouchMove={handleRootTouchMove}
+      >
         <div className={style[bem.e('mobile-switcher-header')]}>
           <div className={style[bem.e('mobile-switcher-badge')]}>
             <span className={style[bem.e('mobile-switcher-pulse')]} />

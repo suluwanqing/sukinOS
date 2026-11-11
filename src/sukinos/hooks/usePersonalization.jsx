@@ -420,7 +420,10 @@ export const defaultPersonalization = {
   windowHeaderColor: '#1f2937',
   windowOpacity: 80,
   windowHeaderOpacity: 100,
-  windowPadding: 0,
+  windowPaddingTop: 0,
+  windowPaddingRight: 0,
+  windowPaddingBottom: 0,
+  windowPaddingLeft: 0,
   customColor: { baseColor: 'primary', shade: 500 },
   customBgColor: { baseColor: 'dark', shade: 900 },
   customDeskFontColor: { baseColor: 'dark', shade: 50 },
@@ -433,6 +436,18 @@ export const defaultPersonalization = {
   bgFitMobile: 'cover',
   bgCropMobile: { x: 50, y: 50, scale: 1 },
   mobileWallpaperScroll: false, // 移动端壁纸随页横向平移
+  mobileFloatingBall: false, // 移动端悬浮球：聚合打开应用 / 返回 / 回桌面，开启后隐藏系统手势带
+  mobileFloatingBallColor: 'auto', // auto = 跟随强调色；否则保存具体色值
+  mobileFloatingBallSize: 48, // 球体直径（px）
+  mobileFloatingBallOpacity: 100, // 球体整体透明度（%）
+  mobileFloatingBallTextColor: '#fafafa', // 球体图标与菜单文字共用颜色
+  mobileFloatingBallIconOnly: false, // 菜单只显示图标
+  customFloatingBallColor: { baseColor: 'primary', shade: 500 },
+  customFloatingBallTextColor: { baseColor: 'black', shade: 50 },
+  gestureBandHeight: 0, // 手势带视觉条高度（px），0 = 隐藏，不影响手势热区
+  gestureBandColor: '#333333',
+  gestureBandOpacity: 100, // 0 = 完全透明
+  customGestureBandColor: { baseColor: 'black', shade: 900 },
   autoSaveStateInterval: 0,
   autoSaveWindowInterval: 0,
 };
@@ -487,6 +502,19 @@ const LEGACY_COLOR_PAIRS = {
   windowHeaderColor: 'customWindowHeaderColor',
 };
 
+const expandWindowPadding = (cfg) => {
+  if (cfg.windowPadding == null) return cfg;
+  const { windowPadding, ...rest } = cfg;
+  const p = Number(windowPadding) || 0;
+  return {
+    ...rest,
+    windowPaddingTop: rest.windowPaddingTop ?? p,
+    windowPaddingRight: rest.windowPaddingRight ?? p,
+    windowPaddingBottom: rest.windowPaddingBottom ?? p,
+    windowPaddingLeft: rest.windowPaddingLeft ?? p,
+  };
+};
+
 const normalizeLegacyConfig = (parsed) => {
   const out = { ...parsed };
   for (const [key, value] of Object.entries(out)) {
@@ -500,7 +528,7 @@ const normalizeLegacyConfig = (parsed) => {
     delete out[key];
     if (LEGACY_COLOR_PAIRS[key]) delete out[LEGACY_COLOR_PAIRS[key]];
   }
-  return out;
+  return expandWindowPadding(out);
 };
 
 export const personalizationStore = {
@@ -640,7 +668,7 @@ export const usePersonalization = () => {
     const preset = PRESET_STYLES[presetKey];
     if (preset && preset.config) {
       hasPendingChangesRef.current = true;
-      personalizationStore.set(prev => ({ ...prev, ...preset.config }));
+      personalizationStore.set(prev => ({ ...prev, ...expandWindowPadding(preset.config) }));
       return true;
     }
     return false;
@@ -668,6 +696,12 @@ export const usePersonalization = () => {
       personalizationStore.set(prev => ({ ...prev, windowHeaderBg: hex, customWindowHeaderBg: { baseColor, shade } }));
     } else if (target === 'windowHeaderColor') {
       personalizationStore.set(prev => ({ ...prev, windowHeaderColor: hex, customWindowHeaderColor: { baseColor, shade } }));
+    } else if (target === 'floatingBall') {
+      personalizationStore.set(prev => ({ ...prev, mobileFloatingBallColor: hex, customFloatingBallColor: { baseColor, shade } }));
+    } else if (target === 'floatingBallText') {
+      personalizationStore.set(prev => ({ ...prev, mobileFloatingBallTextColor: hex, customFloatingBallTextColor: { baseColor, shade } }));
+    } else if (target === 'gestureBand') {
+      personalizationStore.set(prev => ({ ...prev, gestureBandColor: hex, customGestureBandColor: { baseColor, shade } }));
     }
   }, []);
 
@@ -770,6 +804,16 @@ export const usePersonalization = () => {
       const mobileVideoSize = isMobileContain ? '100%' : `${cropScale * 100}%`;
 
       styleTag.innerHTML = `
+        /* 挂到 :root：悬浮球、调度中心等 portal 到 body 的浮层在 #sukin-os 子树之外，
+           只有提升到根节点才能继承到同一套字体 */
+        :root {
+          --su-os-font-family: ${appliedFont};
+          /* 手势带视觉条：只做外观提示，热区高度仍由 --su-gesture-bottom 决定 */
+          --su-gesture-visual-height: ${config.gestureBandHeight ?? 0}px;
+          --su-gesture-visual-color: ${config.gestureBandColor || '#333333'};
+          --su-gesture-visual-opacity: ${(config.gestureBandOpacity ?? 100) / 100};
+        }
+
         #sukin-os {
           background-size: cover;
           background-position: center;
@@ -783,7 +827,10 @@ export const usePersonalization = () => {
           --su-os-text-color: ${config.themeMode === 'dark' ? '#f1f5f9' : '#1e293b'};
           --su-os-surface-bg: ${finalSurfaceBg};
           --su-os-surface-bg-solid: ${config.themeMode === 'dark' ? '#1e1e1e' : '#ffffff'};
-          --su-os-window-padding: ${config.windowPadding ?? 0}px;
+          --su-os-window-padding-top: ${config.windowPaddingTop ?? 0}px;
+          --su-os-window-padding-right: ${config.windowPaddingRight ?? 0}px;
+          --su-os-window-padding-bottom: ${config.windowPaddingBottom ?? 0}px;
+          --su-os-window-padding-left: ${config.windowPaddingLeft ?? 0}px;
           --custom-window-header-bg: ${finalHeaderBg};
           --su-os-border-color: ${config.themeMode === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)'};
           --su-os-shadow: ${config.glassEffect ? '0 8px 32px rgba(0,0,0,0.15)' : 'none'};

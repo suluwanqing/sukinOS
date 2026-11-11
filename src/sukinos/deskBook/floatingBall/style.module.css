@@ -1,0 +1,298 @@
+.su-floating-ball {
+  position: fixed;
+  inset: 0;
+  z-index: 1500000;
+  pointer-events: none;
+  -webkit-tap-highlight-color: transparent;
+  /* portal 到 body，显式继承系统字体，菜单文案与 APP 内保持一致 */
+  font-family: var(--su-os-font-family, inherit);
+}
+
+.su-floating-ball__backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.08);
+  animation: fbBackdropIn 0.18s ease;
+}
+
+.su-floating-ball__ball {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--fb-ball-size, 48px);
+  height: var(--fb-ball-size, 48px);
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 55%),
+    var(--fb-color, var(--su-os-accent-color, #0067c0));
+  color: var(--fb-text-color, #fafafa);
+  opacity: var(--fb-opacity, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  outline: none;
+  will-change: transform;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.32),
+    0 1px 4px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  transition:
+    transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.2s ease,
+    opacity 0.18s ease;
+}
+
+
+.su-floating-ball.is-launcher-open .su-floating-ball__ball {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.su-floating-ball__ball:active {
+  cursor: grabbing;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.38),
+    0 1px 4px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+.su-floating-ball.is-dragging .su-floating-ball__ball {
+  transition: none;
+}
+
+.su-floating-ball__ball-icon {
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.su-floating-ball.is-open .su-floating-ball__ball-icon {
+  transform: scale(0.86);
+}
+
+.su-floating-ball__actions {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.su-floating-ball__action {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 108px;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 22px;
+  background: rgba(17, 21, 27, 0.86);
+  backdrop-filter: blur(14px) saturate(150%);
+  -webkit-backdrop-filter: blur(14px) saturate(150%);
+  color: var(--fb-text-color, #fafafa);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  cursor: pointer;
+  outline: none;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  transform: translate3d(var(--fb-x, 0px), var(--fb-y, 0px), 0) scale(0.55);
+  transform-origin: var(--fb-origin, right center);
+  transition:
+    transform 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.16s ease;
+}
+
+.su-floating-ball.is-open .su-floating-ball__action {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate3d(var(--fb-x, 0px), var(--fb-y, 0px), 0) scale(1);
+  transition-delay: calc(var(--fb-i, 0) * 40ms);
+}
+
+.su-floating-ball.is-open .su-floating-ball__action:disabled {
+  opacity: 0.42;
+  pointer-events: none;
+}
+
+.su-floating-ball__action:active:not(:disabled) {
+  background: rgba(34, 40, 48, 0.94);
+}
+
+.su-floating-ball.is-light-actions .su-floating-ball__action {
+  background: rgba(248, 250, 252, 0.94);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.16);
+}
+
+.su-floating-ball.is-light-actions .su-floating-ball__action:active:not(:disabled) {
+  background: rgba(235, 240, 246, 0.98);
+}
+
+.su-floating-ball__action-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.su-floating-ball__action-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.su-floating-ball.is-icon-only .su-floating-ball__action {
+  width: 44px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.su-floating-ball.is-icon-only .su-floating-ball__action-label {
+  display: none;
+}
+
+.su-floating-ball__launcher {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  max-height: min(48dvh, 420px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  pointer-events: auto;
+  background: var(--su-os-surface-bg-solid, #ffffff);
+  color: var(--su-os-text-color, #1e293b);
+  border: 1px solid var(--su-os-border-color, rgba(0, 0, 0, 0.08));
+  border-radius: 20px;
+  box-shadow: 0 20px 56px rgba(0, 0, 0, 0.38);
+  animation: fbSheetIn 0.26s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.su-floating-ball__launcher-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 14px 6px;
+  flex-shrink: 0;
+}
+
+.su-floating-ball__launcher-title {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.su-floating-ball__launcher-close {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.06);
+  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.su-floating-ball__launcher-close:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.su-floating-ball__launcher-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px 6px;
+  padding: 6px 10px calc(14px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.su-floating-ball__launcher-empty {
+  grid-column: 1 / -1;
+  padding: 26px 0;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.55;
+}
+
+.su-floating-ball__app-item {
+  border: none;
+  background: transparent;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 2px;
+  border-radius: 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.su-floating-ball__app-item:active {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.su-floating-ball__app-icon {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  border-radius: 11px;
+  flex-shrink: 0;
+}
+
+.su-floating-ball__app-label {
+  width: 100%;
+  font-size: 11px;
+  line-height: 1.2;
+  text-align: center;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-all;
+}
+
+@keyframes fbBackdropIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fbSheetIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .su-floating-ball__ball,
+  .su-floating-ball__action,
+  .su-floating-ball__launcher {
+    transition: none;
+    animation: none;
+  }
+}

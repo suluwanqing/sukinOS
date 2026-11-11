@@ -24,10 +24,10 @@
 
 .su-deskbook__bg-layer {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: -1px;
+  left: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
   z-index: -1;
   pointer-events: none;
   overflow: hidden;
@@ -407,24 +407,22 @@
 
 .su-deskbook__mobile-switcher {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100dvh;
+  inset: 0;
   z-index: 2000000;
+  font-family: var(--su-os-font-family, inherit);
   background: radial-gradient(
     circle at 50% 30%,
     rgba(30, 41, 36, 0.72) 0%,
     rgba(11, 16, 14, 0.88) 100%
   );
-  backdrop-filter: blur(22px) saturate(180%);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   padding: calc(env(safe-area-inset-top, 24px) + 14px) 0
-    calc(env(safe-area-inset-bottom, 20px) + 20px);
+    calc(var(--su-gesture-bottom, 0px) + 20px);
   box-sizing: border-box;
+  touch-action: pan-x;
+  overscroll-behavior: none;
   animation: fadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -470,7 +468,8 @@
   border: 1px solid rgba(255, 255, 255, 0.16);
   color: #e2e8f0;
   border-radius: 14px;
-  font-size: 11.5px;
+  font-size: 12px;
+  line-height: 1.2;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
@@ -497,7 +496,8 @@
   padding: 10px 0;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-x;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
@@ -620,6 +620,7 @@
 .su-deskbook__mobile-card-preview-host {
   position: relative;
   overflow: hidden;
+  contain: paint;
   background: transparent;
   touch-action: pan-x;
   border-radius: 20px;
@@ -630,17 +631,16 @@
 
 @media (max-width: 767px) {
   .su-deskbook__view {
-    padding-bottom: calc(var(--custom-deskbook-padding, 14px) + 18px + var(--su-safe-bottom, 0px));
+    padding-bottom: calc(var(--custom-deskbook-padding, 14px) + 18px + var(--su-gesture-bottom, 0px));
   }
 
-  /* 只保留底部触摸热区 */
   .su-deskbook__status-edge {
     position: fixed;
     left: 0;
     right: 0;
     bottom: 0;
     width: 100vw;
-    height: 32px;
+    height: var(--su-gesture-bottom, 0px);
     z-index: 9999999;
     cursor: ns-resize;
     touch-action: none;
@@ -651,14 +651,22 @@
     pointer-events: auto;
   }
 
+  /* 视觉条：高度/颜色/透明度可配，默认 0 高度完全不可见，不影响热区 */
+  .su-deskbook__status-edge::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--su-gesture-visual-height, 0px);
+    background: var(--su-gesture-visual-color, transparent);
+    opacity: var(--su-gesture-visual-opacity, 0);
+    pointer-events: none;
+  }
+
   .su-deskbook__status-edge::after {
     display: none !important;
     content: none !important;
-  }
-
-  .su-deskbook__status-edge.is-edge-open {
-    opacity: 0.3;
-    pointer-events: auto;
   }
 
   .su-deskbook__switcher-container {

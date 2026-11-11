@@ -39,6 +39,7 @@ export function useDeskWindows({ apps, setting, kernel, startApp, isMobile, pers
 
   // --- 调度中心 ---
   const [showWindowSwitcher, setShowWindowSwitcher] = useState(false);
+  const [switcherFromBack, setSwitcherFromBack] = useState(false);
   const [selectedWindowIndex, setSelectedWindowIndex] = useState(0);
 
   // 调度中心打开期间所有运行窗口都算可见
@@ -146,8 +147,16 @@ export function useDeskWindows({ apps, setting, kernel, startApp, isMobile, pers
 
   const closeWindowSwitcher = () => {
     setShowWindowSwitcher(false);
+    setSwitcherFromBack(false);
     setSelectedWindowIndex(0);
   };
+
+  
+  const openSwitcherForBack = useCallback(() => {
+    setSwitcherFromBack(true);
+    setSelectedWindowIndex(0);
+    setShowWindowSwitcher(true);
+  }, []);
 
   const handleMobileDismissToHome = useCallback(() => {
     isRunningApps.forEach((app) => {
@@ -182,6 +191,7 @@ export function useDeskWindows({ apps, setting, kernel, startApp, isMobile, pers
     deferredCurrentFocus,
     currentFocus,
     showWindowSwitcher,
+    switcherFromBack,
     selectedWindowIndex,
     setSelectedWindowIndex,
     setShowWindowSwitcher,
@@ -190,6 +200,7 @@ export function useDeskWindows({ apps, setting, kernel, startApp, isMobile, pers
     handleColseApp,
     handleForceKill,
     closeWindowSwitcher,
+    openSwitcherForBack,
     handleMobileDismissToHome,
     handleSelectWindow,
     handleSwitcherAppSelect,
