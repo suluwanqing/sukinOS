@@ -14,10 +14,10 @@ SukinOS 是一个运行在浏览器端的**桌面操作系统 Web 应用**，采
 | 窗口管理 | 拖拽、缩放、最大化、多窗口并发 |
 | 虚拟文件系统 (VFS) | 基于 IndexedDB 的类 Unix 文件系统 |
 | 进程沙箱 | Worker 线程隔离 + API 代理 + CDN 白名单 |
-| 内置应用 | 10 个系统级应用（文件管理器、笔记本、画板等） |
+| 内置应用 | 11 个系统级应用（文件管理器、笔记本、画板、万能查看器等） |
 | 用户应用 | 支持通过开发者工具或应用商店安装第三方应用 |
 | 个性化 | 主题、窗口偏好、桌面快捷方式等用户配置 |
-| 数据持久化 | 5 个 IndexedDB 数据库 + MySQL 11 张表 |
+| 数据持久化 | 5 个 IndexedDB 数据库 + MySQL 12 张表 |
 | JWT 认证 | 双 Token 机制（Access 30min + Refresh 7天）+ 静默刷新 |
 | 请求审计 | 全量 API 请求日志 + 敏感信息脱敏 |
 | WebSocket | 多标签页管理 + 心跳检测 + 登录时长追踪 |
@@ -50,7 +50,7 @@ graph TB
 
     subgraph Kernel["进程内核 (Kernel 单例)"]
         KernelCore["kernel.js<br/>主入口"]
-        subgraph KernelParts["10 个子模块"]
+        subgraph KernelParts["11 个子模块"]
             Core["core"]
             Cache["cache"]
             Flags["flags"]
@@ -61,6 +61,7 @@ graph TB
             Registry["registry"]
             ResourceAccess["resourceAccess"]
             Settings["settings"]
+            Updates["updates"]
         end
         CommHub["commHub.js<br/>通信枢纽"]
         WorkerDrive["workerDrive.js<br/>Worker 引擎"]
@@ -124,10 +125,10 @@ sukinos/
 ├── hooks/                     # React Hooks 桥接层（14 个）
 ├── login/                     # 登录模块
 ├── middleware/                # 中间件（InteractiveAwakening/VfsImage）
-├── resources/                 # 系统应用资源（10 个内置应用 + SDK 工厂）
+├── resources/                 # 系统应用资源（11 个内置应用 + SDK 工厂）
 └── utils/                     # 工具层
     ├── process/               #   进程内核系统（Kernel + CommHub + Worker 引擎）
-    │   └── kernelParts/       #     Kernel 子模块（10 个）
+    │   └── kernelParts/       #     Kernel 子模块（11 个）
     ├── file/                  #   文件系统工具（fileKernel + fileIndexDb）
     ├── _db.js                 #   系统应用数据库
     ├── config.js              #   全局配置/常量
@@ -162,13 +163,13 @@ graph LR
 
     subgraph M3["3. Resources 应用层"]
         R1[SDK 工厂]
-        R2[10 个内置应用]
+        R2[11 个内置应用]
         R3[预设资源]
     end
 
     subgraph M4["4. Utils/Process 进程内核"]
         K1[Kernel 单例]
-        K2[10 个子模块]
+        K2[11 个子模块]
         K3[CommHub 通信]
         K4[Worker 引擎]
     end
@@ -203,11 +204,11 @@ graph LR
 |---|------|------|---------|
 | 1 | **Hooks 桥接层** | 14 个 Hook 连接 Redux Store、Kernel 与 UI，是系统交互的核心桥梁。涵盖内核桥接、认证、进程通信、文件系统、窗口交互等全部 UI→底层通道。 | [01-hooks.md](./01-hooks.md) |
 | 2 | **DeskBook 桌面环境** | 用户交互主界面，包含窗口管理器（拖拽/缩放/z-index）、桌面快捷方式、底部状态栏、启动页、自定义应用容器。含 12 项 GPU/渲染性能优化措施（其中 1 项已停用）。 | [02-deskbook.md](./02-deskbook.md) |
-| 3 | **Resources 应用层** | SDK 工厂（devAppSdk/adminAppSdk 双权限模型）+ 10 个内置应用注册详情 + InteractiveAwakening/VfsImage 中间件 + 开发者扩展指南。 | [03-resources.md](./03-resources.md) |
-| 4 | **进程内核** | Kernel 单例 + 10 个 kernelParts 子模块 + CommHub 通信枢纽 + 3 种 Worker 运行模式 + 完整生命周期（安装→启动→休眠→恢复→终止）。 | [04-process-kernel.md](./04-process-kernel.md) |
+| 3 | **Resources 应用层** | SDK 工厂（devAppSdk/adminAppSdk 双权限模型）+ 11 个内置应用注册详情 + InteractiveAwakening/VfsImage 中间件 + 开发者扩展指南。 | [03-resources.md](./03-resources.md) |
+| 4 | **进程内核** | Kernel 单例 + 11 个 kernelParts 子模块 + CommHub 通信枢纽 + 3 种 Worker 运行模式 + 完整生命周期（安装→启动→休眠→恢复→终止）。 | [04-process-kernel.md](./04-process-kernel.md) |
 | 5 | **文件系统与安全** | VFS 内核-驱动两层架构 + Inode 数据模型 + 安全沙箱 8 类策略（PID 命名空间/CDN 白名单/API 禁用/Blob 递归沙箱化/设备屏蔽/SDK 冻结等）+ 系统数据库 + 通用工具。 | [05-file-system-tools.md](./05-file-system-tools.md) |
 | 6 | **中间件与认证** | Redux Store 完整状态树 + 10 个 Reducer + 9 个 Selector + 登录模块 3 种业务模式 + useAuth Hook + 三层权限控制 + AuthGuard 鉴权守卫。 | [06-middleware-login.md](./06-middleware-login.md) |
-| 7 | **开发指南** | 系统APP/非系统APP开发完整指南、14个Hooks核心详解与应用交互、跨应用通信、应用生命周期、从零构建完整教程。 | [08-development.md](./08-development.md) |
+| 7 | **开发指南** | 系统APP/非系统APP开发完整指南、Hooks 应用侧边界与系统能力入口、跨应用通信、应用生命周期、从零构建完整教程。 | [08-development.md](./08-development.md) |
 
 > **路由与消息处理** — 双层路由体系（浏览器级 + App级）、三种运行模式消息处理差异（RealWorker/VirtualWorker/NoWorker）、Dispatch 双路径、跨应用唤起与会话恢复、Pub/Sub 主题体系。详见 [07-app-routing.md](./07-app-routing.md)
 
@@ -266,7 +267,7 @@ sequenceDiagram
 
 SDK 是应用与系统交互的唯一接口，通过工厂函数 `createSdkForInstance` 为每个应用实例创建隔离的安全 SDK。根据 `isSystemApp` 选择 `adminAppSdk`（完整权限）或 `devAppSdk`（有限权限），注入 PID 命名空间的 Storage/IndexedDB/Fetch 代理，然后深度冻结 + 只读代理包裹。
 
-> SDK 权限对比表、注入流程 Mermaid 图、10 个内置应用注册详情详见 [03-resources.md](./03-resources.md)
+> SDK 权限对比表、注入流程 Mermaid 图、11 个内置应用注册详情详见 [03-resources.md](./03-resources.md)
 
 ### 7.2 安全沙箱
 
@@ -276,15 +277,15 @@ SDK 是应用与系统交互的唯一接口，通过工厂函数 `createSdkForIn
 
 ### 7.3 进程内核与通信
 
-Kernel 单例内部组合了 10 个子模块（Core/Cache/Flags/Instance/Internals/Lifecycle/Messaging/Registry/ResourceAccess/Settings），通过 CommHub 实现三种通信模式：EventBus（系统事件）、subscribers（状态订阅）、topicSubscribers（主题 Pub/Sub）。
+Kernel 单例内部组合了 11 个子模块（Core/Cache/Flags/Instance/Internals/Lifecycle/Messaging/Registry/ResourceAccess/Settings/Updates），通过 CommHub 实现三种通信模式：EventBus（系统事件）、subscribers（状态订阅）、topicSubscribers（主题 Pub/Sub）。
 
-> Kernel 完整公共 API、10 个子模块详解、CommHub 消息协议、5 个核心调用链 Mermaid 图详见 [04-process-kernel.md](./04-process-kernel.md)
+> Kernel 完整公共 API、11 个子模块详解、CommHub 消息协议、5 个核心调用链 Mermaid 图详见 [04-process-kernel.md](./04-process-kernel.md)
 
 ### 7.4 应用生命周期
 
-应用状态机：INSTALLED → RUNNING → HIBERNATED → Terminated。支持三种运行模式：RealWorker（标准沙箱）、VirtualWorker（iframe+Proxy帧对齐节流+资源追踪清理）、NoWorker（宿主线程 sysConfig 注入+processStateAction+ACTION_ECHO）。会话恢复保护 `originalStatus === HIBERNATED` 时保持 HIBERNATED 不强行转 RUNNING。
+应用状态机：INSTALLED ↔ RUNNING ↔ HIBERNATED，终止后回到 INSTALLED（没有独立的 Terminated 状态）。支持三种运行模式：RealWorker（标准沙箱）、VirtualWorker（iframe+Proxy帧对齐节流+资源追踪清理）、NoWorker（宿主线程 sysConfig 注入+processStateAction+ACTION_ECHO）。所有"让应用出现"的入口统一走 `activate({reason})`：`user`/`interaction` 唤醒并广播 `APP_FOCUS`，`restore` 由 `preserveHibernation` 保持 HIBERNATED 且不聚焦。
 
-> 状态机完整 Mermaid 图、startProcess 冷启动流程、hibernate/forceKillProcess/forceReStartApp/clearAppSavedState/forceResetApp/restoreSession/evokeApp 全 API 详解详见 [04-process-kernel.md](./04-process-kernel.md)
+> 状态机完整 Mermaid 图、activate/startProcess 冷启动流程、hibernate/forceKillProcess/forceReStartApp/clearAppSavedState/forceResetApp/restoreSession/evokeApp 全 API 详解详见 [04-process-kernel.md](./04-process-kernel.md)
 
 ### 7.5 路由与消息处理
 
@@ -452,7 +453,7 @@ graph TD
 | `06-app-lifecycle.mmd` | 应用生命周期状态机 |
 | `07-backend-architecture.mmd` | 后端 FastAPI 架构 |
 | `08-auth-flow.mmd` | JWT 双 Token 认证流程 |
-| `09-database-er.mmd` | 数据库 ER 图（11 张表） |
+| `09-database-er.mmd` | 数据库 ER 图（12 张表） |
 | `10-backend-routes.mmd` | 后端 API 路由结构 |
 | `11-websocket-flow.mmd` | WebSocket 多标签页管理流程 |
 | `12-sse-localdev.mmd` | SSE 本地开发热更新流程 |
@@ -463,10 +464,10 @@ graph TD
 | `17-three-layer-auth.mmd` | 三层认证体系 |
 | `18-auto-lifecycle.mmd` | 自动生命周期 |
 | `19-dev-app-architecture.mmd` | 开发态应用架构（注册层 / SDK 交付层 / 内核层 / 渲染层分层） |
-| `20-app-communication-flow.mmd` | 应用通信全流程（dispatch / KERNEL_CALL / evokeApp / Pub-Sub 四类链路） |
+| `20-app-communication-flow.mmd` | 应用通信全流程（dispatch / KERNEL_CALL / activate+evokeApp / APP_FOCUS / Pub-Sub） |
 | `21-three-worker-comparison.mmd` | RealWorker / VirtualWorker / NoWorker 三模式对比 |
 | `22-sdk-tier-comparison.mmd` | devAppSdk 与 adminAppSdk 权限分层对比 |
-| `23-app-routing.mmd` | 应用路由导航机制（含浏览器级路由、三种 Worker 模式、Pub/Sub 体系） |
+| `23-app-routing.mmd` | 应用路由导航机制（含浏览器级路由、三种 Worker 模式、activate/APP_FOCUS、Pub/Sub 体系） |
 
 > 前缀编号在 2026-09 做过一次整理：原 `03-app-routing.mmd` 与 `03-commhub-communication.mmd` 撞了 `03-` 前缀，前者已更名为 `23-app-routing.mmd`（内容不变）。文档里另有大量内联 `mermaid` 代码块与这些 `.mmd` 文件**并存**：实测两组没有逐字重复的孪生图（最大节点重叠 33%，属同一主题的不同视角），因此两份都保留、各服务不同粒度；脚本约束的是**图中标识符必须在源码里真实存在**（Hook/类/方法/文件名改名而未跟图即失败），而不是两份内容相等。详见 `docs/README.md`。
 
@@ -476,12 +477,12 @@ graph TD
 |------|------|------|
 | [01-hooks.md](./01-hooks.md) | Hooks 桥接层 | 14 个 Hook 完整接口文档、调用链关系图、依赖关系矩阵 |
 | [02-deskbook.md](./02-deskbook.md) | DeskBook 桌面环境 | 8 个组件详解、12 项性能优化措施（§9.2 已停用）+ §9.13 监控指南、全局快捷键 |
-| [03-resources.md](./03-resources.md) | Resources 应用层 | SDK 双权限模型、createSdkForInstance 工厂流程、10 个内置应用、中间件 |
-| [04-process-kernel.md](./04-process-kernel.md) | 进程内核系统 | Kernel 全 API、CommHub 消息协议、10 个子模块详解、5 个核心调用链 |
+| [03-resources.md](./03-resources.md) | Resources 应用层 | SDK 双权限模型、createSdkForInstance 工厂流程、11 个内置应用、中间件 |
+| [04-process-kernel.md](./04-process-kernel.md) | 进程内核系统 | Kernel 全 API、CommHub 消息协议、11 个子模块详解、5 个核心调用链 |
 | [05-file-system-tools.md](./05-file-system-tools.md) | 文件系统与安全 | VFS 内核-驱动两层架构、安全沙箱 8 类策略、系统数据库、通用工具 |
 | [06-middleware-login.md](./06-middleware-login.md) | 中间件与认证 | Redux Store 详情、登录模块、useAuth Hook、三层权限控制 |
 | [07-app-routing.md](./07-app-routing.md) | 路由与消息处理 | 双层路由体系、三种 Worker 模式消息链路、Dispatch 双路径、跨应用唤起、Pub/Sub |
-| [08-development.md](./08-development.md) | 开发指南 | 系统APP/非系统APP开发完整指南、14个Hook详解、跨应用通信、应用生命周期、从零构建教程 |
+| [08-development.md](./08-development.md) | 开发指南 | 系统APP/非系统APP开发完整指南、Hooks 应用侧边界（详见 01-hooks）、跨应用通信、应用生命周期、从零构建教程 |
 
 ## 附录C：后端数据库表概览
 
@@ -491,15 +492,18 @@ graph TD
 | 2 | `user_expand` | `UserExpand` | 用户扩展信息（在线状态、总活跃时长） |
 | 3 | `user_time_behavior` | `UserTimeBehavior` | 用户行为时间统计 |
 | 4 | `user_time_week` | `TimeWeek` | 用户周活跃统计 |
-| 5 | `sukinos_app` | `D_SukinosApp` | SukinOS 应用表（乐观锁版本控制） |
-| 6 | `request_logs` | `D_RequestLog` | 请求审计日志表 |
-| 7 | `system_configs` | `D_SystemConfig` | 系统配置表 |
-| 8 | `system_updates` | `D_SystemUpdate` | 系统更新日志表 |
-| 9 | `app_permission_registry` | `D_AppPermissionRegistry` | 普通 APP 权限注册表（声明式权限清单） |
-| 10 | `system_roles` | `D_Role` | 角色表（`name`/`label`/`is_system`，系统内置角色不可删除） |
-| 11 | `system_builtin_apps` | `D_SystemBuiltinApp` | 系统内置 APP 定义表（除 `sys-systemManage` 外均在此维护） |
+| 5 | `sukinos_app` | `D_SukinosApp` | SukinOS 当前版本表（业务版本 `version` + 乐观锁 `row_version` + 包哈希/签名/强更标记） |
+| 6 | `sukinos_app_revision` | `D_SukinosAppRevision` | 历史版本与待审暂存（`is_pending`/`is_deleted`/`file_purged`/签名快照） |
+| 7 | `request_logs` | `D_RequestLog` | 请求审计日志表 |
+| 8 | `system_configs` | `D_SystemConfig` | 系统配置表（含 `sukinos_upload_settings`、`sukinos_app_revision_retention`） |
+| 9 | `system_updates` | `D_SystemUpdate` | 系统更新日志表 |
+| 10 | `app_permission_registry` | `D_AppPermissionRegistry` | 普通 APP 权限注册表（声明式权限清单） |
+| 11 | `system_roles` | `D_Role` | 角色表（`name`/`label`/`is_system`，系统内置角色不可删除） |
+| 12 | `system_builtin_apps` | `D_SystemBuiltinApp` | 系统内置 APP 定义表（除 `sys-systemManage` 外均在此维护） |
 
-> 计数口径：按 `myfastapi_/Model/DbModel/` 下全部 `__tablename__` 统计为 11 张（`user/user.py` 4 张、`sukinos/sukinos.py` 1 张、`system/` 6 张）。早期文档写"8 张表"是漏了 `app_permission_registry`、`system_roles`、`system_builtin_apps`。
+> 计数口径：按 `myfastapi_/Model/DbModel/` 下全部 `__tablename__` 统计为 12 张（`user/user.py` 4 张、
+> `sukinos/sukinos.py` + `sukinos/revision.py` 2 张、`system/` 6 张）。早期文档写"8 张表"漏了
+> `app_permission_registry`、`system_roles`、`system_builtin_apps`；"11 张表"漏了 `sukinos_app_revision`。
 
 ## 附录D：后端 API 路由概览
 
@@ -507,6 +511,7 @@ graph TD
 |----------|------|---------|
 | `/api/user` | 用户模块 | login, register, logout, refresh, info, update, avatar, captcha |
 | `/api/sukinos/app` | SukinOS 应用 | upload, update, appList, searchApp, myUpload, delete, checkUpdates |
+| `/api/system/sukinos` | 应用审核（root） | appList, statistics, updateStatus, forceUpdate, resubmit, versions/{id}/*, files, download |
 | `/api/sukinos/localdev` | 本地开发 | SSE 热更新端点 |
 | `/api/system/permission` | 权限管理 | registry, menus, routes-permission, role, registry-power |
 | `/ws/{user_id}` | WebSocket | 多标签页连接、心跳、登录/登出追踪 |

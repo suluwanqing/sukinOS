@@ -30,8 +30,11 @@ src/sukinos/resources/
 │   └── registry.jsx           # 系统管理注册表
 ├── drawBoard/
 │   └── registry.jsx           # 画板注册表
-└── sheet/
-    └── registry.jsx           # 表格注册表
+├── sheet/
+│   └── registry.jsx           # 表格注册表
+└── universalViewer/
+    ├── registry.jsx           # 万能文件查看器注册表
+    └── layout.jsx             # 通用文件预览组件
 ```
 
 ---
@@ -53,7 +56,7 @@ SDK 提供两层模板，按应用权限分级交付：
 | `kernel` | `evokeApp`, `getTypeApps` | 有限内核 API，仅允许唤起应用和查询类型 |
 | `hooks` | `useFileSystem` | 文件系统 Hook |
 | `middleware` | 全部中间件导出 | `InteractiveAwakening`, `VfsImage` |
-| `API` | 空对象（运行时注入私有 Scope） | 运行时动态填充 |
+| `API` | 运行时注入私有 Scope：`pid` / `navigate` / `fetch` / `window` / `focus` | `focus()` 请求宿主聚焦当前窗口（发 `APP_FOCUS_REQUEST`），不启动其他应用 |
 
 #### adminAppSdk — 管理员/系统应用 SDK
 
@@ -61,8 +64,8 @@ SDK 提供两层模板，按应用权限分级交付：
 
 | 额外模块 | 内容 | 说明 |
 |----------|------|------|
-| `Components` | `Developer, FileSystem, NoteBook, Setting, Start, Store, LocalDev, SystemDashboard, DrawBoard, Sheet` | 10 个系统级应用组件 |
-| `hooks` | 全部 Hooks 导出（`@/sukinos/hooks/main`） | 完整 Hook 能力 |
+| `Components` | `Developer, FileSystem, NoteBook, Setting, Start, Store, LocalDev, SystemDashboard, DrawBoard, Sheet, UniversalViewer` | 11 个系统级应用组件 |
+| `hooks` | `@/sukinos/hooks/main` 的全部导出（10 个 Hook） | 常用 Hook 能力；其余 Hook 需系统应用直接 import 模块 |
 | `kernel` | `_kernel`（完整 kernel 对象） | 全部内核 API |
 | `API.rootSeed` | `generateShortSeed` | 高权限种子生成函数 |
 
@@ -165,7 +168,7 @@ flowchart LR
 
 ### 2.3 PRESET_RESOURCES 聚合
 
-`preset_resources.jsx` 导入 10 个 Registry，依次执行 `replaceKeys`，输出为 `PRESET_RESOURCES` 数组供内核批量加载。
+`preset_resources.jsx` 导入 11 个 Registry，依次执行 `replaceKeys`，输出为 `PRESET_RESOURCES` 数组供内核批量加载。
 
 ---
 
@@ -266,6 +269,18 @@ flowchart LR
 | `blockEd` | `true` |
 
 **功能说明**：系统设置中心，使用 `Setting` 系统组件渲染。`blockEd: true` 表示固定至状态栏。
+
+**设置页与系统能力**：设置中心是宿主 Hooks 的典型消费者，而不是应用 SDK 的能力演示：
+
+| 设置项 | 背后能力 | 说明 |
+|--------|---------|------|
+| 主题 / 壁纸 / 个性化 | `usePersonalization` | 模块级单例 Store，写入后 DeskBook 与内核共享 |
+| 自动保存间隔 | `usePersonalization` + 内核 Auto-Save | 设置页只写配置；内核 `subscribePersonalization()` 收到变化后重建状态/窗口定时器 |
+| 用户账号 / 登录态 | `useAuth` | 用户设置页直接使用宿主认证 Hook |
+| 窗口尺寸适配 | `useViewportMode` | 移动端切换抽屉/侧栏布局 |
+| 应用启停 / 卸载 | 不在设置页 | 由开始菜单、商店、桌面调用 `useKernel`；应用侧只有 `AppSDK.kernel.evokeApp` |
+
+普通应用不能 `import` 这些 Hook；它看到的是 `AppSDK` 暴露的 `hooks.useFileSystem`、`API.focus`、`kernel.evokeApp` 等受限通道。Hook 的完整接口见 [01-hooks.md](./01-hooks.md)。
 
 ### 3.6 开始菜单 — `sys-start`
 
@@ -444,14 +459,17 @@ sequenceDiagram
     IA->>IA: 渲染应用选择器 + 搜索过滤
     用户->>IA: 点击目标应用
     IA->>Kernel: evokeApp({pid, from, interactInfo})
-    Kernel->>Target: 派发 interactInfo（如 openType:'wr'）
+    Kernel->>Kernel: activate(reason='interaction')
+    Kernel->>Target: 冷启动/唤醒 + 派发 interactInfo（如 openType:'wr'）
+    Kernel-->>DeskBook: APP_FOCUS（目标窗口置前）
     IA->>FS: onClose()
 ```
 
 **核心逻辑**：
 - 通过 `processKernel.getTypeApps(type)` 获取指定类型的应用列表
 - 支持搜索过滤（按应用名称和描述）
-- 选择后通过 `processKernel.evokeApp()` 唤醒目标应用，携带完整的 `interactInfo`
+- 选择后通过 `processKernel.evokeApp()` 唤起目标应用，携带完整的 `interactInfo`
+- 唤起现在等价于 `activate(reason:'interaction')`：休眠目标会被唤醒，且无论冷启动还是唤醒都会广播 `APP_FOCUS`，解决"交互成功但窗口没到前台"的问题
 
 **使用场景**：文件管理双击文件 → 弹出编辑器选择 → 传递 `openType: 'wr'` 和文件元信息给目标编辑器。
 
@@ -538,6 +556,7 @@ flowchart TD
 | 系统管理 | `sys-systemManage` | system | false | false | false | - | true | false |
 | 画板 | `sys-drawBoard` | system | true | false | false | true | true | false |
 | 表格 | `sys-sheet` | system | true | false | true | true | true | false |
+| 万能文件查看器 | `sys-universal-viewer` | file | true | true | false | - | true | - |
 
 ---
 
@@ -549,7 +568,7 @@ flowchart TB
         R1["developerRegistry"] --> PR["replaceKeys"]
         R2["fileSystemRegistry"] --> PR
         R3["notebookRegistry"] --> PR
-        R4["其他 7 个 Registry..."] --> PR
+        R4["其他 8 个 Registry..."] --> PR
         PR --> PRES["PRESET_RESOURCES 数组"]
     end
 
@@ -641,16 +660,17 @@ export default {
 | `AppSDK.useState` 等 | Y | Y | 常用 Hooks |
 | `AppSDK.Components.AllComponent` | Y | Y | 公共组件 |
 | `AppSDK.Components.KeepAlive` | Y | Y | 面板级保活容器 |
-| `AppSDK.Components.Developer` 等 | N | Y | 系统组件（10个） |
-| `AppSDK.kernel.evokeApp` | Y | Y | 唤起应用 |
+| `AppSDK.Components.Developer` 等 | N | Y | 系统组件（11个） |
+| `AppSDK.kernel.evokeApp` | Y | Y | 唤起应用：`activate(reason:'interaction')`，启动/唤醒 + from + 聚焦 |
 | `AppSDK.kernel.getTypeApps` | Y | Y | 查询类型应用 |
 | `AppSDK.kernel`（完整） | N | Y | 全部内核 API |
 | `AppSDK.API.rootSeed` | N | Y | 种子生成（挂在 `API` 上，不是 `kernel`；`sdk.jsx:adminAppSdk`） |
 | `AppSDK.hooks.useFileSystem` | Y | Y | 文件系统 Hook |
-| `AppSDK.hooks`（全部） | N | Y | 全部 Hooks |
+| `AppSDK.hooks`（main 导出） | N | Y | 10 个常用 Hook；其余 Hook 模块需系统应用直接 import |
 | `AppSDK.middleware.*` | Y | Y | 全部中间件 |
 | `AppSDK.API.fetch` | Y | Y | PID 注入的安全 fetch |
 | `AppSDK.API.navigate` | Y | Y | 路由导航 |
+| `AppSDK.API.focus` | Y | Y | 请求宿主聚焦当前窗口（`APP_FOCUS_REQUEST` → `APP_FOCUS`） |
 | `AppSDK.API.pid` | Y | Y | 当前进程 ID |
 | `AppSDK.API.window` | Y | Y | 窗口控制：`close`/`hibernate`/`toggleMaximize`/`setRect`/`getRect`。由宿主外壳注入，`hideHeader` 场景下应用自行绘制标题栏时用它操作窗口；无外壳时为 no-op 兜底（`sdk.jsx:noopWindowControls, createSdkForInstance`） |
 | `AppSDK.System.localStorage` | Y | Y | PID 隔离的 localStorage |

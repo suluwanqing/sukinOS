@@ -7,7 +7,7 @@ import {
   ENV_KEY_CONTENT,
   ENV_KEY_CONTENT_PRECOMPILED,
   ENV_KEY_META_INFO,
-} from '@/sukinos/utils/config'
+} from '@/sukinos/utils/envKeys'
 import {
   getWorkerSandboxPreamble,
   createStorageProxy,
@@ -20,6 +20,7 @@ import {
   getRunnerMessageRouter,
   getWorkerLogicModuleRuntime,
 } from './workerDrive'
+import { stripExecutionMeta } from './metaInfoGuard'
 
 const getMarkers = key => ({
   start: `/* <<<SUKIN_OS_${key}_BLOCK_START_V2>>> */`,
@@ -48,7 +49,7 @@ export const generateWorker = args => {
   const precompiledLogic = args?.[ENV_KEY_LOGIC_PRECOMPILED]
   const content = args?.[ENV_KEY_CONTENT]
   const precompiledContent = args?.[ENV_KEY_CONTENT_PRECOMPILED]
-  const metaInfo = args?.[ENV_KEY_META_INFO]
+  const metaInfo = stripExecutionMeta(args?.[ENV_KEY_META_INFO])
 
   // 执行态优先取预编译产物（import 已转成注入的 require）；未预编译的存量应用与系统 APP 落回原文。
   // 两种写法的 initialState / reducer / init 都是本块作用域的顶层绑定，内核按名字取用不受影响。
@@ -108,6 +109,7 @@ ${getRunnerMessageRouter(ENV_KEY_IS_BUNDLE)}
   Object.freeze(SYS_CONFIG);
   Object.freeze(broadcast);
   Object.freeze(save);
+  Object.freeze(requestFocus);
   Object.freeze(ORIGIN_COMPONENT);
   Object.freeze(PRECOMPILED_COMPONENT);
   Object.freeze(dispatch);
@@ -131,7 +133,6 @@ export const parseWorkerCode = workerCode => {
     [ENV_KEY_IS_BUNDLE]: false,
     [ENV_KEY_LOGIC]: null,
     [ENV_KEY_LOGIC_PRECOMPILED]: null,
-    initialState: null,
     [ENV_KEY_CONTENT]: null,
     [ENV_KEY_CONTENT_PRECOMPILED]: null,
     hasReducer: false,
@@ -180,15 +181,6 @@ export const parseWorkerCode = workerCode => {
     if (userLogicCode) {
       result[ENV_KEY_LOGIC] = logicSource || userLogicCode
       if (logicSource) result[ENV_KEY_LOGIC_PRECOMPILED] = userLogicCode
-
-      const initialStateMatch = userLogicCode.match(/(?:const|var|let)\s+initialState\s*=\s*([^;]+)(;?)/s)
-      if (initialStateMatch) {
-        try {
-          result.initialState = new Function(`return ${initialStateMatch[1]}`)()
-        } catch (e) {
-          result.initialState = initialStateMatch[1].trim()
-        }
-      }
 
       result.hasReducer = /function\s+reducer|const\s+reducer\s*=/.test(userLogicCode)
       result.hasInitFunction = /function\s+init|const\s+init\s*=/.test(userLogicCode)

@@ -80,9 +80,9 @@ SukinOS 的桌面环境是一个运行在浏览器中的**完整桌面操作系�
 
 > **关于"进程"的说明**：SukinOS 运行在浏览器 JS 环境中，这里的"进程"是**逻辑抽象概念**（模拟操作系统），并非操作系统级进程。每个 APP 的"进程"实际是一个**沙箱实例**，运行在 JS 线程中。根据运行模式不同，底层载体可能是独立 Web Worker 线程（RealWorker）、共享 iframe 沙箱（VirtualWorker）或主线程（NoWorker）。文档中的 `pid`（进程 ID）、`#proc-{pid}`（CSS 作用域前缀）均指这个逻辑进程实例。
 
-进程内核是 SukinOS 的核心调度引擎，采用**微内核 + 沙箱隔离**的设计模式。Kernel 单例内部组合了 10 个子模块（Core/Cache/Flags/Instance/Internals/Lifecycle/Messaging/Registry/ResourceAccess/Settings），通过 CommHub 实现三种通信模式（EventBus/subscribers/topicSubscribers），支持三种运行模式（RealWorker/VirtualWorker/NoWorker）。
+进程内核是 SukinOS 的核心调度引擎，采用**微内核 + 沙箱隔离**的设计模式。Kernel 单例内部组合了 11 个子模块（Core/Cache/Flags/Instance/Internals/Lifecycle/Messaging/Registry/ResourceAccess/Settings/Updates），通过 CommHub 实现三种通信模式（EventBus/subscribers/topicSubscribers），支持三种运行模式（RealWorker/VirtualWorker/NoWorker）。
 
-> Kernel 完整公共 API、10 个子模块详解、CommHub 消息协议、三种运行模式消息处理差异、5 个核心调用链 Mermaid 图详见 [04-process-kernel.md](./module/04-process-kernel.md)
+> Kernel 完整公共 API、11 个子模块详解、CommHub 消息协议、三种运行模式消息处理差异、5 个核心调用链 Mermaid 图详见 [04-process-kernel.md](./module/04-process-kernel.md)
 
 > 路由与消息处理的深度解析（双层路由体系、Dispatch 双路径、三种 Worker 消息链路）详见 [07-app-routing.md](./module/07-app-routing.md)
 
@@ -99,17 +99,27 @@ SukinOS 的桌面环境是一个运行在浏览器中的**完整桌面操作系�
 ### 3.2 进程生命周期状态机
 
 ```
-INSTALLED → RUNNING (startProcess 冷启动)
+INSTALLED → RUNNING (activate reason=user/interaction，冷启动)
+INSTALLED → RUNNING (activate reason=restore，autoStart 冷拉起)
 RUNNING → HIBERNATED (hibernate 休眠，Worker 保持热状态)
-HIBERNATED → RUNNING (startProcess 唤醒)
-RUNNING → INSTALLED (forceKillProcess / forceResetApp)
+HIBERNATED → RUNNING (activate reason=user/interaction，唤醒并聚焦)
+HIBERNATED → HIBERNATED (activate reason=restore，会话恢复保持休眠、不聚焦)
+RUNNING/HIBERNATED → INSTALLED (forceKillProcess / forceResetApp)
 ```
 
-> 状态机完整 Mermaid 图、startProcess 冷启动流程、VirtualWorker/NoWorker 详细机制、evokeApp/restoreSession/forceResetApp 全 API 详解详见 [04-process-kernel.md](./module/04-process-kernel.md) §3.7
+> 状态机完整 Mermaid 图、activate/startProcess 冷启动流程、VirtualWorker/NoWorker 详细机制、evokeApp/restoreSession/forceResetApp 全 API 详解详见 [04-process-kernel.md](./module/04-process-kernel.md) §3.7。焦点通过 `APP_FOCUS` 系统事件交给 DeskBook，见 [02-deskbook.md](./module/02-deskbook.md) §5.1
+
+### 3.3 更新检查与强制更新
+
+- 内核 `Updates` 启动后每 30 分钟检查一次；页面重新可见且距上次检查超过 5 分钟时补检。
+- `checkUpdates` 只返回本人应用、公开应用或注册池已授权应用，投影含 `forced`、`contentHash`、`signature`。
+- 强更清单写入 `localStorage` 的 `sukinos:forced-updates`；非系统应用冷启动时若本地版本与目标不一致，
+  直接拒绝启动并抛 `APP_FORCE_UPDATE`。普通更新抛 `APP_UPDATE_AVAILABLE`。
+- DeskBook 排队展示确认，确认后用 `storeSearch` 深链到商店目标应用；安装/更新阶段先校验包体哈希与签名。
 
 ## 四、内置应用系统
 
-> 10 个内置应用注册详情、SDK 工厂（devAppSdk/adminAppSdk）、中间件详见 [03-resources.md](./module/03-resources.md)
+> 11 个内置应用注册详情、SDK 工厂（devAppSdk/adminAppSdk）、中间件详见 [03-resources.md](./module/03-resources.md)
 
 ### 4.1 应用列表
 
@@ -124,6 +134,16 @@ RUNNING → INSTALLED (forceKillProcess / forceResetApp)
 | **记事本** | 富文本笔记 |
 | **画板** | 绘图 + 思维导图 |
 | **表格** | 电子表格 |
+| **万能文件查看器** | 通用文件预览（按类型分发渲染器） |
+| **系统管理** | 后台管理控制台（`appManage` 审核页仅 root） |
+
+### 4.2 系统管理中的版本与预览
+
+系统管理 `appManage` 页签集中了三类 root 能力：`VersionPanel`（当前/待审/历史版本，审批、回滚、
+删除、恢复、强更开关）、`PackageInspector`（包内文件树、编辑还原、原始包/源文件下载）、
+`FileManagerModal`（物理包引用分类与清理）。审核详情可用 `PreviewSandbox` 隔离预览：
+包在 opaque-origin iframe 中运行，CSP 禁止网络与宿主访问；`PreviewWindow` 提供独立拖拽缩放窗口，
+移动端自动全屏。
 
 ## 五、桌面中间件
 
@@ -187,6 +207,13 @@ sukinOsLocalDevSDK/
 ## 八、安全与隔离
 
 SukinOS 实现了多层安全沙箱：PID 命名空间隔离（Storage/IndexedDB）、Fetch 注入、CDN 白名单、Blob 递归沙箱化、敏感 API 代理（`eval`/`XMLHttpRequest`/`importScripts` 一律禁；`Function` 只在 worker 沙箱放行真实构造器，UI 沙箱仍禁）、受保护属性不可覆写（`set` trap 的 `blockedProps`）、设备屏蔽、SDK 冻结、清理机制。VirtualWorker 还实现了资源追踪注册表，terminate 时强制清理所有 timer/interval/RAF/EventListener 防止 CPU 空转。
+
+在此之上还有三处边界：
+
+- **包完整性**：服务端 SHA-256 + Ed25519 签名，客户端安装/更新时验签；历史包无哈希时告警放行，空包拒绝。
+- **静态分发**：未上架包仅 root/所有者可取，私有包需身份与注册池授权。
+- **预览隔离**：审核预览运行在 `sandbox="allow-scripts"` 的 opaque-origin iframe 中，严格 CSP 禁止网络；
+  主站注入的第三方样式会先做消毒，避免 CSS 逃逸影响宿主。
 
 > 安全沙箱 8 类策略详解、CDN 白名单列表、Worker 沙箱前导代码、VirtualWorker 资源追踪与清理详见 [05-file-system-tools.md](./module/05-file-system-tools.md)
 

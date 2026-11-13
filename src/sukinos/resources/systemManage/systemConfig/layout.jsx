@@ -5,7 +5,8 @@ import LogConfig from "./logConfig/layout";
 import ConfigItemsManager from "./configItemsManager/layout";
 import SystemAppsAccess from "./systemAppsAccess/layout";
 import UploadQuota from "./uploadQuota/layout";
-import { SlidersHorizontal as TuneIcon, Settings as SettingsIcon, ShieldCheck as SecurityIcon, Upload as UploadFileIcon } from 'lucide-react';
+import RevisionRetention from "./revisionRetention/layout";
+import { SlidersHorizontal as TuneIcon, Settings as SettingsIcon, ShieldCheck as SecurityIcon, Upload as UploadFileIcon, History as HistoryIcon } from 'lucide-react';
 
 const bem = createNamespace("system-config-layout");
 
@@ -60,6 +61,17 @@ function SystemConfig() {
             <UploadFileIcon size={17} />
             <span>上传配额</span>
           </div>
+
+          <div
+            className={[
+              style[bem.e("menu-item")],
+              style[bem.is("active", activeTab === "revisionRetention")]
+            ].filter(Boolean).join(" ")}
+            onClick={() => setActiveTab("revisionRetention")}
+          >
+            <HistoryIcon size={17} />
+            <span>包修订保留</span>
+          </div>
         </div>
       </div>
 
@@ -68,6 +80,7 @@ function SystemConfig() {
         {activeTab === "items" && <ConfigItemsManager />}
         {activeTab === "systemApps" && <SystemAppsAccess />}
         {activeTab === "uploadQuota" && <UploadQuota />}
+        {activeTab === "revisionRetention" && <RevisionRetention />}
       </div>
     </div>
   );

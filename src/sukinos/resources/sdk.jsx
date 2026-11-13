@@ -84,6 +84,7 @@ export const createSdkForInstance = (dispatch, pid, isSystemApp, windowControls)
       // 纯粹的路由分发逻辑
       navigate: (path) => dispatch({ type: 'NAVIGATE', payload: path }),
       pid,
+      focus: () => _kernel.requestFocus(pid),
       // 窗口控制 API：hideHeader 等场景下由 APP 自行实现窗口操作
       window: windowControls || noopWindowControls,
     };

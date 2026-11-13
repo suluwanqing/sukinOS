@@ -7,6 +7,7 @@ import { FileType } from "@/sukinos/utils/config";
 import { alert } from '@/component/alert/layout'
 import Select from '@/component/select/drowSelection/layout';
 import { Button } from '@/component/button/layout';
+import { canWriteLocal } from '@/sukinos/utils/file/localWrite';
 // 引入 Base64 转换与解码工具
 import { dataToBase64Mapper, dataDeBase64Mapper } from "/utils/js/func/data/exChangeBase64";
 
@@ -213,25 +214,49 @@ function ExChange({ visible, onClose }) {
   const fileSystemConfig = useSelector(selectFileSystemConfig) || {};
   const isPrivate = fileSystemConfig.isPrivate ?? false;
 
+  const busyRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+
   /**
    * 解决跨域(Local <-> Virtual)文件传输时的二进制格式转换问题
    */
   const handleTransfer = async (item, targetSide, sourceMode) => {
+    if (busyRef.current) return false;
     if (item.type === FileType.DIRECTORY) {
       alert.success("请进入文件夹后选择文件进行交换");
-      return;
+      return false;
     }
 
     const sourceFS = targetSide === 'left' ? rightFS : leftFS;
     const targetFS = targetSide === 'left' ? leftFS : rightFS;
     const targetMode = targetSide === 'left' ? leftMode : rightMode;
+    const targetParentId = targetFS.state.currentId;
+    if (!targetFS.state.isReady) {
+      alert.failure("目标盘未就绪，请重新挂载后再交换");
+      return false;
+    }
+    if (targetMode === 'local' && !canWriteLocal()) {
+      alert.failure("此浏览器不支持写入本机文件，请选择虚拟盘");
+      return false;
+    }
 
+    busyRef.current = true;
+    setBusy(true);
+    // 落盘后失败要回收刚建出来的文件，绝不留下兜底名垃圾
+    let createdItem = null;
+    let succeeded = false;
+    try {
     // --- 第一步：读取源文件内容 ---
-    const fileWithContent = await sourceFS.operation.handleOpenFile(item);
+    let fileWithContent = null;
+    try {
+      fileWithContent = await sourceFS.operation.handleOpenFile(item);
+    } catch (err) {
+      console.error("读取源文件异常:", err);
+    }
 
     if (!fileWithContent || fileWithContent.content === undefined || fileWithContent.content === null) {
       alert.failure("读取源文件失败");
-      return;
+      return false;
     }
 
     let finalContent = fileWithContent.content;
@@ -265,7 +290,7 @@ function ExChange({ visible, onClose }) {
       if (targetMode === 'local') {
         // Virtual -> Local: 虚拟盘中存储的是原生的 Blob、对象或字符串，直接对齐写入本地真实磁盘
         if (finalContent instanceof Blob) {
-          finalContent = finalContent;
+          // 已经是 Blob，原样写入
         } else if (typeof finalContent === 'object') {
           finalContent = JSON.stringify(finalContent, null, 2);
         } else if (typeof finalContent === 'string') {
@@ -296,56 +321,63 @@ function ExChange({ visible, onClose }) {
       // Virtual -> Virtual: 两边都是原生对象/Blob，直接对拷即可
     }
 
-    // --- 第二步：在目标位置执行创建占位  ---
-    const newItem = await targetFS.operation.handleCreate({ type: FileType.FILE });
+    // --- 第二步：创建前查重，撞名直接拒绝，不落任何文件 ---
+    const siblings = await targetFS.operation.handleReadDir(targetParentId);
+    if (siblings.some(entry => entry.name === item.name)) {
+      alert.warning(`目标位置已存在同名项目：${item.name}`);
+      return false;
+    }
 
-    if (newItem) {
-      try {
-        // --- 第三步：立即重命名 ---
-        const isRenamed = await targetFS.operation.handleRename({
-          id: newItem.id,
-          name: newItem.name,      // 当前占位名 ("新建文件")
-          newName: item.name,      // 期望的目标文件名 (源文件名)
-          parentId: targetFS.state.currentId,
-          type: FileType.FILE
-        });
-
-        if (isRenamed) {
-          // --- 第四步：写入实际数据 ---
-          const isSaved = await targetFS.operation.handleSave({
-            id: newItem.id,
-            content: finalContent, // 使用我们上方完美转码好的数据
-            parentId: targetFS.state.currentId,
-            name: item.name
-          });
-
-          if (isSaved) {
-            // 传输完全成功，刷新目标面板视图
-            targetFS.navigation.handleRefresh();
-          } else {
-            alert.failure("传输失败：文件内容写入失败");
-          }
-        } else {
-          alert.failure("传输失败：无法重命名文件占位符");
-        }
-      } catch (error) {
-        console.error("跨盘传输异常:", error);
-        alert.failure("传输过程中发生系统级错误");
-      }
-    } else {
+    // --- 第三步：按最终文件名一步创建并写入，不再经过"占位 + 改名" ---
+    createdItem = await targetFS.operation.handleCreate({ type: FileType.FILE, name: item.name });
+    if (!createdItem) {
       alert.failure("传输失败：无法在目标路径创建文件");
+      return false;
+    }
+
+    const isSaved = await targetFS.operation.handleSave({
+      id: createdItem.id,
+      content: finalContent, // 使用我们上方完美转码好的数据
+      parentId: targetParentId,
+      name: createdItem.name
+    });
+
+    if (!isSaved) return false;
+
+    succeeded = true;
+    // 传输完全成功，刷新目标面板视图
+    targetFS.navigation.handleRefresh();
+    return true;
+    } catch (error) {
+      console.error("跨盘传输异常:", error);
+      alert.failure("传输过程中发生系统级错误");
+      return false;
+    } finally {
+      if (createdItem && !succeeded) {
+        await targetFS.operation.handleDelete({
+          id: createdItem.id,
+          name: createdItem.name,
+          parentId: targetParentId
+        });
+      }
+      busyRef.current = false;
+      setBusy(false);
     }
   };
 
   const pickedSide = leftPick ? 'left' : rightPick ? 'right' : null;
 
   // 中间指示器同时是点选通路的执行键：把选中的那份文件送到对侧当前目录
-  const handlePickedExchange = () => {
+  const handlePickedExchange = async () => {
     const item = leftPick || rightPick;
-    if (!item) return;
-    handleTransfer(item, pickedSide === 'left' ? 'right' : 'left', pickedSide === 'left' ? leftMode : rightMode);
-    setLeftPick(null);
-    setRightPick(null);
+    if (!item || busyRef.current) return;
+    const side = pickedSide === 'left' ? 'right' : 'left';
+    const ok = await handleTransfer(item, side, pickedSide === 'left' ? leftMode : rightMode);
+    // 失败保留选中项，用户可原地重试
+    if (ok) {
+      setLeftPick(null);
+      setRightPick(null);
+    }
   };
 
   if (!visible) return null;
@@ -381,11 +413,11 @@ function ExChange({ visible, onClose }) {
             variant="outline"
             className={style[bem.e('middle-indicator')]}
             onClick={handlePickedExchange}
-            disabled={!pickedSide}
+            disabled={!pickedSide || busy}
             title="把选中的文件交换到另一侧当前目录"
           >
             <ArrowForwardIcon width="1em" height="1em" />
-            <span>交换</span>
+            <span>{busy ? '传输中…' : '交换'}</span>
             <ArrowForwardIcon width="1em" height="1em" style={{ transform: 'rotate(180deg)' }} />
           </Button>
 

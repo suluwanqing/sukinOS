@@ -58,6 +58,7 @@ VALUES (2, NULL,
 -- ============================================================
 INSERT INTO `system_configs` (`config_key`, `config_value`) VALUES
 ('sukinos_upload_settings', '{"defaultMaxSizeBytes": 10485760, "roleMaxSizeBytes": {}, "userMaxSizeBytes": {}}'),
+('sukinos_app_revision_retention', '{"maxRevisions": 20}'),
 ('app.review.auto_approve', '{"value": false, "description": "是否自动审核通过"}'),
 ('disk.safety_threshold', '{"value": 2147483648, "unit": "bytes", "description": "磁盘剩余空间安全阈值 2GB（与 appManage.check_system_resources 的常量同值，改这里不会生效）"}'),
 ('session.timeout', '{"value": 30, "unit": "minutes", "description": "会话超时时间"}'),

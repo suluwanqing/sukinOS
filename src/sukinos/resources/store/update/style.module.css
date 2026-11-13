@@ -106,6 +106,17 @@
   margin-top: 4px;
 }
 
+.su-update__forced {
+  margin-left: 8px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
+}
+
 .su-update__arrow {
   margin: 0 4px;
   color: #dcdfe6;

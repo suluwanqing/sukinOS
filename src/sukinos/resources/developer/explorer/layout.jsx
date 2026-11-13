@@ -8,7 +8,7 @@ import { confirm } from '@/component/confirm/layout';
 import ContextMenu from '@/component/contextMenu/layout';
 import Check from '@/component/check/layout';
 import Button from '@/component/button/layout';
-import { DndContext, PointerSensor, closestCenter, pointerWithin, DragOverlay, useSensor, useSensors } from '@dnd-kit/core';
+import { DndContext, MouseSensor, TouchSensor, closestCenter, pointerWithin, DragOverlay, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -166,8 +166,10 @@ function Explorer({
     return within.length > 0 ? within : closestCenter(args);
   }, []);
 
-  // 整行可起手拖拽：位移超过 6px 才判定为拖拽，保证单击仍能打开/展开
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
+  );
 
   const onToggleExpand = useCallback((path) => {
     setExpanded(prev => {
@@ -346,6 +348,19 @@ function Explorer({
     const mapping = affected.map(k => [k, k === srcPath ? base : base + k.slice(srcPath.length)]);
     if (mapping.some(([, np]) => files[np] !== undefined)) { alert.warning('目标位置已存在同名项目'); return; }
 
+    // 乐观移动的还原点：物理层失败时把整棵树退回去，不能让 UI 与磁盘各说各话
+    const snapshot = { files, physicalFiles, unsavedFiles, activeFile };
+    const rollback = () => {
+      setFiles(snapshot.files);
+      setPhysicalFiles(snapshot.physicalFiles);
+      setUnsavedFiles?.(snapshot.unsavedFiles);
+      setActiveFile(snapshot.activeFile);
+      // 已打开标签按反向路径改动撤回
+      setOpenFiles?.(prev => prev.map(p => (
+        p === base || p.startsWith(base + '/') ? srcPath + p.slice(base.length) : p
+      )));
+    };
+
     // 内存先行：剔除旧 key 后按 anchor 位置插入新 key（自身子树紧随父目录）
     const srcSet = new Set(affected);
     const remaining = Object.keys(files).filter(k => !srcSet.has(k));
@@ -392,12 +407,14 @@ function Explorer({
 
     // 物理对齐
     const wasUnsaved = unsavedFiles.has(srcPath);
+    let moveOk = true;
     await runWithWriteLock(srcPath, async () => {
       const target = physicalFiles.get(srcPath.toLowerCase());
       const targetParentId = await resolveDirId(targetDirPath);
       if (target) {
         if (parentOf(srcPath) !== targetDirPath) {
-          await vfs.operation.handleMove({ id: target.id, name: target.name, parentId: target.parentId || workspaceDirId, targetParentId, type: target.type });
+          moveOk = await vfs.operation.handleMove({ id: target.id, name: target.name, parentId: target.parentId || workspaceDirId, targetParentId, type: target.type });
+          if (moveOk === false) return;
         }
         // 有未保存改动：按新路径立即写入内存最新内容
         if (!isDir && wasUnsaved) await triggerVfsSave(base, newFiles[base], true);
@@ -406,6 +423,7 @@ function Explorer({
         await triggerVfsSave(base, files[srcPath], true);
       }
     });
+    if (moveOk === false) rollback();
   };
 
   const resetDragState = () => {

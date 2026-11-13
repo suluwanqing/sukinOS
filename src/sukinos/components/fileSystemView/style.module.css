@@ -39,6 +39,7 @@
   min-width: 0;
   height: 100%;
   background-color: #ffffff;
+  container-type: inline-size;
 }
 
 .toolbar {
@@ -56,6 +57,16 @@
   display: flex;
   align-items: center;
   gap: 4px;
+}
+
+/*面包屑可以缩，按钮组不能缩：窄容器里先裁路径，别把切换按钮挤出面板*/
+.navGroup {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.actionGroup {
+  flex-shrink: 0;
 }
 
 .iconBtn {
@@ -97,6 +108,8 @@
   overflow-x: auto;
   white-space: nowrap;
   max-width: 420px;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .breadcrumbBar::-webkit-scrollbar {
@@ -223,19 +236,50 @@
   font-weight: 450;
 }
 
+.badgeDot {
+  width: 6px;
+  height: 6px;
+  margin-left: 2px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  flex-shrink: 0;
+}
+
 .colTime {
+  flex: 0 1 140px;
   width: 140px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   color: #64748b;
   font-family: monospace;
 }
 
 .colSize {
+  flex: 0 0 90px;
   width: 90px;
   text-align: right;
   font-size: 12px;
   color: #64748b;
   font-family: monospace;
+}
+
+/* 窄面板塞不下三列时先保文件名：日期列让位，尺寸列收窄 */
+@container (max-width: 420px) {
+  .colTime {
+    display: none;
+  }
+  .colSize {
+    flex-basis: 64px;
+    width: 64px;
+  }
+  .listHeader,
+  .listItem {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 
 .gridView {
@@ -272,6 +316,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+.gridBadge {
+  position: absolute;
+  top: 1px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  border: 1px solid #ffffff;
 }
 
 .gridName {

@@ -8,6 +8,8 @@ import {
   ENV_KEY_IS_BUNDLE,
 } from '@/sukinos/utils/config'
 import {getStore, STORES} from '@/sukinos/utils/_db.js'
+import {compareVersions} from '@/sukinos/utils/version'
+import {getForcedUpdate} from '../forceUpdateGuard'
 
 // 全局唯一的隐藏沙箱 Iframe 容器引用
 let sharedSandboxIframe = null
@@ -367,7 +369,7 @@ export class Lifecycle {
   }
 
   // 启动一个应用进程：冷启动与从休眠恢复都走这里；interactInfo 按 reducer 语义传入（state 自动注入 + action 即交互载荷）
-  async startProcess({pid, resourceId, interactInfo}) {
+  async startProcess({pid, resourceId, interactInfo, preserveHibernation = false}) {
     let truthPid = pid
     let truthResourceId = resourceId
     if (!truthPid) {
@@ -389,7 +391,7 @@ export class Lifecycle {
 
     if (this.#kernel.processes.has(truthPid)) {
       try {
-        if (app.status === 'HIBERNATED') {
+        if (app.status === 'HIBERNATED' && !preserveHibernation) {
           app.status = 'RUNNING'
           if (!app?.isSystemApp) {
             await this.#kernel.sysDb.updateData(app?.[ENV_KEY_NAME], {status: 'RUNNING'})
@@ -406,6 +408,22 @@ export class Lifecycle {
         return {isStart: true}
       } catch (error) {
         return {isStart: false}
+      }
+    }
+
+    //强更应用在更新前不解析 Worker，只拦冷启动，已在运行的进程不受影响
+    const forced = !app?.isSystemApp ? getForcedUpdate(truthResourceId) : null
+    if (forced) {
+      const localVersion = app?.[ENV_KEY_META_INFO]?.version
+      if (compareVersions(localVersion, forced.version) !== 0) {
+        this.#kernel.emitChange({
+          type: 'APP_FORCE_UPDATE',
+          pid: truthPid,
+          resourceId: truthResourceId,
+          appName: app?.[ENV_KEY_NAME],
+          version: forced.version,
+        })
+        return {isStart: false, blockedByForceUpdate: true, resourceId: truthResourceId, version: forced.version}
       }
     }
 
@@ -466,10 +484,9 @@ export class Lifecycle {
         this.#kernel.appIntereact({process: worker, interactInfo})
       }
 
-
-      // 确定要写入状态机和数据库的目标状态。
-      // 如果该应用启动前的初始状态是 HIBERNATED (会话恢复)，则建立好后台 Worker 实例后应当保持其 HIBERNATED 状态，绝不强行转为 RUNNING
-      const targetStatus = originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING'
+      // 确定要写入状态机和数据库的目标状态
+      const targetStatus =
+        preserveHibernation && originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING'
       app.status = targetStatus
 
       if (!app.isSystemApp) {
@@ -593,7 +610,7 @@ export class Lifecycle {
   }
   async reStartApp({pid}) {
     this.#kernel.kill(pid)
-    const result = this.startProcess({pid})
+    const result = this.activate({pid, reason: 'user'})
     this.#kernel.emitChange({type: 'APP_RESTART', pid})
     return result
   }
@@ -611,13 +628,15 @@ export class Lifecycle {
       }
       console.log(`[内核] 应用 ${app?.[ENV_KEY_NAME]} (pid: ${pid}) 已被强制关闭，状态已重置。`)
     }
-    const result = this.startProcess({pid})
+    const result = this.activate({pid, reason: 'user'})
     this.#kernel.emitChange({type: 'APP_RESTART', pid})
     return result
   }
 
   async restoreSession() {
     try {
+      //先检查更新把强更标记落到内存，再恢复会话，避免自启应用抢先解析旧包
+      await this.#kernel.checkAppUpdates()
       const allApps = [...this.#kernel.systemApps.values(), ...this.#kernel.userApps.values()]
       const appsToRestore = allApps.filter(
         a =>
@@ -628,25 +647,34 @@ export class Lifecycle {
       // 由于这个system也介入了自动启动这里不再单独处理
       for (const app of appsToRestore) {
         // 异步启动，不阻塞主流程
-        this.startProcess({pid: app.pid})
+        this.activate({pid: app.pid, reason: 'restore'})
       }
     } catch (err) {
       console.error('[内核] 会话恢复失败:', err)
     }
   }
 
+  async activate({pid, resourceId, reason = 'user', interactInfo, from}) {
+    const truthPid = pid || this.#kernel.getPidByResourceId(resourceId)
+    const app = truthPid && this.#kernel.getApp(truthPid)
+    if (!app) {
+      alert.failure('启动失败!App未注册或已删除!')
+      return {isStart: false}
+    }
+    const shouldFocus = reason === 'user' || reason === 'interaction'
+    const result = await this.startProcess({
+      pid: truthPid,
+      interactInfo: reason === 'interaction' ? {...interactInfo, from} : interactInfo,
+      preserveHibernation: reason === 'restore',
+    })
+    if (result?.isStart && shouldFocus) {
+      this.#kernel.emitChange({type: 'APP_FOCUS', pid: truthPid})
+    }
+    return result
+  }
+
   async evokeApp({pid, from, interactInfo}) {
-    const targetApp = this.#kernel.getApp(pid)
-    if (!targetApp) {
-      alert.failure('唤起失败!App未注册或已删除!')
-    }
-    const p = this.#kernel.processes.get(pid)
-    const newInteractInfo = {...interactInfo, from} //注入from[App]信息
-    if (p) {
-      this.#kernel.appIntereact({process: p.worker, interactInfo: newInteractInfo})
-    } else {
-      this.startProcess({pid, interactInfo: newInteractInfo})
-    }
+    return this.activate({pid, reason: 'interaction', interactInfo, from})
   }
 }
 

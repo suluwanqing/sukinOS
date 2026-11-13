@@ -12,10 +12,29 @@
 ## 阅读路径
 
 - **新人上手**：`1-项目概述` → `2-系统架构` → `module/00-overview`（模块地图 + 附录 A/B/C/D）→ 按要改的层挑 `module/01-08`
-- **写/调 SukinOS 应用**：`module/08-development`（开发指南，含入口配置、metaInfo 全字段、发布四面板）→ `module/07-app-routing`（路由与消息）→ `module/04-process-kernel`（内核 API 与沙箱）
+- **写/调 SukinOS 应用**：`module/08-development`（开发指南，含入口配置、metaInfo 全字段、发布四面板）→ `module/03-resources`（SDK 分层与 AppSDK）→ `module/07-app-routing`（路由、消息与聚焦通道）→ `module/04-process-kernel` §3.7（`activate` 与沙箱）。应用内「开发手册」（`developer/right/healper`）只是速查，冲突以 `module/` 为准。
 - **排查"逻辑跑不起来/视图渲染错"**：`module/04` 的解析与分层层（预编译、`sourceMapper`、`assertLayering`）→ `module/03-resources`（ENV_KEY_* 与 SDK 交付）
-- **后端/数据**：`3-后端模块详解` → `7-数据库设计` → `module/00-overview` 附录C（11 张表口径）→ `docs/sql/`
+- **后端/数据**：`3-后端模块详解` → `7-数据库设计` → `module/00-overview` 附录C（12 张表口径）→ `docs/sql/`
 - **安全**：`5-权限体系详解` → `6-认证流程详解` → `module/05-file-system-tools` §2（沙箱按 `envType` 放行的真实口径）
+
+## 权威归属与去重约定
+
+同一结论只维护一份，其他位置只做摘要或索引。改代码后按这张表找唯一落点：
+
+| 主题 | 唯一权威 | 只做速查/索引的位置 |
+|------|---------|-------------------|
+| Hook 接口、参数、调用链 | `module/01-hooks.md` | `module/08` §5（应用侧边界）、应用内 helper「系统能力」 |
+| SDK 模板、ENV_KEY_*、内置应用 | `module/03-resources.md` | helper「基础 SDK」 |
+| 内核 API、CommHub、激活/生命周期、Worker 实现 | `module/04-process-kernel.md` | `module/07` §6（链路视角）、`module/08` §7（应用视角） |
+| 路由、消息协议、`APP_FOCUS` 通道、Pub/Sub | `module/07-app-routing.md` | `module/04` §2 的协议图 |
+| 窗口层级、焦点归属、DeskBook | `module/02-deskbook.md` | `module/04` §3.7 的聚焦意图说明 |
+| 应用开发流程、metaInfo、发布 | `module/08-development.md` | 应用内 helper（应用开发者速查） |
+
+规则：
+
+- 新增/修改结论先落 `module/` 权威文档，再按需摘要到 `module/08` 或 helper；不在 helper 里复制宿主内部实现。
+- helper 只回答"应用侧能写什么"，不展开编译管线、内核内部结构；需要时指向 `docs/module/`。
+- "Hooks 是宿主系统能力，不是应用 SDK"是统一口径：应用用 Props / `AppSDK` / 内核消息，不能 `import` 宿主 Hooks。
 
 ## 目录内容
 
@@ -29,7 +48,7 @@
 | [4-前端模块详解.md](./4-前端模块详解.md) | 前端总体结构（细粒度版见 `module/`） |
 | [5-权限体系详解.md](./5-权限体系详解.md) | 三层权限（后端 RBAC + 前端应用层） |
 | [6-认证流程详解.md](./6-认证流程详解.md) | JWT 双 Token、验证码、限流与防重放 |
-| [7-数据库设计.md](./7-数据库设计.md) | 表结构与 ER（MySQL，11 张表） |
+| [7-数据库设计.md](./7-数据库设计.md) | 表结构与 ER（MySQL，12 张表，含 `sukinos_app_revision`） |
 | [8-SukinOS桌面环境.md](./8-SukinOS桌面环境.md) | 桌面前端的叙事版说明 |
 | [系统实现与测试报告.md](./系统实现与测试报告.md) | 交付/验收向的实现与测试汇总（`.docx` 由 `generate_word.py` 生成） |
 
@@ -37,15 +56,15 @@
 
 | 文件 | 定位 |
 |------|------|
-| [00-overview.md](./module/00-overview.md) | 总览 + 附录A（mermaid 图索引）/B（模块文档索引）/C（后端 11 表）/D（API 路由） |
+| [00-overview.md](./module/00-overview.md) | 总览 + 附录A（mermaid 图索引）/B（模块文档索引）/C（后端 12 表）/D（API 路由） |
 | [01-hooks.md](./module/01-hooks.md) | 14 个 Hook 的接口、调用链与依赖矩阵 |
 | [02-deskbook.md](./module/02-deskbook.md) | 桌面环境：8 个组件、窗口交互、持久化、性能措施 |
 | [03-resources.md](./module/03-resources.md) | 资源与应用层：ENV_KEY_* 协议、SDK 双权限、内置应用 |
-| [04-process-kernel.md](./module/04-process-kernel.md) | 进程内核：Kernel API、CommHub、10 子模块、Worker 三模式、解析与分层 |
+| [04-process-kernel.md](./module/04-process-kernel.md) | 进程内核：Kernel API、CommHub、11 子模块、Worker 三模式、解析与分层 |
 | [05-file-system-tools.md](./module/05-file-system-tools.md) | VFS 两层架构、安全沙箱、系统数据库、通用工具 |
 | [06-middleware-login.md](./module/06-middleware-login.md) | 中间件、Redux Store、登录与认证链路 |
 | [07-app-routing.md](./module/07-app-routing.md) | 双层路由、三种 Worker 模式的消息链路、Dispatch 双路径、Pub/Sub |
-| [08-development.md](./module/08-development.md) | 开发指南：系统/非系统 APP、入口配置、发布面板、热更新、调试 |
+| [08-development.md](./module/08-development.md) | 开发指南：系统/非系统 APP、入口配置、发布面板、热更新、调试；§5 只讲 Hooks 应用侧边界 |
 
 ### 图（`docs/mermaid/`，23 个 `.mmd`）
 
@@ -68,5 +87,5 @@
 ## 维护约定
 
 - 新增/修改文档结论时，**行号必须指向当前代码**；`X.js:N-M` 形式的引用由脚本检查 `M ≤ 文件行数`
-- 表数、入站消息类型数等**计数类结论**以代码为准（后端 11 张表、Worker 入站 5 类）
+- 表数、入站消息类型数等**计数类结论**以代码为准（后端 12 张表、Worker 入站 5 类）
 - 不删除 `.mmd`，不改内联/独立图的引用方式

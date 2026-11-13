@@ -1,9 +1,9 @@
 .su-system-apps-access__section {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   height: 100%;
-  padding: 20px 24px;
+  padding: 0;
   box-sizing: border-box;
 }
 
@@ -11,12 +11,12 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .su-system-apps-access__section-header h3 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: #111827;
   letter-spacing: -0.2px;

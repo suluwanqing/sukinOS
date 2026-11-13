@@ -135,7 +135,9 @@ graph LR
     end
 
     subgraph 进程管理
+        activate
         startProcess
+        requestFocus
         hibernate
         forceKillProcess
         reStartApp
@@ -203,15 +205,17 @@ graph LR
 
 | 方法 | 说明 |
 |------|------|
-| `startProcess({pid, resourceId, interactInfo})` | 启动应用进程（冷启动 / 唤醒休眠 / 已运行时直投 interactInfo） |
+| `activate({pid, resourceId, reason, interactInfo, from})` | 统一激活入口：按 `reason` 决定是否唤醒与是否聚焦（见 §3.7） |
+| `startProcess({pid, resourceId, interactInfo, preserveHibernation})` | 启动应用进程（冷启动 / 唤醒休眠 / 已运行时直投 interactInfo）；只处理进程与投递、不聚焦；`preserveHibernation` 仅供会话恢复使用 |
+| `requestFocus(pid)` | 广播 `APP_FOCUS` 系统事件，请求 DeskBook 聚焦该窗口 |
 | `hibernate(pid)` | 休眠应用（不终止Worker，仅改状态标记） |
 | `forceKillProcess(pid)` | 强制终止进程（根据配置决定是否清除状态） |
-| `reStartApp({pid})` | 热重启应用 |
-| `forceReStartApp({pid})` | 强制重启应用（清除状态后重启） |
+| `reStartApp({pid})` | 热重启应用（走 `activate(reason:'user')`） |
+| `forceReStartApp({pid})` | 强制重启应用（清除状态后重启，走 `activate(reason:'user')`） |
 | `forceResetApp(pid)` | 强制重置应用（清空状态 + 杀死进程） |
 | `forceSaveAllStates()` | 强制保存所有运行中应用的状态 |
-| `restoreSession()` | 恢复上一次会话状态 |
-| `evokeApp({pid, from, interactInfo})` | 唤起/拉起应用，支持跨应用交互 |
+| `restoreSession()` | 恢复上一次会话状态（走 `activate(reason:'restore')`，不聚焦） |
+| `evokeApp({pid, from, interactInfo})` | 跨应用唤起，等价于 `activate(reason:'interaction')` |
 
 #### 事件通信 API
 
@@ -291,6 +295,7 @@ CommHub 是内核与应用 Worker 之间的通信中枢，集中处理消息分�
 graph TD
 subgraph Worker_To_CommHub["Worker -> CommHub"]
 A[STATE_UPDATE] -->|更新缓存+通知订阅者| B
+A2[APP_FOCUS_REQUEST] -->|emitChange 系统事件| A3[APP_FOCUS]
 C[SAVE_STATE] -->|持久化到 sysDb| D
 E[PUBLISH_TOPIC] -->|转发主题消息| F
 G[SUBSCRIBE_TOPIC] -->|注册跨沙箱订阅| H
@@ -307,6 +312,8 @@ end
 
 ```
 
+**聚焦通道**：`APP_FOCUS` 不是发给 Worker 的消息，而是 `emitChange` 产生的 `sys_change` 事件。内核在 `activate` 判定需要聚焦时广播它；Worker 主动调用 `api.focus()` 时产生 `APP_FOCUS_REQUEST`，CommHub 收到后转成同一个 `APP_FOCUS` 事件。DeskBook 通过 `subscribeSystem` 消费该事件，内核不直接持有窗口层级。
+
 ### 2.3 公共方法
 
 | 方法 | 说明 |
@@ -315,7 +322,7 @@ end
 | `notify(pid, type, data)` | 向某个进程的所有订阅者广播状态变化 |
 | `getCachedState(pid)` | 获取缓存的状态快照 |
 | `clearCachedState(pid)` | 清理缓存的状态快照 |
-| `handleMsg(pid, msg)` | 处理来自 Worker 的消息（核心路由） |
+| `handleMsg(pid, msg)` | 处理来自 Worker 的消息（核心路由）；`APP_FOCUS_REQUEST` 在此直接转成 `APP_FOCUS` 系统事件 |
 | `subscribeApp(pid, cb)` | 订阅单个进程状态变化（返回取消订阅函数） |
 | `subscribeSystem(cb)` | 订阅系统级变更事件（返回取消订阅函数） |
 | `subscribe(topic, cb)` | 订阅指定主题的消息 |
@@ -328,7 +335,7 @@ end
 
 **目录**: `kernelParts/`
 
-Kernel 将职责拆分为 10 个子模块，每个子模块持有 Kernel 的弱引用（通过 `#kernel` 私有字段），通过公共方法暴露功能。`main.js` 负责统一 re-export 所有子模块的代理函数。
+Kernel 将职责拆分为 11 个子模块，每个子模块持有 Kernel 的弱引用（通过 `#kernel` 私有字段），通过公共方法暴露功能。`main.js` 负责统一 re-export 所有子模块的代理函数。
 
 ### 3.1 子模块总览
 
@@ -344,6 +351,7 @@ graph TB
     D --> L[Registry]
     D --> M[ResourceAccess]
     D --> N[Settings]
+    D --> P[Updates]
     D --> O[CommHub]
 
     E -.->|委托| O
@@ -424,29 +432,32 @@ graph TB
 
 **文件**: `kernelParts/lifecycle.js`
 
-管理应用的完整生命周期：启动、休眠、终止、重启、会话恢复。还包含 `VirtualWorker` 和 `NoWorker` 两种替代 Worker 实现。
+管理应用的完整生命周期：启动、休眠、终止、重启、会话恢复。所有入口统一收敛到 `activate(reason)`，并由它决定是否广播 `APP_FOCUS` 聚焦意图。还包含 `VirtualWorker` 和 `NoWorker` 两种替代 Worker 实现。
 
 #### 进程状态机
 
 ```mermaid
 stateDiagram-v2
     [*] --> INSTALLED: 安装完成
-    INSTALLED --> RUNNING: startProcess (冷启动)
+    INSTALLED --> RUNNING: activate(reason=user/interaction) 冷启动
+    INSTALLED --> RUNNING: activate(reason=restore) autoStart 冷拉起
     RUNNING --> HIBERNATED: hibernate
-    HIBERNATED --> RUNNING: startProcess (唤醒)
+    HIBERNATED --> RUNNING: activate(reason=user/interaction)
     RUNNING --> INSTALLED: forceKillProcess / forceResetApp
     HIBERNATED --> INSTALLED: forceKillProcess
-    INSTALLED --> RUNNING: restoreSession (会话恢复)
-    INSTALLED --> RUNNING: evokeApp (唤起)
+    HIBERNATED --> HIBERNATED: activate(reason=restore)
 ```
 
 #### 进程启动模式
 
 ```mermaid
 graph TD
-    A[startProcess] --> B{进程已存在?}
+    A[activate / startProcess] --> B{进程已存在?}
     B -->|是| C{状态?}
-    C -->|HIBERNATED| D[唤醒: 改状态为RUNNING]
+    C -->|HIBERNATED| H1{preserveHibernation?}
+    H1 -->|是 (restore)| H2[保持 HIBERNATED, 不显示窗口]
+    H1 -->|否 (user / interaction)| D[唤醒: 改状态为RUNNING]
+    H2 --> O
     C -->|RUNNING| E[投递 interactInfo 后返回]
     D --> E
     B -->|否| F{metaInfo.worker?}
@@ -460,9 +471,41 @@ graph TD
     K --> L{有savedState?}
     L -->|是| M[发送 RESTORE 消息]
     L -->|否| N[发送 INIT 消息]
-    M --> O[状态设为RUNNING]
+    M --> O[状态设为 targetStatus]
     N --> O
+    O -.->|restore 且原始为 HIBERNATED| O2[保持 HIBERNATED]
 ```
+
+#### 激活语义：activate(reason)
+
+`activate` 是生命周期之上的一层薄封装（`lifecycle.js:Lifecycle.activate`），所有"让应用出现"的入口都应经过它，而不是直接调 `startProcess` 或 `appIntereact`：
+
+| reason | 调用来源 | HIBERNATED 是否唤醒 | 是否发 `APP_FOCUS` |
+|--------|---------|---------------------|--------------------|
+| `user` | 桌面图标、状态栏、开始菜单、`reStartApp` | ✅ 唤醒 | ✅ |
+| `interaction` | `evokeApp`、`InteractiveAwakening` | ✅ 唤醒 | ✅ |
+| `restore` | `restoreSession` | ❌ 保留 HIBERNATED | ❌ |
+
+```js
+async activate({pid, resourceId, reason = 'user', interactInfo, from}) {
+  const truthPid = pid || this.#kernel.getPidByResourceId(resourceId)
+  const app = truthPid && this.#kernel.getApp(truthPid)
+  if (!app) { alert.failure('启动失败!App未注册或已删除!'); return {isStart: false} }
+
+  const shouldFocus = reason === 'user' || reason === 'interaction'
+  const result = await this.startProcess({
+    pid: truthPid,
+    interactInfo: reason === 'interaction' ? {...interactInfo, from} : interactInfo,
+    preserveHibernation: reason === 'restore',
+  })
+  if (result?.isStart && shouldFocus) {
+    this.#kernel.emitChange({type: 'APP_FOCUS', pid: truthPid})
+  }
+  return result
+}
+```
+
+**聚焦意图只发给 DeskBook**：内核不直接修改 `currentFocus` / `zOrders`，只广播 `APP_FOCUS` 系统事件；DeskBook 是窗口层级与焦点的唯一所有者（见 [02-deskbook.md](./02-deskbook.md) §5）。Worker 侧需要主动聚焦时，发送 `APP_FOCUS_REQUEST`，由 CommHub 转成同样的 `APP_FOCUS` 事件。
 
 #### VirtualWorker
 
@@ -540,7 +583,8 @@ this.sysConfig = {
 
 | 方法 | 说明 |
 |------|------|
-| `startProcess({pid, resourceId, interactInfo})` | 启动/唤醒进程（含会话恢复保护） |
+| `activate({pid, resourceId, reason, interactInfo, from})` | 统一激活入口：`user`/`interaction` 唤醒并聚焦，`restore` 保留休眠且不聚焦 |
+| `startProcess({pid, resourceId, interactInfo, preserveHibernation})` | 启动/唤醒进程；`preserveHibernation` 仅由 `activate(reason:'restore')` 传入 |
 | `hibernate(pid)` | 休眠应用（仅改标记，Worker 保持热状态） |
 | `forceKillProcess(pid)` | 强制终止进程（根据 saveState 配置决定是否清除状态） |
 | `reStartApp({pid})` | 热重启（不清除状态） |
@@ -548,8 +592,8 @@ this.sysConfig = {
 | `forceResetApp(pid)` | 强制重置（**无视 saveState 配置**，清空所有状态 + 杀进程） |
 | `saveWindowState(pid, windowRect)` | 保存窗口几何信息 |
 | `forceSaveAllStates()` | 强制保存所有运行中应用状态（**不检查 saveState 配置**） |
-| `restoreSession()` | 恢复上一次会话（批量启动 RUNNING/HIBERNATED/autoStart 应用） |
-| `evokeApp({pid, from, interactInfo})` | 唤起应用（支持跨应用交互，注入 from 信息） |
+| `restoreSession()` | 批量恢复 RUNNING/HIBERNATED/autoStart 应用（`activate(reason:'restore')`，不聚焦） |
+| `evokeApp({pid, from, interactInfo})` | 跨应用唤起，等价于 `activate(reason:'interaction')`，注入 from 并聚焦 |
 | `clearAppSavedState(pid)` | 清除应用持久化状态（`savedState` 整体置 null，app + window 一起清） |
 | `clearAppSandboxData(app)` | 清理应用沙箱数据（localStorage/sessionStorage/IndexedDB） |
 
@@ -558,10 +602,10 @@ this.sysConfig = {
 `startProcess` 在冷启动时有会话恢复保护逻辑（`lifecycle.js:Lifecycle.startProcess`）：
 
 ```js
-const targetStatus = originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING';
+const targetStatus = preserveHibernation && originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING'
 ```
 
-休眠应用在会话恢复时先建立 Worker 实例保持"热"状态，但不自动显示窗口，避免所有休眠应用同时弹出。
+`preserveHibernation` 默认为 `false`，只有 `activate(reason:'restore')` 会置真。因此普通启动/交互/重启即使面对原本休眠的应用也会转成 RUNNING；只有会话恢复会先建立 Worker 保持"热"状态但不显示窗口，避免所有休眠应用同时弹出。进程已存在时同样受该开关约束：`preserveHibernation` 为真则不改 `HIBERNATED` 状态。
 
 #### clearAppSavedState 全量清除
 
@@ -599,11 +643,19 @@ this.#kernel.autoSaveWindow(pid)
 
 #### restoreSession 会话恢复
 
-`restoreSession()`（`lifecycle.js:Lifecycle.restoreSession`）批量恢复 `RUNNING`/`HIBERNATED`/`autoStart` 应用，异步启动不阻塞主流程。
+`restoreSession()`（`lifecycle.js:Lifecycle.restoreSession`）批量恢复 `RUNNING`/`HIBERNATED`/`autoStart` 应用，逐个调用 `activate({pid, reason: 'restore'})`，异步启动不阻塞主流程。`restore` 不会发 `APP_FOCUS`，也不会把休眠应用转成 RUNNING。
 
 #### evokeApp 跨应用唤起
 
-`evokeApp({pid, from, interactInfo})`（`lifecycle.js:Lifecycle.evokeApp`）注入 `from` 信息，目标 App 已运行则直接发送 `APP_INTERACT`，未运行则冷启动+交互。
+`evokeApp({pid, from, interactInfo})`（`lifecycle.js:Lifecycle.evokeApp`）现在只是 `activate({pid, reason: 'interaction', interactInfo, from})` 的别名：
+
+```js
+async evokeApp({pid, from, interactInfo}) {
+  return this.activate({pid, reason: 'interaction', interactInfo, from})
+}
+```
+
+因此它同时完成三件事：目标未运行则冷启动、已休眠则唤醒、无论哪种情况都把 `from` 合并进 `interactInfo` 并广播 `APP_FOCUS`。目标已在 RUNNING 时，`startProcess` 的"进程已存在"分支负责投递 `APP_INTERACT`，不会重复投递。
 
 #### forceResetApp 无条件重置
 
@@ -629,7 +681,7 @@ this.#kernel.autoSaveWindow(pid)
 | `notify(pid, type, data)` | 通知进程订阅者 |
 | `systemSwitch(process, payload)` | 系统应用内核调用路由 |
 | `notSystemSwitch(payload)` | 非系统应用内核调用路由 |
-| `appIntereact(process, interactInfo)` | 跨应用交互（发送 APP_INTERACT 消息，由 evokeApp 注入 from 信息） |
+| `appIntereact(process, interactInfo)` | 底层投递：发送 `APP_INTERACT` 消息；不负责启动、唤醒或聚焦，业务入口应走 `activate`/`evokeApp` |
 
 #### TOPIC_MESSAGE 收方向
 
@@ -683,6 +735,22 @@ CommHub 通过 `sendToWorker` 向订阅进程转发 `TOPIC_MESSAGE`，Worker 消
 | 方法 | 说明 |
 |------|------|
 | `updateResourceCustom(data)` | 更新应用 custom 配置（经 `mergeAppCustom` 合并到 metaInfo.custom） |
+
+### 3.12 Updates - 更新检查与强更缓存
+
+**文件**: `kernelParts/updates.js`（Kernel 构造时实例化为 `kernel.updates`）
+
+| 能力 | 说明 |
+|------|------|
+| `check()` | 汇总已安装的非系统应用，调 `POST /sukinos/app/checkUpdates`，返回 `{updates, checkedAt}` |
+| `start(options)` | 启动 30 分钟轮询；监听页面可见性，距上次检查 >5 分钟时补检 |
+| `stop({clearSnapshot})` | 停轮询并清理定时器/监听；可选清空快照 |
+| `getSnapshot()/getUpdate(id)` | 商店、桌面提示共读同一份快照 |
+| `setForcedUpdates()` | 把强更清单写入 `localStorage` 键 `sukinos:forced-updates`（`forceUpdateGuard.js`） |
+
+强更应用在 `lifecycle.startProcess` 冷启动前检查：非系统应用本地版本与目标不一致时返回
+`blockedByForceUpdate` 并发出 `APP_FORCE_UPDATE`，不创建进程。普通更新发 `APP_UPDATE_AVAILABLE`，
+由 DeskBook 排队提示。安装/更新载荷由 `packageTrust.verifyRemotePackage()` 校验 SHA-256 与 Ed25519 签名。
 
 ---
 
@@ -1103,32 +1171,35 @@ graph TD
 
 ```mermaid
 graph TD
-    A[UI: startProcess] --> B[Lifecycle.startProcess]
-    B --> C{进程已存在?}
-    C -->|HIBERNATED| D[更新状态为RUNNING]
-    D --> E{有interactInfo?}
-    E -->|是| F[Messaging.appIntereact]
-    F --> G[发送APP_INTERACT消息]
-    C -->|RUNNING| H[返回 isStart: true]
-    C -->|不存在| I{hasWorker?}
-    I -->|true| J{useVirtualWorker?}
-    J -->|是| K[创建VirtualWorker]
-    J -->|否| L[generateWorker - 生成代码]
-    L --> M[URL.createObjectURL]
-    M --> N[new Worker]
-    I -->|false| O[创建NoWorker]
-    K --> P[注册消息委托]
-    N --> P
+    A[UI: startApp / evokeApp / restoreSession] --> B[Lifecycle.activate]
+    B -->|user / interaction| B1[shouldFocus=true]
+    B -->|restore| B2[preserveHibernation=true]
+    B1 --> C[Lifecycle.startProcess]
+    B2 --> C
+    C --> D{进程已存在?}
+    D -->|HIBERNATED| E{preserveHibernation?}
+    E -->|是| E1[保持 HIBERNATED<br/>不显示窗口]
+    E -->|否| F[更新状态为RUNNING]
+    F --> G{有 interactInfo?}
+    E1 --> G
+    G -->|是| H[Messaging.appIntereact<br/>发送APP_INTERACT]
+    G -->|否| K
+    D -->|RUNNING| G2{有 interactInfo?}
+    G2 -->|是| H
+    G2 -->|否| K
+    D -->|不存在| I[冷启动: generateWorker / 创建 Worker 三选一]
+    I --> J[发送 INIT 或 RESTORE]
+    J --> L[targetStatus = preserve && 原HIBERNATED ? HIBERNATED : RUNNING]
+    L --> M{有 interactInfo?}
+    M -->|是| H
+    M -->|否| K
+    H --> K[startProcess 返回 isStart:true]
+    I --> Q[Worker 首帧 STATE_UPDATE]
+    Q --> R[CommHub.handleMsg<br/>更新 stateCache → notify 订阅者]
+    K --> N{activate: shouldFocus?}
+    N -->|是| O[emitChange APP_FOCUS]
+    N -->|否| P[结束]
     O --> P
-    P --> Q{有savedState?}
-    Q -->|是| R[发送RESTORE消息]
-    Q -->|否| S[发送INIT消息]
-    R --> T[Worker 内 onmessage 路由<br/>getRunnerMessageRouter 生成的分支]
-    S --> T
-    T --> U[STATE_UPDATE]
-    U --> V[CommHub.handleMsg]
-    V --> W[更新stateCache]
-    V --> X[notify订阅者]
 ```
 
 ### 5.3 UI Action 分发链
@@ -1272,5 +1343,6 @@ process/
     ├── messaging.js          # Messaging - 消息通信
     ├── registry.js           # Registry - 注册表
     ├── resourceAccess.js    # ResourceAccess - 资源访问
-    └── settings.js           # Settings - 配置管理
+    ├── settings.js           # Settings - 配置管理
+    └── updates.js            # Updates - 更新检查与强更缓存
 ```

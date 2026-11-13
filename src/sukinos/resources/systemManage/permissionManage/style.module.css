@@ -70,7 +70,7 @@
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  padding: 20px 24px;
+  padding: 14px 16px;
   box-sizing: border-box;
 }
 
@@ -244,7 +244,7 @@
 
 .su-system-permission__empty {
   text-align: center;
-  padding: 36px 20px;
+  padding: 24px 16px;
   color: #6b7280;
   font-size: 12.5px;
 }

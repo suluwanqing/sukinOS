@@ -213,7 +213,7 @@ graph TB
         subgraph KILL_RESTART["kill + restart（同会话）"]
             direction TB
             K1["kill：终止 Worker + 卸载组件"]
-            K2["restart：startProcess 重建"]
+            K2["restart：activate(user) 重建 + 聚焦"]
             K3{"检查 app.savedState?.app<br/>（受 saveState 配置影响）"}
             K4["Worker 收到 RESTORE（保留时）"]
             K5["Worker 收到 INIT（清除时）"]
@@ -488,32 +488,38 @@ graph TB
     subgraph EVOKE_AND_RESTORE["13. 跨应用唤起与会话恢复"]
         direction TB
 
-        subgraph EVOKE_FLOW["evokeApp 跨应用唤起"]
+        subgraph EVOKE_FLOW["evokeApp = activate(interaction)"]
             direction TB
             EA0["App A → evokeApp({pid:'B', from:'A', interactInfo})"]
-            EA1["注入 from='A' 信息"]
-            EA2{"App B 已运行?"}
-            EA3["✅ 已运行 → appIntereact<br/>→ Worker B 收到 APP_INTERACT"]
-            EA4["❌ 未运行 → startProcess({pid, interactInfo})"]
-            EA5["冷启动 + 交互消息"]
+            EA1["activate(reason:'interaction')<br/>注入 from='A'"]
+            EA2{"App B 当前状态?"}
+            EA3["RUNNING → 直接 appIntereact<br/>→ Worker B 收到 APP_INTERACT"]
+            EA4["HIBERNATED → 唤醒为 RUNNING<br/>→ 再 APP_INTERACT"]
+            EA5["未运行 → startProcess 冷启动<br/>→ INIT/RESTORE + APP_INTERACT"]
+            EA6["emit APP_FOCUS → DeskBook 置前"]
             EA0 --> EA1 --> EA2
-            EA2 -->|"是"| EA3
-            EA2 -->|"否"| EA4 --> EA5
+            EA2 -->|"RUNNING"| EA3
+            EA2 -->|"HIBERNATED"| EA4
+            EA2 -->|"未启动"| EA5
+            EA3 --> EA6
+            EA4 --> EA6
+            EA5 --> EA6
         end
 
         subgraph RESTORE_SESSION["restoreSession 会话恢复"]
             direction TB
-            RS0["系统初始化 → restoreSession()"]
-            RS1["遍历 systemApps + userApps"]
-            RS2["筛选: status=RUNNING / HIBERNATED / autoStart=true"]
-            RS3["异步批量 startProcess({pid})"]
-            RS4["不阻塞主流程"]
-            RS0 --> RS1 --> RS2 --> RS3 --> RS4
+            RSS0["系统初始化 → restoreSession()"]
+            RSS1["遍历 systemApps + userApps"]
+            RSS2["筛选: status=RUNNING / HIBERNATED / autoStart=true"]
+            RSS3["异步批量 activate({pid, reason:'restore'})"]
+            RSS4["冷拉起沿用 preserveHibernation；不发 APP_FOCUS"]
+            RSS5["不阻塞主流程"]
+            RSS0 --> RSS1 --> RSS2 --> RSS3 --> RSS4 --> RSS5
         end
 
         subgraph SESSION_PROTECT["startProcess 会话恢复保护"]
             direction TB
-            SP0["startProcess 冷启动"]
+            SP0["activate(restore) → startProcess({preserveHibernation:true})"]
             SP1["记录 originalStatus = app.status"]
             SP2{"originalStatus === 'HIBERNATED'?"}
             SP3["✅ targetStatus = 'HIBERNATED'<br/>Worker保持热但不显示窗口"]

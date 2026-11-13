@@ -595,6 +595,7 @@ function SystemLog() {
               <div className={style[bem.e("filter")]}>
                 <label>方法</label>
                 <Select
+                  size="small"
                   value={method}
                   onChange={(val) => { setMethod(val); setPage(1); }}
                   options={METHOD_OPTIONS}
@@ -604,6 +605,7 @@ function SystemLog() {
               <div className={style[bem.e("filter")]}>
                 <label>状态</label>
                 <Select
+                  size="small"
                   value={success}
                   onChange={(val) => { setSuccess(val); setPage(1); }}
                   options={SUCCESS_OPTIONS}

@@ -45,26 +45,43 @@ const clearAllPreviewStorage = async () => {
     keysToDel.forEach(k => sessionStorage.removeItem(k));
   } catch (e) {}
 
-  if (window.indexedDB && typeof window.indexedDB.databases === 'function') {
+  // opaque origin 下 indexedDB / caches 的属性 getter 本身就抛 SecurityError，读取也要放进 try
+  let idb = null;
+  try {
+    idb = window.indexedDB;
+  } catch {
+    // 沙箱上下文不提供 IndexedDB，跳过清理
+  }
+  if (idb && typeof idb.databases === 'function') {
     try {
-      const dbs = await window.indexedDB.databases();
+      const dbs = await idb.databases();
       for (const db of dbs) {
         if (db.name && (db.name.startsWith('pid-preView-') || db.name.includes('preView-'))) {
-          window.indexedDB.deleteDatabase(db.name);
+          idb.deleteDatabase(db.name);
         }
       }
-    } catch (e) {}
+    } catch {
+      // 同上，能力不可用时无需清理
+    }
   }
 
-  if (window.caches && typeof window.caches.keys === 'function') {
+  let cacheStorage = null;
+  try {
+    cacheStorage = window.caches;
+  } catch {
+    // 沙箱上下文不提供 CacheStorage，跳过清理
+  }
+  if (cacheStorage && typeof cacheStorage.keys === 'function') {
     try {
-      const keys = await window.caches.keys();
+      const keys = await cacheStorage.keys();
       for (const key of keys) {
         if (key && (key.startsWith('pid-preView-') || key.includes('preView-'))) {
-          await window.caches.delete(key);
+          await cacheStorage.delete(key);
         }
       }
-    } catch (e) {}
+    } catch {
+      // 同上，能力不可用时无需清理
+    }
   }
 };
 
@@ -335,11 +352,17 @@ const RenderProcess = ({
   localLogicCode,
   localEntries,
   previewId,
+  precompiledFiles,
+  precompiledLogic,
+  precompiledLogicModules,
+  precompiledSkipped,
   onStateChange,
   onLogAction,
   onCompileStart,
   onCompileEnd,
-  onCompileError
+  onCompileError,
+  onRuntimeError,
+  onReady
 }) => {
   const [previewState, setPreviewState] = useState({});
   const [modules, setModules] = useState(null);
@@ -348,6 +371,9 @@ const RenderProcess = ({
 
   const workerRef = useRef(null);
   const compileDbRef = useRef(null);
+  // 就绪只报一次；首份逻辑状态是否到达决定是否需要多等一小段
+  const readySentRef = useRef(false);
+  const workerStateRef = useRef(false);
 
   const finalPid = useMemo(() => {
     if (!previewId) return '';
@@ -356,12 +382,20 @@ const RenderProcess = ({
 
   const prevPreviewIdRef = useRef(finalPid);
 
+  //预览侧主动跳过的文件（裸 key 编译失败）本来就没有预编译产物，不能按“缺产物”报错
+  const precompiledSkippedSet = useMemo(
+    () => new Set(Array.isArray(precompiledSkipped) ? precompiledSkipped : []),
+    [precompiledSkipped]
+  );
+
   // 回调可能没传：代理函数在执行时静默略过
   const handleStateChange = useEventCallback(onStateChange);
   const handleLogAction = useEventCallback(onLogAction);
   const handleCompileStart = useEventCallback(onCompileStart);
   const handleCompileEnd = useEventCallback(onCompileEnd);
   const handleCompileError = useEventCallback(onCompileError);
+  const handleRuntimeError = useEventCallback(onRuntimeError);
+  const handleReady = useEventCallback(onReady);
 
   useEffect(() => {
     clearAllPreviewStorage();
@@ -429,11 +463,19 @@ const RenderProcess = ({
     let url = null;
 
     const boot = async () => {
+      // 隔离运行时没有 Babel：宿主预编译好的产物直接透传，本地预览仍按原路径现编
+      const precompiledModuleMap = precompiledLogicModules && typeof precompiledLogicModules === 'object'
+        ? precompiledLogicModules
+        : null;
       // 与生产对齐：辅逻辑模块先编译成 CJS 产物，worker 侧模块运行时按 require 取用
       const logicContent = {};
       const logicPrecompiled = {};
       for (const [key, code] of Object.entries(logicModulesRef.current)) {
         logicContent[key] = code;
+        if (precompiledModuleMap) {
+          if (typeof precompiledModuleMap[key] === 'string') logicPrecompiled[key] = precompiledModuleMap[key];
+          continue;
+        }
         try {
           logicPrecompiled[key] = await compileSource(code, { filename: `${key}.jsx` });
         } catch (e) {
@@ -441,8 +483,8 @@ const RenderProcess = ({
         }
       }
       // 主逻辑块也预编译，`import { x } from './store/y'` 在预览里才可用；失败只降级成原文注入
-      let logicPrecompiledMain = null;
-      if (localLogicCode) {
+      let logicPrecompiledMain = typeof precompiledLogic === 'string' ? precompiledLogic : null;
+      if (logicPrecompiledMain === null && localLogicCode) {
         try {
           logicPrecompiledMain = await compileSource(localLogicCode, { filename: `${logicMainKey || 'logic'}.jsx` });
         } catch (e) {
@@ -476,21 +518,34 @@ const RenderProcess = ({
       worker.onmessage = (e) => {
         // 这里的 STATE_UPDATE 是 generateWorker 内部 broadcast 函数发送的
         if (e.data.type === 'STATE_UPDATE') {
+          workerStateRef.current = true;
           setPreviewState(e.data.payload);
           handleStateChange(e.data.payload);
+        } else if (e.data.type === 'WORKER_ERROR') {
+          const detail = e.data.payload || {};
+          handleRuntimeError(`[逻辑] ${detail.message || '逻辑执行异常'}`);
         }
+      };
+      // Worker 脚本顶层求值失败（如 require 解析不到模块）不会走 onmessage，只能靠 onerror 兜住
+      worker.onerror = (event) => {
+        event.preventDefault?.();
+        const message = event?.message || event?.error?.message || '逻辑 Worker 启动失败';
+        handleRuntimeError(`[逻辑] ${message}`);
       };
       worker.postMessage({ type: 'INIT' });
       workerRef.current = worker;
     };
-    boot();
+    //Worker 构造/启动异常不能让异步拒绝悬空，否则只会冒出一条无来源的未处理拒绝
+    boot().catch((error) => {
+      if (!cancelled) handleRuntimeError(`[逻辑] ${error?.message || '逻辑 Worker 启动失败'}`);
+    });
 
     return () => {
       cancelled = true;
       worker?.terminate();
       if (url) URL.revokeObjectURL(url);
     };
-  }, [localLogicCode, finalPid, isBundle, logicModulesKey, viewEntryKey, logicMainKey, handleStateChange]);
+  }, [localLogicCode, finalPid, isBundle, logicModulesKey, viewEntryKey, logicMainKey, precompiledLogic, precompiledLogicModules, handleStateChange, handleRuntimeError]);
 
   useEffect(() => {
     if (!localFiles || Object.keys(localFiles).length === 0) return;
@@ -515,6 +570,11 @@ const RenderProcess = ({
         const moduleRegistry = {};
         const moduleKeys = [];
 
+        // 隔离运行时跳过 Babel，只认宿主预编译好的文件表
+        const precompiledFileMap = precompiledFiles && typeof precompiledFiles === 'object'
+          ? precompiledFiles
+          : null;
+
         // 第一阶段：编译所有模块，构建 moduleRegistry（不执行）
         for (const [filename, code] of Object.entries(localFiles)) {
           // 混装包里的文档档、资源档与数据文本档没有编译路径：送进 Babel 只会产出一条假编译错误
@@ -523,9 +583,28 @@ const RenderProcess = ({
           const isCss = /\.css$/.test(filename);
           const moduleKey = isCss ? filename : filename.replace(/\.(jsx|js)$/, '');
 
+          if (precompiledFileMap && !isCss && typeof precompiledFileMap[filename] !== 'string') {
+            //预览方已明确跳过的文件：不注册模块，也不报警；真被 import 时由 require 抛运行错误
+            if (precompiledSkippedSet.has(filename)) continue;
+            const detail = {
+              phase: 'compile',
+              message: `缺少预编译产物：${filename}`,
+              stack: '',
+              loc: ''
+            };
+            errorList.push({ key: moduleKey, errorDetail: detail });
+            handleCompileError(`[${moduleKey}] ${detail.message}`);
+            continue;
+          }
+
           const res = isCss
             ? createCssModule(code, moduleKey)
-            : await compileSourceAsync({ sourceCode: code, pid: finalPid, module: moduleKey });
+            : await compileSourceAsync({
+              sourceCode: precompiledFileMap ? precompiledFileMap[filename] : code,
+              pid: finalPid,
+              module: moduleKey,
+              precompiled: Boolean(precompiledFileMap)
+            });
 
           if (res.error) {
             // 优先使用 renderWindow 返回的结构化 errorDetail，兜底降级为字符串
@@ -617,6 +696,8 @@ const RenderProcess = ({
         setCompileVersion(prev => prev + 1);
       } catch (e) {
         handleCompileError(e.message);
+        //失败也要给出可见结果，否则外层遮罩会一直停在启动中
+        setModules(prev => prev ?? {});
       }
       handleCompileEnd();
     }, 400);
@@ -624,7 +705,27 @@ const RenderProcess = ({
     return () => {
       if (compileDbRef.current) clearTimeout(compileDbRef.current);
     };
-  }, [localFiles, instanceSDK, finalPid, auxLogicKeys, viewEntryKey, isDocumentApp, handleCompileStart, handleCompileEnd, handleCompileError]);
+  }, [localFiles, instanceSDK, finalPid, auxLogicKeys, viewEntryKey, isDocumentApp, precompiledFiles, precompiledSkippedSet, handleCompileStart, handleCompileEnd, handleCompileError]);
+
+  //就绪以可见结果为准：文档档挂载即算；组件档等编译产出（失败也算）和首份逻辑状态，
+  //worker 迟迟不广播时最多多等 800ms，避免遮罩挂死
+  useEffect(() => {
+    if (readySentRef.current) return undefined;
+    if (!isDocumentApp) {
+      if (modules === null) return undefined;
+      if (!workerStateRef.current) {
+        const timer = window.setTimeout(() => {
+          if (readySentRef.current) return;
+          readySentRef.current = true;
+          handleReady();
+        }, 800);
+        return () => window.clearTimeout(timer);
+      }
+    }
+    readySentRef.current = true;
+    handleReady();
+    return undefined;
+  }, [modules, isDocumentApp, previewState, handleReady]);
 
   // CSS 以声明式 <style> 随 modules 渲染，不再手动改 document：文件同步更新时样式实时跟着变
   const scopedCssString = useMemo(() => {
@@ -725,5 +826,9 @@ export default memo(RenderProcess, (prevProps, nextProps) => {
   return prevProps.previewId === nextProps.previewId &&
          prevProps.localLogicCode === nextProps.localLogicCode &&
          prevProps.localFiles === nextProps.localFiles &&
-         prevProps.localEntries === nextProps.localEntries;
+         prevProps.localEntries === nextProps.localEntries &&
+         prevProps.precompiledFiles === nextProps.precompiledFiles &&
+         prevProps.precompiledLogic === nextProps.precompiledLogic &&
+         prevProps.precompiledLogicModules === nextProps.precompiledLogicModules &&
+         prevProps.precompiledSkipped === nextProps.precompiledSkipped;
 });

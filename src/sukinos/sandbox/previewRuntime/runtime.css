@@ -1,0 +1,41 @@
+/*组件库的裸 Tailwind 类与语义令牌都在 global.css 里，隔离子文档必须自带一份*/
+@import "../../../global.css";
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: #fff;
+  color: #111827;
+}
+
+#root {
+  overflow: hidden;
+}
+
+.su-preview-runtime-error {
+  padding: 16px;
+  font-family: monospace;
+  color: #a8071a;
+  background: #fff2f0;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+.su-preview-runtime-error__title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.su-preview-runtime-error__body {
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin: 0;
+}

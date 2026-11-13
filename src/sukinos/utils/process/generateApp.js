@@ -13,16 +13,23 @@ import {
 } from '@/sukinos/utils/config'
 import { clearAppSandboxData } from '@/sukinos/utils/process/kernelParts/lifecycle'
 import { generateWorker, parseWorkerCode } from './generateWorker'
+import { isReservedSystemResourceId, stripExecutionMeta } from './metaInfoGuard'
 import { compileSource, detectSourceFormat, isCodeKey, isHtmlKey, resolveAppEntries } from './sourceMapper'
 import { alert } from "@/component/alert/layout"
 import { sukinOs as sukinApi } from "@/apis/main"
 import generateShortSeed from '/utils/js/rootSeed'
 import {clearSandboxStorageByPid} from '@/sukinos/utils/security'
+import { compareVersions } from '@/sukinos/utils/version'
 export async function extRegisterAppSys(kernel, appSys) {
-  kernel.updateUserAppInfo(appSys.pid, appSys);
-  kernel.resourceIdToPid.set(appSys?.[ENV_KEY_RESOURCE_ID], appSys.pid);
-  kernel.pidToResourceId.set(appSys.pid, appSys?.[ENV_KEY_RESOURCE_ID]);
-  await kernel.sysDb.putData(appSys);
+  //注册表是执行位进入运行时的最后一道闸口，统一在这里再剥一次
+  const cleanApp = {
+    ...appSys,
+    [ENV_KEY_META_INFO]: stripExecutionMeta(appSys?.[ENV_KEY_META_INFO])
+  };
+  kernel.updateUserAppInfo(cleanApp.pid, cleanApp);
+  kernel.resourceIdToPid.set(cleanApp?.[ENV_KEY_RESOURCE_ID], cleanApp.pid);
+  kernel.pidToResourceId.set(cleanApp.pid, cleanApp?.[ENV_KEY_RESOURCE_ID]);
+  await kernel.sysDb.putData(cleanApp);
 }
 
 export async function extInspectZombieFile(kernel, fileHandle) {
@@ -66,7 +73,7 @@ export async function extInspectZombieFile(kernel, fileHandle) {
         handle: fileHandle,
         savedState: null,
         status: 'INSTALLED',
-        [ENV_KEY_META_INFO]: { ...existingResource?.[ENV_KEY_META_INFO], [ENV_KEY_NAME]: existingResource?.[ENV_KEY_NAME] }
+        [ENV_KEY_META_INFO]: stripExecutionMeta({ ...existingResource?.[ENV_KEY_META_INFO], [ENV_KEY_NAME]: existingResource?.[ENV_KEY_NAME] })
       }
       return result
     }
@@ -77,6 +84,12 @@ export async function extInspectZombieFile(kernel, fileHandle) {
       const parsedResId = resourceInfo?.[ENV_KEY_RESOURCE_ID];
       const parsedName = resourceInfo?.[ENV_KEY_NAME];
       if (parsedResId && parsedName) {
+        //本地文件也不能冒用保留系统 ID，否则会覆盖预置资源；静默跳过，不删用户文件
+        if (isReservedSystemResourceId(kernel, parsedResId)) {
+          console.warn(`[内核] 拒绝自动注册保留系统资源 ID: ${parsedResId}`)
+          return result
+        }
+        resourceInfo[ENV_KEY_META_INFO] = stripExecutionMeta(resourceInfo?.[ENV_KEY_META_INFO])
         await kernel.resDb.putData(resourceInfo)
         kernel.resourceCache[parsedResId] = resourceInfo
         result.isValidZombie = true
@@ -152,11 +165,12 @@ export async function extUpdateCloud(kernel, data) {
     const response = await sukinApi.app.updateApp({url:storePath?.updateUrl,formData})
     if (response.code === 200) {
       return response.data
-    } else {
-      alert.failure(response.message)
     }
+    // 409 表示已有他人待审版本，必须让调用方按失败处理，不能继续报“更新成功”
+    throw new Error(response.message || '更新提交失败')
   } catch (error) {
     console.error('网络请求错误:', error)
+    throw error
   }
 }
 
@@ -172,6 +186,10 @@ async function precompileResourceContent(newRes, kernel) {
   if (kernel?.presetResourceIds?.has(resourceId)) return
   // 文档包载荷是原文，再 Babel 一遍没意义，还会把已压缩的 chunk 记进 precompileIssues
   if (isHtmlKey(resolveAppEntries(newRes?.[ENV_KEY_META_INFO]).view)) return
+
+  // 包内预编译产物一律丢弃：安装端只按源码重编，避免执行内容与审核看到的源码不一致
+  delete newRes[ENV_KEY_CONTENT_PRECOMPILED]
+  delete newRes[ENV_KEY_LOGIC_PRECOMPILED]
 
   const failedKeys = []
   const compileOne = async (code, key) => {
@@ -196,10 +214,10 @@ async function precompileResourceContent(newRes, kernel) {
     meta.precompileIssues = { reason: 'failed', keys: failedKeys }
   }
 
-  // 一轮都没尝试编译（产物齐全）时不动 precompileIssues，免得无声擦掉别处留下的失败指认
+  // 一律重编：只有源码是审核对象，产物必须在安装侧现算
   let attempted = false
 
-  if (newRes?.[ENV_KEY_CONTENT_PRECOMPILED] == null && content != null) {
+  if (content != null) {
     attempted = true
     if (typeof content === 'string') {
       const compiled = await compileOne(content, 'main.jsx')
@@ -223,9 +241,9 @@ async function precompileResourceContent(newRes, kernel) {
     }
   }
 
-  // 主逻辑块：产物供 worker 执行，原文留在 ENV_KEY_LOGIC 供编辑器与反解；未预编译的应用保持原文注入
+  // 主逻辑块：产物供 worker 执行，原文留在 ENV_KEY_LOGIC 供编辑器与反解
   const logicCode = newRes?.[ENV_KEY_LOGIC]
-  if (typeof logicCode === 'string' && logicCode && newRes?.[ENV_KEY_LOGIC_PRECOMPILED] == null) {
+  if (typeof logicCode === 'string' && logicCode) {
     attempted = true
     const logicMainKey = newRes[ENV_KEY_META_INFO]?.entries?.logicMain || 'logic'
     const compiledLogic = await compileOne(logicCode, `${logicMainKey}.jsx`)
@@ -245,9 +263,17 @@ export async function extInstallResource(kernel, args) {
   const isBundle = args?.[ENV_KEY_IS_BUNDLE] || args?.isBundle;
   const content = args?.[ENV_KEY_CONTENT] || args?.content;
   const logic = args?.[ENV_KEY_LOGIC] || args?.logic;
-  const metaInfo = args?.[ENV_KEY_META_INFO] || args?.metaInfo || {};
+  const metaInfo = stripExecutionMeta(args?.[ENV_KEY_META_INFO] || args?.metaInfo || {});
+
+  //包内版本是服务器下发时写死的，与调用方期望版本不一致说明拿到的是旧产物
+  if (args?.version && metaInfo.version && compareVersions(metaInfo.version, args.version) !== 0) {
+    throw new Error(`安装包版本不匹配：期望 V${args.version}，实际 V${metaInfo.version}`)
+  }
 
   const truthResourceId = resourceId || `app-${metaInfo?.authorId || 'local'}-${generateShortSeed()}`;
+  if (isReservedSystemResourceId(kernel, truthResourceId)) {
+    throw new Error(`保留系统资源 ID 不可从普通安装链路写入: ${truthResourceId}`)
+  }
 
   const newRes = {
     [ENV_KEY_RESOURCE_ID]: truthResourceId,
@@ -278,11 +304,11 @@ export async function extInstallResource(kernel, args) {
     const newResourceMeta = newRes[ENV_KEY_META_INFO] || {};
 
     // 先铺开旧配置再覆盖新资源元属性（如新 version），custom 里用户侧胜出
-    appSys[ENV_KEY_META_INFO] = {
+    appSys[ENV_KEY_META_INFO] = stripExecutionMeta({
       ...currentAppMeta,
       ...newResourceMeta,
       custom: mergeAppCustom(newResourceMeta.custom, currentAppMeta.custom)
-    };
+    });
     appSys[ENV_KEY_NAME] = name;
   } else {
     appSys = {
@@ -483,7 +509,7 @@ export async function extSyncRegistryByRes(kernel) {
           handle: null,
           savedState: null,
           status: 'INSTALLED',
-          [ENV_KEY_META_INFO]: res?.[ENV_KEY_META_INFO] || {}
+          [ENV_KEY_META_INFO]: stripExecutionMeta(res?.[ENV_KEY_META_INFO])
         };
         // 配了 syncLocal 才去关联本地句柄
         if (appSys[ENV_KEY_META_INFO]?.syncLocal && kernel.dirHandle) {
@@ -509,11 +535,11 @@ export async function extSyncRegistryByRes(kernel) {
           const currentAppMeta = appInfo[ENV_KEY_META_INFO] || {};
 
           // 先铺开旧配置，再用最新资源的元属性覆盖，避免版本号无法同步
-          const finalMeta = {
+          const finalMeta = stripExecutionMeta({
             ...currentAppMeta,
             ...resourceMeta,
             custom: mergeAppCustom(resourceMeta.custom, currentAppMeta.custom)
-          };
+          });
 
           appInfo[ENV_KEY_META_INFO] = finalMeta;
           // 不 await：落库不阻塞本轮同步
@@ -556,6 +582,11 @@ export async function extUpdateApp(kernel, { worker, version }) {
   const resource = parseWorkerCode(worker)
   const cleanName = resource?.[ENV_KEY_NAME];
   const resId = resource?.[ENV_KEY_RESOURCE_ID];
+
+  //CDN 可能命中旧产物：包内版本与目标版本不符时拒绝安装，避免旧包被贴上强制更新的版本号
+  if (!resource?.[ENV_KEY_META_INFO]?.version) {
+    throw new Error('更新包缺少版本信息，已拒绝安装')
+  }
 
   let pid = kernel.getPidByResourceId(resId);
   if (pid && kernel.processes.has(pid)) {

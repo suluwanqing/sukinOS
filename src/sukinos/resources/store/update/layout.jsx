@@ -25,9 +25,13 @@ function Update({ updateList = [], onRefresh, onUpdate }) {
             <div key={app.resourceId} className={style[bem.e('item')]}>
               <img src={app.metaInfo?.icon || '/logo.jpg'} className={style[bem.e('icon')]} alt="" />
               <div className={style[bem.e('info')]}>
-                <div className={style[bem.e('name')]}>{app.appName}</div>
+                <div className={style[bem.e('name')]}>
+                  {app.appName}
+                  {app.forced && <span className={style[bem.e('forced')]}>强制同步</span>}
+                </div>
                 <div className={style[bem.e('ver')]}>
                   发现新版本: V {app.version}
+                  {app.localVersion ? `（本地 v${app.localVersion}）` : ''}
                 </div>
               </div>
               <Button

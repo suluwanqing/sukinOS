@@ -246,6 +246,17 @@ Worker 内可见的这九个标识符（`eval`/`Function`/`setTimeout`/`setInter
 
 **覆写防护**：`set` trap 维护 `blockedProps = ['fetch','eval','Function','XMLHttpRequest','importScripts','window','document','self','globalThis','navigator']`（`security.js:blockedProps`），应用试图 `self.fetch = ...` 之类重新赋值时直接抛 `Cannot override protected property`。注意这是 `set` 侧的另一份清单，和上表的 `get` 分支分别维护，改动时两处都要看。
 
+#### 审核隔离预览沙箱
+
+除运行期 Worker/UI 沙箱外，审核端另有一条更窄的预览通道（`src/sukinos/sandbox/`）：
+
+- **独立产物**：`scripts/build-preview-sandbox.mjs` + `vite.sandbox.config.js` 把预览运行时与精简 dev SDK
+  构建为 `public/sandbox/preview-runtime.js`，`predev`/`prebuild` 自动执行。
+- **opaque origin**：iframe 只带 `sandbox="allow-scripts"`，不带 `allow-same-origin`，因此无法读取宿主
+  Cookie/DOM/Storage；CSP 为 `default-src 'none'`，只放开内联/eval/blob 脚本与 blob worker，禁止网络。
+- **资源与超时**：20s ready 超时、15s 资源超时、3s 自导航宽限，最多 4 次 frame 加载，越界即终止。
+- **窗口形态**：`PreviewWindow` 独立拖拽/缩放，移动端全屏，不进入 DeskBook 的窗口层级。
+
 ---
 
 ## 3. 全局配置（config.js）

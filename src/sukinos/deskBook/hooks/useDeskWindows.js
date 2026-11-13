@@ -76,16 +76,25 @@ export function useDeskWindows({ apps, setting, kernel, startApp, isMobile, pers
   useEffect(() => { zOrdersRef.current = zOrders; }, [zOrders]);
 
   const handleFocus = useCallback((pid) => {
+    if (!pid) return;
+    setCurrentFocus(pid);
     if (zOrdersRef.current[pid] === maxZRef.current) return;
     const newMax = maxZRef.current + 1;
     maxZRef.current = newMax;
+    zOrdersRef.current = { ...zOrdersRef.current, [pid]: newMax };
     setMaxZ(newMax);
-    setCurrentFocus(pid);
     setZOrders(prev => ({ ...prev, [pid]: newMax }));
   }, []);
 
+  // 内核激活/App 主动请求的前置意图
+  useEffect(() => {
+    return kernel.subscribeSystem((change) => {
+      if (change?.type === 'APP_FOCUS' && change.pid) handleFocus(change.pid);
+    });
+  }, [kernel, handleFocus]);
+
   const handleStartApp = useCallback((pid) => {
-    handleFocus(pid);
+    // 聚焦交给内核成功启动后发出的 APP_FOCUS，被强更拦截时不会把窗口提到前台
     startApp({ pid });
 
     if (isMobile && personalConfig?.mobileImmersive) {
@@ -97,7 +106,7 @@ export function useDeskWindows({ apps, setting, kernel, startApp, isMobile, pers
         }
       } catch (e) { }
     }
-  }, [handleFocus, startApp, isMobile, personalConfig?.mobileImmersive]);
+  }, [startApp, isMobile, personalConfig?.mobileImmersive]);
 
   const handleColseApp = useCallback((pid) => {
     kernel.hibernate(pid);
@@ -151,7 +160,7 @@ export function useDeskWindows({ apps, setting, kernel, startApp, isMobile, pers
     setSelectedWindowIndex(0);
   };
 
-  
+
   const openSwitcherForBack = useCallback(() => {
     setSwitcherFromBack(true);
     setSelectedWindowIndex(0);

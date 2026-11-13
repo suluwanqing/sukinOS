@@ -6,6 +6,13 @@ import useStateHandle from "@/sukinos/hooks/useStateHandle"
 import { generateShortId } from "/utils/js/rootSeed"
 import { formatTimeSlash} from "@/sukinos/utils/date"
 import { dataToBase64Mapper, dataDeBase64Mapper } from "/utils/js/func/data/exChangeBase64"
+import {
+  writeLocalFile,
+  writeLocalHandle,
+  renameLocalFile,
+  moveLocalFile,
+  describeLocalError,
+} from "@/sukinos/utils/file/localWrite"
 
 // 全局 ID 映射，防止 React 渲染周期内 ID 变更
 const globalFileIdMap = new Map()
@@ -337,28 +344,53 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
       }
     }),
     // 直接提取底层 readdir 分配表数据，实现同名自增（无后缀），规避重名碰撞造成的崩溃
-    handleCreate: wrapNotify('structure', async ({type}) => {
+    handleCreate: wrapNotify('structure', async ({type, name}) => {
       try {
         const { currentId, items } = stateRef.current;
-        const baseName = type === FileType.DIRECTORY ? '新建文件夹' : '新建文件.jsx';
-        let name = baseName;
-        let counter = 1;
-
+        const isDir = type === FileType.DIRECTORY;
         const realSiblings = mode === 'virtual' ? fs.readdir(currentId) : items;
 
-        while (realSiblings.some(i => i.name === name)) {
-          if (type === FileType.DIRECTORY) {
-            name = `${baseName} (${counter++})`; // 文件夹不带 .jsx 尾缀
+        let finalName = name;
+        if (finalName) {
+          if (mode === 'virtual') {
+            if (realSiblings.some(i => i.name === finalName)) {
+              alert.warning("已存在同名项目");
+              return null;
+            }
           } else {
-            name = `${baseName.replace('.jsx','')} (${counter++}).jsx`;
+            // 本地盘 items 可能尚未随通知刷新，直接问磁盘才不会漏判
+            const parentHandle = globalHandleRegistry.get(currentId)?.handle;
+            if (!parentHandle) return null;
+            let duplicated = false;
+            try {
+              await (isDir ? parentHandle.getDirectoryHandle(finalName) : parentHandle.getFileHandle(finalName));
+              duplicated = true;
+            } catch (probeErr) {
+              if (probeErr?.name !== 'NotFoundError') throw probeErr;
+            }
+            if (duplicated) {
+              alert.warning("已存在同名项目");
+              return null;
+            }
+          }
+        } else {
+          const baseName = isDir ? '新建文件夹' : '新建文件.jsx';
+          let counter = 1;
+          finalName = baseName;
+          while (realSiblings.some(i => i.name === finalName)) {
+            if (isDir) {
+              finalName = `${baseName} (${counter++})`; // 文件夹不带 .jsx 尾缀
+            } else {
+              finalName = `${baseName.replace('.jsx','')} (${counter++}).jsx`;
+            }
           }
         }
 
-        if (mode === 'virtual') return type === FileType.DIRECTORY ? fs.mkdir(currentId, name) : fs.writeFile(currentId, name, '');
+        if (mode === 'virtual') return isDir ? fs.mkdir(currentId, finalName) : fs.writeFile(currentId, finalName, '');
         const parent = globalHandleRegistry.get(currentId)?.handle;
         if (!parent) return null;
-        await (type === FileType.DIRECTORY ? parent.getDirectoryHandle(name, {create:true}) : parent.getFileHandle(name, {create:true}));
-        return { id: pid ? `${pid}-${generateShortId()}` : generateShortId(), name };
+        await (isDir ? parent.getDirectoryHandle(finalName, {create:true}) : parent.getFileHandle(finalName, {create:true}));
+        return { id: pid ? `${pid}-${generateShortId()}` : generateShortId(), name: finalName };
       } catch (err) {
         console.error("创建失败：", err);
         alert.failure("新建失败，文件系统发生冲突");
@@ -367,7 +399,7 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
     }),
     handleRename: wrapNotify('structure', async({id, name, newName, parentId, type}) => {
       try {
-        if (!id || !newName.trim()) return false;
+        if (!id || !newName || !newName.trim()) return false;
         if (mode === 'virtual') {
           // 物理防重命名重名碰撞
           const siblings = fs.readdir(parentId);
@@ -377,13 +409,32 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
           }
           await fs.rename(id, newName);
         } else {
-            const parent = globalHandleRegistry.get(parentId)?.handle
-            const target = type === FileType.DIRECTORY ? await parent.getDirectoryHandle(name) : await parent.getFileHandle(name)
-            if (target.move) await target.move(newName);
-            else {
-                const fileData = await target.getFile(); const newFile = await parent.getFileHandle(newName, {create:true});
-                const writable = await newFile.createWritable(); await writable.write(fileData); await writable.close();
-                await parent.removeEntry(name);
+            const parent = globalHandleRegistry.get(parentId)?.handle;
+            if (!parent) throw new Error('父目录句柄已失效，请刷新后重试');
+            if (newName !== name) {
+              // 本地盘没有复合索引，先探测同名再改名，避免把同类异常都报成“重命名失败”
+              let duplicated = false;
+              try {
+                await (type === FileType.DIRECTORY
+                  ? parent.getDirectoryHandle(newName)
+                  : parent.getFileHandle(newName));
+                duplicated = true;
+              } catch (probeErr) {
+                if (probeErr?.name !== 'NotFoundError') throw probeErr;
+              }
+              if (duplicated) {
+                alert.warning("已存在同名项目");
+                return false;
+              }
+            }
+            if (type === FileType.DIRECTORY) {
+              const dirHandle = await parent.getDirectoryHandle(name);
+              if (typeof dirHandle.move !== 'function') {
+                throw new Error('当前浏览器不支持重命名文件夹');
+              }
+              await dirHandle.move(newName);
+            } else {
+              await renameLocalFile(parent, name, newName);
             }
             const uniqueKeyToDelete = pid ? `${mode}:${pid}:${parentId}:${name}` : `${mode}:${parentId}:${name}`
             globalFileIdMap.delete(uniqueKeyToDelete); globalHandleRegistry.delete(id);
@@ -391,7 +442,7 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
         return true;
       } catch (err) {
          console.error("重命名失败：", err);
-         alert.failure("重命名失败");
+         alert.failure(mode === 'virtual' ? "重命名失败" : describeLocalError(err, "重命名失败"));
          return false;
       }
     }),
@@ -405,19 +456,29 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
         } else {
           const targetRecord = globalHandleRegistry.get(id);
           const destHandle = globalHandleRegistry.get(targetParentId)?.handle;
-          if (!targetRecord?.handle || !destHandle) throw new Error('句柄缺失');
-          const target = targetRecord.handle;
-          if (target.move) {
-            await target.move(destHandle);
-          } else if (type !== FileType.DIRECTORY) {
-            const fileData = await target.getFile();
-            const newFile = await destHandle.getFileHandle(name, { create: true });
-            const writable = await newFile.createWritable();
-            await writable.write(fileData); await writable.close();
-            await globalHandleRegistry.get(parentId)?.handle?.removeEntry(name);
-          } else {
-            throw new Error('当前浏览器不支持移动文件夹');
-          }
+          if (!targetRecord?.handle || !destHandle) throw new Error('目录句柄已失效，请刷新后重试');
+          const handle = targetRecord.handle;
+          const finalName = name || handle.name;
+
+          const runMove = async () => {
+            if (typeof handle.move === 'function') {
+              try {
+                // 规范签名是 move(newParent, newName)，只传父目录会直接 TypeError
+                await handle.move(destHandle, finalName);
+                return;
+              } catch (moveErr) {
+                if (type === FileType.DIRECTORY) throw moveErr;
+                console.warn("[move] move() 不可用，退回复制通道:", moveErr);
+              }
+            } else if (type === FileType.DIRECTORY) {
+              throw new Error('此设备不支持移动文件夹，请改用交换或复制');
+            }
+            const sourceParent = globalHandleRegistry.get(parentId)?.handle;
+            if (!sourceParent) throw new Error('源目录句柄已失效，请刷新后重试');
+            await moveLocalFile(sourceParent, destHandle, finalName);
+          };
+
+          await runMove();
           // 清理旧映射，新位置由 handleReadDir 幂等重新注册
           const uniqueKeyToDelete = pid ? `${mode}:${pid}:${parentId}:${name}` : `${mode}:${parentId}:${name}`
           globalFileIdMap.delete(uniqueKeyToDelete); globalHandleRegistry.delete(id);
@@ -425,7 +486,7 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
         return true;
       } catch (err) {
          console.error("移动失败：", err);
-         alert.failure(err?.message === '文件已经存在' ? '目标位置已存在同名项目' : '移动失败');
+         alert.failure(err?.message === '文件已经存在' ? '目标位置已存在同名项目' : (mode === 'virtual' ? '移动失败' : describeLocalError(err, '移动失败')));
          return false;
       }
     }),
@@ -532,14 +593,20 @@ const useBaseFileSystem = (mode = 'virtual', options = {}) => {
                await fs.writeFile(parentId, name, content);
             }
         } else {
+            const parentHandle = globalHandleRegistry.get(parentId)?.handle;
             const record = globalHandleRegistry.get(id);
-            const handle = record?.handle || await globalHandleRegistry.get(parentId)?.handle.getFileHandle(name, {create:true});
-            const writable = await handle.createWritable(); await writable.write(content); await writable.close();
+            if (parentHandle && name) {
+              await writeLocalFile(parentHandle, name, content);
+            } else if (record?.handle) {
+              await writeLocalHandle(record.handle, content);
+            } else {
+              throw new Error('目录句柄已失效，请刷新后重试');
+            }
         }
         return true;
       } catch (err) {
          console.error("保存失败：", err);
-         alert.failure("保存文件失败");
+         alert.failure(mode === 'virtual' ? "保存文件失败" : describeLocalError(err, "保存文件失败"));
          return false;
       }
     }),

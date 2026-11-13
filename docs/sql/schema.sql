@@ -111,9 +111,10 @@ CREATE TABLE IF NOT EXISTS `user_time_week` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='用户周活跃统计表';
 
 -- ============================================================
--- 表5: sukinos_app - SukinOS 应用表
+-- 表5: sukinos_app - SukinOS 应用表（只存当前唯一可用版本）
 -- 对应模型: Model.DbModel.sukinos.sukinos.D_SukinosApp
--- 说明: 存储所有上传的 SukinOS 应用，使用乐观锁（version_id_col）
+-- 说明: 历史版本与待审包见 sukinos_app_revision；乐观锁用 row_version，
+--       version 只表示业务版本号，不再参与乐观锁
 -- ============================================================
 CREATE TABLE IF NOT EXISTS `sukinos_app` (
     `resource_id`   VARCHAR(120)  NOT NULL                      COMMENT '资源唯一ID，主键',
@@ -125,14 +126,23 @@ CREATE TABLE IF NOT EXISTS `sukinos_app` (
     `size`          INT           DEFAULT NULL                  COMMENT '文件大小（字节）',
     `file_name`     VARCHAR(50)   NOT NULL                      COMMENT '文件名',
     `meta_info`     JSON          DEFAULT NULL                  COMMENT '应用元数据 JSON',
-    `version`       VARCHAR(20)   NOT NULL DEFAULT '0.1'        COMMENT '版本号（乐观锁版本列）',
+    `version`       VARCHAR(20)   NOT NULL DEFAULT '0.1'        COMMENT '当前业务版本号',
     `status`        VARCHAR(20)   NOT NULL DEFAULT 'under_review' COMMENT '审核状态',
     `audit_opinion` VARCHAR(255)  DEFAULT NULL                  COMMENT '审核意见',
     `registry_enabled` BOOLEAN   NOT NULL DEFAULT FALSE        COMMENT '是否在权限注册池中',
+    `row_version`   INT           NOT NULL DEFAULT 1            COMMENT '乐观锁版本',
+    `published_at`  DATETIME      DEFAULT NULL                  COMMENT '当前版本发布时间',
+    `source`        VARCHAR(20)   DEFAULT NULL                  COMMENT '当前版本来源（developer/reviewer/meta/system）',
+    `operator_id`   INT           DEFAULT NULL                  COMMENT '当前版本操作人',
+    `force_update`  BOOLEAN       NOT NULL DEFAULT FALSE        COMMENT '回滚降级后要求客户端强制同步',
+    `content_hash`  VARCHAR(64)   DEFAULT NULL                  COMMENT '落盘包体 SHA-256（hex）',
+    `signature`     VARCHAR(128)  DEFAULT NULL                  COMMENT '清单签名（Ed25519 hex）',
+    `sign_key_id`   VARCHAR(32)   DEFAULT NULL                  COMMENT '签名密钥标识',
     PRIMARY KEY (`resource_id`),
     KEY `idx_user_id` (`user_id`),
     KEY `idx_status` (`status`),
     KEY `idx_app_name` (`app_name`),
+    KEY `idx_sukinos_app_file_name` (`file_name`),
     CONSTRAINT `fk_sukinos_app_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='SukinOS 应用表';
 
@@ -142,11 +152,50 @@ CREATE TABLE IF NOT EXISTS `sukinos_app` (
 --   rejected      已拒绝
 --   disabled      已禁用
 
--- 版本号自动递增规则 (increment_version):
+-- 版本号由服务端发号：在当前行与全部历史（含已删除）里取最大版本，末段 +1
 --   null   → "0.1"
 --   "0.1"  → "0.2"
 --   "1.0"  → "1.1"
 --   "2.9"  → "2.10"
+
+-- ============================================================
+-- 表5-1: sukinos_app_revision - 历史版本与待审暂存
+-- 对应模型: Model.DbModel.sukinos.revision.D_SukinosAppRevision
+-- 说明: 当前可用版本固定在 sukinos_app 单行；这里保存全部非当前版本。
+--       同一 resource 最多一条 is_pending=1 AND is_deleted=0。
+--       status 只是快照状态，不参与可用性判断。
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `sukinos_app_revision` (
+    `id`            INT           NOT NULL AUTO_INCREMENT        COMMENT '自增主键',
+    `resource_id`   VARCHAR(120)  NOT NULL                      COMMENT '所属应用资源ID',
+    `version`       VARCHAR(20)   DEFAULT NULL                  COMMENT '业务版本号',
+    `app_name`      VARCHAR(20)   DEFAULT NULL                  COMMENT '应用名称快照',
+    `file_name`     VARCHAR(50)   DEFAULT NULL                  COMMENT '物理包文件名',
+    `url`           VARCHAR(120)  DEFAULT NULL                  COMMENT '包下载URL',
+    `size`          INT           DEFAULT NULL                  COMMENT '包大小（字节）',
+    `meta_info`     JSON          DEFAULT NULL                  COMMENT '应用元数据快照',
+    `status`        VARCHAR(20)   DEFAULT NULL                  COMMENT '快照状态',
+    `audit_opinion` VARCHAR(255)  DEFAULT NULL                  COMMENT '审核意见',
+    `is_private`    BOOLEAN       NOT NULL DEFAULT FALSE        COMMENT '可见性快照',
+    `is_pending`    BOOLEAN       NOT NULL DEFAULT FALSE        COMMENT '是否待审暂存',
+    `is_deleted`    BOOLEAN       NOT NULL DEFAULT FALSE        COMMENT '是否逻辑删除',
+    `deleted_at`    DATETIME      DEFAULT NULL                  COMMENT '逻辑删除时间',
+    `deleted_by`    INT           DEFAULT NULL                  COMMENT '逻辑删除操作人',
+    `file_purged`   BOOLEAN       NOT NULL DEFAULT FALSE        COMMENT '物理包已被清除，不可恢复',
+    `source`        VARCHAR(20)   NOT NULL DEFAULT 'developer'  COMMENT 'developer/reviewer/meta',
+    `operator_id`   INT           DEFAULT NULL                  COMMENT '生成/审核操作人',
+    `diff_note`     VARCHAR(500)  DEFAULT NULL                  COMMENT '修改摘要',
+    `content_hash`  VARCHAR(64)   DEFAULT NULL                  COMMENT '落盘包体 SHA-256（hex）',
+    `signature`     VARCHAR(128)  DEFAULT NULL                  COMMENT '清单签名（Ed25519 hex）',
+    `sign_key_id`   VARCHAR(32)   DEFAULT NULL                  COMMENT '签名密钥标识',
+    `created_at`    DATETIME      DEFAULT CURRENT_TIMESTAMP     COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_resource_id` (`resource_id`),
+    KEY `idx_revision_res_id` (`resource_id`, `id`),
+    KEY `idx_revision_pending` (`resource_id`, `is_pending`, `is_deleted`),
+    KEY `idx_revision_file` (`file_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='SukinOS 应用历史版本表';
+
 
 -- ============================================================
 -- 表6: request_logs - 请求审计日志表

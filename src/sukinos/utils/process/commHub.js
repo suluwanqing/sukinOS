@@ -30,6 +30,11 @@ export default class CommHub {
   }
 
   async handleMsg(pid, msg) {
+    if (msg.type === 'APP_FOCUS_REQUEST') {
+      this.emitChange({type: 'APP_FOCUS', pid})
+      return
+    }
+
     if (msg.type === 'STATE_UPDATE') {
       this.stateCache.set(pid, msg.payload)
       this.notify(pid, 'STATE', msg.payload)

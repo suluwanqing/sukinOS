@@ -21,6 +21,7 @@ const initialState = {
     verificationCodes: {}
   },
   setting: { isDisplay: true },//这是是整体的体系设置
+  storeSearch: { keyword: '', resourceId: '', nav: '', token: 0 },
   appStore: {
     storePath: {
       baseUrl: SUKINOS_STORE_REMOTE_BASE,
@@ -135,6 +136,19 @@ const sukinOsSlice = createSlice({
     setGenerateApp: (state,action)=>{
       const { key, value } = action.payload
       state.appStore.generateApp[key] = value;
+    },
+    requestStoreSearch: (state, action) => {
+      const payload = action.payload;
+      if (payload && typeof payload === 'object') {
+        state.storeSearch.keyword = payload.keyword || '';
+        state.storeSearch.resourceId = payload.resourceId || '';
+        state.storeSearch.nav = payload.nav || '';
+      } else {
+        state.storeSearch.keyword = payload || '';
+        state.storeSearch.resourceId = '';
+        state.storeSearch.nav = '';
+      }
+      state.storeSearch.token += 1;
     }
   },
 })
@@ -160,6 +174,8 @@ export const selectorStoreSettingStorePath = createSelector(
 );
 export const selectGenerateApp = createSelector([selectSukinOs],
   (sukinos) => sukinos.appStore.generateApp)
+export const selectorStoreSearch = createSelector([selectSukinOs],
+  (sukinos) => sukinos.storeSearch)
 export const selectFileSystemConfig = createSelector([selectSukinOs]
   , (sukinos) => sukinos.fileSystemConfig)
 

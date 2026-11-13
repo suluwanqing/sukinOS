@@ -23,7 +23,8 @@ export class Core {
 
   async init(info) {
     const {user, config} = info
-    const {isPrivate, useVirtualWorker} = config
+    const {isPrivate, useVirtualWorker, storePath} = config
+    this.#kernel.storePath = storePath || null
     //立即保存用户信息，以便后续 generateApp 逻辑能访问权限状态
     this.#kernel.currentUser = user
     this.#kernel.useVirtualWorker = useVirtualWorker || false // 在内核实例上保存是否采用虚拟沙箱机制
@@ -59,6 +60,8 @@ export class Core {
       await this.syncRegistry()
       // 说明：把 app 信息[实际是资源]同步到 store 这一步「暂且保留」——虽略冗余，但为减少其他额外操作
       await this.#kernel.restoreSession()
+      // 恢复会话时已做过一次同步检查，这里只启动定时/回前台复查
+      this.#kernel.startUpdateWatcher({skipInitial: true})
       // 订阅个性化配置变更，实现全局 auto-save 间隔的响应式更新
       this.#kernel.subscribePersonalization()
       alert.success('[内核] 初始化成功。')

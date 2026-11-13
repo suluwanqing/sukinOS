@@ -21,17 +21,21 @@ sequenceDiagram
         Kernel->>AppA: postMessage({type:'UI_ACTION', payload:action})
     end
 
-    %% evokeApp: 跨应用唤起
+    %% evokeApp: 跨应用唤起（= activate(reason:'interaction')）
     AppB->>Kernel: kernel.evokeApp({pid, from, interactInfo})
-    Kernel->>Kernel: newInteractInfo = {...interactInfo, from}
-    alt APP 已运行（含 RUNNING / HIBERNATED 唤醒）
-        Kernel->>AppA: postMessage({type:'APP_INTERACT', payload:newInteractInfo})
-    else APP 未运行（冷启动）
-        Kernel->>Kernel: startProcess({pid, interactInfo:newInteractInfo})
+    Kernel->>Kernel: activate({pid, reason:'interaction', interactInfo, from})
+    Kernel->>Kernel: newInteractInfo = {...interactInfo, from}，再 startProcess({pid, interactInfo:newInteractInfo})
+    alt 冷启动
         Kernel->>AppA: postMessage({type:'RESTORE'|'INIT', payload:保存的 state})
-        Note over Kernel,AppA: interactInfo 不搭 INIT/RESTORE 的车：<br/>建好进程后另发一条 APP_INTERACT（lifecycle.js:startProcess 建好进程后的分支）
-        Kernel->>AppA: postMessage({type:'APP_INTERACT', payload:newInteractInfo})
+        Note over Kernel,AppA: interactInfo 不搭 INIT/RESTORE 的车：<br/>建好进程后另发一条 APP_INTERACT
+    else 从 HIBERNATED 唤醒
+        Kernel->>Kernel: app.status = 'RUNNING'
+    else 本来就在 RUNNING
+        Kernel->>Kernel: 不再启动，直接投递
     end
+    Kernel->>AppA: postMessage({type:'APP_INTERACT', payload:newInteractInfo})
+    Kernel->>CommHub: emitChange({type:'APP_FOCUS', pid})
+    CommHub->>KernelUI: 系统事件 APP_FOCUS → DeskBook 置前（restore 不发）
 
     %% Pub/Sub 主题消息
     AppB->>CommHub: postMessage({type:'PUBLISH_TOPIC', payload:{topic, data}})

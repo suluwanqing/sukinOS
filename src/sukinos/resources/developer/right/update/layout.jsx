@@ -386,8 +386,11 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
           [ENV_KEY_META_INFO]: mergedMeta
         },
         sysOptions: finalSysOptions
+      }).then(result => {
+        setMessage(result?.pending
+          ? `新版本 v${result.version} 已提交审核，线上版本保持可用`
+          : '应用更新部署已完成！');
       });
-      setMessage('应用更新部署已完成！');
       setMessageType('success');
       setSelectedId(null);
       setPreviewedId(null);
@@ -479,7 +482,10 @@ function UpdatePanel({ appMeta, uploadType, entryConfig }) {
                       </label>
                       <div className={style[bem.e('row-main')]}>
                         <div className={style[bem.e('row-name')]}>{app.appName}</div>
-                        <div className={style[bem.e('row-meta')]}>线上版本: v{app.version}</div>
+                        <div className={style[bem.e('row-meta')]}>
+                          线上版本: v{app.version}
+                          {app.pendingVersion && ` · 待审 v${app.pendingVersion}`}
+                        </div>
                       </div>
                     </div>
 

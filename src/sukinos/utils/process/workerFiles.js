@@ -22,16 +22,19 @@ const toPreview = (parsed) => {
 
   if (isBundle && content && typeof content === 'object') {
     const restoredFiles = {};
+    const keyMap = {};
     for (const [k, v] of Object.entries(content)) {
       // 内容包只给 JS 档去过扩展名，CSS/HTML/资源与数据文本档保留完整后缀：
       // 按 key 自带不带扩展名决定要不要补回 .jsx（用采集口的谓词会因"默认全收"恒真而不再补）
       const keyWithExt = hasPayloadExt(k) ? k : `${k}.jsx`;
       restoredFiles[keyWithExt] = v;
+      // 展示名补过后缀，重建包时必须换回原始 key，否则 worker 里的 require 路径会对不上
+      keyMap[keyWithExt] = k;
     }
-    return { localFiles: restoredFiles, logicCode, entries, isBundle: true };
+    return { localFiles: restoredFiles, keyMap, logicCode, entries, isBundle: true };
   }
   const viewCode = typeof content === 'string' ? content : '';
-  return { localFiles: { 'main.jsx': viewCode }, logicCode, entries, isBundle: false };
+  return { localFiles: { 'main.jsx': viewCode }, keyMap: {}, logicCode, entries, isBundle: false };
 };
 
 export const buildPreviewFromWorker = (workerCode) => {
@@ -111,6 +114,7 @@ export const buildWorkerFileTree = (workerCode) => {
   );
 
   const files = {};
+  const keyMap = {};
   let pathAdjusted = 0;
   let unnamedSeq = 1;
 
@@ -128,7 +132,10 @@ export const buildWorkerFileTree = (workerCode) => {
     return key;
   };
 
-  Object.entries(preview.localFiles).forEach(([key, value]) => addFile(key, value));
+  Object.entries(preview.localFiles).forEach(([key, value]) => {
+    const landing = addFile(key, value);
+    keyMap[landing] = preview.keyMap?.[key] ?? key;
+  });
 
   const logicCode = preview.logicCode;
   let logicFileName = null;
@@ -145,7 +152,9 @@ export const buildWorkerFileTree = (workerCode) => {
 
   return {
     files,
+    keyMap,
     entries: preview.entries,
+    metaInfo: parsed[ENV_KEY_META_INFO] || null,
     isBundle: preview.isBundle,
     hasLogic: Boolean(logicCode),
     logicFileName,

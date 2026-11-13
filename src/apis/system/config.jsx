@@ -85,6 +85,23 @@ export const updateUploadQuota = async (data) => {
   });
 };
 
+// 读取 APP 包修订保留数量（重提剪枝用）
+export const getRevisionRetention = async () => {
+  return instance({
+    method: 'GET',
+    url: '/system/systemconfig/revision-retention'
+  });
+};
+
+// 保存 APP 包修订保留数量，后端落库后立即重载内存态
+export const updateRevisionRetention = async (data) => {
+  return instance({
+    method: 'POST',
+    url: '/system/systemconfig/revision-retention',
+    data: data
+  });
+};
+
 const sysConfigAPI = {
   getAllRoutes,
   getLogConfig,
@@ -95,7 +112,9 @@ const sysConfigAPI = {
   deleteConfigItem,
   getSystemStaticConfig,
   getUploadQuota,
-  updateUploadQuota
+  updateUploadQuota,
+  getRevisionRetention,
+  updateRevisionRetention
 };
 
 export default sysConfigAPI;

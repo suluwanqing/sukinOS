@@ -1121,9 +1121,10 @@ const LocalDev = () => {
           const cleanFiles = {};
           for (const [k, v] of Object.entries(localFiles)) { cleanFiles[contentKeyOf(k, asDocument)] = v; }
           const targets = myUploads.filter(app => selectedUploadIds.has(app.resourceId));
+          const results = [];
           for (const app of targets) {
             const mergedMeta = { ...(app.metaInfo || {}), ...baseMetaInfo };
-            await extUpdateCloud(kernel, {
+            results.push(await extUpdateCloud(kernel, {
               resource: {
                 [ENV_KEY_NAME]: app.appName || appName,
                 [ENV_KEY_RESOURCE_ID]: app.resourceId,
@@ -1133,14 +1134,17 @@ const LocalDev = () => {
                 [ENV_KEY_META_INFO]: mergedMeta
               },
               sysOptions: finalSysOptions
-            });
+            }));
           }
-          setUpdateMsg('更新已提交');
+          const pendingCount = results.filter(result => result?.pending).length;
+          setUpdateMsg(pendingCount
+            ? `${pendingCount} 个应用的新版本已提交审核，线上版本保持可用`
+            : '更新已提交');
           setUpdateMsgType('success');
           setSelectedUploadIds(new Set());
           refreshMyUploads();
         } catch (e) {
-          setUpdateMsg('更新失败');
+          setUpdateMsg('更新失败: ' + (e?.message || '未知错误'));
           setUpdateMsgType('error');
         } finally {
           setIsUpdating(false);

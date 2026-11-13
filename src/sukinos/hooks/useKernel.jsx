@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react"
 import kernel from "@/sukinos/utils/process/kernel"
-import { selectFileSystemConfig, selectorUserInfo, selectGenerateApp } from '@/sukinos/store';
+import { selectFileSystemConfig, selectorUserInfo, selectGenerateApp, selectorStoreSettingStorePath } from '@/sukinos/store';
 import { useSelector } from "react-redux";
 import { ENV_KEY_META_INFO } from "@/sukinos/utils/config";
 
@@ -8,6 +8,7 @@ export const useKernel = () => {
   const fileSystemConfig = useSelector(selectFileSystemConfig)
   const userInfo = useSelector(selectorUserInfo)
   const generateAppConfig = useSelector(selectGenerateApp)
+  const storePath = useSelector(selectorStoreSettingStorePath)
   // kernel.dirHandle 存在就算就绪
   const checkIsKernelReady = () => !!kernel.dirHandle;
   // 挂载时不主动调 bootSystem：每次启动都重跑文件句柄处理，开销大；isReady 的初值直接读真实状态即可
@@ -79,7 +80,18 @@ export const useKernel = () => {
         refreshAppStatus()
         return
       }
+      case 'APP_FOCUS':
+        // 聚焦由 DeskBook 订阅处理，这里忽略即可，避免每次唤醒全量刷新
+        return
+      case 'APP_FORCE_UPDATE':
+      case 'APP_UPDATE_AVAILABLE':
+        // 引导弹窗由 DeskBook 处理，这里不做全量刷新
+        return
       case 'APP_REGISTRY':
+        refresh()
+        kernel.checkAppUpdates()
+        setIsReady(checkIsKernelReady())
+        return
       default:
         setIsReady(checkIsKernelReady())
         refresh()
@@ -102,7 +114,7 @@ export const useKernel = () => {
       applyDelta(detail)
     })
 
-    // 如果内核已经是就绪状态，进来先刷一次
+    // 如果内核已经是就绪状态，进来先刷一次；更新检查由内核定时器负责
     if (checkIsKernelReady()) {
       refresh();
     }
@@ -125,7 +137,8 @@ export const useKernel = () => {
     loading,
     bootSystem: () => bootSystem({
       isPrivate: fileSystemConfig?.isPrivate || true,
-      useVirtualWorker: generateAppConfig?.useVirtualWorker || false
+      useVirtualWorker: generateAppConfig?.useVirtualWorker || false,
+      storePath
     }),
     reinit,
     running: [...runningApps, ...hibernatedApps],
@@ -133,7 +146,7 @@ export const useKernel = () => {
     hibernatedApps,
     blockEdApps,
     userApps,
-    startApp: (args) => kernel.startProcess({ ...args }),
+    startApp: (args) => kernel.activate({ ...args, reason: 'user' }),
     hibernateApp: (pid) => kernel.hibernate(pid),
     deleteApp: (args) => kernel.deleteApp({ ...args }),
     reStartApp: (args) => kernel.reStartApp({ pid: args.pid }),

@@ -50,6 +50,8 @@ const FileTypeIcon = ({ item, isGrid = false }) => {
   return <File size={iconSize} className="text-slate-400" />;
 };
 
+const PARENT_ITEM_ID = '__parent__';
+
 const FileSystemView = ({
   items = [],
   breadcrumbs = [],
@@ -63,15 +65,37 @@ const FileSystemView = ({
   width = '100%',
   height = '100%',
   orientation = 'vertical',
+  selectedId: selectedIdProp,
+  showBreadcrumbs = true,
+  showParentEntry = false,
 }) => {
   const [layout, setLayout] = useState(defaultLayout);
-  const [selectedId, setSelectedId] = useState(null);
+  const [innerSelectedId, setInnerSelectedId] = useState(null);
+  const selectedId = selectedIdProp !== undefined ? selectedIdProp : innerSelectedId;
 
   const isRoot = breadcrumbs.length <= 1;
 
+  //面包屑在窄栏里会跟工具栏抢宽度，窄场景改用目录里的虚拟“..”项回上一级
+  const parentItem = showParentEntry && !isRoot
+    ? { id: PARENT_ITEM_ID, name: '上一级', type: FileType.DIRECTORY, mtime: '--', size: 0 }
+    : null;
+  const renderItems = parentItem ? [parentItem, ...items] : items;
+
   const handleItemClick = (item) => {
-    setSelectedId(item.id);
+    if (item.id === PARENT_ITEM_ID) {
+      onBack && onBack();
+      return;
+    }
+    if (selectedIdProp === undefined) setInnerSelectedId(item.id);
     if (onItemClick) onItemClick(item);
+  };
+
+  const handleItemDoubleClick = (item) => {
+    if (item.id === PARENT_ITEM_ID) {
+      onBack && onBack();
+      return;
+    }
+    if (onItemDoubleClick) onItemDoubleClick(item);
   };
 
   const containerStyle = useMemo(() => ({
@@ -137,7 +161,7 @@ const FileSystemView = ({
               <RefreshCw size={14} className={isLoading ? 'animate-spin' : ''} />
             </button>
 
-            {orientation === 'vertical' && (
+            {orientation === 'vertical' && showBreadcrumbs && (
               <nav className={style.breadcrumbBar}>
                 {breadcrumbs.map((crumb, index) => {
                   const isCurrent = index === breadcrumbs.length - 1;
@@ -196,7 +220,7 @@ const FileSystemView = ({
                 </div>
               )}
 
-              {items.map((item) => {
+              {renderItems.map((item) => {
                 const isDir = item.type === FileType.DIRECTORY || item.type === 'directory';
                 const isSelected = selectedId === item.id;
 
@@ -206,11 +230,14 @@ const FileSystemView = ({
                       key={item.id}
                       className={`${style.listItem} ${isSelected ? style.selected : ''}`}
                       onClick={() => handleItemClick(item)}
-                      onDoubleClick={() => onItemDoubleClick && onItemDoubleClick(item)}
+                      onDoubleClick={() => handleItemDoubleClick(item)}
                     >
                       <div className={style.colName}>
                         <FileTypeIcon item={item} isGrid={false} />
                         <span className={style.textTruncate} title={item.name}>{item.name}</span>
+                        {item.badge && (
+                          <span className={style.badgeDot} title={item.badge} />
+                        )}
                       </div>
                       <div className={style.colTime}>{formatDate(item.mtime)}</div>
                       <div className={style.colSize}>{isDir ? '--' : formatBytes(item.size)}</div>
@@ -223,11 +250,14 @@ const FileSystemView = ({
                     key={item.id}
                     className={`${style.gridItem} ${isSelected ? style.selected : ''}`}
                     onClick={() => handleItemClick(item)}
-                    onDoubleClick={() => onItemDoubleClick && onItemDoubleClick(item)}
+                    onDoubleClick={() => handleItemDoubleClick(item)}
                     title={item.name}
                   >
                     <div className={style.gridIconBox}>
                       <FileTypeIcon item={item} isGrid={true} />
+                      {item.badge && (
+                        <span className={style.gridBadge} title={item.badge} />
+                      )}
                     </div>
                     <span className={style.gridName}>{item.name}</span>
                   </div>

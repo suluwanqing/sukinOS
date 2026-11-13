@@ -4,6 +4,7 @@ import { createNamespace } from '/utils/js/classcreate';
 import { confirm } from '@/component/confirm/layout';
 import useKernel from "@/sukinos/hooks/useKernel";
 import Button from "@/component/button/layout";
+import { compareVersions } from "@/sukinos/utils/version";
 const bem = createNamespace('upload');
 
 function MyUpLoad({ onInstall, myUploadList, installedApps, onDeleteUpload }) {
@@ -29,14 +30,11 @@ function MyUpLoad({ onInstall, myUploadList, installedApps, onDeleteUpload }) {
       const localApp = localInstalled.find(i => String(i.resourceId) === String(remoteApp.resourceId));
       const localVersion = localApp?.metaInfo?.version;
 
-      // 版本比对逻辑：云端版本 > 本地版本
+      // 版本比对逻辑：云端版本 > 本地版本，强制同步时低版本也要提示
       let hasUpdate = false;
       if (localApp && remoteApp.version && localVersion) {
-        try {
-          hasUpdate = parseFloat(remoteApp.version) > parseFloat(localVersion);
-        } catch (e) {
-          hasUpdate = remoteApp.version !== localVersion;
-        }
+        const compared = compareVersions(remoteApp.version, localVersion);
+        hasUpdate = compared > 0 || (!!remoteApp.forceUpdate && compared !== 0);
       }
 
       return {
@@ -45,7 +43,7 @@ function MyUpLoad({ onInstall, myUploadList, installedApps, onDeleteUpload }) {
         hasUpdate: hasUpdate,
         localVersion: localVersion || null,
         status: remoteApp.status || 'active', // 补全状态判定字段
-        auditOpinion: remoteApp.auditOpinion || null // 补全审核/禁用反馈意见
+        auditOpinion: remoteApp.latestAuditOpinion || remoteApp.auditOpinion || null // 待审版本的意见优先
       };
     });
   }, [myUploadList, installedApps]);
@@ -78,6 +76,11 @@ function MyUpLoad({ onInstall, myUploadList, installedApps, onDeleteUpload }) {
                 {app.status === 'disabled' && (
                   <span className={`${style[bem.e('status-tag')]} ${style[bem.em('status-tag', 'disabled')]}`}>
                     已下架
+                  </span>
+                )}
+                {app.pendingVersion && (
+                  <span className={`${style[bem.e('status-tag')]} ${style[bem.em('status-tag', 'review')]}`}>
+                    待审 v{app.pendingVersion}
                   </span>
                 )}
               </div>

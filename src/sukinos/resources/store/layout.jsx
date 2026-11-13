@@ -14,7 +14,9 @@ import permissionManageAPI from '@/apis/system/permissionManage';
 import { alert } from "@/component/alert/layout";
 import useKernel from "@/sukinos/hooks/useKernel"
 import { confirm } from '@/component/confirm/layout';
-import { selectorStoreSettingStorePath } from "@/sukinos/store";
+import { selectorStoreSettingStorePath, selectorStoreSearch } from "@/sukinos/store";
+import { clearForcedUpdate } from "@/sukinos/utils/process/forceUpdateGuard";
+import { verifyRemotePackage } from "@/sukinos/utils/process/packageTrust";
 import Drawer from '@/component/drawer/layout';
 import { Button } from '@/component/button/layout';
 import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
@@ -34,11 +36,14 @@ function Store() {
   const [authorizedAppList, setAuthorizedAppList] = useState([]);
   const [searchResults, setSearchResults] = useState(null);
   const [searchKeyword, setSearchKeyword] = useState('');
+  //强制更新跳转时锁定的应用：私有/授权池应用搜不到，需要直接置顶展示
+  const [pinnedResourceId, setPinnedResourceId] = useState('');
   const [searchLoading, setSearchLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const { kernel, startApp, deleteApp } = useKernel();
 
   const storePath = useSelector(selectorStoreSettingStorePath);
+  const storeSearch = useSelector(selectorStoreSearch);
 
   const [pagination, setPagination] = useState({
     currentPage: 1,
@@ -52,22 +57,9 @@ function Store() {
     const installed = kernel.getInstalledApps() || [];
     setInstalledApps([...installed]);
 
-    // 检查更新状态
-    if (installed.length > 0) {
-      const checkList = installed.map(app => ({
-        resourceId: app.resourceId,
-        localVersion: app.metaInfo?.version || '0'
-      }));
-      try {
-        const res = await AppAPI.checkAppsUpdate({
-            installedList: checkList,
-            url: storePath.checkUpdatesUrl
-        });
-        if (res.code === 200) setUpdateApps([...res.data]);
-      } catch (e) { console.error("检查更新失败", e); }
-    } else {
-      setUpdateApps([]);
-    }
+    // 复用内核的检查结果：强更标记与更新列表由同一次请求产生
+    const snapshot = await kernel.checkAppUpdates();
+    setUpdateApps(snapshot?.updates || []);
 
     // 刷新我的上传列表（同步云端状态）
     try {
@@ -152,16 +144,39 @@ function Store() {
     };
   }, [searchKeyword, storePath.searchUrl]);
 
+  // 更新引导跳转：可切到更新页，强更场景则注入搜索词并置顶目标应用
+  useEffect(() => {
+    if (!storeSearch?.token) return;
+    setCurrentNav(storeSearch.nav || 'recommend');
+    setSearchKeyword(storeSearch.keyword || '');
+    setPinnedResourceId(storeSearch.resourceId || '');
+    setNavOpen(false);
+    refreshAll();
+  }, [storeSearch?.token, storeSearch?.keyword, storeSearch?.resourceId, storeSearch?.nav, refreshAll]);
+
+  // 用户手动改搜索词后解除置顶，避免锁定应用一直霸占首屏
+  const handleKeywordChange = useCallback((keyword) => {
+    setPinnedResourceId('');
+    setSearchKeyword(keyword);
+  }, []);
+
+  const pinnedApp = pinnedResourceId
+    ? updateApps.find(item => String(item.resourceId) === String(pinnedResourceId))
+    : null;
+
   // 处理安装（同样可用于更新，内核底层会判断）
   const handleInstallApp = async (app) => {
     try {
       setLoading(true);
-      const res = await AppAPI.downLoadApp({url:app.url});
-      await kernel.installApp({worker:res, version:app.version});
+      const raw = await AppAPI.downLoadApp({url: app.url, binary: true});
+      const worker = await verifyRemotePackage(app, raw);
+      await kernel.installApp({worker, version: app.version});
+      clearForcedUpdate(app.resourceId);
       alert.success('操作成功!');
       await refreshAll(); // 刷新所有状态
     } catch (e) {
-      alert.failure('安装失败');
+      console.error('安装失败', e);
+      alert.failure(e?.message || '安装失败');
     } finally { setLoading(false); }
   }
 
@@ -169,14 +184,16 @@ function Store() {
   const handleUpdateApp = async (app) => {
     try {
       setLoading(true);
-      const res = await AppAPI.downLoadApp({ url: app.url });
+      const raw = await AppAPI.downLoadApp({ url: app.url, binary: true });
+      const worker = await verifyRemotePackage(app, raw);
       // 调用内核专门的更新方法
-      await kernel.updateApp({ worker: res, version: app.version });
+      await kernel.updateApp({ worker, version: app.version });
+      clearForcedUpdate(app.resourceId);
       alert.success(`${app.appName} 已更新至 V${app.version}`);
       await refreshAll(); // 刷新所有状态
     } catch (e) {
       console.error('更新失败', e);
-      alert.failure('更新失败');
+      alert.failure(e?.message || '更新失败');
     } finally {
       setLoading(false);
     }
@@ -250,9 +267,10 @@ function Store() {
             searchResults={searchResults}
             searchKeyword={searchKeyword}
             onUpdate={handleUpdateApp}
-            onKeywordChange={setSearchKeyword}
+            onKeywordChange={handleKeywordChange}
             searchLoading={searchLoading}
             authorizedIds={authorizedIds}
+            pinnedApp={pinnedApp}
           />
         );
       case 'manage':

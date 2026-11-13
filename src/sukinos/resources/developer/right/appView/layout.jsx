@@ -18,7 +18,7 @@ const bem = createNamespace('appview');
  * compileSourceAsync (动态编译) 以及 createSdkForInstance (特权通行 SDK)，
  * 现已全部封装并下沉至 RenderProcess 组件中进行统一收口管理。
  */
-const AppView = ({ app }) => {
+const AppView = ({ app, onCompileError, onCompileEnd, onRuntimeError, onReady }) => {
   // 弃用 useRef，改用 useMemo。
   // 只要 app 对象的引用发生变化（例如切换了文件夹重新生成了预览对象），
   // 就会强制生成一个全新的 PID，确保沙箱、存储和 CSS 作用域彻底隔离。
@@ -69,6 +69,14 @@ const AppView = ({ app }) => {
           localLogicCode={localLogicCode}
           localEntries={localEntries}
           previewId={previewId}
+          precompiledFiles={app?.precompiledFiles}
+          precompiledLogic={app?.precompiledLogic}
+          precompiledLogicModules={app?.precompiledLogicModules}
+          precompiledSkipped={app?.precompiledSkipped}
+          onCompileError={onCompileError}
+          onCompileEnd={onCompileEnd}
+          onRuntimeError={onRuntimeError}
+          onReady={onReady}
         />
       </div>
     </div>

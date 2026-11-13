@@ -17,6 +17,12 @@ const IntroSection = () => (
       支持浏览器端实时将 JSX 转换为可执行代码。
     </p>
 
+    <div className={style[bem.e('tip')]}>
+      <strong>本手册定位：</strong>应用开发速查，只讲"应用侧能写什么"。
+      内核实现、编译管线、宿主 Hooks 的完整细节维护在宿主仓库 <code>docs/module/</code>（01 Hooks、03 SDK、04 内核、07 路由、08 开发指南）；
+      两边冲突时以 <code>docs/module/</code> 为准。这里不再重复宿主内部实现，避免同一结论维护两份。
+    </div>
+
     <div className={style[bem.e('highlight')]}>
       <h4 className={style[bem.e('subtitle')]}>运行时架构</h4>
       <ul className={style[bem.e('list')]}>
@@ -42,8 +48,8 @@ const IntroSection = () => (
       <ul className={style[bem.e('list')]}>
         <li><strong>物理沙箱（普通应用的默认）：</strong>UI 通过 <code>createPortal</code> 泵入独立 iframe，CSS 完全隔离，<code>Emotion</code> 之类的运行时生成样式通过 CacheProvider 单独注入这个 iframe。</li>
         <li><strong>桥接模式：</strong>JS 在共享的幽灵 iframe 中执行，UI 渲染到宿主。由宿主的「单 Iframe」或「虚拟 Worker」开关打开。</li>
-        <li><strong>寄生模式：</strong>JS 与 UI 都直接跑在宿主，适合系统级组件内嵌场景。它由 <code>metaInfo.isParasitism === true</code> 决定，
-          目前只有预置系统应用带这个标记。</li>
+        <li><strong>寄生模式：</strong>JS 与 UI 都直接跑在宿主，适合系统级组件内嵌场景。它只对内置注册表登记的系统应用生效，
+          且仍需注册表自带 <code>isParasitism</code> 标记；普通应用包内写这个字段不会生效。</li>
       </ul>
       <p className={style[bem.e('text')]}>
         前两种是<strong>宿主侧设置</strong>（系统设置里切），你的应用不需要也无法配置；它不改变你可以调用的 API——
@@ -114,9 +120,10 @@ const {
     fetch,        // 安全 fetch（等价于 Props 里的 fetch，已冻结防止覆写）
     window,       // 窗口外壳控制：getRect / setRect / toggleMaximize / hibernate / close
                   // （勾上「隐藏标题栏」后由应用自行实现标题栏操作；无窗口外壳时 getRect 返回 null，其余调用只给日志）
+    focus,        // 请求宿主聚焦当前窗口（发 APP_FOCUS_REQUEST，不启动其他应用）
   },
 
-  hooks: {        // 普通应用只有 useFileSystem；系统应用为全量 Hooks
+  hooks: {        // 普通应用只有 useFileSystem；系统应用这里是 main.jsx 的 10 个导出
     useFileSystem,
   },
 
@@ -130,6 +137,8 @@ const {
       <code>evokeApp</code> 与 <code>getTypeApps</code> 两个方法（都绑好了内核实例，可以直接调），
       其余内核能力只对系统应用开放——系统应用拿到的 <code>AppSDK.kernel</code> 是完整内核实例，
       方法面见「内核通信」一节。普通应用要跨应用交互就走这两个方法，或走状态层约定的 action。
+      <strong>聚焦不是 kernel 方法</strong>：当前窗口置前用 <code>AppSDK.API.focus()</code>，
+      根组件里也可以直接用 Props <code>handleFocus()</code>。
     </div>
 
     <h4 className={style[bem.e('subtitle')]}>系统自动注入的 Props</h4>
@@ -143,7 +152,7 @@ const {
   navigate,       // 路由跳转函数（仅多页应用有效）
   pid,            // 当前进程 ID（字符串）
   fetch,          // 安全 fetch，已绑定内核进程头（推荐使用）
-  handleFocus,    // 提升当前窗口 z-index，无需参数（预览环境为空函数）
+  handleFocus,    // 请求宿主聚焦当前窗口，无需参数（预览环境为空函数）
   reStartApp,     // 软重启：复用当前 worker 与 state，重新编译并挂载 UI（预览环境为空函数）
   forceReStartApp,// 硬重启：重建进程与 worker；只有关闭「保存状态」的应用才会清掉 state
 }) => {
@@ -189,12 +198,17 @@ const KernelSection = () => (
     <p className={style[bem.e('text')]}>
       我们的唤起行为并不是由 OS 去维护一份固定的行为处理操作表，而是由运行时执行，由 APP 主动指定目标进程 <code>pid</code> 和交互信息 <code>interactInfo</code>。
       <br /><br />
-      底层实际分情况处理：如果 APP 没有启动，则调用 <code>startProcess</code> 启动并传入信息；如果已启动，则调用内核的
-      <code>appIntereact</code>（内核方法名即为此拼写）发送信息。
+      底层已统一为内核的 <code>activate(reason:'interaction')</code>：
+      目标未启动则冷启动；已休眠则先唤醒；已在运行则直接投递交互信息。
+      <b>三种路径都会在成功后广播 <code>APP_FOCUS</code></b>，由 DeskBook 把目标窗口提到最前——
+      所以"交互成功但窗口没出现"不会再发生。
       <br /><br />
       <b>数据流向：</b>传入的 <code>interactInfo</code> 会与 <code>from</code> 字段合并，并传递到下层目标应用的逻辑层（worker）中，
       最终 <b>直接作为 action</b> 交由 reducer 处理——所以目标应用的 reducer 必须认得这个 <code>type</code>。
       注意目标应用若没有逻辑层（关闭了 worker），这条 action 无处落地。
+      <br /><br />
+      只想把<strong>当前</strong>窗口置前、不启动其他应用时，用 <code>AppSDK.API.focus()</code> 或 Props
+      <code>handleFocus()</code>；不要为了聚焦去调用 <code>evokeApp</code>。
     </p>
     <pre className={style[bem.e('code')]}>
 {`// 发起方：唤起目标应用并传递信息（系统应用）
@@ -242,6 +256,33 @@ function reducer(state = initialState, action) {
   }
 }`}
     </pre>
+
+    <h4 className={style[bem.e('subtitle')]}>聚焦当前窗口 (API.focus)</h4>
+    <p className={style[bem.e('text')]}>
+      聚焦不是 <code>kernel</code> 方法，而是进程级 API。它只表达"把我这个窗口提到最前"的意图，
+      不会启动、唤醒或向其他应用传参：
+    </p>
+    <pre className={style[bem.e('code')]}>
+{`export default () => {
+  const bringToFront = () => AppSDK.API.focus()
+
+  return <button onClick={bringToFront}>回到本窗口</button>
+}
+
+// 根组件也可以直接用注入的 Props，效果相同：
+export default ({ handleFocus }) => (
+  <button onClick={handleFocus}>回到本窗口</button>
+)
+
+// 底层链路（应用无需手写）：
+// API.focus() -> postMessage({type:'APP_FOCUS_REQUEST'})
+//   -> CommHub 转成 APP_FOCUS 系统事件
+//   -> DeskBook.useDeskWindows 订阅 -> handleFocus(pid) 抬升 z-index`}
+    </pre>
+    <p className={style[bem.e('text')]}>
+      <strong>不要</strong>用 <code>kernel.evokeApp({'{pid: 自己的pid}'})</code> 来聚焦：
+      那会走完整的激活流程（并可能投递一条空交互），语义和副作用都不对。
+    </p>
 
     <h4 className={style[bem.e('subtitle')]}>获取指定类型的应用 (getTypeApps)</h4>
     <p className={style[bem.e('text')]}>
@@ -308,7 +349,10 @@ function reducer(state = initialState, action) {
   getCachedState(pid)          CommHub 缓存的最近一次状态快照
 
 生命周期与交互
-  evokeApp / startProcess({pid, resourceId, interactInfo}) / appIntereact({process, interactInfo})
+  activate({pid|resourceId, reason, interactInfo, from})   // reason: user | interaction | restore
+  evokeApp({pid, from, interactInfo})                     // = activate(reason:'interaction')
+  startProcess({pid, resourceId, interactInfo, preserveHibernation}) / appIntereact({process, interactInfo})
+  requestFocus(pid)                                       // 广播 APP_FOCUS，不改窗口状态
   hibernate(pid) / kill(pid) / forceKillProcess(pid) / reStartApp({pid}) / forceReStartApp({pid}) / forceResetApp(pid)
   clearAppSavedState(pid) / forceSaveAllStates() / restoreSession()
   saveWindowState(pid, rect) / updateWindowRect(pid, rect)
@@ -325,15 +369,83 @@ function reducer(state = initialState, action) {
         不是 pid。它就是把 <code>{'{type:"APP_INTERACT", payload:interactInfo}'}</code> 塞进那条通道，
         所以 worker 关掉的应用收到等于没收到。</li>
       <li><code>{'startProcess({pid, interactInfo})'}</code> 三条路径都会把交互信息送进去：冷启动、从休眠唤醒、以及本来就在
-        <code>RUNNING</code>（第三种等同于 <code>appIntereact</code> 直投）。所以"已经在跑也要送到"
-        用 <code>startProcess</code> 或 <code>evokeApp</code> 都行，区别只是后者会自动补 <code>from</code> 字段。</li>
+        <code>RUNNING</code>。但它<strong>只负责进程与投递，不发聚焦</strong>；业务入口请用
+        <code>evokeApp</code>（自动补 <code>from</code> 并聚焦）或系统应用专用的 <code>activate</code>。</li>
+      <li><code>evokeApp</code> 如今等价于 <code>{'activate({reason:"interaction"})'}</code>：
+        未启动、已休眠、已在运行三种情况都会被正确处理，并在成功后广播 <code>APP_FOCUS</code>。
+        直接调 <code>appIntereact</code> 会绕过唤醒与聚焦，只在你知道进程一定活着时使用。</li>
       <li><code>subscribe*</code> 返回的都是取消订阅函数，务必在 <code>useEffect</code> 的清理里调用；
-        主题通道的收发口径见「解析与分层」末节。</li>
+        <code>APP_FOCUS</code> 是系统事件，由 DeskBook 消费，不会进入应用的 reducer。</li>
       <li>还有一条隐式通道：给 <code>dispatch(pid, action)</code> 传
         <code>{'{type:"KERNEL_CALL", payload:{method, args}}'}</code>。系统应用分支里目前<strong>只实现了</strong>
         <code>method: 'UPLOAD_RESOURCE'</code>，成功/失败会以 <code>{'{type:"MSG", payload:"..."}'}</code> 回到你的 reducer；
         其他 method 一律弹"未找到对应处理器!"，非系统应用走的分支没有任何 case，同样是弹提示。</li>
     </ul>
+  </div>
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 系统能力与 Hooks
+// ─────────────────────────────────────────────────────────────────────────────
+const CapabilitiesSection = () => (
+  <div className={style[bem.e('section')]}>
+    <h2 className={style[bem.e('title')]}>系统能力与 Hooks</h2>
+    <p className={style[bem.e('text')]}>
+      Hooks 是<strong>宿主 React 树</strong>（DeskBook、窗口外壳、设置中心、开始菜单）的能力层，
+      不是应用可以 <code>import</code> 的库。应用只能通过 Props、<code>AppSDK</code> 和内核消息使用这些能力。
+      先分清入口，能省掉大量"为什么 import 不到"的问题。
+    </p>
+
+    <div className={style[bem.e('tip')]}>
+      <strong>只记一条：</strong>普通应用代码里不要写 <code>{'import { useKernel } from "@/sukinos/hooks"'}</code>，
+      能碰到的 Hook 只有 <code>{'AppSDK.hooks.useFileSystem'}</code>。系统应用可以直接 import 任意宿主 Hook 模块
+      （设置中心、开始菜单就是这么写的），而 <code>AppSDK.hooks</code> 只是 <code>main.jsx</code> 的 10 个导出，
+      并不是"全部 Hook"。其余能力都有对应的 SDK/Props 通道。
+    </div>
+
+    <h4 className={style[bem.e('subtitle')]}>三种能力入口</h4>
+    <pre className={style[bem.e('code')]}>
+{`Props      根组件自动注入：state / dispatch / navigate / pid / fetch /
+           handleFocus / reStartApp / forceReStartApp
+
+AppSDK     沙箱内唯一 SDK：React / Components / System / API / hooks / kernel
+
+Hooks      宿主 React 树专用：useKernel / useProcessBridge / useAuth /
+           usePersonalization / useWindowInteraction ...
+           普通应用不能 import；系统应用可直接 import 具体模块，
+           AppSDK.hooks 只是 main.jsx 的 10 个导出`}
+    </pre>
+
+    <h4 className={style[bem.e('subtitle')]}>常用能力对照</h4>
+    <ul className={style[bem.e('list')]}>
+      <li><strong>启动 / 休眠 / 删除应用</strong>：系统应用用 <code>useKernel</code>；
+        普通应用用 <code>kernel.evokeApp()</code>（只能唤起，不能杀）。</li>
+      <li><strong>激活并聚焦另一个应用</strong>：<code>kernel.evokeApp({'{pid, from, interactInfo}'})</code>，
+        等价于内核的 <code>activate(reason:'interaction')</code>：冷启动或唤醒休眠 + 合并 from + 广播 APP_FOCUS。</li>
+      <li><strong>只让当前窗口到最前</strong>：<code>AppSDK.API.focus()</code>（发 <code>APP_FOCUS_REQUEST</code>），
+        或根组件 Props 的 <code>handleFocus()</code>。它不会启动、唤醒或传参给其他应用。</li>
+      <li><strong>进程状态与 dispatch</strong>：窗口层已经通过 Props 注入 <code>state</code> / <code>dispatch</code>，
+        对应宿主里的 <code>useProcessBridge</code>；应用侧不直接拿这个 Hook。</li>
+      <li><strong>读写文件</strong>：<code>AppSDK.hooks.useFileSystem</code>（普通应用也可用）；系统应用可直接
+        import <code>useSystemFileSystem</code>（无 PID 限制）或 <code>useFileKernel</code>。</li>
+      <li><strong>主题与个性化</strong>：设置中心直接 import <code>usePersonalization</code> 写配置，DeskBook 和内核的自动保存定时器订阅它。
+        这是"设置项 = 系统能力"的典型例子，普通应用不直接读写。</li>
+      <li><strong>窗口拖动 / 缩放</strong>：宿主用 <code>useWindowInteraction</code>；应用要操作自己的窗口走
+        <code>AppSDK.API.window</code>（close / hibernate / toggleMaximize / setRect / getRect）。</li>
+      <li><strong>登录与权限</strong>：宿主与系统应用用 <code>useAuth</code>（用户设置页就是直接 import）；普通应用不持有认证 Hook，后端按 token 与权限表校验。</li>
+    </ul>
+
+    <h4 className={style[bem.e('subtitle')]}>聚焦为什么由宿主处理</h4>
+    <p className={style[bem.e('text')]}>
+      内核只广播 <code>APP_FOCUS</code> 意图，不直接修改窗口层级；DeskBook 的 <code>useDeskWindows</code>
+      订阅该事件后调用 <code>handleFocus</code>，由它维护 <code>currentFocus</code> / <code>zOrders</code> / <code>maxZ</code>。
+      Worker 侧的 <code>api.focus()</code> 也只能发 <code>APP_FOCUS_REQUEST</code>，最终仍落到同一个处理函数。
+      这样窗口层级始终只有一个所有者，不会出现内核和桌面各改一套的状态分裂。
+    </p>
+    <p className={style[bem.e('text')]}>
+      更完整的 Hook 接口见宿主仓库 <code>docs/module/01-hooks.md</code>；激活与消息链路见
+      <code>docs/module/04-process-kernel.md</code> 与 <code>docs/module/07-app-routing.md</code>。
+    </p>
   </div>
 );
 
@@ -2252,22 +2364,22 @@ const AIPromptSection = () => {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 主要涉及 AppSDK.kernel 中的 evokeApp 和 getTypeApps。
 前提：普通应用的 AppSDK.kernel 就只有这两个方法，两者都可直接调用；其余内核方法只对系统应用开放，
-生成普通应用代码时不要引用它们。
+生成普通应用代码时不要引用它们。聚焦不是 kernel 方法，用 AppSDK.API.focus()（见 1.1）。
 
 ■ 1. kernel.evokeApp
 ─────────────────────────────────────────────────────────────────────────────
   系统的唤起行为是在运行时执行，由 APP 去操作需要的唤起 pid 和交互信息。
-  interactInfo 会与 from 合并成一个对象；目标未运行则走 startProcess 带过去，已运行则直接投递给它的 worker。
-  投递形式是 { type: 'APP_INTERACT', payload: 合并后的对象 }，worker 收到后原样 dispatch，
-  因此合并后的对象整个充当 action —— reducer 里读 action.type / action.from / 其余平铺字段。
-  目标应用关掉 worker 时这条 action 会被丢弃。
+  它等价于内核 activate(reason:'interaction')：目标未运行则冷启动，已休眠则先唤醒，已在运行则直接投递；
+  三种路径成功后都会广播 APP_FOCUS，由 DeskBook 把目标窗口提到最前。
+  interactInfo 会与 from 合并成一个对象，投递形式是 { type: 'APP_INTERACT', payload: 合并后的对象 }，
+  worker 收到后原样 dispatch，因此合并后的对象整个充当 action —— reducer 里读 action.type /
+  action.from / 其余平铺字段。目标应用关掉 worker 时这条 action 会被丢弃。
+  只想把当前窗口置前时不要用它，改调 AppSDK.API.focus()。
   内核这条通道没有权限校验：任何应用都能唤起任何应用并投进任意 action。接收方必须自己按 action.from
   白名单过滤，并校验所需字段存在且类型正确，不要把 interactInfo 直接当作可信输入用于路径拼接或写操作。
 
   [示例代码]
-  // 处理 APP 没有启动的情况，实际分情况调用（涉及 appIntereact & startProcess）
-  async evokeApp({ pid, from, interactInfo }) {}
-
+  // 应用侧只调用，不自己实现唤起流程
   kernel.evokeApp({
     pid,
     from: "system",
@@ -2286,6 +2398,12 @@ const AIPromptSection = () => {
       // 处理逻辑并返回新 state，UI 才看得到
     }
   }
+
+■ 1.1 聚焦当前窗口（不是 kernel 方法）
+─────────────────────────────────────────────────────────────────────────────
+  AppSDK.API.focus()        // 或根组件 Props: handleFocus()
+  只把当前窗口置前，不启动、不唤醒、不传参；底层链路：
+  APP_FOCUS_REQUEST -> CommHub -> APP_FOCUS -> DeskBook.handleFocus -> 抬升 z-index。
 
 ■ 2. kernel.getTypeApps
 ─────────────────────────────────────────────────────────────────────────────
@@ -2342,7 +2460,7 @@ const AIPromptSection = () => {
     navigate, // 路由跳转（仅 Bundle 多页有效）
     pid, // 当前进程 ID
     fetch, // 安全 fetch（与 AppSDK.API.fetch 同一个函数）
-    handleFocus, // 提升窗口层级
+    handleFocus, // 请求宿主聚焦当前窗口（不启动/唤醒其他应用）
     reStartApp, // 软重启
     forceReStartApp // 硬重启（saveState 为假时会清掉持久化状态）
   }) => {
@@ -2568,6 +2686,7 @@ const docSections = [
   { id: 'intro',    label: '开发概览',  icon: <DescriptionIcon />,  component: IntroSection },
   { id: 'sdk',      label: '基础 SDK',  icon: <ExtensionIcon />,    component: SDKSection },
   { id: 'kernel',   label: '内核交互',  icon: <AccountTreeIcon />,  component: KernelSection },
+  { id: 'capabilities', label: '系统能力', icon: <SecurityIcon />, component: CapabilitiesSection },
   { id: 'components', label: '内置组件', icon: <LayersIcon />,      component: ComponentsSection },
   { id: 'storage',  label: '数据存储',  icon: <StorageIcon />,      component: StorageSection },
   { id: 'network', label: '网络请求', icon: <PublicIcon />, component: NetworkSection },

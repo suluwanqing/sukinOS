@@ -22,6 +22,9 @@ import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
 
 const bem = createNamespace("system");
 
+// 审核后台只允许 root 进入，菜单未配置时 usePermission 默认放行，必须再显式过滤一次
+const ROOT_ONLY_TABS = new Set(["appManage"]);
+
 // [后端初始化: 导航图标由 icon 字段映射]
 const ICON_MAP = {
   Dashboard: <DashboardIcon size={18} />,
@@ -71,7 +74,10 @@ function SystemDashboard() {
   }, []);
 
   const visibleNavItems = useMemo(() => {
-    return navItems.filter(item => isRoot || hasMenuPermission(item.id));
+    return navItems.filter(item => {
+      if (!isRoot && ROOT_ONLY_TABS.has(item.id)) return false;
+      return isRoot || hasMenuPermission(item.id);
+    });
   }, [navItems, isRoot, hasMenuPermission]);
 
   const activeNavItem = visibleNavItems.find(i => i.id === tab) || visibleNavItems[0];
@@ -91,7 +97,13 @@ function SystemDashboard() {
     appManage: <AppManage />,
     permissionManage: <PermissionManage />
   };
-  const activeContent = tabContentMap[tab] || tabContentMap[activeTabId] || <Overview />;
+  const activeContent = !isRoot && ROOT_ONLY_TABS.has(activeTabId)
+    ? (
+      <div style={{ padding: 16, color: "var(--text-secondary)" }}>
+        应用管理仅对超级管理员开放
+      </div>
+    )
+    : (tabContentMap[tab] || tabContentMap[activeTabId] || <Overview />);
 
   const renderSidebar = () => (
     <aside className={style[bem.e("sidebar")]}>

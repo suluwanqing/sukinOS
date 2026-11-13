@@ -425,7 +425,10 @@ L1 中间件的路由权限配置中有一个关键标记 `_auto`：
 |---|---|---|
 | 新接口启动自动注册 | `true` | 放行（管理员没配过规则，不误杀） |
 | 管理员通过面板配置后 | 被移除 | 严格按 `allowed_roles` / `allowed_users` 检查 |
-| 受保护路由 (`/system/permission/`) | `_locked: true` | 仅 root，面板上不可修改 |
+| 受保护路由 (`/system/permission/`、`/system/sukinos/`) | `_locked: true` 且 `_auto: false` | 仅 root；"面板不可修改"的守卫已注释，root 仍可覆盖 |
+
+受保护路由必须同时清掉 `_auto`：权限检查里 `_auto` 先于 `_locked` 生效，存量记录若只写 `_locked`
+仍会被自动放行分支短路。审核端 `/system/sukinos/*` 就是按这个口径锁成 root-only 的。
 
 ### 5.3 完整请求执行链路
 

@@ -46,6 +46,21 @@ export const updateAppStatus = async (data) => {
 };
 
 /**
+ * 标记或取消当前版本的强制更新
+ * @param {Object} data 包含 resourceId, forceUpdate
+ */
+export const setAppForceUpdate = async (data) => {
+  return instance({
+    method: "POST",
+    url: "/system/sukinos/forceUpdate",
+    data: {
+      resourceId: data?.resourceId,
+      forceUpdate: !!data?.forceUpdate
+    }
+  });
+};
+
+/**
  * 查询具体应用的深度细节
  * @param {Object} data 包含 resourceId
  */
@@ -76,10 +91,11 @@ export const forceDeleteApp = async (data) => {
  * @param {Object} data 包含 resourceId
  */
 export const downloadAppPackage = async (data) => {
-  const { resourceId } = data;
+  const { resourceId, revisionId } = data;
   return instance({
     method: "GET",
     url: `/system/sukinos/download/${encodeURIComponent(resourceId)}`,
+    params: revisionId ? { revisionId } : undefined,
     responseType: "blob",
     // 默认 10s 对整包下载太短，这里单独放宽
     timeout: 120000,
@@ -88,13 +104,120 @@ export const downloadAppPackage = async (data) => {
   });
 };
 
+/**
+ * 审核端改包并重提：旧包留档，当前包回到 under_review
+ * @param {Object} data 包含 file(Blob), fileName, resourceId, appName, metaInfo, note
+ */
+export const resubmitAppPackage = async (data) => {
+  const form = new FormData();
+  form.append("file", data.file, data.fileName || "app.js");
+  form.append("resourceId", data.resourceId);
+  form.append("appName", data.appName || "未命名应用");
+  form.append("metaInfo", JSON.stringify(data.metaInfo ?? {}));
+  form.append("note", data.note || "");
+  form.append("replaceExisting", data.replaceExisting ? "true" : "false");
+  return instance({
+    method: "POST",
+    url: "/system/sukinos/resubmit",
+    data: form,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    },
+    timeout: 120000
+  });
+};
+
+/**
+ * 当前可用版本 + 历史/待审版本
+ */
+export const getAppVersions = async (data) => {
+  const { resourceId, includeDeleted = false } = data;
+  return instance({
+    method: "GET",
+    url: `/system/sukinos/versions/${encodeURIComponent(resourceId)}`,
+    params: { includeDeleted }
+  });
+};
+
+/**
+ * 单个历史版本详情，带 metaInfo
+ */
+export const getAppVersionDetail = async (data) => {
+  const { resourceId, revisionId } = data;
+  return instance({
+    method: "GET",
+    url: `/system/sukinos/versions/${encodeURIComponent(resourceId)}/${revisionId}`
+  });
+};
+
+const versionAction = async (action, data) => {
+  const { resourceId } = data;
+  return instance({
+    method: "POST",
+    url: `/system/sukinos/versions/${encodeURIComponent(resourceId)}/${action}`,
+    data: {
+      revisionId: data.revisionId,
+      purgeFile: data.purgeFile ?? false,
+      auditOpinion: data.auditOpinion
+    }
+  });
+};
+
+export const approveAppVersion = (data) => versionAction("approve", data);
+export const rejectAppVersion = (data) => versionAction("reject", data);
+export const activateAppVersion = (data) => versionAction("activate", data);
+export const deleteAppVersion = (data) => versionAction("delete", data);
+export const restoreAppVersion = (data) => versionAction("restore", data);
+
+/**
+ * 修改元数据：有 pending 改 pending，否则按需生成待审版本
+ */
+export const updateAppVersionMeta = async (data) => {
+  const { resourceId, metaInfo, note, revisionId } = data;
+  return instance({
+    method: "POST",
+    url: `/system/sukinos/versions/${encodeURIComponent(resourceId)}/meta`,
+    data: { metaInfo, note, revisionId }
+  });
+};
+
+/**
+ * root 文件管理：磁盘包与引用分类
+ */
+export const listAppFiles = async () => {
+  return instance({
+    method: "GET",
+    url: "/system/sukinos/files"
+  });
+};
+
+export const purgeAppFiles = async (data) => {
+  return instance({
+    method: "POST",
+    url: "/system/sukinos/files/purge",
+    data: { fileNames: data?.fileNames || [] }
+  });
+};
+
 const sukinosAppManageAPI = {
   getSystemAppList,
   getAppStatistics,
   updateAppStatus,
+  setAppForceUpdate,
   getSystemAppDetail,
   forceDeleteApp,
-  downloadAppPackage
+  downloadAppPackage,
+  resubmitAppPackage,
+  getAppVersions,
+  getAppVersionDetail,
+  approveAppVersion,
+  rejectAppVersion,
+  activateAppVersion,
+  deleteAppVersion,
+  restoreAppVersion,
+  updateAppVersionMeta,
+  listAppFiles,
+  purgeAppFiles
 };
 
 export default sukinosAppManageAPI;

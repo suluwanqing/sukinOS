@@ -136,6 +136,7 @@ graph TD
 | `stateRef` | `useDeskShortcuts`：缓存最新状态，避免键盘监听器闭包陷阱 |
 | `appPositionsRef` / `isReadyRef` / `currentUserIdRef` | `useDeskGrid`：pagehide 兜底保存的最新区位与用户 |
 | `runningOrderRef` | `useDeskWindows`：维护应用先来后到的 PID 顺序 |
+| `zOrdersRef` / `maxZRef` | `useDeskWindows`：`zOrders` / `maxZ` 的同步镜像，供 `handleFocus` 在同一提交内去重 |
 
 #### 计算属性（useMemo）
 
@@ -151,8 +152,8 @@ graph TD
 
 | 方法 | 归属 | 说明 |
 |------|------|------|
-| `handleFocus(pid)` | `useDeskWindows` | 提升 PID 的 z-index 到最高并设置焦点 |
-| `handleStartApp(pid)` | `useDeskWindows` | 先聚焦再调用 `startApp({ pid })`，移动端可进全屏 |
+| `handleFocus(pid)` | `useDeskWindows` | 设置焦点并把 PID 的 z-index 提到最高；同时同步 `zOrdersRef`，已在顶层则直接返回，避免同一提交重复抬升 |
+| `handleStartApp(pid)` | `useDeskWindows` | 先乐观聚焦，再 `startApp({pid})` → `kernel.activate(reason:'user')`；移动端可进全屏 |
 | `handleColseApp(pid)` | `useDeskWindows` | 休眠应用、清理 z-index 和焦点 |
 | `handleForceKill(pid)` | `useDeskWindows` | 强制终止进程、清理 z-index 和焦点 |
 | `handleGlobalKeyDown` | `useDeskShortcuts` | Ctrl+R 软刷新、Ctrl+Alt+C 调度中心、Ctrl+Alt+O 状态栏 |
@@ -172,6 +173,17 @@ graph TD
 | `StatusBar` | `blockEdApps, startApp, hibernateApp, currentFocus, onFocus, isRunningApps, contextMenuItems` |
 | `AppEditOverlay` | `app, kernel, onChange, onClose`；由它向 `CustomApp` 传 `initialCustom` 等 |
 | `WindowSwitcher` | `showWindowSwitcher, isMobile, sortedRunningApps, selectedWindowIndex, onSelect, onHoverIndex, onSelectApp, onDismissAll, onForceKill, windowSlotsRef, onReleaseSlot` |
+
+#### 更新提示队列
+
+DeskBook 订阅 `kernel.subscribeSystem`，处理两类更新事件：
+
+| 事件 | 行为 |
+|------|------|
+| `APP_FORCE_UPDATE` | 按 `resourceId` 去重后进入 `forceQueueRef` 队列，一次只弹一个强更确认；确认后 `openStoreForUpdate(appName, resourceId)` 写入 `storeSearch` 深链并打开商店 |
+| `APP_UPDATE_AVAILABLE` | 用 `updatePromptRef` 保证同一时间只弹一次；最多展示前两个应用名，超过 2 个显示"等 N 个应用"；确认后 `openStoreUpdates()` |
+
+强更确认没有"永久忽略"语义；普通更新允许"稍后"，下次内核检查仍会再次提示。
 
 ---
 
@@ -447,13 +459,20 @@ useBridgeMode = (singleIframe || useVirtualWorker) && !isParasitism
 ```
 用户点击桌面图标 Shortcut
   -> DeskBook.handleStartApp(pid)
-    -> DeskBook.handleFocus(pid)          // 提升 z-index
-    -> useKernel.startApp({ pid })         // 通知内核启动应用
-      -> kernel 启动 Worker 进程
+    -> DeskBook.handleFocus(pid)             // 乐观聚焦：立即抬升 z-index
+    -> useKernel.startApp({ pid })           // → kernel.activate({ reason:'user' })
+      -> startProcess：冷启动 / 唤醒休眠
+      -> emitChange({ type:'APP_FOCUS', pid })
+      -> useDeskWindows 订阅到 APP_FOCUS -> handleFocus(pid)
+         （若已在顶层则直接返回，不会二次抬升）
       -> Worker 回传 state 更新
       -> DynamicRenderer 编译资源代码
       -> AppInternalRenderer 渲染 UI
 ```
+
+**焦点归属**：DeskBook 是 `currentFocus` / `zOrders` / `maxZ` 的唯一所有者。内核只广播 `APP_FOCUS` 意图，不直接改窗口层级；Worker 通过 `api.focus()` 也只能发 `APP_FOCUS_REQUEST`，最终仍由 DeskBook 的 `handleFocus` 落地。订阅在 `useDeskWindows` 内完成（`kernel.subscribeSystem`），`useKernel.applyDelta` 对 `APP_FOCUS` 显式忽略。
+
+**为什么需要 ref 镜像**：`APP_FOCUS` 与"窗口从隐藏变为显示"的挂载 effect 可能落在同一提交。若只依赖 `zOrders` state，两次 `handleFocus` 都读到旧值，会把同一窗口抬两级。`zOrdersRef` / `maxZRef` 在事件处理里同步更新，第二次调用因此能命中"已在顶层"的短路。
 
 ### 5.2 应用关闭链
 

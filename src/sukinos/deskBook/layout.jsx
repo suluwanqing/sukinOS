@@ -13,7 +13,7 @@ import useKernel from "@/sukinos/hooks/useKernel"
 import { ENV_KEY_RESOURCE_ID } from "@/sukinos/utils/config"
 import Boot from "./boot/layout"
 import ContextMenu from "@/component/contextMenu/layout"
-import { selectorSetting, selectGenerateApp } from "../store"
+import { selectorSetting, selectGenerateApp, sukinOsActions } from "../store"
 import { useDispatch, useSelector } from 'react-redux'
 import usePersonalization from "@/sukinos/hooks/usePersonalization"
 import { confirm } from '@/component/confirm/layout'
@@ -139,6 +139,80 @@ function DeskBook() {
   useEffect(() => {
     kernel.setDispatch(dispatch);
   }, [dispatch, kernel]);
+
+  // 强制更新被内核拦截时，直接引导去商店定位该应用
+  const forceQueueRef = useRef([])
+  const forceActiveRef = useRef(null)
+  const updatePromptRef = useRef(false)
+  const openStoreForUpdate = useCallback((keyword, resourceId) => {
+    dispatch(sukinOsActions.requestStoreSearch({ keyword: keyword || '', resourceId: resourceId || '' }));
+    const storePid = kernel.getPidByResourceId('sys-store');
+    if (storePid) {
+      kernel.activate({ pid: storePid, reason: 'user' });
+    }
+  }, [dispatch, kernel]);
+  const openStoreUpdates = useCallback(() => {
+    dispatch(sukinOsActions.requestStoreSearch({ nav: 'update' }));
+    const storePid = kernel.getPidByResourceId('sys-store');
+    if (storePid) {
+      kernel.activate({ pid: storePid, reason: 'user' });
+    }
+  }, [dispatch, kernel]);
+
+  // 多个应用同时被强更拦截时逐个提示，不堆叠弹窗也不漏提示
+  const flushForcePrompt = useCallback(() => {
+    if (forceActiveRef.current || forceQueueRef.current.length === 0) return;
+    const change = forceQueueRef.current.shift();
+    forceActiveRef.current = change;
+    // 等当前弹窗卸载后再弹下一个，避免 confirm 内部单例互相覆盖
+    const close = () => {
+      forceActiveRef.current = null;
+      setTimeout(flushForcePrompt, 0);
+    };
+    confirm.show({
+      title: '需要更新',
+      content: `「${change.appName || '该应用'}」已发布强制更新 V${change.version}，更新后才能继续使用。`,
+      confirmText: '前往更新',
+      cancelText: '稍后',
+      onConfirm: () => {
+        openStoreForUpdate(change.appName, change.resourceId);
+        close();
+      },
+      onCancel: close
+    });
+  }, [openStoreForUpdate]);
+
+  useEffect(() => {
+    return kernel.subscribeSystem((change) => {
+      if (change?.type === 'APP_FORCE_UPDATE' && change.resourceId) {
+        const queued = [forceActiveRef.current, ...forceQueueRef.current];
+        if (queued.some(item => item?.resourceId === change.resourceId)) return;
+        forceQueueRef.current.push(change);
+        flushForcePrompt();
+        return;
+      }
+      if (change?.type === 'APP_UPDATE_AVAILABLE') {
+        const updates = change.updates || [];
+        if (!updates.length || updatePromptRef.current) return;
+        updatePromptRef.current = true;
+        const names = updates.slice(0, 2).map(item => `「${item.appName || item.resourceId}」`).join('、');
+        const label = updates.length > 2 ? `${names} 等 ${updates.length} 个应用` : names;
+        confirm.show({
+          title: '发现应用更新',
+          content: `${label}有可用更新，可前往商店更新页查看。`,
+          confirmText: '前往更新',
+          cancelText: '稍后',
+          onConfirm: () => {
+            updatePromptRef.current = false;
+            openStoreUpdates();
+          },
+          onCancel: () => {
+            updatePromptRef.current = false;
+          }
+        });
+      }
+    });
+  }, [kernel, flushForcePrompt, openStoreUpdates]);
 
   // 桌面档：启动/聚焦 APP 时自动隐藏状态栏
   useEffect(() => {

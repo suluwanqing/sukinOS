@@ -1,6 +1,6 @@
 # SukinOS 开发指南
 
-> SukinOS 应用开发完整指南，覆盖系统 APP 与非系统 APP 开发、Hooks 核心详解、跨应用通信、应用生命周期管理等。帮助开发者快速上手构建运行在 SukinOS 桌面环境中的应用程序。
+> SukinOS 应用开发完整指南，覆盖系统 APP 与非系统 APP 开发、Hooks 能力边界、跨应用通信、应用生命周期管理等。帮助开发者快速上手构建运行在 SukinOS 桌面环境中的应用程序。Hook 的完整接口只在 [01-hooks.md](./01-hooks.md) 维护，本文只讲应用侧用法。
 
 ## 目录
 
@@ -8,7 +8,7 @@
 - [2. 应用架构基础](#2-应用架构基础)
 - [3. 系统 APP 开发](#3-系统-app-开发)
 - [4. 非系统 APP / 用户 APP 开发](#4-非系统-app--用户-app-开发)
-- [5. Hooks 核心详解与应用交互](#5-hooks-核心详解与应用交互)
+- [5. Hooks 与系统能力](#5-hooks-与系统能力应用开发者需要知道的部分)
 - [6. 跨应用通信](#6-跨应用通信)
 - [7. 应用生命周期](#7-应用生命周期)
 - [8. 从零构建完整教程](#8-从零构建完整教程)
@@ -26,7 +26,7 @@
 |------|------|---------|
 | [01-hooks.md](./01-hooks.md) | 14 个 Hook 完整接口 | 对照参考 |
 | [03-resources.md](./03-resources.md) | SDK 双权限模型、createSdkForInstance 工厂 | 必读 |
-| [04-process-kernel.md](./04-process-kernel.md) | Kernel 单例、CommHub、10 个子模块 | 参考 |
+| [04-process-kernel.md](./04-process-kernel.md) | Kernel 单例、CommHub、11 个子模块 | 参考 |
 | [07-app-routing.md](./07-app-routing.md) | 双层路由、三种 Worker 消息链路 | 必读 |
 
 ### 本文涵盖范围
@@ -143,6 +143,7 @@ registry 使用**字符串键名**（如 `"ENV_KEY_RESOURCE_ID"`），由 `prese
 | `hideHeader` | `boolean` | `false` | 标题栏整块不渲染（连 DOM 都没有），窗口操作交给应用经 `AppSDK.API.window` 完成。与 `custom.hideHeaderHover` 互斥：它为真时 hover 被强制关闭（`window/layout.jsx:ProcessWindow`）。渲染细节见 [02-deskbook.md](02-deskbook.md) §9.4 |
 | `syncLocal` | `boolean` | `false` | 是否把应用包同步到本地目录。**三处读取点口径不一致**，见 [04-process-kernel.md](04-process-kernel.md) 的 "syncLocal：三处读取点" |
 | `entries` | `object` | — | 发布时由 `buildAppEntries` 固化的入口判定结果 `{ view, logicMain, logicAux }`（模块 key 形式），运行时唯一真源；不要手工编辑 |
+| `version` | `string` | — | 展示版本。上传/更新到服务端后以服务端发号为准，包内值会被重写（见 §9.1"发布后的服务端版本语义"） |
 | `appType` | `string` | `'editor'` | 见 §2.2；只有 `'system'` 有内核语义 |
 | `custom.*` | — | 见下 | 用户个性化配置，由 `appCustomMapper`（`config.js:appCustomMapper`）提供中文标签、`appCustom`（`config.js:appCustom`）提供种子值 |
 
@@ -312,7 +313,7 @@ const replaceKeys = (registry) =>
 
 // 4. 将你的 registry 添加到 rawResources 数组
 const rawResources = [
-  // ... 现有 10 个系统 APP
+  // ... 现有 11 个系统 APP
   developerRegistry,
   fileSystemRegistry,
   notebookRegistry,
@@ -323,6 +324,7 @@ const rawResources = [
   systemManageRegistry,
   drawBoardRegistry,
   sheetRegistry,
+  universalViewerRegistry, // 万能文件查看器
   myAppRegistry,        // ← 你的新 APP
 ]
 
@@ -406,8 +408,8 @@ const adminAppSdk = {
 | SDK 模板 | `adminAppSdk` | `devAppSdk` |
 | Kernel 访问 | 完整 `AppSDK.kernel`（`_kernel` 本体） | 仅 `evokeApp` + `getTypeApps`（已 `bind(_kernel)`，脱离对象字面量也不会 `this` 丢失） |
 | 高权限种子 | `AppSDK.API.rootSeed`（挂在 `API`，不在 `kernel` 上） | 不可用 |
-| Hooks | 全部 14 个 Hook | 仅 `useFileSystem` |
-| 系统组件 | 全部 10 个系统组件 | 不可用 |
+| Hooks | 可直接 `import` 任意宿主 Hook 模块（设置中心、开始菜单即如此） | 仅 `AppSDK.hooks.useFileSystem` |
+| 系统组件 | 全部 11 个系统组件 | 不可用 |
 | 文件系统 | `useSystemFileSystem`（无 PID 限制） | `useFileSystem`（需 PID） |
 | localStorage | 直接 `window.localStorage` | 通过 `createStorageProxy` |
 | `import` | 允许导入系统模块 | 仅允许相对路径导入应用内模块与 CSS |
@@ -655,7 +657,7 @@ const { System } = AppSDK
 #### 运行时注入的 API（`AppSDK.API`）
 
 `createSdkForInstance(dispatch, pid, isSystemApp, windowControls)`（`resources/sdk.jsx:createSdkForInstance`）把 `privateScope` 摊进 `API`，
-所以应用侧看到的 `AppSDK.API` = 静态模板的 `API` + 下面四个成员：
+所以应用侧看到的 `AppSDK.API` = 静态模板的 `API` + 下面五个成员：
 
 | 成员 | 来源 | 说明 |
 |------|------|------|
@@ -663,6 +665,7 @@ const { System } = AppSDK
 | `navigate` | `(path) => dispatch({ type: 'NAVIGATE', payload: path })` | Bundle 路由跳转，走的是本实例的 dispatch |
 | `pid` | 工厂入参 | 当前进程 ID |
 | `window` | 第 4 个入参 `windowControls`，缺省时回落到 `noopWindowControls`（`sdk.jsx:noopWindowControls`） | 窗口控制：`close` / `hibernate` / `toggleMaximize` / `setRect` / `getRect` |
+| `focus` | `() => kernel.requestFocus(pid)`（`sdk.jsx:privateScope`） | 请求宿主聚焦当前窗口：发 `APP_FOCUS_REQUEST`，不启动/唤醒其他应用 |
 
 `window` 是给 `hideHeader` 场景准备的：标题栏整块不渲染后，应用要自己画操作区并靠它关窗/休眠/改位。
 宿主侧的注入链是 `ProcessWindow` 的 `controlsRef` → `windowControls` → `DynamicRenderer` → 工厂第 4 参
@@ -1249,242 +1252,47 @@ postMessage 协议。
 
 ---
 
-## 5. Hooks 核心详解与应用交互
+## 5. Hooks 与系统能力：应用开发者需要知道的部分
 
-Hooks 是 SukinOS 的核心抽象层，封装了内核通信、文件系统、认证、窗口交互等关键能力。本节聚焦于**在 APP 开发中如何使用这些 Hook**。
+> Hook 的完整接口、参数与内部实现只在 [01-hooks.md](./01-hooks.md) 维护。本节只回答一个问题：**应用里到底能用什么、不能用什么**。
 
-> 完整的 Hook 接口文档详见 [01-hooks.md](./01-hooks.md)
+### 5.1 三种能力入口
 
-### 5.1 useKernel — 内核生命周期管理
+| 入口 | 谁能用 | 典型能力 | 说明 |
+|------|--------|---------|------|
+| Props | 所有应用根组件 | `state` / `dispatch` / `navigate` / `fetch` / `pid` / `handleFocus` / `reStartApp` / `forceReStartApp` | 渲染器注入，最稳定 |
+| AppSDK | 所有应用 | React / Components / System / API / `hooks.useFileSystem`（普通应用）/ `kernel.evokeApp` / `getTypeApps` | 沙箱内唯一合法 SDK |
+| Hooks | 宿主与系统应用 | `useKernel` / `useProcessBridge` / `useAuth` / `usePersonalization` 等 | 运行在宿主 React 树；普通应用不能 import，系统应用可直接 import 模块 |
 
-**系统 APP 可用 | 非系统 APP 不可用**
+普通应用不要写 `import { useKernel } from '@/sukinos/hooks'`；系统应用可以直接 import 宿主 Hook 模块，但 `AppSDK.hooks` 只是 `main.jsx` 的导出镜像（10 个），并不是全部 Hook。
 
-**作用**：管理 Kernel 单例的生命周期，同步内核状态到 React 组件。
+### 5.2 与应用直接相关的 Hook
 
-**返回状态：**
+| Hook | 应用侧怎么拿到 | 用途 |
+|------|---------------|------|
+| `useKernel` | 系统应用直接 import（或 `AppSDK.hooks.useKernel`）；普通应用改用 `kernel.evokeApp` + `API.focus` | 启动/激活/休眠/聚焦 |
+| `useProcessBridge` | 不直接拿；窗口层已通过 Props 注入 `state` / `dispatch` | 状态同步与 dispatch |
+| `useFileSystem` | 普通应用 `AppSDK.hooks.useFileSystem`；系统应用可直接 import `useSystemFileSystem` | VFS 读写 |
+| `usePersonalization` | 仅系统应用直接 import（设置中心） | 读取或修改桌面主题配置 |
 
-| 状态 | 类型 | 说明 |
+其余 Hooks（`useAuth`、`useFileKernel`、`useStateHandle`、`useOpfs`、`useDeskLayout`、`useWindowInteraction`、工具类）属于宿主实现：普通应用没有入口，系统应用可按需直接 import；需要窗口控制时用 `AppSDK.API.window`。
+
+### 5.3 激活与聚焦：应用最常用的内核能力
+
+| 需求 | 调用 | 结果 |
 |------|------|------|
-| `apps` | `array` | 所有应用列表 |
-| `isReady` | `boolean` | 内核是否就绪 |
-| `runningApps` | `array` | 正在运行的应用 |
-| `hibernatedApps` | `array` | 已休眠的应用 |
-| `blockEdApps` | `array` | 固定在状态栏的应用 |
-| `userApps` | `array` | 用户安装的应用 |
+| 打开/唤起另一个应用并传参 | `kernel.evokeApp({pid, from, interactInfo})` | `activate(reason:'interaction')`：冷启动/唤醒 + 合并 from + 聚焦 |
+| 让当前窗口到最前 | `AppSDK.API.focus()` | 发 `APP_FOCUS_REQUEST`，由 DeskBook 抬升层级 |
+| 根组件内聚焦 | Props `handleFocus()` | 宿主外壳直接提供的聚焦入口 |
+| 重启自己 | Props `reStartApp()` / `forceReStartApp()` | 走 `activate(reason:'user')`；强制重启按 `saveState` 决定是否清状态 |
 
-**核心方法：**
+`startProcess` 只保证"进程存在 + 投递一次交互"，不发聚焦；业务代码不要用它替代 `evokeApp`。
 
-| 方法 | 参数 | 说明 |
-|------|------|------|
-| `bootSystem(config)` | `{ userInfo, config }` | 启动内核，加载所有资源和应用 |
-| `startApp(args)` | `{ resourceId?, pid? }` | 启动一个应用 |
-| `hibernateApp(pid)` | `pid: string` | 休眠应用（保留 Worker，标记状态） |
-| `deleteApp(args)` | `{ resourceId }` | 删除应用 |
-| `reStartApp(args)` | `{ pid }` | 重启（kill + start） |
-| `forceReStartApp(args)` | `{ pid }` | 强制重启（清除缓存 + kill + start） |
+### 5.4 状态与文件能力的边界
 
-**Delta 更新机制**：`applyDelta(change)` 支持三种增量更新：
-- `APP_STATUS` — 状态变更（运行/休眠/终止）
-- `APP_META` — 元数据变更（配置更新）
-- `APP_REGISTRY` — 全量刷新
-
-### 5.2 useProcessBridge — 进程通信
-
-**系统 APP 可用 | 非系统 APP 不可用**（但 Worker 中的 dispatch 等效）
-
-**作用**：建立 React 组件与 Worker 进程之间的双向通信通道。
-
-**参数：**
-- `pid` — 进程 ID
-- `isVisible` — 窗口是否可见（默认 `true`）
-- `backgroundSleep` — 是否启用后台休眠优化
-
-**返回：**
-
-| 方法 | 类型 | 说明 |
-|------|------|------|
-| `state` | `object` | 应用当前状态（来自 Worker Reducer） |
-| `dispatch(action)` | `function` | 发送 action 到 Worker |
-| `publish(topic, payload)` | `function` | 发布主题消息 |
-| `subscribe(topic, cb)` | `function` | 订阅主题消息 |
-
-**性能优化机制：**
-- **RAF 节流** — 状态更新通过 `requestAnimationFrame` 合并，每帧只渲染一次
-- **非可见窗口** — 当 `isVisible=false` 时，跳过 2/3 的状态更新
-- **后台休眠** — `backgroundSleep=true` 且不可见时，完全取消订阅
-
-**useProcessDispatch** — 轻量版，仅返回 `{ dispatch, publish }`，无状态订阅：
-
-```javascript
-const { dispatch } = useProcessDispatch(pid)
-// 适用于只发送 action 不关心状态的组件
-```
-
-### 5.3 useAuth — 认证流程
-
-**系统 APP 可用 | 非系统 APP 不可用**
-
-**作用**：处理用户登录、注册、验证码、会话检查、退出等完整认证流程。
-
-**参数**：`bizType` — `'login'` 或 `'recoverPassword'`
-
-**返回：**
-
-| 方法 | 说明 |
-|------|------|
-| `sendVerificationCode(account, message)` | 发送验证码，自动启动倒计时 |
-| `executeAuth(mode, formData, onSuccess)` | 执行认证（`code`/`password`/`recoverPassword`） |
-| `checkSession()` | 检查当前会话是否有效 |
-| `logout()` | 退出登录，清除状态，断开 WebSocket |
-
-> **认证流程详见** [06-middleware-login.md](./06-middleware-login.md)
-
-### 5.4 useFileSystem — 文件系统
-
-**系统 APP 可用 | 非系统 APP 可用**
-
-**两个变体：**
-- `useSystemFileSystem(mode)` — 系统级，无 PID 限制，由 DeskBook/System APP 使用
-- `useFileSystem(mode, { pid })` — 开发者级，需要传入 `pid`，由用户 APP 使用
-
-**参数**：`mode` — `'virtual'`（VFS，默认）| `'local'`（File System Access API）| `'remote'`（预留）
-
-**返回：**
-
-| 分类 | 方法/状态 | 说明 |
-|------|-----------|------|
-| **状态** | `state: { currentId, items, history, breadcrumbs, isReady }` | 当前目录状态 |
-| **导航** | `loadDir(id, pushHistory)` | 加载目录 |
-| | `handleBack()` | 返回上级目录 |
-| | `handleRefresh()` | 刷新当前目录 |
-| **操作** | `handleCreate(type, name)` | 创建文件/文件夹 |
-| | `handleRename(id, name)` | 重命名 |
-| | `handleDelete(id)` | 删除 |
-| | `handleOpenFile(item)` | 打开文件 |
-| | `handleExportFile(item)` | 导出文件 |
-| | `handleSave(fileId, content)` | 保存文件内容 |
-| | `handleUploadFiles()` | 上传文件 |
-| | `handleClearFiles()` | 清空目录 |
-| | `handleSearchBySuffix(suffix)` | 按后缀搜索 |
-
-**跨实例同步**：所有 `useFileSystem` 实例共享一个全局监听器列表。文件变更操作自动调用 `notifyAll()` 广播变更，其他实例通过 `shouldUpdate` 或 `watchTypes` 选项决定是否重新加载。
-
-### 5.5 useFileKernel — 轻量文件操作
-
-**系统 APP 可用 | 非系统 APP 不可用**
-
-**作用**：简化的 VFS 操作，适用于快速文件读写场景。
-
-```javascript
-const { items, loading, writeFile, readFile, deleteFile, isExist, refresh } = useFileKernel(parentId)
-
-// 写入文件（冲突时自动追加时间戳重命名）
-await writeFile('notes.md', '# Hello SukinOS')
-
-// 读取文件
-const content = await readFile(fileId)
-
-// 检查文件是否存在
-const exists = await isExist('notes.md')
-
-// 按扩展名过滤
-const images = await getFilesByExt(['.png', '.jpg'])
-```
-
-### 5.6 useStateHandle — 状态句柄管理
-
-**系统 APP 可用 | 非系统 APP 不可用**
-
-**作用**：管理 IndexedDB 实例和文件系统句柄的获取与持久化。
-
-```javascript
-const { stateInstance, systemDirHandle, getInstance,
-        saveSystemDirHandle, hasInstance, hasSystemDirHandle } = useStateHandle()
-
-// 获取内核 instanceDb
-const db = await getInstance()
-
-// 保存 File System Access API 目录句柄
-await saveSystemDirHandle(directoryHandle)
-```
-
-### 5.7 useOpfs — Origin Private File System
-
-**系统 APP 可用 | 非系统 APP 不可用**
-
-**作用**：浏览器原生文件系统（OPFS）的安全读写封装。
-
-```javascript
-const { handle, isReady, readText, write, safeWrite, append, rename, remove } = useOpfs(target)
-
-// 安全写入（原子操作：临时文件 + rename）
-await safeWrite('file content')
-
-// 读取
-const text = await readText()
-
-// 追加
-await append('more content')
-```
-
-### 5.8 usePersonalization — 桌面个性化主题
-
-**系统 APP 可用 | 非系统 APP 不可用**
-
-**作用**：桌面主题配置（15套预设 + 自定义颜色/字体/背景）。
-
-```javascript
-const { config, updateConfig, applyPresetStyle, updateCustomColor,
-        refreshConfig, generateBase64FromFs } = usePersonalization()
-
-// 应用预设主题
-applyPresetStyle('darkMode')     // 暗黑模式
-applyPresetStyle('freshGreen')   // 清新绿
-applyPresetStyle('techBluePurple') // 科技蓝紫
-// 完整 15 套预设: classic, darkMode, freshGreen, warmOrange, pinkDream,
-// minimalBlackWhite, techBluePurple, forestDeep, cherryBlossom,
-// businessDark, sunnyBeach, purpleMystery, vintageBrown, oceanSong, goldenClassic
-
-// 更新单个配置
-updateConfig('backgroundType', 'image')
-
-// 批量更新
-updateMultipleConfigs({ backgroundType: 'video', backgroundVideo: 'url' })
-```
-
-**模块级单例 Store**：所有 `usePersonalization` 实例共享同一配置，通过发布-订阅模式同步。
-
-### 5.9 useWindowInteraction — 窗口交互
-
-**系统 APP 可用 | 非系统 APP 不可用**
-
-**作用**：高性能窗口拖拽和缩放（纯 Ref 架构，无 React 重渲染）。
-
-```javascript
-const { windowElRef, handleMouseDown, setMaximized, getCurrentRect, getIsDragging } =
-  useWindowInteraction({ winSize, allowResize, isIframeMode })
-
-// 启动拖拽（type: 'drag' | 8 方向: 'n'/'s'/'e'/'w'/'ne'/'nw'/'se'/'sw'）
-<div onMouseDown={e => handleMouseDown(e, 'drag')}>
-
-// 最大化/恢复
-setMaximized(true)   // 最大化
-setMaximized(false)  // 恢复
-
-// 获取当前窗口位置
-const rect = getCurrentRect()
-```
-
-**iframe 模式优化**：拖拽时自动禁用 iframe 的 `pointerEvents`，防止鼠标事件被劫持。
-
-### 5.10 工具类 Hook
-
-| Hook | 用途 | 系统 APP | 非系统 APP |
-|------|------|----------|------------|
-| `useDebounce(fn, delay, deps)` | 防抖 | ✅ | ❌ |
-| `useThrottle(fn, delay, deps)` | 节流（含尾调用） | ✅ | ❌ |
-| `useWheelToHorizontalScroll(ref, options)` | 滚轮转水平滚动 | ✅ | ❌ |
-| `userWindowForKernel(pid)` | 内核窗口权限（预留） | ✅ | ❌ |
+- `state` 是结构化克隆快照，直接修改不会回写；唯一入口是 `dispatch`。
+- 普通应用的 `AppSDK.hooks` 只有 `useFileSystem`；实例按 pid 隔离，不要跨进程复用。
+- `usePersonalization` 是模块级单例：设置页改主题、内核自动保存定时器都订阅它；普通应用不直接读写（系统应用可直接 import）。
 
 ---
 
@@ -1548,7 +1356,7 @@ React 组件通过 `dispatch(action)` 向 Worker 发送 action：
 
 ### 6.4 evokeApp — 跨应用唤起
 
-`kernel.evokeApp` 是最主要的跨应用交互方式。它不是由 OS 维护操作表，而是**运行时执行**，由 APP 传递交互信息。
+`kernel.evokeApp` 是最主要的跨应用交互方式。它不是由 OS 维护操作表，而是**运行时执行**，由 APP 传递交互信息。它现在等价于 `activate({reason:'interaction'})`，因此除了传递数据，还负责**唤醒休眠应用**并**把目标窗口置前**。
 
 **核心机制：**
 
@@ -1566,9 +1374,13 @@ kernel.evokeApp({
 
 **执行流程：**
 
-1. **目标 APP 已运行**：发送 `APP_INTERACT` 消息，携带 `from` 和 `interactInfo`
-2. **目标 APP 未运行**：冷启动（`startProcess`），`interactInfo` 作为 INIT 参数传入
-3. 目标 APP 的结果最终通过 `STATE_UPDATE` 广播回来
+1. **目标 APP 已运行**：`startProcess` 的已存在分支发送 `APP_INTERACT`，携带 `from` 和 `interactInfo`
+2. **目标 APP 已休眠**：先置为 `RUNNING`，再发送 `APP_INTERACT`
+3. **目标 APP 未运行**：冷启动，`interactInfo` 在 INIT/RESTORE 之后投递
+4. 上述任一成功路径都会广播 `APP_FOCUS`，由 DeskBook 把目标窗口提到最前
+5. 目标 APP 的结果最终通过 `STATE_UPDATE` 广播回来
+
+> 只想让当前窗口置前、不想启动别的应用时，用 `AppSDK.API.focus()`（发 `APP_FOCUS_REQUEST`），不要用 `evokeApp`。
 
 **propagate 机制（系统 APP）：**
 
@@ -1647,7 +1459,7 @@ postMessage({ type: 'UNSUBSCRIBE_TOPIC', topic: 'file:updated' })
 
 ### 6.6 APP_INTERACT 机制
 
-`APP_INTERACT` 是内核发送给 Worker 的交互消息，用于在 app 间传递操作指令：
+`APP_INTERACT` 是内核发送给 Worker 的底层交互消息，用于在 app 间传递操作指令。它只负责投递，不负责启动、唤醒或聚焦——这些语义由上层 `activate` / `evokeApp` 完成：
 
 ```javascript
 // 内核端
@@ -1681,26 +1493,25 @@ case 'APP_INTERACT':
 
 ### 7.1 状态机
 
-每个 SukinOS 应用遵循以下状态转换：
+每个 SukinOS 应用遵循以下状态转换（`Terminated` 不是独立状态，终止后回到 `INSTALLED`）：
 
-```
-                    forceKillProcess
-  INSTALLED ──────────────────────────────→ Terminated
-     │                                          ↑
-     │ startProcess (cold)                      │ hibernate() 后 kill
-     ↓                                          │
-  RUNNING ───────────→ HIBERNATED ──────────────┘
-     ↑                      │
-     │ startProcess (wake)  │ forceKillProcess
-     └──────────────────────┘
+```mermaid
+stateDiagram-v2
+    [*] --> INSTALLED
+    INSTALLED --> RUNNING: activate(user/interaction) 冷启动
+    INSTALLED --> RUNNING: activate(restore) autoStart 冷拉起
+    RUNNING --> HIBERNATED: hibernate()
+    HIBERNATED --> RUNNING: activate(user/interaction) 唤醒
+    HIBERNATED --> HIBERNATED: activate(restore) 保持休眠
+    RUNNING --> INSTALLED: forceKillProcess / forceResetApp
+    HIBERNATED --> INSTALLED: forceKillProcess
 ```
 
 | 状态 | 说明 | Worker 状态 |
 |------|------|-------------|
-| `INSTALLED` | 应用已注册，未启动 | 无 Worker |
+| `INSTALLED` | 应用已注册，未启动；终止后也回到这里 | 无 Worker |
 | `RUNNING` | 应用正在运行 | Worker 活跃，接收消息 |
 | `HIBERNATED` | 应用已休眠 | Worker 仍在运行（保留状态） |
-| `Terminated` | 应用已终止 | Worker 已销毁 |
 
 ### 7.2 三种 Worker 模式
 
@@ -1733,20 +1544,24 @@ SukinOS 根据应用配置和系统设置选择 Worker 模式：
 ### 7.3 进程启动流程
 
 ```javascript
-// kernel.startProcess() 的核心流程
-1. 解析 PID ↔ resourceId 双向映射
-2. 检查进程是否已存在：
-   a. 如果存在且是 HIBERNATED → 唤醒（设置 RUNNING，发送 interactInfo）
-   b. 如果存在且 RUNNING → 返回成功
-3. 冷启动：
+// kernel.activate() → kernel.startProcess() 的核心流程
+1. activate 解析 pid/resourceId、校验应用存在，计算 shouldFocus（user/interaction）
+2. startProcess 解析 PID ↔ resourceId 双向映射
+3. 检查进程是否已存在：
+   a. 存在且 HIBERNATED：
+      - preserveHibernation=true（restore）→ 保持 HIBERNATED
+      - 否则 → 唤醒为 RUNNING，发送 interactInfo
+   b. 存在且 RUNNING → 直接投递 interactInfo 后返回
+4. 冷启动：
    a. 生成 Worker 代码（generateWorker）
    b. 创建 Worker（RealWorker/VirtualWorker/NoWorker）
    c. 设置消息处理器
    d. 发送 INIT（冷启动）或 RESTORE（有保存状态）
-   e. 设置 RUNNING 或 HIBERNATED（会话恢复时）
+   e. targetStatus = preserveHibernation && 原状态为 HIBERNATED ? HIBERNATED : RUNNING
+5. activate 在启动成功后且 shouldFocus 时广播 APP_FOCUS
 ```
 
-**会话恢复保护**：`restoreSession()` 恢复时，如果原始状态是 `HIBERNATED`，保留此状态（不会自动唤醒为 `RUNNING`）。
+**会话恢复保护**：只有 `restoreSession()` 走 `activate(reason:'restore')`，把 `preserveHibernation` 置真，才会保留 `HIBERNATED`；普通启动、交互、重启都不会继承这个保护。
 
 ### 7.4 休眠 vs 终止
 
@@ -1799,8 +1614,8 @@ stateCache (内存) → app.savedState (进程内存) → IndexedDB (持久化)
 `restoreSession()` 在系统启动时恢复之前的应用状态：
 
 1. 遍历所有状态为 `RUNNING` / `HIBERNATED` 的应用，以及 `autoStart: true` 的应用
-2. 异步启动每个应用
-3. **HIBERNATED 状态保护**：原始状态为 HIBERNATED 的进程恢复后仍为 HIBERNATED
+2. 对每个应用调用 `activate({pid, reason:'restore'})`，异步执行不阻塞
+3. **HIBERNATED 状态保护**：`preserveHibernation` 为真，原始状态为 HIBERNATED 的进程恢复后仍为 HIBERNATED，且不会广播 `APP_FOCUS`
 4. 用户 APP 从 `sysDb` 读取保存的状态
 5. 系统 APP 从 `stateCache` 恢复（内存级）
 
@@ -2331,6 +2146,23 @@ const assertLayering = (allFiles, resolved, logicMainCode = '') => {
 
 > 新增发布入口时容易漏这一步：`inspectEntryLayering` 本身只返回数组不抛错，调用方必须自己决定怎么呈现。
 > 两处 `assertLayering` 是复制粘贴的同款实现，改动校验器签名时要同步四处调用点。
+
+#### 发布后的服务端版本语义
+
+前端四个面板只负责"把包发出去"，落库后的版本规则由后端统一执行：
+
+| 环节 | 行为 |
+|------|------|
+| 首次上传 | 写入 `sukinos_app` 当前行，`status=under_review` |
+| 后续更新 | 已存在任意历史修订时，`/sukinos/app/update` 拒绝原地覆盖，必须走待审版本 |
+| 版本号 | 服务端 `next_business_version()` 发号（当前行 + 全部历史含已删除取最大、末段 +1），包内旧版本号被重写 |
+| 待审 | 新版本写入 `sukinos_app_revision(is_pending=1)`，同一资源只允许一个待审；重复提交只替换自己来源的待审包 |
+| 审核 | 管理员通过后当前行快照入 revision、待审行替换当前行；驳回只删待审，线上不动；已下架应用审批后仍保持下架 |
+| 完整性 | 服务端计算包体 SHA-256 并签名（Ed25519，manifest 为 `resourceId\nversion\ncontentHash`），客户端安装/更新时验签 |
+| 配额 | 上传/更新受 `sukinos_upload_settings` 三档上限约束（用户 → 角色 → 默认）；本地开发同步与预览不受此限 |
+| 保留 | 历史修订超过 `sukinos_app_revision_retention`（默认 20）时剪枝最旧记录；当前包永远保留 |
+
+因此开发者不需要在 `metaInfo.version` 里"猜"版本号：包内版本只作为展示，服务端以自身发号为准。
 
 ### 9.2 LocalDev 热更新链路
 

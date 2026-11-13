@@ -230,6 +230,7 @@
 
 .su-explorer__node-row {
   position: relative;
+  touch-action: manipulation;
 }
 
 /* 拖拽目标：文件夹整行高亮表示"移入" */

@@ -32,8 +32,18 @@ export class Registry {
     this.#kernel.presetResourceIds.add(presetResId)
     const pid = presetResId
     const appName = preset?.[ENV_KEY_NAME]
-    // 获取从 sysDb 加载的覆盖记录
-    const dbOverride = this.#kernel.userApps.get(pid)
+    // 获取从 sysDb 加载的覆盖记录；旧版本系统 APP 用过随机 pid，按资源 ID 兜底找回
+    let dbOverride = this.#kernel.userApps.get(pid)
+    let legacyPid = null
+    if (!dbOverride) {
+      for (const [candidatePid, candidate] of this.#kernel.userApps) {
+        if (candidate?.[ENV_KEY_RESOURCE_ID] === presetResId) {
+          dbOverride = candidate
+          legacyPid = candidatePid
+          break
+        }
+      }
+    }
     // 系统应用与普通应用同一判定：预设未写这两个键时按默认开补齐，sysDb 覆盖优先
     const finalMeta = {
       ...preset?.[ENV_KEY_META_INFO],
@@ -50,6 +60,13 @@ export class Registry {
     if (dbOverride) {
       // 配了开机自启时状态仍留 INSTALLED，由 restoreSession 按 finalMeta.custom.autoStart 拉起
       this.#kernel.userApps.delete(pid)
+      if (legacyPid && legacyPid !== pid) {
+        // 随机 pid 的旧记录只保留在 sysDb 里存 custom，内存注册表统一收敛到 pid = resourceId
+        this.#kernel.kill(legacyPid)
+        this.#kernel.clearCachedState(legacyPid)
+        this.#kernel.userApps.delete(legacyPid)
+        this.#kernel.pidToResourceId.delete(legacyPid)
+      }
     }
     this.#kernel.systemApps.set(pid, {
       pid,

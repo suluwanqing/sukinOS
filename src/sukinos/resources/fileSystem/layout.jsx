@@ -1,16 +1,18 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import style from './style.module.css';
 import { createNamespace } from '/utils/js/classcreate';
 import { FileType} from "@/sukinos/utils/config"
 import ContextMenu from "@/component/contextMenu/layout";
-import Drawer from '@/component/drawer/layout';
+import Drawer, { DrawerHeader, DrawerBody, DrawerFooter, DrawerTitle, DrawerDescription } from '@/component/drawer/layout';
 import { Button } from '@/component/button/layout';
 import { Input } from '@/component/input/layout';
 import { useViewportMode } from '@/sukinos/hooks/useViewportMode';
-import { Folder as FolderIcon, File as InsertDriveFileIcon, ArrowLeft as ArrowBackIcon, RefreshCw as RefreshIcon, LayoutGrid as GridViewIcon, List as FormatListBulletedIcon, FolderPlus as CreateNewFolderIcon, FilePlus as NoteAddIcon, Home as HomeIcon, Monitor as ComputerIcon, ArrowLeftRight as SwapHorizIcon, Menu as MenuIcon } from 'lucide-react';
+import { Folder as FolderIcon, File as InsertDriveFileIcon, ArrowLeft as ArrowBackIcon, RefreshCw as RefreshIcon, LayoutGrid as GridViewIcon, List as FormatListBulletedIcon, FolderPlus as CreateNewFolderIcon, FilePlus as NoteAddIcon, Home as HomeIcon, Monitor as ComputerIcon, ArrowLeftRight as SwapHorizIcon, Menu as MenuIcon, CornerLeftUp as UpIcon, ChevronRight as ChevronRightIcon, FolderInput as MoveIcon } from 'lucide-react';
 import {useSystemFileSystem} from '@/sukinos/hooks/useFileSystem';
+import { alert } from '@/component/alert/layout';
 import ExChange from "./exchange/layout";
 import InteractiveAwakening from '@/sukinos/middleware/InteractiveAwakening/main';
+import kernelFs from '@/sukinos/utils/file/fileKernel';
 const bem = createNamespace('file-system');
 
 const Sidebar = React.memo(({ mode, setMode }) => {
@@ -46,9 +48,9 @@ const FileSystem = ({ app }) => {
   const [navOpen, setNavOpen] = useState(false);
   const { isMobile, isTouch } = useViewportMode();
   const {
-    state: { currentId, items, history, breadcrumbs, isReady },
+    state: { currentId, items, history, breadcrumbs, isReady, handleRegistry },
     navigation: { loadDir, handleBack, handleRefresh },
-    operation: { handleCreate, handleRename, handleDelete, handleExportFile }
+    operation: { handleCreate, handleRename, handleMove, handleReadDir, handleDelete, handleExportFile }
   } = useSystemFileSystem(mode);
 
   const [viewMode, setViewMode] = useState('grid');
@@ -56,6 +58,14 @@ const FileSystem = ({ app }) => {
 
   const [renamingId, setRenamingId] = useState(null);
   const [renameValue, setRenameValue] = useState('');
+  const renameSessionRef = useRef({ id: null, submitting: false });
+  const renameValueRef = useRef('');
+
+  const [moveItem, setMoveItem] = useState(null);
+  const [movePath, setMovePath] = useState([]);
+  const [moveItems, setMoveItems] = useState([]);
+  const [moveLoading, setMoveLoading] = useState(false);
+  const [moveBusy, setMoveBusy] = useState(false);
 
   // 唤醒组件控制状态与载荷
   const [awakeningVisible, setAwakeningVisible] = useState(false);
@@ -63,12 +73,21 @@ const FileSystem = ({ app }) => {
 
   const [exchangeVisible, setExchangeVisible] = useState(false);
 
+  const openRename = (item) => {
+    renameSessionRef.current = { id: item.id, submitting: false };
+    setRenamingId(item.id);
+    renameValueRef.current = item.name;
+    setRenameValue(item.name);
+  };
+
+  const closeRename = () => {
+    renameSessionRef.current = { id: null, submitting: false };
+    setRenamingId(null);
+  };
+
   const onCreate = async (type) => {
     const newItem = await handleCreate({type});
-    if (newItem) {
-        setRenamingId(newItem.id);
-        setRenameValue(newItem.name);
-    }
+    if (newItem) openRename(newItem);
   };
 
   const handleItemClick = (e, id) => {
@@ -89,12 +108,104 @@ const FileSystem = ({ app }) => {
   };
 
   const submitRename = async (item) => {
-    if (!renamingId || !renameValue.trim()) {
-      setRenamingId(null);
+    const session = renameSessionRef.current;
+    if (!session.id || session.id !== item.id || session.submitting) return;
+    const nextName = renameValueRef.current.trim();
+    if (!nextName || nextName === item.name) {
+      closeRename();
       return;
     }
-    await handleRename({...item,newName:renameValue,parentId:item.parentId });
-    setRenamingId(null);
+    session.submitting = true;
+    try {
+      await handleRename({ ...item, newName: nextName, parentId: item.parentId });
+    } finally {
+      session.submitting = false;
+      closeRename();
+    }
+  };
+
+  const loadMoveDir = async (dirId) => {
+    setMoveLoading(true);
+    try {
+      const list = await handleReadDir(dirId);
+      setMoveItems(list.filter(entry => entry.type === FileType.DIRECTORY));
+    } catch {
+      setMoveItems([]);
+    } finally {
+      setMoveLoading(false);
+    }
+  };
+
+  const openMoveDialog = (item) => {
+    const path = breadcrumbs.length ? breadcrumbs.map(b => ({ id: b.id, name: b.name })) : [{ id: currentId, name: '/' }];
+    setMoveItem(item);
+    setMovePath(path);
+    loadMoveDir(path[path.length - 1].id);
+  };
+
+  const closeMoveDialog = () => {
+    setMoveItem(null);
+    setMovePath([]);
+    setMoveItems([]);
+  };
+
+  const enterMoveDir = (dir) => {
+    setMovePath(prev => [...prev, { id: dir.id, name: dir.name }]);
+    loadMoveDir(dir.id);
+  };
+
+  const backMoveDir = () => {
+    if (movePath.length <= 1) return;
+    const next = movePath.slice(0, -1);
+    setMovePath(next);
+    loadMoveDir(next[next.length - 1].id);
+  };
+
+  const isBlockedTarget = (dirId) => {
+    if (!moveItem) return false;
+    if (dirId === moveItem.id) return true;
+    if (moveItem.type !== FileType.DIRECTORY) return false;
+    if (mode === 'virtual') {
+      try {
+        return (kernelFs.getPath(dirId) || []).some(node => node.id === moveItem.id);
+      } catch {
+        return false;
+      }
+    }
+    let curr = dirId;
+    let safety = 0;
+    while (curr && curr !== 'root' && safety < 200) {
+      if (curr === moveItem.id) return true;
+      curr = handleRegistry.get(curr)?.parentId;
+      safety++;
+    }
+    return false;
+  };
+
+  const submitMove = async () => {
+    const targetDir = movePath[movePath.length - 1];
+    if (!moveItem || !targetDir || moveBusy) return;
+    const parentId = moveItem.parentId || currentId;
+    if (targetDir.id === parentId) {
+      alert.warning('项目已在该目录中');
+      return;
+    }
+    setMoveBusy(true);
+    try {
+      const ok = await handleMove({
+        id: moveItem.id,
+        name: moveItem.name,
+        parentId,
+        targetParentId: targetDir.id,
+        type: moveItem.type
+      });
+      if (ok) {
+        closeMoveDialog();
+        handleRefresh();
+      }
+    } finally {
+      setMoveBusy(false);
+    }
   };
 
   const itemMenuItems = [
@@ -106,10 +217,12 @@ const FileSystem = ({ app }) => {
     {
       id: 'rename',
       label: '重命名',
-      onClick: (item) => {
-        setRenamingId(item.id);
-        setRenameValue(item.name);
-      }
+      onClick: (item) => openRename(item)
+    },
+    {
+      id: 'move',
+      label: '移动到…',
+      onClick: (item) => openMoveDialog(item)
     },
     {
       type: 'divider'
@@ -148,7 +261,7 @@ const FileSystem = ({ app }) => {
 
   const itemMenu = useMemo(() => {
         return [...itemMenuItems,...(mode==='virtual' ?  virtualItemMenuItems : [] )]
-  },[mode])
+  },[mode, currentId, breadcrumbs])
 
   const bgMenuItems = [
     {
@@ -274,11 +387,21 @@ const FileSystem = ({ app }) => {
                             value={renameValue}
                             autoFocus
                             onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setRenameValue(e.target.value)}
+                            onChange={(e) => {
+                              renameValueRef.current = e.target.value;
+                              setRenameValue(e.target.value);
+                            }}
                             onBlur={() => submitRename(item)}
                             onKeyDown={(e) => {
-                            if (e.key === 'Enter') submitRename(item);
-                            if (e.key === 'Escape') setRenamingId(null);
+                            if (e.nativeEvent?.isComposing) return;
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              submitRename(item);
+                            }
+                            if (e.key === 'Escape') {
+                              e.preventDefault();
+                              closeRename();
+                            }
                             }}
                         />
                         ) : (
@@ -328,6 +451,75 @@ const FileSystem = ({ app }) => {
         visible={exchangeVisible}
         onClose={() => setExchangeVisible(false)}
       />
+
+      <Drawer
+        open={!!moveItem}
+        onClose={closeMoveDialog}
+        side="bottom"
+        size="min(460px, 78%)"
+        label="移动到…"
+        showCloseButton
+      >
+        <DrawerHeader>
+          <DrawerTitle>移动到…</DrawerTitle>
+          <DrawerDescription>
+            {moveItem ? `正在移动：${moveItem.name}` : ''}
+          </DrawerDescription>
+        </DrawerHeader>
+        <DrawerBody>
+          <div className={style[bem.e('move-path')]}>
+            {movePath.map((p, i) => (
+              <React.Fragment key={p.id}>
+                <span
+                  className={style[bem.e('crumb')]}
+                  onClick={() => {
+                    if (i === movePath.length - 1) return;
+                    const next = movePath.slice(0, i + 1);
+                    setMovePath(next);
+                    loadMoveDir(p.id);
+                  }}
+                >
+                  {p.name}
+                </span>
+                {i < movePath.length - 1 && <span className={style[bem.e('crumb-sep')]}>/</span>}
+              </React.Fragment>
+            ))}
+          </div>
+
+          {movePath.length > 1 && (
+            <div className={style[bem.e('move-row')]} onClick={backMoveDir}>
+              <UpIcon size={18} />
+              <span>返回上一级</span>
+            </div>
+          )}
+
+          {moveLoading ? (
+            <div className={style[bem.e('move-empty')]}>读取中…</div>
+          ) : moveItems.length === 0 ? (
+            <div className={style[bem.e('move-empty')]}>此目录下没有子文件夹</div>
+          ) : moveItems.map(dir => {
+            const blocked = isBlockedTarget(dir.id);
+            return (
+              <div
+                key={dir.id}
+                className={[style[bem.e('move-row')], blocked ? style[bem.is('blocked', true)] : ''].filter(Boolean).join(' ')}
+                onClick={() => { if (!blocked) enterMoveDir(dir); }}
+              >
+                <FolderIcon size={18} style={{ color: '#FFCA28', fill: '#fef3c7', flexShrink: 0 }} />
+                <span>{dir.name}</span>
+                {blocked && <span className={style[bem.e('move-blocked-tag')]}>不可选</span>}
+                <ChevronRightIcon size={16} style={{ marginLeft: 'auto', color: '#c0c4cc' }} />
+              </div>
+            );
+          })}
+        </DrawerBody>
+        <DrawerFooter>
+          <Button onClick={submitMove} disabled={moveBusy || !moveItem}>
+            <MoveIcon size={16} />
+            {moveBusy ? '移动中…' : '移动到此处'}
+          </Button>
+        </DrawerFooter>
+      </Drawer>
 
       {isMobile && (
         <Drawer open={navOpen} onClose={() => setNavOpen(false)} label="文件导航">

@@ -1,4 +1,4 @@
-import { TRUSTED_CDN_WHITELIST } from '@/sukinos/utils/config'
+import { TRUSTED_CDN_WHITELIST } from '@/sukinos/utils/envKeys'
 
 /**
  * 沙箱内禁止直连的持久化 API：物理沙箱、幽灵沙箱与文档档子文档的引导脚本共用这一份名单，改一处即三处同步。

@@ -43,6 +43,19 @@ export const getRunnerWorkerDispatcher = envKeyIsBundle => `  let _state = null;
   /* 基本驱动代码 */
   const broadcast = () => _safeGlobalProxy.postMessage({ type: 'STATE_UPDATE', payload: { ..._state, config: SYS_CONFIG } });
   const save = () => _safeGlobalProxy.postMessage({ type: 'SAVE_STATE', payload: _state });
+  const requestFocus = () => _safeGlobalProxy.postMessage({ type: 'APP_FOCUS_REQUEST' });
+  // 逻辑层异常以前只留在 worker 控制台，预览侧看不到；统一回传宿主，由渲染层转成可读提示
+  const reportWorkerError = (err) => {
+    try {
+      _safeGlobalProxy.postMessage({
+        type: 'WORKER_ERROR',
+        payload: {
+          message: String((err && err.message) || err || '逻辑执行异常'),
+          stack: String((err && err.stack) || '')
+        }
+      });
+    } catch (e) {}
+  };
   const dispatch = (action) => {
     try {
       // 安全获取 reducer，防止用户漏写导致 Worker 直接抛出异常静默死机！
@@ -64,6 +77,7 @@ export const getRunnerWorkerDispatcher = envKeyIsBundle => `  let _state = null;
       }
     } catch (err) {
       console.error('[Worker] dispatch 执行出错:', err);
+      reportWorkerError(err);
     }
   };`
 
@@ -88,6 +102,7 @@ export const getRunnerMessageRouter = envKeyIsBundle => `  _safeGlobalProxy.onme
           } catch (err) {
             // 错误处理
             console.error('[Worker] init 执行出错:', err);
+            reportWorkerError(err);
           }
         }
       broadcast();
@@ -132,6 +147,7 @@ export const getWorkerLogicModuleRuntime = (logicMainKey = 'logic') => `  /* ---
     dispatch: (action) => dispatch(action),
     getState: () => _state,
     postMessage: (data) => _safeGlobalProxy.postMessage(data),
+    focus: () => requestFocus(),
   });
 
   function __requireLogic(fromKey, name) {

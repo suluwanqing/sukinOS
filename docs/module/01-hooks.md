@@ -2,6 +2,30 @@
 
 > Hooks 是 SukinOS 的核心抽象层，封装了内核通信、文件系统、认证、窗口交互等关键能力，为上层 UI 组件提供声明式 API。
 
+## Hooks 是宿主系统能力，不是应用 SDK
+
+先划清边界，否则很容易把"平台能力"误当成"应用可 import 的库"：
+
+- **Hooks 运行在宿主 React 树里**（DeskBook、窗口外壳、设置中心、开始菜单、开发者中心等），可以直接 `import { useKernel } from '@/sukinos/hooks'`。
+- **沙箱应用不能 import 它们**。应用代码经 Babel 编译后在 Worker/iframe 沙箱执行，唯一合法入口是 `AppSDK`、Props 和内核消息。普通应用只能拿到 `AppSDK.hooks.useFileSystem`。系统应用可以直接 `import` 宿主 Hook 模块（构建期放行系统模块导入，设置中心就用 `usePersonalization`、开始菜单用 `useKernel`），但 `AppSDK.hooks` 仍只是 `main.jsx` 的导出镜像，不是"全部 Hook"。
+- **应用要"使用"某项系统能力时，走对应的 SDK 通道**，不要试图复用宿主 Hook。
+
+| Hook | 系统能力 | 主要使用方 | 应用侧对应入口 |
+|------|---------|-----------|---------------|
+| `useKernel` | 内核生命周期、应用列表、启动/休眠/删除、`activate`/聚焦 | DeskBook、设置、开始菜单 | `AppSDK.kernel.evokeApp`、`AppSDK.API.focus()`、Props `reStartApp` |
+| `useProcessBridge` | 进程状态与 UI 双向桥 | 窗口内容渲染层 | Props `state` / `dispatch` |
+| `useAuth` | 登录态、权限、菜单鉴权 | 宿主路由与系统应用（用户设置页） | 系统应用直接 import；普通应用不暴露，后端按 token 校验 |
+| `useFileSystem` | VFS 读写、目录句柄 | 文件管理、编辑器、普通应用 | `AppSDK.hooks.useFileSystem` |
+| `useFileKernel` | 轻量文件操作 | 系统应用与工具组件 | 系统应用直接 import |
+| `useStateHandle` | IndexedDB / 目录句柄 | 文件系统中间层 | 不直接暴露 |
+| `useOpfs` | OPFS 封装 | 文件系统底层 | 不直接暴露 |
+| `usePersonalization` | 桌面主题、个性化配置（模块级单例） | 设置中心、DeskBook | 仅系统应用直接 import（设置中心） |
+| `useDeskLayout` | 桌面布局持久化 | DeskBook | 不直接暴露 |
+| `useWindowInteraction` | 拖动、缩放、贴边等窗口交互 | 窗口外壳 | Props `window` 控制（`AppSDK.API.window`） |
+| `useDebounce` / `useThrottle` / `useWheelToHorizontalScroll` | 通用前端工具 | 任意宿主组件 | 应用自行实现 |
+
+**设置类文档的口径**：设置中心本身就是 `usePersonalization` + `useAuth` 的消费者——改主题/间隔/布局时写的是系统配置，内核的自动保存定时器会订阅这些变化并重建。因此"Hook 的用法"属于系统能力说明，而不是应用开发 API；应用作者只需要知道上表最后一列。
+
 ## 目录结构
 
 ```
@@ -81,8 +105,8 @@ import { useKernel, useAuth, useProcessBridge } from '@/sukinos/hooks'
 |------|------|
 | `bootSystem()` | 调用 `kernel.init()` 启动内核，成功后执行 `refresh()` |
 | `refresh()` | 调用 `kernel.getApps()` 获取应用列表并刷新所有状态 |
-| `applyDelta(change)` | 根据 `change.type` 增量更新 UI：`APP_STATUS`（应用状态变更）、`APP_META`（元信息变更）、`APP_REGISTRY`（注册变更，触发全量刷新） |
-| `startApp(args)` | 调用 `kernel.startProcess()` 启动应用 |
+| `applyDelta(change)` | 根据 `change.type` 增量更新 UI：`APP_STATUS`（状态变更）、`APP_META`（元信息变更）、`APP_REGISTRY`（全量刷新）、`APP_FOCUS`（显式忽略，聚焦由 DeskBook 订阅处理） |
+| `startApp(args)` | 调用 `kernel.activate({...args, reason:'user'})`：启动/唤醒并广播聚焦意图 |
 | `hibernateApp(pid)` | 调用 `kernel.hibernate()` 休眠应用 |
 | `deleteApp(args)` | 调用 `kernel.deleteApp()` 删除应用 |
 | `reStartApp(args)` | 调用 `kernel.reStartApp()` 重启应用 |
@@ -106,7 +130,7 @@ import { useKernel, useAuth, useProcessBridge } from '@/sukinos/hooks'
   hibernatedApps,      // 休眠中应用
   blockEdApps,         // 固定应用
   userApps,            // 已安装应用
-  startApp,            // 启动应用
+  startApp,            // 激活应用（启动/唤醒 + 聚焦）
   hibernateApp,        // 休眠应用
   deleteApp,           // 删除应用
   reStartApp,          // 重启应用

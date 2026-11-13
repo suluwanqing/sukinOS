@@ -31,9 +31,12 @@ export const updateApp = async (data) => {
 };
 
 export const downLoadApp = async (data) => {
+  const binary = typeof data === 'object' && data?.binary;
   return  instanceWithoutBaseURL({
     method: 'GET',
-    url: data?.url || data
+    url: data?.url || data,
+    //安装链路要拿到原始字节重算哈希，编辑器预览仍按文本读取
+    responseType: binary ? 'arraybuffer' : undefined
   });
 };
 

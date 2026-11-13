@@ -21,19 +21,15 @@ function Recommend({
   onKeywordChange,
   searchLoading,
   onUpdate,
+  pinnedApp,
 }) {
   const observerTarget = useRef(null);
 
   const displayList = useMemo(() => {
     const list = searchResults !== null ? searchResults : remoteApps;
+    const pinnedId = pinnedApp ? String(pinnedApp.resourceId) : '';
 
-    return list
-      .filter(app => {
-        // 只显示公有 APP（注册池过滤由后端处理）
-        if (app.isPrivate) return false;
-        return true;
-      })
-      .map(app => {
+    const enrich = (app) => {
       // 检查是否已安装：强制字符串比对，防止 ID 类型差异导致的匹配失败
       const installedInfo = installedApps.find(i => String(i.resourceId) === String(app.resourceId));
       // 检查是否有更新
@@ -41,12 +37,38 @@ function Recommend({
 
       return {
         ...app,
+        //更新信息带的是当前线上包的权威哈希/签名，优先于列表投影
+        ...(updateInfo
+          ? {
+            version: updateInfo.version,
+            url: updateInfo.url,
+            contentHash: updateInfo.contentHash,
+            signature: updateInfo.signature,
+            signKeyId: updateInfo.signKeyId
+          }
+          : {}),
         isInstalled: !!installedInfo,
         hasUpdate: !!updateInfo,
+        forceUpdate: !!updateInfo?.forced,
         displayName: app.appName || app.name || '未知应用'
       };
-    });
-  }, [searchResults, remoteApps, installedApps, updateApps]);
+    };
+
+    const mapped = list
+      .filter(app => {
+        // 强制更新锁定项可能是私有/授权池应用，搜索接口不返回，需单独放行
+        if (pinnedId && String(app.resourceId) === pinnedId) return true;
+        // 只显示公有 APP（注册池过滤由后端处理）
+        if (app.isPrivate) return false;
+        return true;
+      })
+      .map(enrich);
+
+    if (pinnedApp && !mapped.some(app => String(app.resourceId) === pinnedId)) {
+      mapped.unshift(enrich(pinnedApp));
+    }
+    return mapped;
+  }, [searchResults, remoteApps, installedApps, updateApps, pinnedApp]);
 
   // 无限滚动逻辑
   useEffect(() => {
@@ -131,7 +153,7 @@ function Recommend({
                   }
                 }}
               >
-                {app.isInstalled ? (app.hasUpdate ? '更新' : '打开') : '获取'}
+                {app.isInstalled ? (app.hasUpdate ? (app.forceUpdate ? '强制更新' : '更新') : '打开') : '获取'}
               </Button>
             </div>
           </div>

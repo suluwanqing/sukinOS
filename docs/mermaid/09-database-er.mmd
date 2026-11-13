@@ -1,11 +1,12 @@
 ---
-title: 数据库 ER 图 (11张表)
+title: 数据库 ER 图 (12张表)
 ---
 erDiagram
     users ||--o| user_expand : "id 1:1"
     users ||--o| user_time_behavior : "id 1:1"
     users ||--o{ user_time_week : "id 1:N"
     users ||--o{ sukinos_app : "id 1:N"
+    sukinos_app ||--o{ sukinos_app_revision : "resource_id 1:N"
     users ||--o{ request_logs : "id 0:N"
     sukinos_app ||--o| app_permission_registry : "resource_id 1:0..1"
 
@@ -69,10 +70,44 @@ erDiagram
         int size "文件大小(字节)"
         varchar file_name "(50) 文件名"
         json meta_info "元数据"
-        varchar version "(20) 版本号(乐观锁)"
+        varchar version "(20) 业务版本号(服务端发号)"
+        int row_version "乐观锁计数"
+        datetime published_at "最近上架时间"
+        varchar source "(20) developer/reviewer/meta/system"
+        int operator_id "最近写入操作者"
+        boolean force_update "强制更新标记"
+        varchar content_hash "(64) 包体 SHA-256"
+        varchar signature "(128) Ed25519 签名"
+        varchar sign_key_id "(32) 签名密钥标识"
         varchar status "(20) 审核状态"
         varchar audit_opinion "(255) 审核意见"
         boolean registry_enabled "是否在权限注册池中"
+    }
+
+    sukinos_app_revision {
+        int id PK "自增主键"
+        varchar resource_id FK "所属APP, INDEX"
+        varchar version "(20) 快照版本号"
+        varchar app_name "(20) 快照名称"
+        varchar file_name "(50) 存储文件名"
+        varchar url "(120) 下载地址"
+        int size "文件大小"
+        json meta_info "元数据快照"
+        varchar status "(20) 快照时状态"
+        varchar audit_opinion "(255) 审核意见"
+        boolean is_private "私有属性快照"
+        boolean is_pending "是否待审暂存"
+        boolean is_deleted "是否已删除"
+        datetime deleted_at "删除时间"
+        int deleted_by "删除操作者"
+        boolean file_purged "包体是否已清理"
+        varchar source "(20) 版本来源"
+        int operator_id "操作者"
+        datetime created_at "创建时间"
+        varchar content_hash "(64) 包体 SHA-256"
+        varchar signature "(128) Ed25519 签名"
+        varchar sign_key_id "(32) 签名密钥标识"
+        varchar diff_note "(500) 差异说明"
     }
 
     request_logs {

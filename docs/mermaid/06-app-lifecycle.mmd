@@ -8,14 +8,15 @@ stateDiagram-v2
     安装中 --> 已安装: 安装成功
     安装中 --> 未安装: 安装失败
 
-    已安装 --> 运行中: startProcess() 冷启动
-    已安装 --> 运行中: evokeApp() 唤醒
+    已安装 --> 运行中: activate(reason=user/interaction) 冷启动
+    运行中 --> 运行中: activate(reason=user) 已运行，只投递并发 APP_FOCUS
 
     运行中 --> 休眠中: hibernate()
     运行中 --> 已安装: forceKillProcess()
     运行中 --> 已安装: forceResetApp()
 
-    休眠中 --> 运行中: restoreSession()
+    休眠中 --> 运行中: activate(reason=user/interaction) 唤醒并发 APP_FOCUS
+    休眠中 --> 休眠中: activate(reason=restore) 保持休眠不聚焦
     休眠中 --> 已安装: forceKillProcess()
 
     已安装 --> 更新中: extUploadCloud() / extUpdateCloud()
@@ -35,6 +36,10 @@ stateDiagram-v2
         - VirtualWorker: with(self) + Proxy
         - NoWorker: 宿主线程模拟
         - Worker: 独立 Web Worker
+
+        聚焦只由 activate(user/interaction)
+        emit APP_FOCUS 产生，
+        DeskBook 负责置前与 z-order
     end note
 
     note right of 安装中

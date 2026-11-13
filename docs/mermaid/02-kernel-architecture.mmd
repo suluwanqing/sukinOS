@@ -16,11 +16,13 @@ graph TB
         direction TB
 
         subgraph Part1["Lifecycle 生命周期"]
-            StartProcess["startProcess() 冷启动"]
+            Activate["activate() 统一激活<br/>reason: user / interaction / restore"]
+            StartProcess["startProcess() 进程启动<br/>只建进程与投递，不聚焦"]
             Hibernate["hibernate() 休眠"]
             ForceKill["forceKillProcess() 强制终止"]
             RestoreSession["restoreSession() 恢复会话"]
-            EvokeApp["evokeApp() 唤醒应用"]
+            EvokeApp["evokeApp() = activate(interaction)"]
+            RequestFocus["requestFocus() → APP_FOCUS 系统事件"]
             VirtualWorker["VirtualWorker 虚拟沙箱"]
             NoWorker["NoWorker 宿主沙箱"]
         end
@@ -39,7 +41,7 @@ graph TB
             SubscribeApp["subscribeApp() 应用订阅"]
             SubscribeSystem["subscribeSystem() 系统订阅"]
             Publish["publish() 发布"]
-            AppIntereact["appIntereact() 跨应用通信"]
+            AppIntereact["appIntereact() 底层投递<br/>不启动、不唤醒、不聚焦"]
             SystemSwitch["systemSwitch() 系统调用"]
         end
 
@@ -83,17 +85,13 @@ graph TB
     end
 
     KernelInstance --> KernelParts
-    Lifecycle --> StartProcess
-    Lifecycle --> Hibernate
-    Lifecycle --> VirtualWorker
-    Lifecycle --> NoWorker
-    Registry --> InitSystemApps
-    Registry --> LoadUserApps
-    Messaging --> Dispatch
-    Messaging --> Publish
-    Core --> Init
-    Core --> Install
-    KernelParts --> CommHub
+    Activate --> StartProcess
+    EvokeApp -.-> Activate
+    RestoreSession -.-> Activate
+    Activate -.-> RequestFocus
+    Part1 --> Part2
+    Part2 --> Part3
+    Part3 --> CommHub
     CommHub --> Workers
-    GenerateApp --> Core
-    GenerateApp --> Registry
+    GenerateApp --> Part4
+    GenerateApp --> Part2

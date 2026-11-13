@@ -9,7 +9,7 @@
 3. **三种运行模式** — RealWorker / VirtualWorker / NoWorker 的消息处理能力与链路差异
 4. **消息分发机制** — dispatch 的 KERNEL_CALL 与 UI_ACTION 两条路径
 5. **saveState 持久化链** — 数据在不同场景下的生命周期
-6. **跨应用唤起与会话恢复** — evokeApp / restoreSession / autoStart
+6. **跨应用唤起与会话恢复** — activate / evokeApp / restoreSession / autoStart，以及 `APP_FOCUS` 聚焦意图
 7. **Pub/Sub 主题消息体系** — 跨沙箱的发布-订阅通信
 
 ---
@@ -225,7 +225,7 @@ UI_ACTION → dispatch(action)
 | `INIT` | 进程首次启动 | 初始化 `_state`，执行用户 `init(dispatch, _state)` |
 | `RESTORE` | 会话恢复 | 直接设置 `_state = payload`，然后 `broadcast()` |
 | `UI_ACTION` | UI 层 dispatch 转发 | 将 `payload` 传给内部 `dispatch(action)` |
-| `APP_INTERACT` | App 间交互 | 同 `UI_ACTION`，传给内部 `dispatch(action)` |
+| `APP_INTERACT` | App 间交互 | 同 `UI_ACTION`，传给内部 `dispatch(action)`；仅投递，不负责启动/唤醒/聚焦 |
 
 **Worker 发出的消息类型**（`postMessage` 路由）：
 
@@ -236,6 +236,7 @@ UI_ACTION → dispatch(action)
 | `PUBLISH_TOPIC` | 应用发布主题消息 | 跨沙箱 Pub/Sub 通信 |
 | `SUBSCRIBE_TOPIC` | 应用订阅主题 | 跨沙箱 Pub/Sub 通信 |
 | `UNSUBSCRIBE_TOPIC` | 应用取消订阅 | 跨沙箱 Pub/Sub 通信 |
+| `APP_FOCUS_REQUEST` | 应用调用 `api.focus()`/`requestFocus()` | 请求宿主聚焦当前窗口；CommHub 转成 `APP_FOCUS` 系统事件，不进入 reducer |
 
 ### 3.3 VirtualWorker 模式
 
@@ -672,25 +673,39 @@ forceSaveAllStates() {
 
 ## 6. 跨应用唤起与会话恢复
 
-### 6.1 evokeApp 跨应用唤起
+### 6.1 activate：统一激活入口
 
-`evokeApp({pid, from, interactInfo})`（`lifecycle.js:Lifecycle.evokeApp`）允许一个应用唤起另一个应用，并注入 `from` 信息：
+所有"让应用出现"的入口都收敛到 `activate({pid, resourceId, reason, interactInfo, from})`（`lifecycle.js:Lifecycle.activate`）。它把「启动/唤醒」「交互投递」「聚焦意图」合成一个语义，避免调用方各自拼 `startProcess` + `appIntereact`：
+
+| reason | 典型入口 | HIBERNATED | `APP_FOCUS` |
+|--------|---------|------------|-------------|
+| `user` | 桌面图标、状态栏、开始菜单、`reStartApp` / `forceReStartApp` | 唤醒 | 发 |
+| `interaction` | `evokeApp`、`InteractiveAwakening` | 唤醒 | 发 |
+| `restore` | `restoreSession` | 保持休眠 | 不发 |
 
 ```js
-async evokeApp({pid, from, interactInfo}) {
-  const targetApp = this.#kernel.getApp(pid);
-  if (!targetApp) alert.failure('唤起失败!App未注册或已删除!');
+async activate({pid, resourceId, reason = 'user', interactInfo, from}) {
+  const truthPid = pid || this.#kernel.getPidByResourceId(resourceId)
+  const app = truthPid && this.#kernel.getApp(truthPid)
+  if (!app) { alert.failure('启动失败!App未注册或已删除!'); return {isStart: false} }
 
-  const p = this.#kernel.processes.get(pid);
-  const newInteractInfo = {...interactInfo, from};  // 注入 from[App] 信息
-
-  if (p) {
-    // 目标 App 已在运行 → 直接发送交互消息
-    this.#kernel.appIntereact({process: p.worker, interactInfo: newInteractInfo});
-  } else {
-    // 目标 App 未运行 → 冷启动并传入交互消息
-    this.startProcess({pid, interactInfo: newInteractInfo});
+  const shouldFocus = reason === 'user' || reason === 'interaction'
+  const result = await this.startProcess({
+    pid: truthPid,
+    interactInfo: reason === 'interaction' ? {...interactInfo, from} : interactInfo,
+    preserveHibernation: reason === 'restore',
+  })
+  if (result?.isStart && shouldFocus) {
+    this.#kernel.emitChange({type: 'APP_FOCUS', pid: truthPid})
   }
+  return result
+}
+```
+
+```js
+// 跨应用唤起就是 interaction 语义的别名
+async evokeApp({pid, from, interactInfo}) {
+  return this.activate({pid, reason: 'interaction', interactInfo, from})
 }
 ```
 
@@ -699,11 +714,28 @@ async evokeApp({pid, from, interactInfo}) {
 ```
 App A → evokeApp({pid: 'appB', from: 'appA', interactInfo: {type: 'OPEN_FILE', data: ...}})
   │
-  ├── App B 已运行 → appIntereact → Worker B 收到 APP_INTERACT 消息
-  └── App B 未运行 → startProcess({pid, interactInfo}) → 启动 + 交互
+  └── activate(reason='interaction')
+        ├── App B RUNNING    → startProcess 已存在分支 → APP_INTERACT
+        ├── App B HIBERNATED → 置 RUNNING → APP_INTERACT
+        ├── App B 无进程     → 冷启动 → INIT/RESTORE → APP_INTERACT
+        └── 上述任一路径成功后 → emitChange({type:'APP_FOCUS', pid})
 ```
 
-`from` 字段让目标 App 知道消息来源，可以据此实现「回到来源 App」等交互逻辑。
+`from` 字段让目标 App 知道消息来源，可以据此实现「回到来源 App」等交互逻辑。**交互不再绕过生命周期**：即使目标只是休眠，也会被唤醒并聚焦，而不是收到一条无人渲染的 action。
+
+### 6.1.1 商店深链（storeSearch）
+
+更新提示不是直接 `evokeApp` 商店，而是写 Redux 的 `sukinos.storeSearch`：
+
+```js
+// deskBook/layout.jsx -> openStoreForUpdate / openStoreUpdates
+dispatch(setStoreSearch({ keyword, resourceId, nav }))
+// store.jsx reducer 每次写入把 token + 1，强制触发订阅方
+```
+
+商店 `store/layout.jsx` 监听 `storeSearch.token`，据此切换导航、写入搜索词并设置 `pinnedResourceId`，
+再 `refreshAll()` 拉取最新列表。用 token 而不是比较值，保证"同一个应用再次提示"也能触发一次刷新；
+这条链路只做页内状态同步，不依赖跨进程消息。
 
 ### 6.2 restoreSession 会话恢复
 
@@ -719,7 +751,7 @@ async restoreSession() {
   );
 
   for (const app of appsToRestore) {
-    this.startProcess({pid: app.pid});  // 异步启动，不阻塞主流程
+    this.activate({pid: app.pid, reason: 'restore'});  // 异步启动，不阻塞主流程，不聚焦
   }
 }
 ```
@@ -734,23 +766,23 @@ async restoreSession() {
 `startProcess` 在冷启动时有一个关键的会话恢复保护逻辑（`lifecycle.js:Lifecycle.startProcess`）：
 
 ```js
-// 如果该应用启动前的初始状态是 HIBERNATED（会话恢复），
-// 则建立好后台 Worker 实例后应当保持其 HIBERNATED 状态，绝不强行转为 RUNNING
-const targetStatus = originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING';
-app.status = targetStatus;
+// 只有会话恢复（preserveHibernation=true）且启动前状态为 HIBERNATED 时才保持后台
+// 普通启动 / 交互 / 重启一律转 RUNNING
+const targetStatus = preserveHibernation && originalStatus === 'HIBERNATED' ? 'HIBERNATED' : 'RUNNING'
+app.status = targetStatus
 ```
 
-**设计理由**：会话恢复时，休眠的应用应该先建立 Worker 实例（保持"热"状态），但不自动显示窗口。用户点击图标唤醒时才转为 RUNNING。如果强行转为 RUNNING，所有休眠应用会在系统启动时同时弹出窗口，造成混乱。
+**设计理由**：会话恢复时，休眠的应用应该先建立 Worker 实例（保持"热"状态），但不自动显示窗口。用户点击图标唤醒时才转为 RUNNING。如果强行转为 RUNNING，所有休眠应用会在系统启动时同时弹出窗口，造成混乱。`preserveHibernation` 把这个语义显式化，避免"任何 cold start 都保留休眠"的误伤。
 
-`interactInfo` 在 `startProcess` 的三条路径上都会投递（`lifecycle.js:Lifecycle.startProcess`、504-506）：
+`interactInfo` 在 `startProcess` 的三条路径上都会投递（`lifecycle.js:Lifecycle.startProcess` 的运行分支 400-402、冷启动分支 465-466）：
 
 | 进入路径 | 判定 | 投递方式 |
 |----------|------|----------|
 | 冷启动 | 进程表无该 pid | `appIntereact` 在 INIT/RESTORE 之后发出 |
 | 从休眠唤醒 | 进程存在且 `status === 'HIBERNATED'` | 先置 RUNNING，再 `appIntereact` |
-| 本来就在跑 | 进程存在且 `status === 'RUNNING'` | 直接 `appIntereact`（等同于 `evokeApp` 的已运行分支） |
+| 本来就在跑 | 进程存在且 `status === 'RUNNING'` | 直接 `appIntereact` |
 
-第三种情况过去会被静默丢弃：唤醒分支之外的 `interactInfo` 无人处理，调用方以为发了、目标应用却没收到。现在已统一到进程已存在分支的公共路径上，所以 `startProcess({pid, interactInfo})` 可以当作"确保送达一次交互"的入口使用；而 `evokeApp` 自己在已运行分支直接调 `appIntereact`、未运行分支才把 `interactInfo` 转交 `startProcess`，不会重复投递。
+三条路径合流后，`startProcess({pid, interactInfo})` 可以当作"确保送达一次交互"的底层入口。业务层不要直接用它——用 `activate`/`evokeApp` 才能同时获得"休眠唤醒 + 聚焦"的完整语义；`startProcess` 只负责进程与投递，不产生 `APP_FOCUS`。
 
 ### 6.4 forceResetApp：无视配置的强制重置
 
@@ -771,6 +803,35 @@ async forceResetApp(pid) {
 ```
 
 与 `forceKillProcess` 的差异：`forceKillProcess` 检查 `saveState` 配置决定是否清除，而 `forceResetApp` **无条件清除**。
+
+### 6.5 聚焦意图：APP_FOCUS 通道
+
+聚焦是"内核语义"与"窗口实现"之间唯一需要跨越的边界。为了避免内核直接操作 DeskBook 的 `currentFocus` / `zOrders`，两边通过系统事件通信：
+
+```
+内核 activate(reason=user|interaction)
+  → kernel.emitChange({type:'APP_FOCUS', pid})
+  → CommHub.emitChange → CustomEvent('sys_change')
+  → DeskBook useDeskWindows.subscribeSystem
+  → handleFocus(pid)：setCurrentFocus + 提升 zOrders/maxZ
+```
+
+Worker 侧主动聚焦（例如应用内部完成一次跳转、希望把自己的窗口提到最前）：
+
+```
+api.focus() / requestFocus()
+  → postMessage({type:'APP_FOCUS_REQUEST'})
+  → CommHub.handleMsg 拦截
+  → emitChange({type:'APP_FOCUS', pid})
+  → 与内核发起完全相同的后续链路
+```
+
+约束：
+
+- `APP_FOCUS` 不进入 reducer，不是状态更新；`useKernel.applyDelta` 显式忽略它，避免每次聚焦触发全量刷新。
+- `restore` 语义永不发 `APP_FOCUS`，否则会话恢复会把所有休眠窗口弹到前台。
+- DeskBook 仍是焦点的唯一所有者；内核只表达意图，不持有 z-index。
+- `handleFocus` 会同步更新 `zOrdersRef`，防止同一提交内"窗口挂载 effect + APP_FOCUS"各抬一次层级。
 
 ---
 
@@ -901,20 +962,21 @@ kill(pid)
 | Bundle App 页面导航 | `navigate()` | 零代码成本，自动持久化 |
 | 页面内标签需要持久化 | reducer + `NAV_SUB` | 扩展 `router.subPath` 进入 saveState |
 | 页面内标签不需要持久化 | `useState` | hibernate 期间自然保留 |
-| 跨应用交互 | `evokeApp()` | 自动注入 from 信息 |
+| 跨应用交互 | `evokeApp()` | 等价 `activate(reason:'interaction')`：启动/唤醒 + 注入 from + 聚焦 |
+| 仅让窗口置前 | `api.focus()` | 不启动、不传交互，只发 `APP_FOCUS_REQUEST` |
 | 跨沙箱通信 | Pub/Sub `publish/subscribe` | Worker 端 `TOPIC_MESSAGE` 已进 reducer，reducer 按 `action.topic` 分流 |
 
 ---
 
 ## 10. 实际案例：Developer Helper 导航
 
-[../../src/sukinos/resources/developer/right/healper/layout.jsx](../../src/sukinos/resources/developer/right/healper/layout.jsx) 是一个系统 App（非 Bundle），使用 `useState` 管理 16 个导航项：
+[../../src/sukinos/resources/developer/right/healper/layout.jsx](../../src/sukinos/resources/developer/right/healper/layout.jsx) 是一个系统 App（非 Bundle），使用 `useState` 管理 19 个导航项（含「系统能力」速查）：
 
 > 注：目录名 `healper` 是仓库里的既有拼写错误（应为 `helper`），这里按真实路径引用，未随文档改名。
 
 ```js
 const Helper = () => {
-  const [activeTabId, setActiveTabId] = useState('intro');  // ❌ 挂起后丢失
+  const [activeTabId, setActiveTabId] = useState('intro');  // hibernate 保留；kill/刷新后丢失
 
   const ActiveComponent = useMemo(() =>
     docSections.find(s => s.id === activeTabId)?.component || IntroSection,

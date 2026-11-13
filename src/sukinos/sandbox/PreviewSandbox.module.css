@@ -1,0 +1,120 @@
+.su-preview-sandbox {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.su-preview-sandbox__compile-error {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #a8071a;
+  background: #fff2f0;
+  border-bottom: 1px solid #ffccc7;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.su-preview-sandbox__warning {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #b45309;
+  background: #fffbeb;
+  border-bottom: 1px solid #fde68a;
+  word-break: break-all;
+}
+
+.su-preview-sandbox__warning > span {
+  flex: 1;
+  min-width: 0;
+}
+
+.su-preview-sandbox__warning-close {
+  flex: 0 0 auto;
+  padding: 0 4px;
+  font-size: 12px;
+  color: #92400e;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.su-preview-sandbox__frame-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.su-preview-sandbox__frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  background: #fff;
+}
+
+.su-preview-sandbox__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  font-size: 13px;
+  color: #6b7280;
+  background: rgba(255, 255, 255, 0.94);
+  text-align: center;
+}
+
+.su-preview-sandbox__error {
+  max-width: 640px;
+  text-align: left;
+}
+
+.su-preview-sandbox__error p {
+  margin: 0 0 8px;
+  color: #a8071a;
+}
+
+.su-preview-sandbox__hint {
+  color: #6b7280 !important;
+  font-size: 12px;
+}
+
+.su-preview-sandbox__stack {
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #820014;
+  background: #fff0f0;
+  border: 1px solid #ffa39e;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.su-preview-sandbox__retry {
+  margin-top: 8px;
+  padding: 4px 12px;
+  font-size: 12px;
+  color: #111827;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.su-preview-sandbox__retry:hover {
+  background: #f9fafb;
+}

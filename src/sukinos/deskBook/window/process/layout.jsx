@@ -9,6 +9,7 @@ import { RESTRICTED_STORAGE_APIS } from '@/sukinos/utils/security'
 import { ENV_KEY_META_INFO,ENV_KEY_RESOURCE_ID,ENV_KEY_CONTENT,ENV_KEY_CONTENT_PRECOMPILED } from '@/sukinos/utils/config'
 import { createSdkForInstance } from "@/sukinos/resources/sdk"
 import { registerSandboxDoc } from '@/sukinos/utils/process/styleSyncHub'
+import { sanitizeAppCss } from '@/sukinos/utils/process/metaInfoGuard'
 
 /**
  * 幽灵沙箱管理器 - 单例模式
@@ -725,7 +726,9 @@ const DynamicRenderer =({
   }, [resource]);
 
   // 提取寄生模式标识（基于稳定化的 resource，避免无谓重计算）
-  const isParasitism = stableResource?.[ENV_KEY_META_INFO]?.isParasitism === true;
+  // 寄生执行只对内置注册表登记的系统应用开放，包自带的执行位不再生效
+  const isParasitism = isSystemApp === true
+    && stableResource?.[ENV_KEY_META_INFO]?.isParasitism === true;
   // 桥接模式判定：单 Iframe 模式或主线程 Virtual Worker 轻量模式下且非纯寄生
   const useBridgeMode = (generateAppSetting?.singleIframe || generateAppSetting?.useVirtualWorker || false) && !isParasitism;
 
@@ -923,6 +926,12 @@ const DynamicRenderer =({
     return scopeCss(rawCss, pid);
   }, [modules, pid, isDocumentApp]);
 
+  // 只有宿主侧 <style> 需要消毒；系统应用是内置样式，原样保留
+  const hostCss = useMemo(
+    () => (isSystemApp ? combinedCss : sanitizeAppCss(combinedCss)),
+    [combinedCss, isSystemApp]
+  );
+
   // state 深比较worker postMessage 反序列化每次都得到新引用，
   // 但内容可能和上次完全相同。这里把"等价 state"折叠为同一引用，下游 memo 才能短路
   const stableStateRef = useRef(state);
@@ -993,8 +1002,8 @@ const DynamicRenderer =({
         ) : (isParasitism || useBridgeMode) ? (
           // 寄生模式、桥接模式或虚拟 Worker 沙箱下：UI 直接在宿主侧渲染
           <>
-            {combinedCss && (
-              <style id={`runtime-css-${pid}`} dangerouslySetInnerHTML={{ __html: combinedCss }} />
+            {hostCss && (
+              <style id={`runtime-css-${pid}`} dangerouslySetInnerHTML={{ __html: hostCss }} />
             )}
             {modules ? (
               <AppInternalRenderer

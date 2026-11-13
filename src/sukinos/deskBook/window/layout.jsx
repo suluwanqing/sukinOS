@@ -50,12 +50,14 @@ const ProcessWindow = ({ app, exposeState, kernel, pid, fileName, onClose, onKil
   }, [app, resource]);
 
   // 检测是否为物理沙箱模式（非寄生且非桥接模式）
+  // 寄生判定叠加系统应用身份，避免普通应用靠包内执行位进入宿主 window
   const isPhysicalSandbox = useMemo(() => {
-    const isParasitism = resource?.[ENV_KEY_META_INFO]?.isParasitism === true;
+    const isParasitism = kernel?.isSystemApp(pid) === true
+      && resource?.[ENV_KEY_META_INFO]?.isParasitism === true;
     // 开启 singleIframe (共享单实例) 或 useVirtualWorker (主线程虚拟沙箱) 时，均视为 bridge 隔离
     const useBridgeMode = (generateAppSetting?.singleIframe || generateAppSetting?.useVirtualWorker || false) && !isParasitism;
     return !isParasitism && !useBridgeMode;
-  }, [resource, generateAppSetting]);
+  }, [kernel, pid, resource, generateAppSetting]);
 
   //判定冷热启动与恢复布局
   // 检查当前进程在本次前端交互生命周期中是否为首次渲染

@@ -24,6 +24,7 @@ import {Messaging} from './kernelParts/messaging'
 import {Registry} from './kernelParts/registry'
 import {ResourceAccess} from './kernelParts/resourceAccess'
 import {Settings} from './kernelParts/settings'
+import {Updates} from './kernelParts/updates'
 import permissionManageAPI from '@/apis/system/permissionManage'
 import {PRESET_RESOURCES} from '@/sukinos/resources/preset_resources'
 
@@ -58,6 +59,7 @@ class Kernel {
     this.registry = new Registry(this)
     this.resourceAccess = new ResourceAccess(this)
     this.settings = new Settings(this)
+    this.updates = new Updates(this)
 
     this.resourceCache = {}
     this.commHub = new CommHub({
@@ -110,6 +112,7 @@ class Kernel {
 
   // 登出/切换用户时清理上一用户的数据：落盘、杀进程、清注册表、关 DB 连接
   async reset() {
+    this.updates.stop({clearSnapshot: true})
     this.stopAllAutoSave()
 
     // 必须先强制落盘再终止进程，否则最后一次状态更新丢失
@@ -160,6 +163,7 @@ class Kernel {
     await this.core.syncRegistryByRes()
     await this.core.syncRegistry()
     await this.restoreSession()
+    this.startUpdateWatcher({skipInitial: true})
     this.currentUser = {id: userId}
     this.messaging.emitChange({type: 'APP_REGISTRY'})
   }
@@ -410,6 +414,19 @@ class Kernel {
   getTypeApps(appType) {
     return this.registry.getTypeApps(appType)
   }
+  // 统一的版本检查入口：返回 {updates, checkedAt}，并顺带刷新强制更新缓存
+  checkAppUpdates() {
+    return this.updates.check()
+  }
+  getAvailableUpdates() {
+    return this.updates.getSnapshot()
+  }
+  startUpdateWatcher(options) {
+    this.updates.start(options)
+  }
+  stopUpdateWatcher() {
+    this.updates.stop()
+  }
   async getApps() {
     return this.registry.getApps()
   }
@@ -462,8 +479,15 @@ class Kernel {
   }
 
   // 冷启动与休眠恢复都走这一个入口；interactInfo 对应 App 侧 reducer(state, action)，state 由内核注入、action 来自交互
-  async startProcess({pid, resourceId, interactInfo}) {
-    return this.lifecycle.startProcess({pid, resourceId, interactInfo})
+  async startProcess({pid, resourceId, interactInfo, preserveHibernation}) {
+    return this.lifecycle.startProcess({pid, resourceId, interactInfo, preserveHibernation})
+  }
+
+  async activate({pid, resourceId, reason, interactInfo, from}) {
+    return this.lifecycle.activate({pid, resourceId, reason, interactInfo, from})
+  }
+  requestFocus(pid) {
+    this.emitChange({type: 'APP_FOCUS', pid})
   }
 
   async saveWindowState(pid, windowRect) {
